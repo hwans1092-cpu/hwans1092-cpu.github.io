@@ -1,0 +1,913 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<script src="/assets/gate.js"></script>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>병렬처리 확장편 — 대외 연계 · AL11 Staging 아키텍처</title>
+<style>
+:root{
+  --ink:#1e1e1e; --ink-soft:#555;
+  --key:#4338CA; --key-soft:#EEF0FB;
+  --hl:#FEF08A; --danger:#B91C1C;
+  --ok:#047857;
+  --rule:#E5E7EB; --code-bg:#F3F4F6; --paper:#fff;
+}
+*{box-sizing:border-box;}
+body{
+  margin:0; background:#E9E9E9; color:var(--ink);
+  font-family:"Malgun Gothic","맑은 고딕","Apple SD Gothic Neo",system-ui,sans-serif;
+  font-size:11pt; line-height:1.7;
+}
+.sheet{
+  max-width:900px; margin:24px auto; padding:44px 56px 56px;
+  background:var(--paper); box-shadow:0 1px 8px rgba(0,0,0,.10);
+}
+
+.doc-head{border-bottom:3px solid var(--ink); padding-bottom:14px; margin-bottom:14px;}
+.doc-head .kicker{
+  display:inline-block; background:var(--key); color:#fff; font-size:9pt;
+  padding:3px 11px; border-radius:4px; letter-spacing:1px; font-weight:700;
+  margin-bottom:10px;
+}
+.doc-head h1{margin:0 0 8px; font-size:24pt; letter-spacing:-.6px; line-height:1.3;}
+.doc-head .sub{font-size:10pt; color:var(--ink-soft); line-height:1.6;}
+.doc-head .sub b{color:var(--key);}
+
+.lead{
+  background:#FAFAFE; border-left:4px solid var(--key);
+  padding:16px 22px; margin:0 0 32px; border-radius:0 5px 5px 0; font-size:11pt;
+}
+.lead > *:first-child{margin-top:0;} .lead > *:last-child{margin-bottom:0;}
+
+.toc{border:1px solid var(--rule); border-radius:6px; padding:18px 24px; margin-bottom:34px;}
+.toc h4{margin:0 0 10px; font-size:10pt; color:var(--key); letter-spacing:.4px;}
+.toc ol{margin:0; padding-left:20px; columns:2; column-gap:36px;}
+.toc li{margin-bottom:5px; font-size:10pt;}
+
+.lesson{margin:0 0 44px;}
+.lesson > h2{
+  margin:0 0 18px; font-size:16.5pt; letter-spacing:-.3px; line-height:1.35;
+  padding-bottom:9px; border-bottom:2px solid var(--key);
+}
+.lesson > h2 .no{
+  display:inline-block; background:var(--key); color:#fff;
+  font-size:9pt; padding:3px 9px; border-radius:4px; margin-right:10px;
+  vertical-align:3px; letter-spacing:.5px; font-weight:700;
+}
+h3{margin:28px 0 10px; font-size:12pt; color:var(--key);
+   padding-bottom:5px; border-bottom:1px solid var(--rule);}
+h4{margin:22px 0 8px; font-size:11pt;}
+
+p{margin:12px 0;}
+ul,ol{margin:12px 0; padding-left:24px;}
+li{margin-bottom:8px;}
+li::marker{color:var(--key);}
+li > ul{margin:8px 0;}
+
+.hl{background:var(--hl); padding:1px 3px; border-radius:2px;}
+.key{color:var(--key); font-weight:700;}
+.bad{color:var(--danger); font-weight:700;}
+.good{color:var(--ok); font-weight:700;}
+.tag{display:inline-block; font-size:8.5pt; padding:2px 8px; border-radius:10px;
+  background:var(--key-soft); color:var(--key); font-weight:700; margin-right:6px; vertical-align:2px;}
+.tag.warn{background:#FEF2F2; color:var(--danger);}
+.tag.ok{background:#ECFDF5; color:var(--ok);}
+
+.note{border-left:4px solid var(--key); background:#FAFAFE;
+  padding:14px 20px; margin:18px 0; border-radius:0 5px 5px 0;}
+.note.warn{border-left-color:var(--danger); background:#FEFAFA;}
+.note.ok{border-left-color:var(--ok); background:#F7FDFA;}
+.note .t{font-weight:700; color:var(--key); margin-bottom:6px; font-size:11pt;}
+.note.warn .t{color:var(--danger);}
+.note.ok .t{color:var(--ok);}
+.note > *:last-child{margin-bottom:0;} .note > *:first-child{margin-top:0;}
+
+code,pre{font-family:"D2Coding","Consolas","Menlo",monospace;}
+pre{background:var(--code-bg); border-radius:5px; padding:16px 20px;
+  font-size:9.6pt; line-height:1.6; margin:14px 0; overflow-x:auto; white-space:pre;}
+code{background:var(--code-bg); padding:2px 5px; border-radius:3px; font-size:10pt;}
+pre .c{color:#6B7280;}
+pre .k{color:var(--key); font-weight:700;}
+pre .r{color:var(--danger); font-weight:700;}
+
+.tbl-wrap{overflow-x:auto; margin:14px 0;}
+table{width:100%; border-collapse:collapse; font-size:10pt;}
+th{text-align:left; font-weight:700; padding:10px 12px 9px; color:var(--ink);
+  border-bottom:2px solid var(--ink); white-space:nowrap;}
+td{padding:11px 12px; border-bottom:1px solid var(--rule); vertical-align:top; line-height:1.6;}
+td:first-child{white-space:nowrap;}
+td.wrap:first-child{white-space:normal;}
+td code{font-size:9.4pt;}
+
+figure{margin:22px 0;}
+svg{display:block; max-width:100%; margin:0 auto;}
+figcaption{font-size:9.5pt; color:var(--ink-soft); text-align:center; margin-top:8px;}
+
+@media print{
+  body{background:#fff; font-size:10pt;}
+  .sheet{max-width:none; margin:0; box-shadow:none; padding:0;}
+  .lesson > h2{page-break-after:avoid;}
+  pre,table,figure,.note{page-break-inside:avoid;}
+  @page{size:A4; margin:16mm 14mm;}
+}
+@media (max-width:720px){
+  .sheet{padding:26px 20px 40px;}
+  .toc ol{columns:1;}
+}
+.crumb{
+  max-width:900px; margin:20px auto 0; padding:0 56px;
+  font-size:9.5pt; color:var(--ink-soft);
+}
+.crumb a{color:var(--key); text-decoration:none; font-weight:700;}
+.crumb a:hover{text-decoration:underline;}
+@media (max-width:720px){ .crumb{padding:0 20px;} }
+</style>
+</head>
+<body>
+<div class="crumb"><a href="/">← SAP 학습 자료실</a> · ABAP 개발 · 병렬처리 / 인터페이스</div>
+<div class="sheet">
+
+<div class="doc-head">
+  <div class="kicker">EXTENSION</div>
+  <h1>대외 연계 대량 데이터 처리 아키텍처</h1>
+  <div class="sub">
+    AL11 파일 Staging + 비동기 병렬 분할 처리 — 실무 표준 4단계 패턴<br>
+    선행 문서: <b>ABAP 병렬처리 표준편</b>(aRFC 문법·라이프사이클·LUW) · <b>ZCSR00630 코드 워크스루</b>
+  </div>
+</div>
+
+<div class="lead">
+  <p><b>결론부터.</b> 수십만~수백만 건을 대외 시스템과 연동하는 실무 환경에서 <span class="hl">"파일 수신(AL11) 및 Staging"과 "비동기 병렬 분할 처리(배치)"를 분리</span>하는 것은 매우 흔한 전형적 아키텍처입니다.</p>
+  <p>이유는 단순합니다. 외부에서 넘어오는 대용량 데이터를 <b>동기식(Synchronous)으로 직접 처리하면</b> 타임아웃(<code>TIME_OUT</code>)이나 프로세스 락 경합이 반드시 터지기 때문입니다. 수신과 처리를 시간축에서 떼어놓으면 두 문제가 동시에 해결됩니다.</p>
+</div>
+
+<div class="toc">
+  <h4>목차</h4>
+  <ol>
+    <li>동기 직접 처리가 실패하는 3가지 지점</li>
+    <li>전체 아키텍처 4단계</li>
+    <li>STEP 1 — 파일 수신과 인터페이스 계약</li>
+    <li>STEP 2 — Master Job: 디렉토리 감시와 파일 잠금</li>
+    <li>STEP 3 — 파일 읽기: OPEN DATASET과 인코딩</li>
+    <li>STEP 4 — 청킹 전략: 행 수가 아니라 락 키</li>
+    <li>STEP 5 — 병렬 디스패치와 결과 취합</li>
+    <li>STEP 6 — 파일 후처리와 로그 설계</li>
+    <li>재처리·멱등성 — Staging 상태머신</li>
+    <li>실패 시나리오와 체크리스트</li>
+  </ol>
+</div>
+
+
+<!-- ══════════ 1 ══════════ -->
+<div class="lesson">
+<h2><span class="no">LESSON 1</span>동기 직접 처리가 실패하는 3가지 지점</h2>
+
+<p>외부 시스템이 sRFC로 데이터를 넘기고 SAP이 그 자리에서 전표를 전기하는 구조. 건수가 적을 땐 잘 돌지만 대량이 되면 <b>정확히 세 군데</b>에서 무너집니다.</p>
+
+<div class="tbl-wrap">
+<table>
+  <tr><th style="width:150px">터지는 지점</th><th>증상과 원인</th></tr>
+  <tr>
+    <td class="wrap"><b>① 게이트웨이<br>타임아웃</b></td>
+    <td>
+      호출자가 결과를 기다리는 동안 <code>gw/keepalive</code>, <code>rdisp/max_wprun_time</code>이 먼저 끊습니다.
+      SAP은 처리를 계속하고 있는데 <span class="bad">외부 시스템은 이미 실패로 판정</span>합니다 → 중복 재전송 사고
+    </td>
+  </tr>
+  <tr>
+    <td class="wrap"><b>② 락 경합</b></td>
+    <td>
+      여러 인터페이스 세션이 동시에 같은 마스터(동일 계정·자재·공급업체)를 잡으면 <code>FOREIGN_LOCK</code>.
+      동기 구조에서는 재시도할 여유가 없어 <span class="bad">그대로 롤백되고 데이터가 사라집니다</span>
+    </td>
+  </tr>
+  <tr>
+    <td class="wrap"><b>③ 데이터 유실</b></td>
+    <td>
+      네트워크 단절이나 덤프 발생 시 <b>원본이 어디에도 남지 않습니다.</b>
+      외부 시스템에 재전송을 요청해야 하는데, 그쪽 로그가 이미 지워졌다면 복구 불가
+    </td>
+  </tr>
+</table>
+</div>
+
+<div class="note">
+  <div class="t">파일 Staging이 세 문제를 한 번에 푸는 방식</div>
+  <ul>
+    <li><b>①</b> 파일 수신은 <b>즉시 끝나는 I/O</b>입니다. 무거운 로직은 배치로 넘기므로 타임아웃 자체가 성립하지 않습니다.</li>
+    <li><b>②</b> 처리 시점을 SAP이 통제하므로, <span class="hl">락이 겹치지 않도록 데이터를 재배열한 뒤</span> 돌릴 수 있습니다.</li>
+    <li><b>③</b> <span class="hl">AL11에 원본 파일이 남습니다.</span> 몇 번이든 재처리 가능한 Fallback이 확보됩니다.</li>
+  </ul>
+</div>
+
+<p>여기에 부수적으로 <b>부하 분산</b>이 따라옵니다. 피크 타임에 트래픽이 몰려 온라인 사용자 성능이 떨어지는 대신, 배치 스케줄러로 야간·유휴 시간대에 프로세스 수를 제한해가며 돌릴 수 있습니다.</p>
+</div>
+
+
+<!-- ══════════ 2 ══════════ -->
+<div class="lesson">
+<h2><span class="no">LESSON 2</span>전체 아키텍처 4단계</h2>
+
+<figure>
+<svg viewBox="0 0 760 470" width="100%">
+  <defs>
+    <marker id="a" markerWidth="9" markerHeight="9" refX="8" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 z" fill="#4338CA"/></marker>
+    <marker id="ag" markerWidth="9" markerHeight="9" refX="8" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 z" fill="#047857"/></marker>
+  </defs>
+
+  <!-- 외부 -->
+  <rect x="230" y="8" width="300" height="46" rx="6" fill="#fff" stroke="#555" stroke-width="1.6"/>
+  <text x="380" y="30" font-size="14" font-weight="700" text-anchor="middle">외부 시스템 (EAI / API / 레거시)</text>
+  <text x="380" y="47" font-size="11.5" fill="#555" text-anchor="middle">주문 · 판매실적 · 마스터 변경 …</text>
+
+  <path d="M380 54 L380 82" stroke="#4338CA" stroke-width="2" marker-end="url(#a)"/>
+  <text x="392" y="73" font-size="11.5" fill="#4338CA" font-weight="700">(1) sRFC / tRFC / SFTP</text>
+
+  <!-- AL11 -->
+  <rect x="200" y="86" width="360" height="52" rx="6" fill="#FEF08A" stroke="#CA8A04" stroke-width="2"/>
+  <text x="380" y="108" font-size="14" font-weight="700" text-anchor="middle">AL11 디렉토리 — 원본 파일 적재</text>
+  <text x="380" y="127" font-size="11.5" text-anchor="middle">/interface/in/  ·  CSV · TXT · JSON</text>
+
+  <path d="M380 138 L380 166" stroke="#4338CA" stroke-width="2" marker-end="url(#a)"/>
+  <text x="392" y="157" font-size="11.5" fill="#4338CA" font-weight="700">(2) 주기 Polling</text>
+
+  <!-- master job -->
+  <rect x="150" y="170" width="460" height="64" rx="6" fill="#EEF0FB" stroke="#4338CA" stroke-width="2"/>
+  <text x="380" y="192" font-size="14" font-weight="700" fill="#4338CA" text-anchor="middle">Master Job (단일 Background · SM36)</text>
+  <text x="380" y="211" font-size="11.5" text-anchor="middle">EPS2_GET_DIRECTORY_LISTING → OPEN DATASET → 스트리밍 읽기</text>
+  <text x="380" y="228" font-size="11.5" text-anchor="middle">Chunking (예: 5,000건 또는 비즈니스 키 단위)</text>
+
+  <path d="M380 234 L380 258" stroke="#4338CA" stroke-width="2"/>
+  <path d="M380 258 L130 258 L130 282" stroke="#4338CA" stroke-width="1.6" fill="none" marker-end="url(#a)"/>
+  <path d="M380 258 L380 282" stroke="#4338CA" stroke-width="1.6" marker-end="url(#a)"/>
+  <path d="M380 258 L630 258 L630 282" stroke="#4338CA" stroke-width="1.6" fill="none" marker-end="url(#a)"/>
+  <text x="396" y="252" font-size="11.5" fill="#4338CA" font-weight="700">(3) 비동기 병렬 분기 — STARTING NEW TASK … IN GROUP</text>
+
+  <rect x="42" y="286" width="176" height="58" rx="5" fill="#fff" stroke="#4338CA" stroke-width="1.6"/>
+  <text x="130" y="308" font-size="13" font-weight="700" fill="#4338CA" text-anchor="middle">Task 1</text>
+  <text x="130" y="328" font-size="11" text-anchor="middle">DIA WP · 독립 LUW</text>
+
+  <rect x="292" y="286" width="176" height="58" rx="5" fill="#fff" stroke="#4338CA" stroke-width="1.6"/>
+  <text x="380" y="308" font-size="13" font-weight="700" fill="#4338CA" text-anchor="middle">Task 2</text>
+  <text x="380" y="328" font-size="11" text-anchor="middle">DIA WP · 독립 LUW</text>
+
+  <rect x="542" y="286" width="176" height="58" rx="5" fill="#fff" stroke="#4338CA" stroke-width="1.6"/>
+  <text x="630" y="308" font-size="13" font-weight="700" fill="#4338CA" text-anchor="middle">Task 3 …</text>
+  <text x="630" y="328" font-size="11" text-anchor="middle">DIA WP · 독립 LUW</text>
+
+  <path d="M130 344 L130 366 L380 366 L380 388" stroke="#4338CA" stroke-width="1.6" fill="none"/>
+  <path d="M380 344 L380 366" stroke="#4338CA" stroke-width="1.6" fill="none"/>
+  <path d="M630 344 L630 366 L380 366" stroke="#4338CA" stroke-width="1.6" fill="none"/>
+  <path d="M380 366 L380 390" stroke="#4338CA" stroke-width="2" marker-end="url(#a)"/>
+  <text x="392" y="384" font-size="11.5" fill="#4338CA" font-weight="700">콜백 취합 (PERFORM … ON END OF TASK)</text>
+
+  <rect x="150" y="394" width="460" height="34" rx="5" fill="#EEF0FB" stroke="#4338CA" stroke-width="1.6"/>
+  <text x="380" y="416" font-size="12.5" font-weight="700" fill="#4338CA" text-anchor="middle">(3) CBO Staging 적재 · 최종 Posting (BAPI 등)</text>
+
+  <path d="M380 428 L380 442" stroke="#047857" stroke-width="2" marker-end="url(#ag)"/>
+  <rect x="150" y="446" width="460" height="20" rx="4" fill="#ECFDF5" stroke="#047857" stroke-width="1.4"/>
+  <text x="380" y="461" font-size="12" font-weight="700" fill="#047857" text-anchor="middle">(4) 파일 archive/error 이동 · 처리 로그 기록</text>
+</svg>
+<figcaption>수신(빠름)과 처리(무거움)를 분리하는 것이 이 구조의 전부입니다</figcaption>
+</figure>
+
+<h3>각 단계 한 줄 요약</h3>
+<ol>
+  <li><b>파일 수신 (Staging)</b> — 외부가 RFC 또는 SFTP로 SAP 파일시스템(AL11)에 원본을 적재. 파일로 먼저 떨어뜨려 두면 네트워크 단절·트랜잭션 충돌 시에도 <span class="hl">데이터 유실 없이 재처리 가능</span>합니다.</li>
+  <li><b>Master Job</b> — 주기 Background Job이 디렉토리를 감시(Polling)해 미처리 파일을 <code>OPEN DATASET</code>으로 읽습니다.</li>
+  <li><b>청크 분할 + 병렬 실행</b> — 적정 단위로 쪼개 <code>CALL FUNCTION … STARTING NEW TASK … DESTINATION IN GROUP</code>으로 분기합니다.</li>
+  <li><b>결과 취합 + 후속 조치</b> — 콜백에서 결과를 모으고, 처리가 끝난 파일은 archive 디렉토리로 이동하거나 삭제합니다.</li>
+</ol>
+</div>
+
+
+<!-- ══════════ 3 ══════════ -->
+<div class="lesson">
+<h2><span class="no">LESSON 3</span>STEP 1 — 파일 수신과 인터페이스 계약</h2>
+
+<p>이 단계에서 <b>개발 이전에 문서로 합의해야 할 것</b>들이 있습니다. 여기서 대충 넘어가면 운영 중에 반드시 사고가 납니다.</p>
+
+<div class="tbl-wrap">
+<table>
+  <tr><th style="width:140px">합의 항목</th><th>실무 권장</th></tr>
+  <tr><td class="wrap"><b>파일명 규칙</b></td>
+      <td><code>&lt;인터페이스ID&gt;_&lt;YYYYMMDDHHMMSS&gt;_&lt;일련번호&gt;.csv</code><br>타임스탬프가 있어야 <b>순서 보장</b>과 <b>중복 판정</b>이 가능합니다</td></tr>
+  <tr><td class="wrap"><b>완료 마커</b></td>
+      <td>본 파일 전송이 끝난 뒤 <code>.ok</code> 또는 <code>.done</code> 빈 파일을 하나 더 만들게 합니다.<br><span class="hl">이게 없으면 전송 중인 파일을 배치가 읽어 반쪽 데이터를 처리합니다</span> — 실무에서 가장 흔한 사고</td></tr>
+  <tr><td class="wrap"><b>인코딩</b></td>
+      <td>UTF-8 고정 권장. BOM 유무까지 명시. 한글이 있으면 <b>반드시 문서에 박아둘 것</b></td></tr>
+  <tr><td class="wrap"><b>구분자·개행</b></td>
+      <td>구분자(<code>|</code> 권장, 콤마는 데이터에 섞임), 개행(CRLF vs LF), 텍스트 인용부호 처리</td></tr>
+  <tr><td class="wrap"><b>헤더 라인</b></td>
+      <td>있는지 없는지. 있다면 컬럼 순서 변경 시 통보 절차</td></tr>
+  <tr><td class="wrap"><b>건수 트레일러</b></td>
+      <td>마지막 줄에 총 건수를 넣게 하면 <span class="hl">파일이 잘렸는지 즉시 검증</span>됩니다</td></tr>
+  <tr><td class="wrap"><b>디렉토리</b></td>
+      <td><code>in/</code> · <code>work/</code> · <code>archive/</code> · <code>error/</code> 4개를 미리 만들어 둡니다</td></tr>
+</table>
+</div>
+
+<div class="note warn">
+  <div class="t">완료 마커가 없으면</div>
+  <p>10MB 파일을 SFTP로 밀어넣는 중에 Master Job이 깨어나면, 그 시점까지 쓰인 만큼만 읽고 <b>"정상 처리 완료"로 판정</b>합니다. 나머지 데이터는 영영 처리되지 않고, 파일은 archive로 옮겨져 흔적도 안 남습니다.</p>
+  <p>대안: 외부가 <code>.tmp</code>로 쓰고 완료 시 <b>원자적 rename</b>하도록 합의. 마커 파일보다 깔끔합니다.</p>
+</div>
+</div>
+
+
+<!-- ══════════ 4 ══════════ -->
+<div class="lesson">
+<h2><span class="no">LESSON 4</span>STEP 2 — Master Job: 디렉토리 감시와 파일 잠금</h2>
+
+<h3>디렉토리 목록 조회</h3>
+<pre><span class="k">DATA</span>: lt_dir  <span class="k">TYPE STANDARD TABLE OF</span> eps2fili,
+      ls_dir  <span class="k">LIKE LINE OF</span> lt_dir,
+      lv_cnt  <span class="k">TYPE</span> epsf-epsfilsiz.
+
+<span class="k">CALL FUNCTION</span> 'EPS2_GET_DIRECTORY_LISTING'
+  <span class="k">EXPORTING</span>  iv_dir_name   = '/interface/in'
+             file_mask     = 'ORD_*.csv'
+  <span class="k">IMPORTING</span>  file_counter  = lv_cnt
+  <span class="k">TABLES</span>     dir_list      = lt_dir
+  <span class="k">EXCEPTIONS</span> invalid_eps_subdir     = 1
+             sapgparam_failed       = 2
+             build_directory_failed = 3
+             no_authorization       = 4
+             read_directory_failed  = 5
+             too_many_read_errors   = 6
+             empty_directory_list   = 7
+             <span class="k">OTHERS</span>                 = 8.
+
+<span class="k">IF</span> sy-subrc = 7.        <span class="c">" 처리할 파일 없음 — 정상 종료</span>
+  <span class="k">MESSAGE</span> s001 <span class="k">WITH</span> '대상 파일 없음'. <span class="k">RETURN</span>.
+<span class="k">ENDIF</span>.
+
+<span class="k">SORT</span> lt_dir <span class="k">BY</span> name.   <span class="c">" ★ 파일명 타임스탬프 순 = 처리 순서</span></pre>
+
+<div class="note">
+  <div class="t">디렉토리 물리경로 vs 논리경로</div>
+  <p>경로를 소스에 하드코딩하지 말고 <b>논리 파일명(FILE 트랜잭션)</b>으로 관리하세요. DEV/QAS/PRD의 마운트 경로가 다른 경우가 대부분입니다.</p>
+<pre style="margin:10px 0 0"><span class="k">CALL FUNCTION</span> 'FILE_GET_NAME'
+  <span class="k">EXPORTING</span> logical_filename = 'ZIF_ORDER_IN'
+  <span class="k">IMPORTING</span> file_name        = lv_path.</pre>
+</div>
+
+<h3>파일 잠금 — 이중 실행 방지</h3>
+
+<p>Master Job이 30분 주기인데 처리가 40분 걸리면, 두 번째 잡이 <b>같은 파일을 다시 집습니다.</b> 두 가지를 겹쳐 막습니다.</p>
+
+<ol>
+  <li><b>잡 레벨 세마포어</b> — 프로그램 자체의 동시 실행 차단
+<pre><span class="k">CALL FUNCTION</span> 'ENQUEUE_E_TRDIR'
+  <span class="k">EXPORTING</span>  mode_trdir = 'E'
+             name       = sy-cprog
+             _scope     = '1'
+  <span class="k">EXCEPTIONS</span> foreign_lock = 1 <span class="k">OTHERS</span> = 2.
+<span class="k">IF</span> sy-subrc &lt;&gt; 0.
+  <span class="k">MESSAGE</span> s001 <span class="k">WITH</span> '이전 배치가 아직 실행 중입니다'. <span class="k">RETURN</span>.
+<span class="k">ENDIF</span>.</pre>
+  </li>
+  <li><b>파일 레벨 이동</b> — 읽기 전에 <code>in/</code> → <code>work/</code>로 옮겨버립니다. <span class="hl">옮겨진 파일은 다음 잡의 Polling 대상에서 자동으로 빠집니다.</span> 잡이 죽어도 <code>work/</code>에 남아 있으므로 수동 복구가 쉽습니다.</li>
+</ol>
+
+<div class="note warn">
+  <div class="t">ABAP에는 파일 MOVE 문장이 없습니다</div>
+  <p><code>OPEN DATASET</code>으로 읽어서 새 경로에 쓰고 <code>DELETE DATASET</code>으로 원본을 지우는 것이 표준 방식입니다. OS 명령(<code>SXPG_COMMAND_EXECUTE</code>)은 <b>Basis 승인과 권한 설정이 필요</b>하고 감사 대상이 되므로, 되도록 ABAP 안에서 해결하세요.</p>
+</div>
+</div>
+
+
+<!-- ══════════ 5 ══════════ -->
+<div class="lesson">
+<h2><span class="no">LESSON 5</span>STEP 3 — 파일 읽기: OPEN DATASET과 인코딩</h2>
+
+<h3>인코딩 모드 3종 구분</h3>
+
+<div class="tbl-wrap">
+<table>
+  <tr><th style="width:290px">구문</th><th>언제</th></tr>
+  <tr><td class="wrap"><code>IN TEXT MODE ENCODING UTF-8</code></td>
+      <td><span class="good">기본 선택.</span> 외부와 UTF-8로 합의했다면 이것. 유니코드 시스템 표준</td></tr>
+  <tr><td class="wrap"><code>IN LEGACY TEXT MODE CODE PAGE '8300'</code></td>
+      <td>레거시가 EUC-KR/CP949로 보낼 때. <code>8300</code>이 한국어 코드페이지입니다</td></tr>
+  <tr><td class="wrap"><code>IN BINARY MODE</code></td>
+      <td>인코딩을 직접 판정해야 하거나 첨부파일을 그대로 넘길 때</td></tr>
+</table>
+</div>
+
+<div class="note warn">
+  <div class="t">한글이 깨지는 전형적 원인 3가지</div>
+  <ul>
+    <li>파일은 UTF-8인데 <code>IN LEGACY TEXT MODE</code>로 읽음 (또는 그 반대)</li>
+    <li>UTF-8 BOM(<code>EF BB BF</code>)이 첫 필드 앞에 붙어 첫 컬럼 비교가 전부 실패</li>
+    <li>내부테이블 필드 길이가 바이트 기준으로 부족 — 한글 1자가 UTF-8에서 3바이트</li>
+  </ul>
+</div>
+
+<h3>스트리밍 읽기 — 메모리를 지키는 방식</h3>
+
+<p>수백만 건 파일을 <code>APPEND</code>로 전부 내부테이블에 올리면 <code>TSV_TNEW_PAGE_ALLOC_FAILED</code>가 납니다. <span class="hl">라인 단위로 읽어 버퍼를 채우고, 청크가 차면 즉시 넘긴 뒤 버퍼를 비웁니다.</span></p>
+
+<pre><span class="k">DATA</span>: lv_line   <span class="k">TYPE</span> string,
+      lt_buffer <span class="k">TYPE</span> tt_record,
+      ls_rec    <span class="k">TYPE</span> ty_record,
+      lv_cnt    <span class="k">TYPE</span> i,
+      lv_total  <span class="k">TYPE</span> i.
+
+<span class="k">OPEN DATASET</span> lv_path <span class="k">FOR INPUT</span>
+     <span class="k">IN TEXT MODE ENCODING</span> UTF-8
+     <span class="k">MESSAGE</span> lv_msg.
+<span class="k">IF</span> sy-subrc &lt;&gt; 0.
+  <span class="c">" 권한·경로 오류 → error 처리 후 종료</span>
+  <span class="k">RETURN</span>.
+<span class="k">ENDIF</span>.
+
+<span class="k">DO</span>.
+  <span class="k">READ DATASET</span> lv_path <span class="k">INTO</span> lv_line.
+  <span class="k">IF</span> sy-subrc &lt;&gt; 0. <span class="k">EXIT</span>. <span class="k">ENDIF</span>.   <span class="c">" EOF</span>
+
+  lv_total = lv_total + 1.
+  <span class="k">IF</span> lv_total = 1 <span class="k">AND</span> p_header = 'X'.
+    <span class="k">CONTINUE</span>.                          <span class="c">" 헤더 라인 skip</span>
+  <span class="k">ENDIF</span>.
+
+  <span class="c">" BOM 제거 (첫 데이터 라인)</span>
+  <span class="k">REPLACE</span> <span class="k">FIRST OCCURRENCE OF</span> cl_abap_char_utilities=&gt;byte_order_mark_utf8
+          <span class="k">IN</span> lv_line <span class="k">WITH</span> space.
+
+  <span class="k">SPLIT</span> lv_line <span class="k">AT</span> '|' <span class="k">INTO</span> ls_rec-kunnr ls_rec-matnr
+                             ls_rec-menge ls_rec-datum.
+  <span class="k">APPEND</span> ls_rec <span class="k">TO</span> lt_buffer.
+  lv_cnt = lv_cnt + 1.
+
+  <span class="k">IF</span> lv_cnt &gt;= p_chunk.                <span class="c">" 청크가 찼다</span>
+    <span class="k">PERFORM</span> dispatch <span class="k">USING</span> lt_buffer.    <span class="c">" LESSON 7</span>
+    <span class="k">CLEAR</span>: lt_buffer, lv_cnt.           <span class="c">" ★ 버퍼 비우기</span>
+  <span class="k">ENDIF</span>.
+
+<span class="k">ENDDO</span>.
+
+<span class="k">IF</span> lt_buffer <span class="k">IS NOT INITIAL</span>.            <span class="c">" 마지막 잔여분</span>
+  <span class="k">PERFORM</span> dispatch <span class="k">USING</span> lt_buffer.
+<span class="k">ENDIF</span>.
+
+<span class="k">CLOSE DATASET</span> lv_path.</pre>
+
+<div class="note warn">
+  <div class="t">이 루프에 숨은 함정 하나</div>
+  <p><code>PERFORM dispatch</code> 안에서 aRFC를 던지는 순간 <span class="hl">암묵적 DB COMMIT이 발생</span>합니다(표준편 LESSON 3). <code>OPEN DATASET</code> 자체는 DB 커서가 아니라 괜찮지만, <b>같은 루프 안에서 <code>SELECT … ENDSELECT</code>를 돌리고 있었다면 런타임 오류</b>가 납니다.</p>
+  <p>→ DB 조회가 필요하면 청크를 다 모은 뒤 <code>FOR ALL ENTRIES</code>로 한 번에 하거나, 아예 태스크 쪽에서 조회하도록 넘기세요.</p>
+</div>
+</div>
+
+
+<!-- ══════════ 6 ══════════ -->
+<div class="lesson">
+<h2><span class="no">LESSON 6</span>STEP 4 — 청킹 전략: 행 수가 아니라 락 키</h2>
+
+<p><b>이 문서에서 가장 중요한 장입니다.</b> 병렬처리 실패의 절대다수가 여기서 나옵니다.</p>
+
+<div class="note warn">
+  <div class="t">단순 행 수 분할이 만드는 사고</div>
+  <p>파일을 5,000줄씩 기계적으로 자르면, <b>같은 고객·같은 자재·같은 전표의 행이 서로 다른 청크로 흩어집니다.</b> 그 청크들이 동시에 돌면서 같은 객체에 <code>ENQUEUE</code>를 걸려고 하면 <code>FOREIGN_LOCK</code>이 나고, 그때마다 롤백이 발생합니다.</p>
+  <p>병렬도를 올릴수록 충돌 확률이 올라가므로, <span class="bad">병렬을 늘렸는데 오히려 느려지고 실패 건만 쌓이는</span> 현상이 나타납니다.</p>
+</div>
+
+<figure>
+<svg viewBox="0 0 740 250" width="100%">
+  <text x="10" y="20" font-size="13" font-weight="700" fill="#B91C1C">✕ 단순 행 수 분할 — 같은 고객이 흩어진다</text>
+
+  <rect x="10" y="32" width="220" height="62" rx="5" fill="#FEF2F2" stroke="#B91C1C" stroke-width="1.4"/>
+  <text x="24" y="52" font-size="11.5" font-weight="700">Chunk 1</text>
+  <text x="24" y="72" font-size="11.5">C001, C002, C003, C001…</text>
+  <text x="24" y="88" font-size="11" fill="#B91C1C">C001 락 시도</text>
+
+  <rect x="242" y="32" width="220" height="62" rx="5" fill="#FEF2F2" stroke="#B91C1C" stroke-width="1.4"/>
+  <text x="256" y="52" font-size="11.5" font-weight="700">Chunk 2</text>
+  <text x="256" y="72" font-size="11.5">C003, C001, C005, C002…</text>
+  <text x="256" y="88" font-size="11" fill="#B91C1C">C001 락 시도 → 충돌</text>
+
+  <rect x="474" y="32" width="220" height="62" rx="5" fill="#FEF2F2" stroke="#B91C1C" stroke-width="1.4"/>
+  <text x="488" y="52" font-size="11.5" font-weight="700">Chunk 3</text>
+  <text x="488" y="72" font-size="11.5">C002, C004, C001, C003…</text>
+  <text x="488" y="88" font-size="11" fill="#B91C1C">C001 락 시도 → 충돌</text>
+
+  <line x1="10" y1="114" x2="730" y2="114" stroke="#E5E7EB" stroke-width="1.5"/>
+
+  <text x="10" y="142" font-size="13" font-weight="700" fill="#047857">✓ 비즈니스 키 그룹핑 — 한 키는 한 청크에만</text>
+
+  <rect x="10" y="154" width="220" height="62" rx="5" fill="#ECFDF5" stroke="#047857" stroke-width="1.4"/>
+  <text x="24" y="174" font-size="11.5" font-weight="700">Chunk 1</text>
+  <text x="24" y="194" font-size="11.5">C001 의 모든 행</text>
+  <text x="24" y="210" font-size="11" fill="#047857">락 경합 없음</text>
+
+  <rect x="242" y="154" width="220" height="62" rx="5" fill="#ECFDF5" stroke="#047857" stroke-width="1.4"/>
+  <text x="256" y="174" font-size="11.5" font-weight="700">Chunk 2</text>
+  <text x="256" y="194" font-size="11.5">C002, C003 의 모든 행</text>
+  <text x="256" y="210" font-size="11" fill="#047857">락 경합 없음</text>
+
+  <rect x="474" y="154" width="220" height="62" rx="5" fill="#ECFDF5" stroke="#047857" stroke-width="1.4"/>
+  <text x="488" y="174" font-size="11.5" font-weight="700">Chunk 3</text>
+  <text x="488" y="194" font-size="11.5">C004, C005 의 모든 행</text>
+  <text x="488" y="210" font-size="11" fill="#047857">락 경합 없음</text>
+
+  <text x="10" y="242" font-size="12" fill="#4338CA" font-weight="700">원칙: 분할 키 = 락 단위. 회사코드 · 플랜트 · 고객번호 · 파트너번호 · 전표번호 중 실제로 ENQUEUE가 걸리는 단위를 고른다.</text>
+</svg>
+</figure>
+
+<h3>키 그룹핑 청킹 구현</h3>
+
+<pre><span class="c">" ① 비즈니스 키로 정렬 — 같은 키가 반드시 붙어 있게</span>
+<span class="k">SORT</span> lt_all <span class="k">BY</span> bukrs kunnr.
+
+<span class="k">DATA</span>: lv_prev_key <span class="k">TYPE</span> ty_key,
+      lv_cnt      <span class="k">TYPE</span> i.
+
+<span class="k">LOOP AT</span> lt_all <span class="k">INTO</span> ls_rec.
+
+  ls_key-bukrs = ls_rec-bukrs.
+  ls_key-kunnr = ls_rec-kunnr.
+
+  <span class="c">" ② 키가 바뀌는 경계에서만 자른다 (같은 키를 절대 쪼개지 않음)</span>
+  <span class="k">IF</span> lv_cnt &gt;= p_chunk <span class="k">AND</span> ls_key &lt;&gt; lv_prev_key.
+    <span class="k">PERFORM</span> dispatch <span class="k">USING</span> lt_buffer.
+    <span class="k">CLEAR</span>: lt_buffer, lv_cnt.
+  <span class="k">ENDIF</span>.
+
+  <span class="k">APPEND</span> ls_rec <span class="k">TO</span> lt_buffer.
+  lv_cnt      = lv_cnt + 1.
+  lv_prev_key = ls_key.
+
+<span class="k">ENDLOOP</span>.
+
+<span class="k">IF</span> lt_buffer <span class="k">IS NOT INITIAL</span>.
+  <span class="k">PERFORM</span> dispatch <span class="k">USING</span> lt_buffer.
+<span class="k">ENDIF</span>.</pre>
+
+<p><code>p_chunk</code>는 <b>하한선</b>으로 동작합니다. 키 경계를 만날 때까지 조금 넘칠 수 있는데, 그게 정상이고 의도된 동작입니다.</p>
+
+<h3>청크 크기는 얼마가 적당한가</h3>
+
+<div class="tbl-wrap">
+<table>
+  <tr><th style="width:160px">상황</th><th>권장 크기</th></tr>
+  <tr><td>BAPI 전표 전기 (무거움)</td><td><b>200 ~ 500건</b>. 건당 커밋이 있어 처리 시간이 길다</td></tr>
+  <tr><td>CBO 테이블 단순 적재</td><td><b>2,000 ~ 5,000건</b>. <code>MODIFY … FROM TABLE</code> 한 방이면 커도 괜찮다</td></tr>
+  <tr><td>마스터 갱신 (중간)</td><td><b>500 ~ 1,000건</b></td></tr>
+</table>
+</div>
+
+<div class="note">
+  <div class="t">청크 수 ≫ 병렬도</div>
+  <p>청크 크기를 <code>전체건수 ÷ 병렬도</code>로 잡으면 <span class="bad">태스크 하나가 딱 한 번 돌고 끝나</span> 슬롯 재사용이 일어나지 않습니다. 데이터 편차가 있으면 늦은 태스크 하나가 전체를 잡아먹는 <b>롱테일</b>이 생깁니다.</p>
+  <p>→ <span class="hl">고정 크기로 잘게 잘라 청크 수가 병렬도의 5~10배 이상</span>이 되게 하세요. 먼저 끝난 슬롯이 다음 청크를 집어가면서 편차가 자연히 흡수됩니다.</p>
+</div>
+</div>
+
+
+<!-- ══════════ 7 ══════════ -->
+<div class="lesson">
+<h2><span class="no">LESSON 7</span>STEP 5 — 병렬 디스패치와 결과 취합</h2>
+
+<p>골격은 표준편 LESSON 5와 동일합니다. 여기서는 <b>파일 처리 문맥에서 달라지는 부분</b>만 짚습니다.</p>
+
+<pre><span class="k">FORM</span> dispatch <span class="k">USING</span> pt_buffer <span class="k">TYPE</span> tt_record.
+
+  <span class="c">" 빈 슬롯이 생길 때까지 대기 = 콜백에게 실행 기회를 준다</span>
+  <span class="k">WAIT FOR ASYNCHRONOUS TASKS</span>
+       <span class="k">UNTIL</span> gv_running &lt; gv_max
+       <span class="k">UP TO</span> 600 <span class="k">SECONDS</span>.
+
+  gv_chunk_no = gv_chunk_no + 1.
+  lv_task     = |ZIF_{ gv_ifid }_{ gv_chunk_no }|.
+
+  <span class="c">" ★ 청크 원장을 먼저 남긴다 — 태스크가 통째로 죽어도 추적 가능</span>
+  <span class="k">APPEND</span> <span class="k">VALUE</span> #( ifid    = gv_ifid
+                    filename = gv_file
+                    chunk_no = gv_chunk_no
+                    cnt      = <span class="k">lines</span>( pt_buffer )
+                    status   = 'S' )      <span class="c">" S = Sent</span>
+         <span class="k">TO</span> gt_chunklog.
+
+  <span class="k">DO</span> 10 <span class="k">TIMES</span>.
+    <span class="k">CALL FUNCTION</span> 'Z_IF_PROCESS_CHUNK'
+      <span class="k">STARTING NEW TASK</span>    lv_task
+      <span class="k">DESTINATION IN GROUP</span> p_group
+      <span class="k">PERFORMING</span> collect <span class="k">ON END OF TASK</span>
+      <span class="k">EXPORTING</span>  iv_ifid     = gv_ifid
+                 iv_filename = gv_file
+                 iv_chunk_no = gv_chunk_no
+      <span class="k">TABLES</span>     it_data     = pt_buffer
+      <span class="k">EXCEPTIONS</span> communication_failure = 1
+                 system_failure        = 2
+                 resource_failure      = 3.
+
+    <span class="k">CASE</span> sy-subrc.
+      <span class="k">WHEN</span> 0.
+        gv_running = gv_running + 1.
+        <span class="k">EXIT</span>.
+
+      <span class="k">WHEN</span> 3.          <span class="c">" 자원 부족 → 일시적 상황. 재시도한다</span>
+        <span class="k">WAIT FOR ASYNCHRONOUS TASKS</span>
+             <span class="k">UNTIL</span> gv_running &lt; gv_max
+             <span class="k">UP TO</span> 5 <span class="k">SECONDS</span>.
+
+      <span class="k">WHEN OTHERS</span>.    <span class="c">" 통신/시스템 오류 → 청크를 실패로 확정</span>
+        <span class="k">PERFORM</span> mark_chunk_failed <span class="k">USING</span> gv_chunk_no.
+        <span class="k">EXIT</span>.
+    <span class="k">ENDCASE</span>.
+  <span class="k">ENDDO</span>.
+
+<span class="k">ENDFORM</span>.</pre>
+
+<div class="note warn">
+  <div class="t"><span class="tag warn">보정</span> RESOURCE_FAILURE 재시도에 <code>WAIT UP TO</code>를 쓰면 안 됩니다</div>
+  <p>흔히 <code>WAIT UP TO 1 SECONDS</code> 후 재시도하라고 소개되는데, <span class="hl"><code>WAIT UP TO</code>는 콜백을 실행하지 않는 단순 sleep</span>입니다(항상 <code>sy-subrc = 0</code>). 1초를 자고 깨어나도 <b>끝난 태스크가 회수되지 않아 슬롯은 그대로</b>이고, 자원 상황도 그대로입니다.</p>
+  <p>→ <code>WAIT FOR ASYNCHRONOUS TASKS UNTIL &lt;조건&gt; UP TO n SECONDS</code>를 쓰면 대기하는 동안 <b>콜백이 실행되어 실제로 슬롯이 비고</b>, 조건이 충족되는 즉시 깨어납니다. 재시도 성공률이 완전히 달라집니다.</p>
+</div>
+
+<h3>콜백 — 청크 단위 상태 확정</h3>
+
+<pre><span class="k">FORM</span> collect <span class="k">USING</span> p_task <span class="k">TYPE</span> clike.
+
+  <span class="k">DATA</span>: lv_chunk <span class="k">TYPE</span> i, lv_ok <span class="k">TYPE</span> i, lv_err <span class="k">TYPE</span> i,
+        lt_err <span class="k">TYPE</span> tt_error, lv_msg <span class="k">TYPE</span> char200.
+
+  <span class="k">RECEIVE RESULTS FROM FUNCTION</span> 'Z_IF_PROCESS_CHUNK'
+    <span class="k">IMPORTING</span>  ev_chunk_no = lv_chunk
+               ev_ok_cnt   = lv_ok
+               ev_err_cnt  = lv_err
+    <span class="k">TABLES</span>     et_error    = lt_err
+    <span class="k">EXCEPTIONS</span> communication_failure = 1 <span class="k">MESSAGE</span> lv_msg
+               system_failure        = 2 <span class="k">MESSAGE</span> lv_msg
+               resource_failure      = 3.
+
+  gv_running = gv_running - 1.        <span class="c">" ★ 무조건 먼저 감소</span>
+
+  <span class="k">IF</span> sy-subrc &lt;&gt; 0.
+    <span class="c">" 태스크가 죽었다 → 청크 전체를 재처리 대상으로</span>
+    <span class="k">PERFORM</span> mark_chunk_failed <span class="k">USING</span> p_task lv_msg.
+    <span class="k">RETURN</span>.
+  <span class="k">ENDIF</span>.
+
+  <span class="k">READ TABLE</span> gt_chunklog <span class="k">ASSIGNING FIELD-SYMBOL</span>(&lt;ls&gt;)
+       <span class="k">WITH KEY</span> chunk_no = lv_chunk.
+  <span class="k">IF</span> sy-subrc = 0.                  <span class="c">" ★ subrc 확인 후 수정</span>
+    &lt;ls&gt;-ok_cnt  = lv_ok.
+    &lt;ls&gt;-err_cnt = lv_err.
+    &lt;ls&gt;-status  = <span class="k">COND</span> #( <span class="k">WHEN</span> lv_err = 0 <span class="k">THEN</span> 'C'   <span class="c">" Completed</span>
+                            <span class="k">ELSE</span> 'P' ).                <span class="c">" Partial</span>
+  <span class="k">ENDIF</span>.
+
+  <span class="k">APPEND LINES OF</span> lt_err <span class="k">TO</span> gt_error.
+  gv_total_ok  = gv_total_ok  + lv_ok.
+  gv_total_err = gv_total_err + lv_err.
+
+<span class="k">ENDFORM</span>.</pre>
+
+<div class="note">
+  <div class="t">태스크 FM에 청크 번호를 넘기고 되받는 이유</div>
+  <p>콜백은 <code>taskname</code>만 받습니다. 태스크 이름에서 번호를 파싱해도 되지만, <span class="hl">FM 인터페이스로 명시적으로 주고받는 편이 훨씬 안전</span>합니다. 어느 청크가 실패했는지가 곧 <b>재처리의 단위</b>이기 때문입니다.</p>
+</div>
+</div>
+
+
+<!-- ══════════ 8 ══════════ -->
+<div class="lesson">
+<h2><span class="no">LESSON 8</span>STEP 6 — 파일 후처리와 로그 설계</h2>
+
+<h3>join 이후 분기</h3>
+
+<pre><span class="c">" 전원 합류</span>
+<span class="k">WAIT FOR ASYNCHRONOUS TASKS</span>
+     <span class="k">UNTIL</span> gv_running = 0
+     <span class="k">UP TO</span> 3600 <span class="k">SECONDS</span>.
+
+<span class="k">CASE</span> sy-subrc.
+  <span class="k">WHEN</span> 0.  <span class="c">" 정상</span>
+  <span class="k">WHEN</span> 4.  <span class="c">" 대기 콜백이 없는데 running≠0 → 콜백 유실</span>
+           <span class="k">PERFORM</span> log_lost_chunks.
+  <span class="k">WHEN</span> 8.  <span class="c">" 타임아웃</span>
+           <span class="k">PERFORM</span> log_timeout.
+<span class="k">ENDCASE</span>.
+
+<span class="c">" 파일 이동 판정</span>
+<span class="k">IF</span> gv_total_err = 0 <span class="k">AND</span> sy-subrc = 0.
+  <span class="k">PERFORM</span> move_file <span class="k">USING</span> gv_file '/interface/archive'.
+<span class="k">ELSE</span>.
+  <span class="k">PERFORM</span> move_file <span class="k">USING</span> gv_file '/interface/error'.
+<span class="k">ENDIF</span>.
+
+<span class="k">MODIFY</span> zif_filelog <span class="k">FROM TABLE</span> gt_filelog.
+<span class="k">MODIFY</span> zif_chunklog <span class="k">FROM TABLE</span> gt_chunklog.
+<span class="k">MODIFY</span> zif_errlog <span class="k">FROM TABLE</span> gt_error.
+<span class="k">COMMIT WORK</span>.</pre>
+
+<h3>파일 이동 구현 (MOVE 문장이 없으므로)</h3>
+
+<pre><span class="k">FORM</span> move_file <span class="k">USING</span> p_from <span class="k">TYPE</span> string p_to_dir <span class="k">TYPE</span> string.
+
+  <span class="k">DATA</span>: lv_to <span class="k">TYPE</span> string, lv_line <span class="k">TYPE</span> string.
+
+  <span class="c">" 타임스탬프를 붙여 덮어쓰기 방지</span>
+  lv_to = |{ p_to_dir }/{ gv_fname }.{ sy-datum }{ sy-uzeit }|.
+
+  <span class="k">OPEN DATASET</span> p_from <span class="k">FOR INPUT</span>  <span class="k">IN TEXT MODE ENCODING</span> UTF-8.
+  <span class="k">OPEN DATASET</span> lv_to  <span class="k">FOR OUTPUT</span> <span class="k">IN TEXT MODE ENCODING</span> UTF-8.
+
+  <span class="k">DO</span>.
+    <span class="k">READ DATASET</span> p_from <span class="k">INTO</span> lv_line.
+    <span class="k">IF</span> sy-subrc &lt;&gt; 0. <span class="k">EXIT</span>. <span class="k">ENDIF</span>.
+    <span class="k">TRANSFER</span> lv_line <span class="k">TO</span> lv_to.
+  <span class="k">ENDDO</span>.
+
+  <span class="k">CLOSE DATASET</span>: p_from, lv_to.
+
+  <span class="k">DELETE DATASET</span> p_from.        <span class="c">" ★ 복사 성공 확인 후 삭제</span>
+  <span class="k">IF</span> sy-subrc &lt;&gt; 0.
+    <span class="c">" 삭제 실패 → 다음 배치가 중복 처리한다. 반드시 알람!</span>
+  <span class="k">ENDIF</span>.
+
+<span class="k">ENDFORM</span>.</pre>
+
+<h3>로그 테이블 3종 세트</h3>
+
+<div class="tbl-wrap">
+<table>
+  <tr><th style="width:150px">테이블</th><th>키</th><th>용도</th></tr>
+  <tr><td class="wrap"><b>ZIF_FILELOG</b></td>
+      <td>IFID + 파일명</td>
+      <td>파일 단위 상태. 총 건수 / 성공 / 실패 / 시작·종료시각 / 처리 상태.<br><span class="hl">중복 수신 판정의 근거</span> — 같은 파일명이 이미 있으면 skip</td></tr>
+  <tr><td class="wrap"><b>ZIF_CHUNKLOG</b></td>
+      <td>+ 청크번호</td>
+      <td>청크 단위 상태(S/C/P/E). <b>재처리 단위</b>가 됩니다</td></tr>
+  <tr><td class="wrap"><b>ZIF_ERRLOG</b></td>
+      <td>+ 라인번호</td>
+      <td>건별 실패 사유. 원본 라인 전문을 함께 저장하면 <span class="hl">파일 없이도 재처리 가능</span></td></tr>
+</table>
+</div>
+
+<div class="note">
+  <div class="t">잡 로그에 반드시 찍을 것</div>
+  <ul>
+    <li>파일명 · 총 라인 수 · 트레일러 건수와의 일치 여부</li>
+    <li>청크 수 · 병렬도(<code>free_pbt_wps</code>와 상한 중 실제 채택값)</li>
+    <li>성공 / 실패 / <b>미회수(sy-subrc 4·8로 잃은 청크)</b> 건수</li>
+    <li>총 소요 시간, 가장 느린 청크 번호</li>
+  </ul>
+  <p>병렬 배치는 나중에 재현이 안 됩니다. <b>이 로그가 유일한 단서</b>입니다.</p>
+</div>
+</div>
+
+
+<!-- ══════════ 9 ══════════ -->
+<div class="lesson">
+<h2><span class="no">LESSON 9</span>재처리·멱등성 — Staging 상태머신</h2>
+
+<p>병렬처리는 <b>전체 롤백을 포기</b>하는 구조입니다(표준편 LESSON 8). 그 대가를 치르는 방법이 <span class="key">멱등성 + 재처리</span>이고, 파일 연동에서는 이것이 <b>3중 방어선</b>으로 구현됩니다.</p>
+
+<figure>
+<svg viewBox="0 0 740 212" width="100%">
+  <defs><marker id="b" markerWidth="9" markerHeight="9" refX="8" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 z" fill="#4338CA"/></marker></defs>
+
+  <rect x="14" y="30" width="150" height="52" rx="26" fill="#fff" stroke="#4338CA" stroke-width="1.8"/>
+  <text x="89" y="54" font-size="16" font-weight="700" fill="#4338CA" text-anchor="middle">N</text>
+  <text x="89" y="72" font-size="11" text-anchor="middle">New · 수신됨</text>
+
+  <path d="M166 56 L212 56" stroke="#4338CA" stroke-width="1.8" marker-end="url(#b)"/>
+
+  <rect x="214" y="30" width="150" height="52" rx="26" fill="#FEF08A" stroke="#CA8A04" stroke-width="1.8"/>
+  <text x="289" y="54" font-size="16" font-weight="700" text-anchor="middle">P</text>
+  <text x="289" y="72" font-size="11" text-anchor="middle">Processing · 실행 중</text>
+
+  <path d="M366 44 L412 30" stroke="#4338CA" stroke-width="1.8" marker-end="url(#b)"/>
+  <path d="M366 68 L412 96" stroke="#4338CA" stroke-width="1.8" marker-end="url(#b)"/>
+
+  <rect x="414" y="4" width="150" height="48" rx="24" fill="#ECFDF5" stroke="#047857" stroke-width="1.8"/>
+  <text x="489" y="26" font-size="16" font-weight="700" fill="#047857" text-anchor="middle">C</text>
+  <text x="489" y="43" font-size="11" text-anchor="middle">Completed</text>
+
+  <rect x="414" y="82" width="150" height="48" rx="24" fill="#FEF2F2" stroke="#B91C1C" stroke-width="1.8"/>
+  <text x="489" y="104" font-size="16" font-weight="700" fill="#B91C1C" text-anchor="middle">E</text>
+  <text x="489" y="121" font-size="11" text-anchor="middle">Error · 재처리 대상</text>
+
+  <path d="M566 106 Q642 106 642 128 Q642 150 300 150 Q289 150 289 88" stroke="#B91C1C" stroke-width="1.6" fill="none" stroke-dasharray="5 4" marker-end="url(#b)"/>
+  <text x="652" y="143" font-size="11.5" fill="#B91C1C" font-weight="700" text-anchor="start">재처리 배치</text>
+
+  <text x="14" y="180" font-size="12" fill="#4338CA" font-weight="700">C 상태는 되돌아오지 않는다 — 이것이 멱등성의 근거</text>
+  <text x="14" y="200" font-size="11.5" fill="#555">재처리 배치는 E 상태만 골라 다시 돌린다. 같은 배치를 몇 번 돌려도 C는 건드리지 않으므로 중복 전기가 발생하지 않는다.</text>
+</svg>
+</figure>
+
+<h3>3중 방어선</h3>
+
+<div class="tbl-wrap">
+<table>
+  <tr><th style="width:110px">계층</th><th>수단</th><th>막는 사고</th></tr>
+  <tr><td><b>① 파일</b></td>
+      <td><code>ZIF_FILELOG</code>에 파일명 존재 여부 확인 → 있으면 skip</td>
+      <td>외부 시스템의 <b>중복 재전송</b></td></tr>
+  <tr><td><b>② 청크</b></td>
+      <td><code>ZIF_CHUNKLOG</code> 상태가 <code>C</code>면 skip</td>
+      <td>배치 재실행 시 <b>성공분 중복 처리</b></td></tr>
+  <tr><td><b>③ 건</b></td>
+      <td>대상 객체에 처리 플래그(예: <code>ZZIF_FLAG = 'X'</code>) 또는 참조번호 저장</td>
+      <td>같은 데이터가 <b>다른 파일로 다시</b> 들어온 경우</td></tr>
+</table>
+</div>
+
+<div class="note ok">
+  <div class="t">③번이 진짜 방어선입니다</div>
+  <p>①②는 SAP 안에서의 중복만 막습니다. 외부가 어제 파일을 다른 이름으로 다시 보내면 뚫립니다. <span class="hl">최종 대상 데이터에 "이 건은 어느 인터페이스의 어느 참조번호로 처리됐다"를 남기는 것</span>이 유일하게 확실한 방법입니다.</p>
+  <p>BAPI 전기라면 전표의 참조필드(<code>XBLNR</code>, <code>BKTXT</code>)에 인터페이스 참조번호를 넣고, 전기 전에 그 번호로 <b>기존 전표 존재 여부를 조회</b>하는 패턴이 표준입니다.</p>
+</div>
+
+<h3>재처리 배치는 별도 프로그램으로</h3>
+<ul>
+  <li>실행 대상: <code>ZIF_CHUNKLOG</code>에서 <code>status = 'E'</code> 또는 <code>'S'</code>(디스패치는 됐는데 회수 안 된 것)</li>
+  <li>데이터 출처: <code>ZIF_ERRLOG</code>에 저장해둔 <b>원본 라인</b>. 파일이 archive로 옮겨졌거나 지워졌어도 돌아갑니다</li>
+  <li>재시도 횟수 상한(예: 3회)을 두고, 초과하면 <code>'F'</code>(Fatal)로 확정해 <b>사람이 보게</b> 합니다. 무한 재시도는 장애를 숨깁니다</li>
+</ul>
+</div>
+
+
+<!-- ══════════ 10 ══════════ -->
+<div class="lesson">
+<h2><span class="no">LESSON 10</span>실패 시나리오와 체크리스트</h2>
+
+<h3>실패 시나리오 8가지</h3>
+
+<div class="tbl-wrap">
+<table>
+  <tr><th style="width:190px">언제</th><th>대응</th></tr>
+  <tr><td class="wrap"><b>전송 중인 파일을 읽음</b></td>
+      <td>완료 마커(<code>.ok</code>) 또는 <code>.tmp</code> → rename 규약. 트레일러 건수 검증으로 2차 방어</td></tr>
+  <tr><td class="wrap"><b>한글 깨짐</b></td>
+      <td>인코딩 모드 재확인. BOM 제거. 필드 길이 바이트 계산</td></tr>
+  <tr><td class="wrap"><b>메모리 부족(TSV_…)</b></td>
+      <td>전량 적재를 스트리밍으로 전환. 청크 후 <b>버퍼 CLEAR</b> 확인</td></tr>
+  <tr><td class="wrap"><b>RESOURCE_FAILURE</b></td>
+      <td>재시도 루프 + <code>WAIT FOR ASYNCHRONOUS TASKS UNTIL … UP TO</code>. 실패로 확정하지 말 것</td></tr>
+  <tr><td class="wrap"><b>FOREIGN_LOCK 다발</b></td>
+      <td>청킹 키를 락 단위로 재설계. 병렬도를 낮추는 건 임시방편일 뿐</td></tr>
+  <tr><td class="wrap"><b>태스크 덤프</b></td>
+      <td>메인에는 안 뜹니다. <b>ST22에서만</b> 확인. 청크 상태가 <code>S</code>로 남으므로 재처리 대상이 됩니다</td></tr>
+  <tr><td class="wrap"><b>배치가 안 끝남</b></td>
+      <td>모든 <code>WAIT</code>에 <code>UP TO</code>. join 후 <code>sy-subrc</code> 4/8을 반드시 로그</td></tr>
+  <tr><td class="wrap"><b>파일 삭제 실패</b></td>
+      <td>다음 배치가 중복 처리합니다. <code>DELETE DATASET</code> 후 <code>sy-subrc</code> 확인 + 알람 필수</td></tr>
+</table>
+</div>
+
+<h3>동기 처리 vs 파일 Staging + 병렬 처리</h3>
+
+<div class="tbl-wrap">
+<table>
+  <tr><th style="width:110px">구분</th><th style="width:44%">일반 동기 처리</th><th>파일 Staging + 병렬 처리</th></tr>
+  <tr><td><b>연계 안정성</b></td>
+      <td>외부 호출 도중 SAP 오류 시 <span class="bad">데이터 유실 위험</span></td>
+      <td>AL11에 원본이 보존되어 <span class="good">안전한 Fallback / 재처리 가능</span></td></tr>
+  <tr><td><b>타임아웃</b></td>
+      <td>대량 수신 즉시 로직 수행 → Gateway/RFC 타임아웃 빈번</td>
+      <td>수신(빠름)과 배치 실행(분리)으로 <span class="good">타임아웃 회피</span></td></tr>
+  <tr><td><b>부하 분산</b></td>
+      <td>피크 타임에 트래픽이 몰리면 전체 온라인 성능 저하</td>
+      <td>스케줄러로 야간·유휴 시간대에 <span class="good">프로세스 수 제한 제어</span></td></tr>
+  <tr><td><b>속도</b></td>
+      <td>단일 루프 순차 처리 시 수 시간</td>
+      <td>N개 WP 분산으로 <span class="good">소요 시간 대폭 단축</span></td></tr>
+  <tr><td><b>추적성</b></td>
+      <td>호출 단위 로그만 남음</td>
+      <td>파일·청크·건 <span class="good">3단계 로그</span>로 어디서 멈췄는지 특정 가능</td></tr>
+  <tr><td><b>비용</b></td>
+      <td>구현이 단순</td>
+      <td><span class="bad">전체 롤백 불가</span> · 로그 테이블 3종 · 재처리 배치가 추가로 필요</td></tr>
+</table>
+</div>
+
+<h3>설계 확정 전 체크리스트</h3>
+<ul>
+  <li>□ 파일명 규칙 · 완료 마커 · 인코딩 · 구분자 · 트레일러를 <b>문서로 합의</b>했는가</li>
+  <li>□ <code>in</code> / <code>work</code> / <code>archive</code> / <code>error</code> 디렉토리와 <b>논리 파일명</b>을 만들었는가</li>
+  <li>□ 청킹 키가 <b>실제 ENQUEUE 단위</b>와 일치하는가</li>
+  <li>□ 청크 수가 병렬도의 <b>5배 이상</b>인가 (롱테일 방지)</li>
+  <li>□ Master Job의 <b>동시 실행 차단</b>(ENQUEUE 또는 work/ 이동)이 있는가</li>
+  <li>□ 스트리밍 읽기이며 청크 후 <b>버퍼를 CLEAR</b>하는가</li>
+  <li>□ <code>RESOURCE_FAILURE</code>가 <b>재시도</b>로 처리되는가</li>
+  <li>□ 모든 <code>WAIT</code>에 <code>UP TO</code>가 있고 join 후 <code>sy-subrc</code>를 로그하는가</li>
+  <li>□ 파일·청크·건 <b>3단계 로그 테이블</b>이 설계됐는가</li>
+  <li>□ <b>건 단위 멱등성 근거</b>(플래그 또는 참조번호)가 있는가</li>
+  <li>□ <b>재처리 배치</b>가 별도로 있고 재시도 상한이 있는가</li>
+  <li>□ <code>DELETE DATASET</code> 실패 시 <b>알람</b>이 나가는가</li>
+</ul>
+
+<div class="note">
+  <div class="t">한 줄로 요약하면</div>
+  <p><span class="hl">수신은 파일로 안전하게, 처리는 배치로 통제하며, 분할은 락 단위로, 실패는 재처리로 수렴시킨다.</span></p>
+</div>
+</div>
+
+</div>
+</body>
+</html>

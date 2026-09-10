@@ -1,0 +1,798 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<script src="/assets/gate.js"></script>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ABAP 디버깅 실무 노트 — 진입 · 멈추기 · 값 바꾸기</title>
+<style>
+:root{
+  --ink:#1e1e1e; --ink-soft:#555;
+  --key:#4338CA; --key-soft:#EEF0FB;
+  --hl:#FEF08A; --danger:#B91C1C;
+  --ok:#047857;
+  --rule:#E5E7EB; --code-bg:#F3F4F6; --paper:#fff;
+}
+*{box-sizing:border-box;}
+body{
+  margin:0; background:#E9E9E9; color:var(--ink);
+  font-family:"Malgun Gothic","맑은 고딕","Apple SD Gothic Neo",system-ui,sans-serif;
+  font-size:11pt; line-height:1.7;
+}
+.sheet{
+  max-width:900px; margin:24px auto; padding:44px 56px 56px;
+  background:var(--paper); box-shadow:0 1px 8px rgba(0,0,0,.10);
+}
+
+.doc-head{border-bottom:3px solid var(--ink); padding-bottom:14px; margin-bottom:14px;}
+.doc-head .kicker{
+  display:inline-block; background:var(--key); color:#fff; font-size:9pt;
+  padding:3px 11px; border-radius:4px; letter-spacing:1px; font-weight:700;
+  margin-bottom:10px;
+}
+.doc-head h1{margin:0 0 8px; font-size:24pt; letter-spacing:-.6px; line-height:1.3;}
+.doc-head .sub{font-size:10pt; color:var(--ink-soft); line-height:1.6;}
+.doc-head .sub b{color:var(--key);}
+
+.lead{
+  background:#FAFAFE; border-left:4px solid var(--key);
+  padding:16px 22px; margin:0 0 32px; border-radius:0 5px 5px 0; font-size:11pt;
+}
+.lead > *:first-child{margin-top:0;} .lead > *:last-child{margin-bottom:0;}
+
+.toc{border:1px solid var(--rule); border-radius:6px; padding:18px 24px; margin-bottom:34px;}
+.toc h4{margin:0 0 10px; font-size:10pt; color:var(--key); letter-spacing:.4px;}
+.toc ol{margin:0; padding-left:20px; columns:2; column-gap:36px;}
+.toc li{margin-bottom:5px; font-size:10pt;}
+.toc a{color:var(--ink); text-decoration:none;}
+.toc a:hover{color:var(--key); text-decoration:underline;}
+
+.lesson{margin:0 0 44px;}
+.lesson > h2{
+  margin:0 0 18px; font-size:16.5pt; letter-spacing:-.3px; line-height:1.35;
+  padding-bottom:9px; border-bottom:2px solid var(--key);
+}
+.lesson > h2 .no{
+  display:inline-block; background:var(--key); color:#fff;
+  font-size:9pt; padding:3px 9px; border-radius:4px; margin-right:10px;
+  vertical-align:3px; letter-spacing:.5px; font-weight:700;
+}
+h3{margin:28px 0 10px; font-size:12pt; color:var(--key);
+   padding-bottom:5px; border-bottom:1px solid var(--rule);}
+h4{margin:22px 0 8px; font-size:11pt;}
+
+p{margin:12px 0;}
+ul,ol{margin:12px 0; padding-left:24px;}
+li{margin-bottom:8px;}
+li::marker{color:var(--key);}
+li > ul{margin:8px 0;}
+
+.hl{background:var(--hl); padding:1px 3px; border-radius:2px;}
+.key{color:var(--key); font-weight:700;}
+.bad{color:var(--danger); font-weight:700;}
+.good{color:var(--ok); font-weight:700;}
+.tag{display:inline-block; font-size:8.5pt; padding:2px 8px; border-radius:10px;
+  background:var(--key-soft); color:var(--key); font-weight:700; margin-right:6px; vertical-align:2px;}
+.tag.warn{background:#FEF2F2; color:var(--danger);}
+.tag.ok{background:#ECFDF5; color:var(--ok);}
+
+kbd{display:inline-block; font-family:"D2Coding","Consolas",monospace; font-size:9.5pt;
+  background:#fff; border:1px solid #CBD0DA; border-bottom-width:2px; border-radius:4px;
+  padding:0 6px; line-height:1.7; color:var(--ink); font-weight:600;}
+
+.note{border-left:4px solid var(--key); background:#FAFAFE;
+  padding:14px 20px; margin:18px 0; border-radius:0 5px 5px 0;}
+.note.warn{border-left-color:var(--danger); background:#FEFAFA;}
+.note.ok{border-left-color:var(--ok); background:#F7FDFA;}
+.note .t{font-weight:700; color:var(--key); margin-bottom:6px; font-size:11pt;}
+.note.warn .t{color:var(--danger);}
+.note.ok .t{color:var(--ok);}
+.note > *:last-child{margin-bottom:0;} .note > *:first-child{margin-top:0;}
+
+code,pre{font-family:"D2Coding","Consolas","Menlo",monospace;}
+pre{background:var(--code-bg); border-radius:5px; padding:16px 20px;
+  font-size:9.6pt; line-height:1.6; margin:14px 0; overflow-x:auto; white-space:pre;}
+code{background:var(--code-bg); padding:2px 5px; border-radius:3px; font-size:10pt;}
+pre .c{color:#6B7280;}
+pre .k{color:var(--key); font-weight:700;}
+pre .r{color:var(--danger); font-weight:700;}
+
+.tbl-wrap{overflow-x:auto; margin:14px 0;}
+table{width:100%; border-collapse:collapse; font-size:10pt;}
+th{text-align:left; font-weight:700; padding:10px 12px 9px; color:var(--ink);
+  border-bottom:2px solid var(--ink); white-space:nowrap;}
+td{padding:11px 12px; border-bottom:1px solid var(--rule); vertical-align:top; line-height:1.6;}
+td:first-child{white-space:nowrap;}
+td.wrap:first-child{white-space:normal;}
+td code{font-size:9.4pt;}
+
+/* ── figures with screenshots ─────────────────────────────── */
+figure{margin:24px 0;}
+figure img{display:block; max-width:100%; height:auto; margin:0 auto;
+  border:1px solid var(--rule); border-radius:4px; background:#fff;}
+svg{display:block; max-width:100%; margin:0 auto;}
+figcaption{font-size:9.5pt; color:var(--ink-soft); margin-top:9px; line-height:1.6;}
+figcaption .fno{font-weight:700; color:var(--key); margin-right:6px;}
+.figpair{display:grid; grid-template-columns:1fr 1fr; gap:20px; margin:24px 0;}
+.figpair figure{margin:0;}
+.figpair img{width:100%;}
+
+ol.legend{list-style:none; counter-reset:lg; margin:10px 0 0; padding:0;}
+ol.legend li{counter-increment:lg; position:relative; padding-left:25px;
+  margin-bottom:7px; font-size:9.5pt; line-height:1.6; color:var(--ink-soft);}
+ol.legend li::before{
+  content:counter(lg); position:absolute; left:0; top:2px;
+  width:17px; height:17px; border-radius:50%; background:#D6191A; color:#fff;
+  font-family:"D2Coding","Consolas",monospace; font-size:8.5pt; font-weight:700;
+  text-align:center; line-height:17px;}
+ol.legend li b{color:var(--ink);}
+
+/* ── F5~F8 key cards ──────────────────────────────────────── */
+.keys{display:grid; grid-template-columns:repeat(auto-fit,minmax(180px,1fr));
+  gap:1px; background:var(--rule); border:1px solid var(--rule); border-radius:6px;
+  overflow:hidden; margin:18px 0;}
+.keycard{background:var(--paper); padding:15px 16px;}
+.keycard .kk{font-family:"D2Coding","Consolas",monospace; font-size:14pt;
+  font-weight:700; color:var(--key);}
+.keycard .kn{font-weight:700; font-size:10.5pt; margin-top:3px;}
+.keycard .kd{font-size:9.5pt; color:var(--ink-soft); margin-top:6px; line-height:1.6;}
+
+/* ── step marker ──────────────────────────────────────────── */
+.step{display:flex; align-items:baseline; gap:12px; margin:24px 0 4px;
+  padding-top:14px; border-top:1px solid var(--rule);}
+.step .n{flex:none; background:var(--key-soft); color:var(--key); font-weight:700;
+  font-family:"D2Coding","Consolas",monospace; font-size:8.5pt; letter-spacing:.6px;
+  padding:3px 9px; border-radius:4px;}
+.step p{margin:0; font-size:10.5pt;}
+
+.diagram{background:#FAFAFE; border:1px solid var(--rule); border-radius:6px;
+  padding:20px 14px; margin:20px 0; overflow-x:auto;}
+
+@media print{
+  body{background:#fff; font-size:10pt;}
+  .sheet{max-width:none; margin:0; box-shadow:none; padding:0;}
+  .lesson > h2{page-break-after:avoid;}
+  pre,table,figure,.note,.keys{page-break-inside:avoid;}
+  @page{size:A4; margin:16mm 14mm;}
+}
+@media (max-width:720px){
+  .sheet{padding:26px 20px 40px;}
+  .toc ol{columns:1;}
+  .figpair{grid-template-columns:1fr;}
+}
+.crumb{
+  max-width:900px; margin:20px auto 0; padding:0 56px;
+  font-size:9.5pt; color:var(--ink-soft);
+}
+.crumb a{color:var(--key); text-decoration:none; font-weight:700;}
+.crumb a:hover{text-decoration:underline;}
+@media (max-width:720px){ .crumb{padding:0 20px;} }
+</style>
+</head>
+<body>
+<div class="crumb"><a href="/">← SAP 학습 자료실</a> · ABAP 개발 · 디버깅 / 운영 트러블슈팅</div>
+<div class="sheet">
+
+<div class="doc-head">
+  <div class="kicker">FIELD NOTE</div>
+  <h1>ABAP 디버깅 실무 노트</h1>
+  <div class="sub">
+    진입 · 멈추기 · 값 바꾸기 — 운영에서 실제로 손이 가는 것만, 작업 화면 캡처와 함께<br>
+    대상 시스템: <b>winerp01 / MEP</b> · 캡처 23장, 조작 지점 표시 · 계속 추가 중
+  </div>
+</div>
+
+<div class="lead">
+  <p><b>결론부터.</b> 디버깅의 8할은 값을 들여다보는 일이 아니라 <span class="hl">어디서 멈출지 정하는 일</span>입니다. 그래서 이 노트는 기능 설명이 아니라 <b>세 가지 질문</b>으로 구성했습니다.</p>
+  <p><b>①</b> 디버거를 어떻게 켜는가 · <b>②</b> 원하는 지점에서 어떻게 잡는가 · <b>③</b> 재현이 안 될 때 값을 어떻게 만드는가.</p>
+  <p>모든 캡처는 실제 작업 화면이고, <b class="bad">빨간 박스와 번호</b>가 눌러야 할 지점입니다.</p>
+</div>
+
+<div class="toc">
+  <h4>목차</h4>
+  <ol>
+    <li><a href="#l1">진입 — 디버거를 어떻게 켜는가</a></li>
+    <li><a href="#l2">멈추는 법 — 소스 위치를 모를 때</a></li>
+    <li><a href="#l3">값 바꾸는 법 — 재현이 안 될 때</a></li>
+    <li><a href="#cheat">상황별 처방 치트시트</a></li>
+    <li><a href="#danger">반드시 지킬 것</a></li>
+  </ol>
+</div>
+
+<!-- ══════════ 1 ══════════ -->
+<div class="lesson" id="l1">
+<h2><span class="no">LESSON 1</span>진입 — 디버거를 어떻게 켜는가</h2>
+
+<p>진입 방법은 딱 하나의 기준으로 갈립니다. <b>멈출 위치를 아는가.</b> 모르면 <code>/h</code>, 알면 브레이크포인트입니다.</p>
+
+<h3 id="l1-1">1-1 &nbsp;<code>/h</code> — 위치를 모를 때</h3>
+<p>명령창에 <code>/h</code> 를 입력하고 <kbd>Enter</kbd>. 화면 하단에 "디버깅 켜짐" 메시지가 뜨고, <span class="hl">그 다음 화면 전환부터</span> 디버거가 뜹니다. 즉 <code>/h</code> 를 누른 직후가 아니라 <b>다음 액션(실행 · 저장 · 버튼 클릭)에서 잡힙니다.</b></p>
+
+<figure>
+  <img src="/assets/img/debug/01-h-command-field.png" alt="SAP 청구 문서 생성 화면 좌측 상단 명령창에 /H가 입력된 상태">
+  <figcaption><span class="fno">그림 1</span>청구 문서 생성 화면에서 <code>/H</code> 입력.
+    <ol class="legend">
+      <li><b>명령창</b> — 화면 좌측 최상단, 트랜잭션 코드를 치는 그 필드. 여기에 <code>/h</code> 입력 후 <kbd>Enter</kbd> → 이 화면의 실행 버튼을 누르는 순간 디버거 진입.</li>
+    </ol>
+  </figcaption>
+</figure>
+
+<div class="note"><div class="t">대소문자 무관</div>
+<p><code>/h</code>, <code>/H</code> 둘 다 동작합니다. 한 번 켜면 다음 한 번만 유효하고, 디버거에서 나오면 다시 꺼집니다.</p></div>
+
+<div class="tbl-wrap">
+<table>
+  <tr><th style="width:110px">명령</th><th>범위</th><th>쓰는 때</th></tr>
+  <tr><td><code>/h</code></td><td>세션 디버깅 — 내 ABAP 코드 수준에서 정지. 표준 · 시스템 코드는 건너뜀</td><td>평소 쓰는 것</td></tr>
+  <tr><td><code>/hs</code></td><td>시스템 디버깅 — 시스템 프로그램 · 표준 FM 내부까지 진입</td><td>표준 로직을 파야 할 때만. <span class="bad">스텝 폭증 + 권한 필요</span></td></tr>
+</table>
+</div>
+
+<h3 id="l1-2">1-2 &nbsp;브레이크포인트 — 멈출 위치를 알 때</h3>
+<p>소스에서 라인을 직접 지정하는 방식입니다. 종류가 <b>세션 BP</b>와 <b>외부(External) BP</b> 두 개인데, 겉보기는 같고 <span class="hl">유효 범위가 다릅니다.</span> 이 차이를 모르면 "BP를 걸었는데 안 멈춘다"에서 30분을 태웁니다.</p>
+
+<h4>어떻게 거는가 — 커서를 두고 툴바 버튼을 누른다</h4>
+<p>SE38 · SE80 소스 편집기 상단, <code>패턴</code> 버튼 <b>바로 왼쪽</b>에 빨간 정지 표지 아이콘 두 개가 붙어 있습니다. <span class="hl">멈추고 싶은 행에 커서를 두고</span> 이 버튼을 누르면 그 행에 BP가 걸립니다. 한 번 더 누르면 해제.</p>
+
+<figure>
+  <img src="/assets/img/debug/02-bp-set-flow.jpg" alt="ABAP 편집기에서 툴바의 브레이크포인트 버튼과 11행에 걸린 브레이크포인트를 선으로 연결한 화면">
+  <figcaption><span class="fno">그림 2</span><code>ZMM10800_F01</code> — 툴바 버튼과 그 결과가 걸린 행.
+    <ol class="legend">
+      <li><b>툴바의 BP 버튼 두 개</b>(<code>패턴</code> 왼쪽). 커서를 <b>②의 행</b>에 두고 이 버튼을 누른 것입니다.</li>
+      <li><b>세션 BP가 걸린 행</b> — 11행 <code>REFRESH: gt_mard, ...</code> 가 라인 전체 빨간 반전. 커서가 있던 행에 그대로 걸립니다.</li>
+      <li><b>외부 BP 아이콘</b> — 같은 11행 좌측 여백. 이 화면은 세션 BP와 외부 BP가 <b>둘 다</b> 걸린 상태입니다.</li>
+    </ol>
+    <span class="tag">순서 — 행 클릭(커서 위치) → 툴바 버튼 → 즉시 반영</span>
+  </figcaption>
+</figure>
+
+<p><b>소스에서 우클릭</b>해도 됩니다 — <code>Create Session Breakpoint</code>(세션) · <code>Create User Breakpoint</code>(외부)가 컨텍스트 메뉴에 있습니다 (→ <a href="#l3-2" style="color:var(--key);font-weight:700;">그림 19</a>).</p>
+
+<p>커서 위치가 곧 BP 위치입니다. 엉뚱한 행에 걸렸다면 커서가 그 행에 있었던 것. 또 <b>실행문이 아닌 행</b>(주석, <code>DATA</code> 선언, 빈 줄)에는 걸어도 무시되거나 다음 실행문으로 밀립니다.</p>
+
+<h4>두 버튼 구분법 — 모니터냐 사람이냐</h4>
+<figure>
+  <img src="/assets/img/debug/03-bp-buttons.png" alt="편집기 툴바의 세션 브레이크포인트 버튼과 외부 브레이크포인트 버튼 확대">
+  <figcaption><span class="fno">그림 3</span>편집기 툴바 확대.
+    <ol class="legend">
+      <li><b>세션 브레이크포인트 설정/삭제</b> — 정지 표지 + <b>모니터</b>. 화면(내 세션)을 뜻합니다.</li>
+      <li><b>외부 브레이크포인트 설정/삭제</b> — 정지 표지 + <b>사람</b>. 사용자(User)를 뜻합니다.</li>
+    </ol>
+  </figcaption>
+</figure>
+
+<div class="figpair">
+  <figure>
+    <img src="/assets/img/debug/04-session-bp.jpg" alt="ABAP 소스 24행에 세션 브레이크포인트가 걸려 라인 전체가 빨갛게 표시된 화면">
+    <figcaption><span class="fno">그림 4</span><b>세션 BP</b>
+      <ol class="legend"><li>24행 <code>REFRESH: consign_tab.</code> 이 <b>라인 전체 빨간 반전</b>.</li></ol>
+    </figcaption>
+  </figure>
+  <figure>
+    <img src="/assets/img/debug/05-external-bp.jpg" alt="같은 소스 24행 좌측 여백에 외부 브레이크포인트 아이콘만 표시된 화면">
+    <figcaption><span class="fno">그림 5</span><b>외부 BP</b>
+      <ol class="legend"><li>라인 반전 없이 <b>좌측 여백에 아이콘만</b>. 눈에 잘 안 띄어 지우는 걸 잊기 쉽습니다.</li></ol>
+    </figcaption>
+  </figure>
+</div>
+
+<div class="tbl-wrap">
+<table>
+  <tr><th style="width:110px">구분</th><th>세션 BP</th><th>외부 BP</th></tr>
+  <tr><td>버튼</td><td>정지표지 + 모니터</td><td>정지표지 + 사람</td></tr>
+  <tr><td>화면 표시</td><td>라인 전체 빨간 반전</td><td>좌측 여백 아이콘만</td></tr>
+  <tr><td>유효 범위</td><td>현재 로그온 세션</td><td>사용자 ID (로그오프해도 유지)</td></tr>
+  <tr><td>소멸 시점</td><td>로그오프 시 자동 소멸</td><td><span class="hl">수동으로 지워야 소멸</span></td></tr>
+  <tr><td>최대 개수</td><td>30개</td><td>30개</td></tr>
+  <tr><td>사전 설정</td><td>없음 — 바로 동작</td><td><span class="bad">필요</span> (→ 1-3)</td></tr>
+  <tr><td>주 용도</td><td>SE38 / SE80에서 내 실행 디버깅</td><td>BSP · RFC · HTTP · 웹 · 인터페이스</td></tr>
+</table>
+</div>
+
+<p><b>왜 외부 BP가 필요한가.</b> BSP 화면, RFC 호출, HTTP 요청은 <span class="hl">내 GUI 세션이 아닌 별도 워크프로세스에서 실행</span>됩니다. 그래서 세션 BP는 원리적으로 걸리지 않습니다.</p>
+
+<h3 id="l1-3">1-3 &nbsp;외부 디버깅 사전 설정 — 웹 ID를 맞춰야 걸린다</h3>
+<p>외부 BP를 찍기만 하면 되는 게 아닙니다. <b>어느 사용자 ID로 들어오는 요청을 잡을지</b>를 설정에서 먼저 지정해야 합니다. 여기가 비어 있거나 다른 ID면 <span class="hl">BP를 걸어도 아무 일도 일어나지 않습니다.</span></p>
+
+<div class="note"><div class="t">동작 원리 — ID가 조건의 절반</div>
+<p>외부 BP는 "소스의 이 줄"이 아니라 <b>"이 사용자 ID로 들어오는 외부 요청이 이 줄을 지날 때"</b>를 조건으로 겁니다. 줄만 맞고 ID가 틀리면 조건이 성립하지 않으므로 그냥 지나갑니다 — <b class="bad">에러도 경고도 없습니다.</b></p></div>
+
+<figure>
+  <img src="/assets/img/debug/06-utilities-settings.png" alt="ABAP 편집기 메뉴에서 Utilities - Settings를 선택하는 화면">
+  <figcaption><span class="fno">그림 6</span>진입 경로 — SE38 · SE80 편집기에서 <code>Utilities(M) &gt; Settings…</code>
+    <ol class="legend"><li><b>Settings…</b> 클릭 → <code>User-Specific Settings</code> 팝업. <span class="tag">한글 GUI: 유틸리티(M) &gt; 세팅(N)</span></li></ol>
+  </figcaption>
+</figure>
+
+<figure>
+  <img src="/assets/img/debug/07-debugging-tab.png" alt="User-Specific Settings 팝업의 ABAP 편집기 Debugging 탭 화면">
+  <figcaption><span class="fno">그림 7</span><code>ABAP 편집기 &gt; Debugging</code> 탭
+    <ol class="legend">
+      <li><b>Debugging External Requests &gt; User</b> — 여기에 <span class="hl">웹 · 인터페이스에서 실제로 SAP를 호출하는 사용자 ID</span>를 입력합니다. 기본값은 내 GUI 로그온 ID(<code>P07993</code>)라서, <b>호출 주체가 다르면 반드시 바꿔야 합니다.</b></li>
+      <li><b>Session Breakpoint Active Immediately</b> — 세션 BP를 설정 즉시 활성화. 디버깅이 잦으면 켜두는 편이 편합니다.</li>
+    </ol>
+  </figcaption>
+</figure>
+
+<h4>User 칸에 무엇을 넣나 — 호출 주체별</h4>
+<div class="tbl-wrap">
+<table>
+  <tr><th style="width:150px">호출 유형</th><th>넣을 ID</th><th>확인 방법</th></tr>
+  <tr><td class="wrap">BSP · Web Dynpro</td><td>웹 화면에 로그인한 SAP 사용자 ID</td><td><code>SM04</code> · <code>AL08</code></td></tr>
+  <tr><td class="wrap">RFC<br>(외부 시스템 → SAP)</td><td><span class="hl">통신용 전용 계정</span> — RFC Destination에 지정된 ID</td><td><code>SM59</code> → Destination → 로그온 탭</td></tr>
+  <tr><td class="wrap">HTTP · 웹서비스</td><td>서비스에 설정된 ID</td><td><code>SICF</code> → 서비스 → 로그온 데이터</td></tr>
+  <tr><td class="wrap">배치 · 잡</td><td>잡 생성자 또는 스텝 실행 사용자</td><td><code>SM37</code> → 잡 상세 → 스텝</td></tr>
+</table>
+</div>
+
+<div class="note warn"><div class="t">가장 흔한 실수</div>
+<p>RFC · 인터페이스 건인데 <b>내 개인 ID를 그대로 두는 것.</b> 외부 시스템은 대개 전용 통신 사용자로 붙기 때문에 내 ID로는 절대 안 잡힙니다. <code>SM59</code>에서 먼저 확인하세요.</p></div>
+
+<h4>같은 화면의 나머지 옵션</h4>
+<div class="tbl-wrap">
+<table>
+  <tr><th style="width:190px">옵션</th><th>의미</th></tr>
+  <tr><td class="wrap">Only Current<br>Application Server</td><td>현재 접속한 앱 서버로 들어오는 요청만 대상. <b>다중 앱 서버 환경에서는 체크를 풀어야</b> 다른 서버로 들어온 요청도 잡힙니다. 안 잡힐 때 제일 먼저 볼 곳</td></tr>
+  <tr><td class="wrap">Terminal ID</td><td>사용자 ID를 특정할 수 없을 때(공용 계정, 익명 웹 요청) 단말 기준으로 잡는 방식. User 대신 이쪽을 선택</td></tr>
+  <tr><td class="wrap">Classic / New Debugger</td><td><b>New Debugger</b> 권장. 변수 · 내부테이블 조회, Debugger Layer 등 이 노트의 기능 대부분이 New Debugger 기준</td></tr>
+</table>
+</div>
+
+<h4>외부 디버깅 체크리스트</h4>
+<div class="tbl-wrap">
+<table>
+  <tr><th style="width:50px">순서</th><th>할 일</th><th>확인 포인트</th></tr>
+  <tr><td>1</td><td><code>Utilities &gt; Settings &gt; ABAP 편집기 &gt; Debugging</code></td><td><span class="hl">User = 실제 호출 주체 ID</span></td></tr>
+  <tr><td>2</td><td>Only Current Application Server</td><td>다중 서버면 체크 해제</td></tr>
+  <tr><td>3</td><td>New Debugger 선택</td><td>Classic이면 기능 제약</td></tr>
+  <tr><td>4</td><td>소스에서 <b>외부 BP</b>(사람 아이콘) 설정</td><td>세션 BP(모니터)와 혼동 금지</td></tr>
+  <tr><td>5</td><td>웹 · 인터페이스에서 해당 기능 호출</td><td>GUI 세션에 디버거가 뜸</td></tr>
+  <tr><td>6</td><td>작업 후 BP 삭제 + User 원복</td><td><span class="bad">이 단계를 빼먹으면 사고</span></td></tr>
+</table>
+</div>
+
+<div class="note warn"><div class="t">외부 BP는 반드시 해제할 것</div>
+<p>이 설정에 남은 사용자 ID + 지워지지 않은 외부 BP 조합으로, 같은 ID로 도는 인터페이스 · 배치가 디버거에 걸려 멈춥니다. 작업이 끝나면 <code>Breakpoints &gt; Delete all BPs</code>, 그리고 이 설정의 User도 원복.</p></div>
+
+<h3 id="l1-4">1-4 &nbsp;F5 · F6 · F7 · F8 — 어디로 가는가</h3>
+<p>네 키의 차이는 하나로 정리됩니다. <b>호출문(<code>PERFORM</code> · <code>CALL FUNCTION</code> · <code>LOOP</code>)을 만났을 때 안으로 들어가느냐</b>, 그리고 <b>어디까지 한 번에 실행하느냐.</b></p>
+
+<figure>
+  <img src="/assets/img/debug/08-step-toolbar.png" alt="디버거 상단 스텝 실행 툴바 아이콘 4개 확대">
+  <figcaption><span class="fno">그림 8</span>디버거 상단 스텝 툴바. 키보드 대신 이 버튼으로도 됩니다. <b>아이콘 모양이 곧 동작</b>입니다.
+    <ol class="legend">
+      <li><b>단일 스텝</b> <kbd>F5</kbd> — 화살표가 블록 <b>안으로</b> 꺾여 들어감</li>
+      <li><b>실행</b> <kbd>F6</kbd> — 화살표가 블록을 <b>감싸고</b> 지나감</li>
+      <li><b>복귀</b> <kbd>F7</kbd> — 화살표가 블록 <b>밖으로</b> 나옴</li>
+      <li><b>계속</b> <kbd>F8</kbd> — 화살표가 위에서 아래로 <b>관통</b></li>
+    </ol>
+  </figcaption>
+</figure>
+
+<div class="keys">
+  <div class="keycard"><div class="kk">F5</div><div class="kn">단일 스텝 (Step Into)</div>
+    <div class="kd">무조건 <b>바로 다음 문장</b>으로. 호출문이면 <span class="hl">그 안으로 들어갑니다</span> — FORM 내부, FM 내부, LOOP 첫 회차로. 가장 세밀하고 가장 느림.</div></div>
+  <div class="keycard"><div class="kk">F6</div><div class="kn">실행 (Step Over)</div>
+    <div class="kd">호출문을 <b>통째로 실행하고 다음 줄</b>로. <span class="hl">PERFORM · CALL FUNCTION · LOOP 내부는 통과</span>합니다. 관심 없는 서브루틴을 건너뛸 때.</div></div>
+  <div class="keycard"><div class="kk">F7</div><div class="kn">복귀 (Step Out)</div>
+    <div class="kd">현재 있는 <b>FORM · FM · METHOD를 끝까지 실행하고 밖으로</b>. 잘못 들어왔을 때, 또는 안은 볼 필요 없어졌을 때 탈출.</div></div>
+  <div class="keycard"><div class="kk">F8</div><div class="kn">계속 (Continue)</div>
+    <div class="kd"><b>다음 브레이크포인트까지</b> 실행. BP가 없으면 프로그램 끝까지 달립니다. 조건에 맞는 다음 히트를 볼 때.</div></div>
+</div>
+
+<h4>도해 — 같은 지점에서 세 키가 가는 곳</h4>
+<div class="diagram">
+  <svg viewBox="0 0 700 300" role="img" aria-label="F5는 FORM 내부로, F6는 호출문을 통째로 실행하고 다음 줄로, F7은 FORM을 끝내고 호출부로 돌아가는 흐름 도해">
+    <defs><marker id="ar" markerWidth="9" markerHeight="9" refX="6.5" refY="3" orient="auto">
+      <path d="M0,0 L6.5,3 L0,6 z" fill="#4338CA"/></marker></defs>
+    <rect x="66" y="34" width="272" height="116" rx="4" fill="#fff" stroke="#E5E7EB"/>
+    <text x="66" y="24" font-family="D2Coding, Consolas, monospace" font-size="11" fill="#888">호출부 · MAIN</text>
+    <text x="78" y="60" font-family="D2Coding, Consolas, monospace" font-size="13" fill="#555">10  CLEAR gv_flag.</text>
+    <rect x="72" y="70" width="260" height="22" rx="3" fill="#FEF08A"/>
+    <text x="78" y="86" font-family="D2Coding, Consolas, monospace" font-size="13" fill="#3F3204" font-weight="600">11  PERFORM selling_goods.</text>
+    <text x="78" y="112" font-family="D2Coding, Consolas, monospace" font-size="13" fill="#555">12  WRITE gv_total.</text>
+    <text x="78" y="138" font-family="D2Coding, Consolas, monospace" font-size="13" fill="#555">13  ENDIF.</text>
+    <rect x="404" y="34" width="282" height="164" rx="4" fill="#fff" stroke="#E5E7EB"/>
+    <text x="404" y="24" font-family="D2Coding, Consolas, monospace" font-size="11" fill="#888">서브루틴 · FORM</text>
+    <text x="416" y="60" font-family="D2Coding, Consolas, monospace" font-size="13" fill="#555">40  FORM selling_goods.</text>
+    <text x="416" y="86" font-family="D2Coding, Consolas, monospace" font-size="13" fill="#555">41    REFRESH consign_tab.</text>
+    <text x="416" y="112" font-family="D2Coding, Consolas, monospace" font-size="13" fill="#555">42    LOOP AT lt_msum.</text>
+    <text x="416" y="138" font-family="D2Coding, Consolas, monospace" font-size="13" fill="#555">43    ENDLOOP.</text>
+    <text x="416" y="164" font-family="D2Coding, Consolas, monospace" font-size="13" fill="#555">44  ENDFORM.</text>
+    <path d="M338,81 C364,81 376,82 400,82" fill="none" stroke="#4338CA" stroke-width="1.7" marker-end="url(#ar)"/>
+    <text x="352" y="74" font-family="D2Coding, Consolas, monospace" font-size="12" font-weight="700" fill="#4338CA">F5</text>
+    <path d="M66,81 C38,81 38,106 62,106" fill="none" stroke="#4338CA" stroke-width="1.7" marker-end="url(#ar)"/>
+    <text x="16" y="78" font-family="D2Coding, Consolas, monospace" font-size="12" font-weight="700" fill="#4338CA">F6</text>
+    <path d="M410,126 C388,126 386,226 344,226 L120,226 C90,226 88,122 62,116" fill="none" stroke="#4338CA" stroke-width="1.7" stroke-dasharray="5 4" marker-end="url(#ar)"/>
+    <text x="222" y="242" font-family="D2Coding, Consolas, monospace" font-size="12" font-weight="700" fill="#4338CA">F7</text>
+    <text x="16" y="276" font-family="Malgun Gothic, sans-serif" font-size="12.5" fill="#555">커서가 11행 PERFORM 에 있을 때 —  F5 → 41행(FORM 안으로)  ·  F6 → 12행(FORM을 통째로 실행)</text>
+    <text x="16" y="294" font-family="Malgun Gothic, sans-serif" font-size="12.5" fill="#555">이미 FORM 안(42행)에 있을 때 —  F7 → FORM을 끝까지 실행하고 12행으로 복귀</text>
+  </svg>
+</div>
+
+<h4>실전 판단 기준</h4>
+<div class="tbl-wrap">
+<table>
+  <tr><th style="width:170px">언제</th><th>무엇을</th></tr>
+  <tr><td class="wrap"><b>F6를 기본으로</b><br><code>Step Over</code></td><td>일단 F6로 훑으며 <b>어느 호출에서 값이 깨지는지</b> 범위를 좁힙니다. 처음부터 F5로 들어가면 표준 코드에서 길을 잃습니다</td></tr>
+  <tr><td class="wrap"><b>범위가 좁혀지면 F5</b><br><code>Step Into</code></td><td>문제의 호출문에서만 F5로 진입. "여기 들어가기 전엔 정상, 나오니 깨졌다"를 확인한 뒤 안으로</td></tr>
+  <tr><td class="wrap"><b>잘못 들어왔으면 F7</b><br><code>Step Out</code></td><td>F5를 눌렀다가 표준 FM 내부로 빨려들어갔을 때 즉시 F7. 여러 겹이면 F7을 겹쳐 누름</td></tr>
+  <tr><td class="wrap"><b>LOOP 대량건은 F8</b><br><code>Continue</code></td><td>LOOP 안에 BP를 두고 F8로 회차를 넘깁니다. 특정 회차만 필요하면 <code>SY-TABIX</code> Watchpoint (→ 2-3)</td></tr>
+</table>
+</div>
+
+<div class="note"><div class="t">F6인데 안으로 들어가는 경우</div>
+<p>호출문 내부에 BP가 걸려 있으면 F6로 통과시키려 해도 그 BP에서 멈춥니다. 의도한 게 아니면 BP를 먼저 지우세요.</p></div>
+
+<h3 id="l1-5">1-5 &nbsp;내 세션이 아닐 때</h3>
+<p>운영에서 실제로 막히는 지점은 대부분 여기입니다. <b>내 화면에서 재현이 안 되는 건들</b> — 남의 세션에서 도는 것, 밤에 배치로 도는 것, 저장 이후에 벌어지는 것.</p>
+
+<h4>SM50 — 지금 돌고 있는 프로세스에 붙기</h4>
+<p><code>SM50</code>은 <b>이 앱 서버의 워크프로세스 현황판</b>입니다. 누가 어떤 프로그램을 돌리는 중인지 보이고, 그 프로세스에 디버거를 붙일 수 있습니다.</p>
+
+<figure>
+  <img src="/assets/img/debug/09-sm50.png" alt="SM50 프로세스 개요에서 상태 컬럼과 레포트·사용자이름 컬럼을 표시한 화면">
+  <figcaption><span class="fno">그림 9</span><code>SM50</code> 프로세스 개요 — 컬럼 헤더(위)와 22~25번 행(아래). 가운데 빈 컬럼은 접었습니다.
+    <ol class="legend">
+      <li><b>상태 · 대기중 컬럼</b> — 23번은 <code>실행</code>(처리 중), 24번은 <code>보류</code> + <code>Debug</code>. <span class="hl">보류 + Debug 조합이 보이면 그 프로세스는 누군가의 디버거에 잡혀 멈춰 있는 것</span>입니다.</li>
+      <li><b>레포트 · 사용자이름 컬럼</b> — 붙을 대상을 여기서 찾습니다. 23번은 <code>ZSM12014</code> 를 <code>S2301</code> 이 실행 중. 24번의 <code>CL_TPDA_...</code> 는 New Debugger의 내부 클래스라, 디버깅에 붙으면 레포트명이 이렇게 바뀝니다.</li>
+    </ol>
+  </figcaption>
+</figure>
+
+<div class="tbl-wrap">
+<table>
+  <tr><th style="width:120px">항목</th><th>내용</th></tr>
+  <tr><td class="wrap">붙는 법<br>(디버깅)</td><td>대상 프로세스 행 선택 → 메뉴 <code>관리(A) &gt; 프로그램(R) &gt; 디버깅(D)</code> → 확인 팝업에서 <b>예</b>. 툴바가 아니라 <b>메뉴바</b>에 있습니다. (→ 그림 22)</td></tr>
+  <tr><td class="wrap">세부 조회<br>(디버깅 아님)</td><td>행 선택 후 <b>세부사항</b> 버튼 — 그 프로세스의 DB · 세션 · 메모리 통계를 봅니다. <span class="bad">디버거를 붙이는 기능이 아닙니다.</span> (→ 그림 20)</td></tr>
+  <tr><td class="wrap">상태 읽는 법</td><td><code>대기</code> = 놀고 있음 · <code>실행</code> = 처리 중 · <code>보류</code> = 멈춤(디버깅 · 락 대기 등)</td></tr>
+  <tr><td class="wrap">덤으로</td><td>상단 요약에 다이얼로그 <code>50/46(총/가용)</code> 처럼 프로세스 여유가 보입니다. "시스템이 느리다" 신고가 오면 여기부터</td></tr>
+</table>
+</div>
+
+<div class="step"><span class="n">STEP 1</span><p>대상 프로세스 <b>행을 클릭</b>해서 선택합니다.</p></div>
+<div class="step"><span class="n">STEP 2</span><p>메뉴 <code>관리(A) &gt; 프로그램(R) &gt; 디버깅(D)</code></p></div>
+<div class="step"><span class="n">STEP 3</span><p>"프로그램을 디버그하겠습니까?" → <b>예</b></p></div>
+<figure>
+  <img src="/assets/img/debug/22-sm50-debug-menu.png" alt="SM50에서 관리 - 프로그램 - 디버깅 메뉴와 확인 팝업">
+  <figcaption><span class="fno">그림 22</span>SM50 디버깅 메뉴 경로와 확인 팝업.
+    <ol class="legend">
+      <li><code>관리(A)</code> — 메뉴바 첫 번째. 툴바에는 없습니다.</li>
+      <li><code>프로그램(R)</code></li>
+      <li><code>디버깅(D)</code> — 아래 <code>취소(A)</code>는 <b>프로세스를 강제 종료</b>하는 것이니 잘못 누르지 않도록 주의.</li>
+      <li>확인 팝업에서 <b>예</b>. 그러면 <span class="hl">내 세션에 디버거가 열리고</span> 대상 프로세스의 ABAP 컨텍스트가 보입니다.</li>
+    </ol>
+  </figcaption>
+</figure>
+
+<div class="note warn"><div class="t">예를 눌렀는데 화면이 그대로일 때 — 원인 4가지</div>
+<ol>
+  <li><b>대상이 이미 끝났다.</b> SM50 목록은 <span class="hl">스냅샷</span>입니다. 목록을 띄운 순간엔 <code>실행</code>이었어도 메뉴를 여는 사이 <code>대기</code>로 돌아갔으면 붙을 ABAP 컨텍스트가 없습니다. <b>새로 고침 후 다시</b> 확인하세요.</li>
+  <li><b>시스템 프로세스를 골랐다.</b> 사용자가 <code>SAPSYS</code>, 클라이언트 <code>000</code>, 레포트가 <code>SAPLHTTP_...</code> 같은 행은 커널·시스템 처리입니다. 내 업무 프로그램이 아니라 볼 것이 없거나 <code>/hs</code>(시스템 디버깅)가 필요합니다.</li>
+  <li><b>이미 다른 사람이 디버깅 중이다.</b> 상태 <code>보류</code> + 대기중 <code>Debug</code> 인 행(그림 9의 ①).</li>
+  <li><b>권한이 없다.</b> <code>S_ADMI_FCD</code>(PADM) · <code>S_DEVELOP</code>의 DEBUG 권한이 필요합니다.</li>
+</ol>
+</div>
+
+<div class="note ok"><div class="t">확실히 재현해서 연습하는 법</div>
+<ol>
+  <li>명령창에 <code>/o</code> 로 <b>GUI 세션을 하나 더</b> 엽니다.</li>
+  <li>새 세션에서 <b>오래 도는 Z 프로그램</b>을 실행합니다 (큰 <code>SELECT</code>나 LOOP가 있는 것).</li>
+  <li>원래 세션에서 <code>SM50</code> → <b>새로 고침</b> → <span class="hl">사용자이름이 내 ID이고 상태가 실행이며 레포트가 그 프로그램인 행</span>을 고릅니다.</li>
+  <li><code>관리 &gt; 프로그램 &gt; 디버깅</code> → 예. 이러면 확실히 디버거가 뜹니다.</li>
+</ol>
+</div>
+
+<h4>덤으로 — 세부 조회로 "왜 느린가" 보기</h4>
+<p>프로세스를 선택하고 <b>세부사항</b>을 누르면 그 프로세스 한 건의 통계가 나옵니다. <span class="hl">디버깅과는 다른 기능</span>이지만, "이 프로그램이 왜 이렇게 오래 도나"를 볼 때는 디버거보다 이쪽이 빠릅니다.</p>
+<figure>
+  <img src="/assets/img/debug/20-sm50-detail.png" alt="SM50 세부 조회 화면의 DB 통계와 메모리 통계">
+  <figcaption><span class="fno">그림 20</span><code>세부 조회</code> — DB 통계(위)와 메모리 통계(아래).
+    <ol class="legend">
+      <li><b>직접 읽기 vs 순차 읽기</b> — 이 캡처는 직접 <code>2,032</code>건 / 순차 <code>20,309</code>건. <span class="hl">순차 읽기가 압도적으로 많으면 인덱스를 못 타고 있다는 신호</span>입니다. <code>SELECT</code> 조건과 인덱스를 의심할 지점.</li>
+      <li><b>메모리(총계) · 메모리(사용)</b> — 총계 <code>12,588,650</code>바이트(≈12MB), 사용 <code>8,379,776</code>(≈8MB). 이 값이 계속 커지면 내부테이블을 안 비우고 쌓는 중일 수 있고, 한계에 닿으면 <code>TSV_TNEW_PAGE_ALLOC_FAILED</code> 덤프로 이어집니다.</li>
+    </ol>
+    <span class="tag">같은 화면 상단 &lt;선택한 프로세스&gt;에 리포트 · 주 프로그램 · 사용자 · CPU 시간이 함께 나옵니다</span>
+  </figcaption>
+</figure>
+
+<div class="note warn"><div class="t">남의 프로세스에 붙으면 그 사람 작업이 멈춥니다</div>
+<p>운영 중인 업무 세션에 붙기 전에 반드시 당사자에게 알릴 것.</p></div>
+
+<h4>SM37 + JDBG — 끝난 배치 잡을 다시 디버깅</h4>
+<p>배치에서만 실패하는 건은 화면에서 재현이 안 됩니다. <code>JDBG</code>는 <span class="hl">이미 끝난 잡을 디버깅 모드로 다시 태우는</span> 명령입니다.</p>
+
+<div class="step"><span class="n">STEP 1</span><p><code>SM37</code> 실행 → 선택 화면에서 조회 조건을 넣습니다.</p></div>
+<figure>
+  <img src="/assets/img/debug/10-sm37-select.png" alt="SM37 단순 작업 선택 화면">
+  <figcaption><span class="fno">그림 10</span><code>단순 작업 선택</code> — SM37 진입 화면.
+    <ol class="legend">
+      <li><b>작업 이름 · 사용자 이름</b> — 모르면 둘 다 <code>*</code>. 잡 이름을 알면 <code>ZMM*</code> 처럼 좁힙니다.</li>
+      <li><b>작업 상태</b> — <span class="hl"><code>종료</code>가 체크되어 있어야 끝난 잡이 나옵니다.</span> 빠져 있어서 "잡이 안 보인다"가 되는 흔한 지점.</li>
+      <li><b>작업 시작 조건</b> — 날짜 범위. 어제 밤 배치를 보려면 어제~오늘로.</li>
+    </ol>
+  </figcaption>
+</figure>
+
+<div class="step"><span class="n">STEP 2</span><p>목록에서 <b>대상 작업에 체크</b>하고, <b>명령 필드에 <code>JDBG</code></b> 입력 후 <kbd>Enter</kbd>.</p></div>
+<figure>
+  <img src="/assets/img/debug/11-sm37-jdbg.jpg" alt="SM37 작업 개요에서 작업을 체크하고 명령 필드에 JDBG를 입력한 화면">
+  <figcaption><span class="fno">그림 11</span><code>작업 개요</code> — 체크 → 명령 필드.
+    <ol class="legend">
+      <li><b>대상 작업의 체크박스</b>를 켭니다. 한 건만. (커서를 그 행에 두는 것과는 다릅니다 — 체크박스를 눌러야 합니다)</li>
+      <li><b>명령 필드</b>에 <code>JDBG</code> 입력 후 <kbd>Enter</kbd>. 잡의 스텝이 디버거로 다시 실행됩니다.</li>
+    </ol>
+    <span class="tag">명령 필드 = 화면 좌측 최상단, 트랜잭션 코드를 치는 그 칸. <code>/h</code> · <code>/n</code> · <code>/o</code> 도 같은 곳</span>
+  </figcaption>
+</figure>
+
+<div class="note warn"><div class="t">JDBG는 "기록 재생"이 아니라 "재실행"입니다</div>
+<p>잡 스텝이 실제로 다시 돌기 때문에 <span class="hl">DB 변경 · 전표 생성 · 인터페이스 전송이 또 일어납니다.</span> 운영기에서는 결과를 되돌릴 수 있는지 먼저 판단하세요. 안전하게는 QA에서.</p></div>
+
+<h4>Update Debugging — 저장 이후를 보는 법</h4>
+<p><code>CALL FUNCTION ... IN UPDATE TASK</code> 로 등록된 로직은 <code>COMMIT WORK</code> 시점에 <b>별도 업데이트 프로세스에서</b> 실행됩니다. 그래서 일반 디버깅으로 끝까지 따라가도 그 안이 안 보입니다. <span class="hl">"저장은 성공했다는데 DB 값이 다르다"의 정체가 대개 여기입니다.</span></p>
+
+<figure>
+  <img src="/assets/img/debug/21-debugger-settings.png" alt="ABAP 디버거의 Settings 메뉴">
+  <figcaption><span class="fno">그림 21</span>디버거 <code>Settings</code> 메뉴 — 항목이 셋뿐입니다.
+    <ol class="legend">
+      <li><b>Settings</b> — 디버거 상단 메뉴바.</li>
+      <li><b>System Debugging On/Off</b> — <code>/hs</code> 와 같은 것. 디버거 안에서도 켜고 끌 수 있습니다.</li>
+      <li><b>Change Debugger Profile/ Settings</b> (<kbd>Shift</kbd>+<kbd>F1</kbd>) — <mark>Update Debugging 체크박스는 이 다이얼로그 안에 있습니다.</mark> Settings 메뉴에 항목이 바로 안 보여서 "SAP GUI엔 없나?" 하고 헷갈리는 지점.</li>
+    </ol>
+  </figcaption>
+</figure>
+
+<div class="step"><span class="n">STEP 1</span><p>디버거에서 <kbd>Shift</kbd>+<kbd>F1</kbd> → 다이얼로그에서 <b>Update Debugging</b> 체크.</p></div>
+<figure>
+  <img src="/assets/img/debug/23-update-debugging-dialog.jpg" alt="ABAP Debugger Settings 다이얼로그에서 Update Debugging이 체크된 상태">
+  <figcaption><span class="fno">그림 23</span><code>Debugger Settings</code> 다이얼로그 — <code>Debug Modes</code> 그룹 안에 있습니다.
+    <ol class="legend">
+      <li><b>Update Debugging</b> — 체크. 이게 전부입니다.</li>
+      <li><b>System Debuggng</b> — <code>/hs</code> 와 같은 것. 여기서도 켤 수 있습니다. (SAP GUI 표기 그대로 <code>Debuggng</code> 오타)</li>
+      <li><b>Close Debugger After 'Continue'(F8) and Roll Area End</b> — <mark>기본으로 체크되어 있습니다.</mark> "F8 눌렀더니 디버거 창이 그냥 사라졌다"의 원인이 이 설정입니다. 업데이트 태스크는 <b>새 창</b>으로 따로 뜨니 이건 정상 동작입니다.</li>
+    </ol>
+    <span class="tag">하단 저장 아이콘으로 이 설정 조합을 디버거 프로필로 저장해둘 수 있습니다</span>
+  </figcaption>
+</figure>
+
+<div class="step"><span class="n">STEP 2</span><p><kbd>F8</kbd> 로 진행 → <code>COMMIT WORK</code> 를 지나면 업데이트 태스크가 <b>새 디버거 창</b>으로 뜹니다.</p></div>
+
+<div class="tbl-wrap">
+<table>
+  <tr><th style="width:130px">항목</th><th>내용</th></tr>
+  <tr><td class="wrap">대상</td><td><code>IN UPDATE TASK</code> 로 등록된 FM (V1 / V2 모듈)</td></tr>
+  <tr><td class="wrap">짝꿍 T-Code</td><td><code>SM13</code> — 실패하거나 대기 중인 업데이트 레코드 조회. <b>실패 건은 여기서 찾는 게 더 빠릅니다</b></td></tr>
+  <tr><td class="wrap">이클립스(ADT)</td><td>ADT에도 같은 기능이 있고, SAP Help의 <i>Update Debugging</i> 문서는 <b>ADT 기준</b>으로 쓰여 있습니다. SAP GUI에 없다는 뜻이 아니라 문서가 다른 도구를 다룰 뿐입니다</td></tr>
+</table>
+</div>
+<h4>외부 BP — 웹 · RFC · 인터페이스</h4>
+<p>BSP · RFC · HTTP 호출 건은 <a href="#l1-3" style="color:var(--key);font-weight:700;">1-3 외부 디버깅 사전 설정</a>에서 다룹니다. <b>User 필드를 실제 호출 주체 ID로 맞추는 것</b>이 전부입니다.</p>
+
+<div class="note"><div class="t">그 전에 ST22를 봅니다</div>
+<p>덤프의 "ABAP 호출 위치"에서 소스 라인이 바로 나오는 경우가 많아, 진입 자체가 필요 없을 때도 있습니다.</p></div>
+
+</div>
+
+<!-- ══════════ 2 ══════════ -->
+<div class="lesson" id="l2">
+<h2><span class="no">LESSON 2</span>멈추는 법 — 소스 위치를 모를 때</h2>
+
+<p>"에러 메시지는 아는데 어디서 던지는지 모른다", "값이 언제 깨지는지 모른다". 이 두 경우를 위한 기능들입니다.</p>
+
+<h3 id="l2-1">2-1 &nbsp;Breakpoint at Message — 에러 메시지만 알 때</h3>
+<p>메시지 클래스 ID + 번호를 지정하면 <span class="hl">그 메시지가 발생하는 순간 소스에서 정지</span>합니다. 에러 원인 위치를 찾는 최단 경로입니다.</p>
+
+<div class="figpair">
+  <figure>
+    <img src="/assets/img/debug/12-bp-message-menu.jpg" alt="디버거 Breakpoints 메뉴에서 Breakpoint at Message를 선택하는 화면">
+    <figcaption><span class="fno">그림 12</span>메뉴 경로
+      <ol class="legend">
+        <li><code>Breakpoints &gt; Breakpoint at</code> 에 마우스를 올리면 오른쪽으로 서브메뉴가 열립니다.</li>
+        <li>서브메뉴 <b>맨 아래</b> <code>Breakpoint at Message</code> 클릭.</li>
+      </ol>
+    </figcaption>
+  </figure>
+  <figure>
+    <img src="/assets/img/debug/13-bp-message-tab.png" alt="Create Breakpoints 팝업의 Message 탭">
+    <figcaption><span class="fno">그림 13</span><code>Create Breakpoints</code> → <code>Message</code> 탭
+      <ol class="legend">
+        <li><b>ID</b> — 메시지 클래스 (예: <code>ZSD</code>)</li>
+        <li><b>Number</b> — 메시지 번호 (예: <code>012</code>)</li>
+        <li><b>Ty.</b> — 메시지 타입 <code>E/I/W/S/A</code>. <span class="hl">비우면 전체 타입</span></li>
+      </ol>
+    </figcaption>
+  </figure>
+</div>
+
+<pre><span class="c">" 메시지 클래스 ID · 번호 확인하는 법</span>
+화면 하단 메시지 더블클릭  또는  우클릭 &gt; 기술 정보(Technical Information)
+  → Message Class / Message Number 를 그대로 입력</pre>
+
+<div class="note"><div class="t">첫 히트가 원인이 아닐 수 있습니다</div>
+<p>같은 메시지를 여러 곳에서 던지면 처음 멈춘 곳이 진짜 원인이 아닐 수 있습니다. <kbd>F8</kbd>로 다음 히트도 확인하세요.</p></div>
+
+<h3 id="l2-2">2-2 &nbsp;문장 · 모듈 · 예외로 잡기</h3>
+<div class="tbl-wrap">
+<table>
+  <tr><th style="width:160px">종류</th><th style="width:250px">입력값</th><th>대표 활용</th></tr>
+  <tr><td>at Statement</td><td><code>MESSAGE</code></td><td>에러 발생 지점 전수 확인</td></tr>
+  <tr><td></td><td><code>CALL FUNCTION</code> / <code>SUBMIT</code></td><td>표준 호출 경계 파악</td></tr>
+  <tr><td></td><td><code>INSERT</code> / <code>UPDATE</code> / <code>MODIFY</code> / <code>DELETE</code></td><td>어느 로직이 DB를 건드리는지</td></tr>
+  <tr><td></td><td><code>COMMIT WORK</code></td><td>LUW 경계 · 롤백 가능한 마지막 지점</td></tr>
+  <tr><td>at Function Module</td><td><code>BAPI_GOODSMVT_CREATE</code></td><td>표준 BAPI 내부 진입</td></tr>
+  <tr><td>at Method</td><td><code>CLASS=&gt;METHOD</code></td><td>ABAP OO · BOPF</td></tr>
+  <tr><td>at Exception</td><td><code>CX_SY_CONVERSION_NO_NUMBER</code></td><td>덤프 원인 지점 직행</td></tr>
+</table>
+</div>
+<p><code>Breakpoints &gt; Save Debugger BPs as …</code> 로 BP 세트를 저장하면 다음 세션 · 다른 프로그램에서 재사용할 수 있습니다.</p>
+
+<div class="note"><div class="t">at Statement는 히트가 폭발합니다</div>
+<p><b>프로그램 범위(Debugger Layer)</b>나 조건과 함께 쓰세요.</p></div>
+
+<h3 id="l2-3">2-3 &nbsp;Watchpoint — 값이 바뀌는 순간</h3>
+<p>브레이크포인트는 <b>위치</b>, 워치포인트는 <b>값</b>입니다. 어느 줄에서 깨지는지 모를 때 쓰는 유일한 방법입니다.</p>
+
+<div class="step"><span class="n">STEP 1</span><p>디버거 상단 <code>Watchpoint</code> 버튼 또는 <kbd>Shift</kbd>+<kbd>F4</kbd> → <code>Create Watchpoint</code> 팝업.</p></div>
+<figure>
+  <img src="/assets/img/debug/14-watchpoint-create.jpg" alt="Create Watchpoint 팝업 화면">
+  <figcaption><span class="fno">그림 14</span><code>Create Watchpoint</code> 팝업
+    <ol class="legend">
+      <li><b>Variable</b> — 감시할 변수명. 아래 <code>프로그램이름</code>은 현재 프로그램(<code>ZMM10800</code>)으로 <b>자동 입력</b>됩니다.</li>
+      <li><b>Watchpoint at Variable</b> — 기본값. <span class="hl">변수 값이 바뀌는 즉시 정지</span>합니다. 오른쪽 <code>at Object Attribute</code>는 오브젝트 속성을 감시하는 별도 모드(ABAP OO).</li>
+      <li><b>Free Condition Entry</b> — 조건식. <b>비워두면 값이 바뀔 때마다</b> 멈춥니다. 대량 LOOP에서는 여기에 조건을 넣어야 쓸모가 있습니다.</li>
+    </ol>
+    <span class="tag">Only for Local Variables — 로컬 변수를 감시할 때 모든 모듈 인스턴스 vs 현재 인스턴스만</span>
+  </figcaption>
+</figure>
+
+<h4>자주 쓰는 조건식</h4>
+<pre>SY-TABIX      =  100          <span class="c">" LOOP 100번째 회차만</span>
+GS_ITEM-MATNR =  '1000123'    <span class="c">" 특정 자재만</span>
+SY-SUBRC      &lt;&gt; 0            <span class="c">" 실패한 순간</span>
+LV_AMOUNT     &gt;  1000000      <span class="c">" 금액이 튀는 지점</span></pre>
+
+<div class="step"><span class="n">STEP 2</span><p>설정한 BP·WP는 <code>Break./Watchpoints</code> 탭에서 한번에 확인·관리합니다.</p></div>
+<figure>
+  <img src="/assets/img/debug/15-watchpoint-list.png" alt="디버거 Break./Watchpoints 탭의 브레이크포인트 목록">
+  <figcaption><span class="fno">그림 15</span><code>Break./Watchpoints</code> 탭 — 등록된 항목 관리 화면.
+    <ol class="legend">
+      <li><b>Break./Watchpoints 탭</b> — 디버거 상단 데스크톱 탭 중 하나.</li>
+      <li><b>Breakpoints / Watchpoints 서브탭</b> — 둘은 목록이 따로 관리됩니다. 워치포인트를 찾을 땐 오른쪽 탭으로.</li>
+      <li><b>Save as Session BP / Save as External BP</b> — <span class="hl">여기서 세션 BP ↔ 외부 BP로 전환·저장</span>합니다. 소스에서 다시 찍을 필요 없습니다.</li>
+      <li><b>등록된 항목</b> — Visibility <code>Session Breakpoint</code>, Breakpnt Type <code>Source Code</code>, Breakpoint at <code>INCL=ZMM10800(43) / PRG=ZMM10800</code>. 즉 <b>어느 인클루드 몇 번째 줄</b>인지까지 다 보입니다.</li>
+    </ol>
+  </figcaption>
+</figure>
+
+<div class="note"><div class="t">이 화면이 진짜 쓸모 있는 이유</div>
+<p>목록에 <code>Condi...</code>(조건)와 <code>Skip (Nu...</code>(건너뛸 횟수) 컴럼이 있습니다. <span class="hl">이미 걸어둔 BP에 조건식과 "몇 번째 히트부터 멈추기"를 나중에 붙일 수 있다는 뜻</span>입니다. LOOP 안에서 500번째만 보고 싶을 때 <kbd>F8</kbd>을 500번 누를 필요가 없습니다.</p></div>
+
+<figure>
+  <img src="/assets/img/debug/16-navigate-to.jpg" alt="디버거 Navigate to 메뉴에서 Break-/Watchpoint Desktop을 선택">
+  <figcaption><span class="fno">그림 16</span>탭이 안 보일 때 가는 법
+    <ol class="legend">
+      <li><code>Navigate to</code> 메뉴</li>
+      <li><b>Break-/Watchpoint Desktop</b> — 단축키 <kbd>Ctrl</kbd>+<kbd>F10</kbd>. 데스크톱이 <kbd>Ctrl</kbd>+<kbd>F1</kbd>~<kbd>F12</kbd>로 다 매핑되어 있습니다.</li>
+    </ol>
+  </figcaption>
+</figure>
+
+<div class="note"><div class="t">Table 탭이 더 빠를 때가 많습니다</div>
+<p>내부테이블 필드는 <b>Table 탭에서 직접 조회 · 필터</b>하는 편이 빠릅니다. Watchpoint는 매 변경을 감시하므로 무거운 기능입니다.</p></div>
+
+</div>
+
+
+<!-- ══════════ 3 ══════════ -->
+<div class="lesson" id="l3">
+<h2><span class="no">LESSON 3</span>값 바꾸는 법 — 재현이 안 될 때</h2>
+
+<p>데이터가 없어 재현이 안 되거나, 분기를 타지 않아 확인이 안 될 때. <b class="bad">원인 규명용이지 결론용이 아닙니다.</b></p>
+
+<h3 id="l3-1">3-1 &nbsp;SE16N 데이터 직접 수정 — GD-EDIT / GD-SAPEDIT</h3>
+<p><code>SE16N</code> 실행 → <code>/h</code> → 변수 <code>GD-EDIT</code>, <code>GD-SAPEDIT</code> 에 <span class="hl"><code>X</code></span> 입력 → <kbd>F8</kbd>. ALV가 편집 가능 상태로 조회되고, 값 변경 후 저장 버튼으로 반영됩니다.</p>
+
+<figure>
+  <img src="/assets/img/debug/17-gd-edit.png" alt="디버거 변수창에서 GD-EDIT과 GD-SAPEDIT에 X를 입력한 상태">
+  <figcaption><span class="fno">그림 17</span>디버거 변수창
+    <ol class="legend"><li><code>GD-EDIT</code>, <code>GD-SAPEDIT</code> 두 변수의 <b>Val.</b> 칸에 <code>X</code> 입력. 우측 연필 아이콘으로 값 편집 모드.</li></ol>
+  </figcaption>
+</figure>
+
+<figure>
+  <img src="/assets/img/debug/18-se16n.jpg" alt="SE16N 찾은 엔트리 조회 화면 - BKPF 테이블 결과가 편집 가능 상태">
+  <figcaption><span class="fno">그림 18</span><kbd>F8</kbd> 이후 — 편집 가능해진 조회 결과(BKPF). 셀을 직접 수정한 뒤 저장 버튼.</figcaption>
+</figure>
+
+<div class="note warn"><div class="t">VIEW는 저장 시 덤프가 발생합니다</div>
+<p>반드시 <b>실 테이블</b> 기준으로 수정하세요.</p></div>
+
+<div class="note warn"><div class="t">운영기(PRD)에서는 원칙적으로 금지</div>
+<p>변경 로그도, 정합성 검증도 없이 DB가 바뀝니다. DEV / QA에서만.</p></div>
+
+<h3 id="l3-2">3-2 &nbsp;흐름 강제 제어</h3>
+<div class="tbl-wrap">
+<table>
+  <tr><th style="width:170px">방법</th><th>용도</th></tr>
+  <tr><td class="wrap"><b>SY-SUBRC 조작</b></td><td>실패 분기를 성공으로 밀어넣어 이후 로직을 태워봅니다. 원인 확인용</td></tr>
+  <tr><td class="wrap"><b>플래그 · 권한 변수</b></td><td><code>AUTHORITY-CHECK</code> 직후 SUBRC, 편집 가능 플래그 등을 바꿔 화면 상태 재현</td></tr>
+  <tr><td class="wrap"><b>Goto &gt; Statement</b></td><td>커서를 원하는 라인에 두고 점프. IF 분기를 강제로 통과 / 회피</td></tr>
+  <tr><td class="wrap"><b>필드 Hex 편집</b></td><td>길이 초과 · 특수문자 값 재현. 변수창 <code>Hexa</code> 컬럼에서 직접 입력</td></tr>
+  <tr><td class="wrap"><b>내부테이블 편집</b></td><td>Table 탭에서 행 추가 · 삭제 · 값 변경으로 대량건 시나리오를 축소</td></tr>
+</table>
+</div>
+
+<h4>Goto Statement — 커서 위치로 건너뛰기</h4>
+<p><b>소스에서 우클릭</b>으로 바로 쓸 수 있습니다. 건너뛰고 싶은 줄에 커서를 두고 우클릭 → <code>Goto Statement</code>. 그 줄부터 실행이 이어집니다.</p>
+<figure>
+  <img src="/assets/img/debug/19-goto-statement.png" alt="디버거 소스에서 우클릭한 컨텍스트 메뉴">
+  <figcaption><span class="fno">그림 19</span>소스 우클릭 컨텍스트 메뉴
+    <ol class="legend">
+      <li><b>Goto Statement</b> — 커서가 있는 줄로 <span class="hl">실행 지점을 옮깁니다.</span> 사이의 코드는 실행되지 않고 건너뜁니다.</li>
+      <li><b>Create Debugger / Session / User Breakpoint</b> — BP도 여기서 바로 걸 수 있습니다. <code>Session</code>은 1-2의 모니터 버튼과, <code>User</code>는 사람 버튼(외부 BP)과 같은 것입니다.</li>
+    </ol>
+  </figcaption>
+</figure>
+
+<div class="note warn"><div class="t">사이 코드가 통째로 안 돌아간다는 뜻</div>
+<p>건너뛴 구간에서 채워져야 할 변수가 빈 채로 남습니다. 그 상태로 진행하면 엉뚱한 곳에서 터져서 <b>진짜 원인을 더 찾기 어려워집니다.</b> 분기 확인용으로만 쓰세요.</p></div>
+
+<div class="note warn"><div class="t">값을 바꿔 통과시킨 결과는 재현이 아닙니다</div>
+<p>원인 규명 후에는 <b>정상 데이터로 다시 검증</b>해야 합니다.</p></div>
+
+</div>
+
+
+<!-- ══════════ 치트시트 ══════════ -->
+<div class="lesson" id="cheat">
+<h2><span class="no">APPENDIX A</span>상황별 처방 치트시트</h2>
+<div class="tbl-wrap">
+<table>
+  <tr><th style="width:270px">상황</th><th style="width:230px">쓸 기능</th><th>진입 / 조작</th></tr>
+  <tr><td class="wrap">흐름을 전혀 모른다</td><td>/h + F6로 훑기</td><td><code>/h</code> → <kbd>F6</kbd> 반복</td></tr>
+  <tr><td class="wrap">에러 메시지만 알고 위치를 모른다</td><td>Breakpoint at Message</td><td>메시지 클래스 ID + 번호</td></tr>
+  <tr><td class="wrap">값이 언제 깨지는지 모른다</td><td>Watchpoint (조건부)</td><td><kbd>Shift</kbd>+<kbd>F4</kbd> + 조건식</td></tr>
+  <tr><td class="wrap">서브루틴 안으로 잘못 들어왔다</td><td>Step Out</td><td><kbd>F7</kbd> (겹쳐 누르기)</td></tr>
+  <tr><td class="wrap">테스트 데이터가 없다</td><td>SE16N 편집</td><td><code>GD-EDIT</code> / <code>GD-SAPEDIT</code> = X</td></tr>
+  <tr><td class="wrap">표준 트랜잭션 내부를 봐야 한다</td><td>BP at FM / Statement + /hs</td><td>FM명 또는 <code>CALL FUNCTION</code></td></tr>
+  <tr><td class="wrap">저장은 되는데 DB가 틀리다</td><td>Update Debugging</td><td>디버거에서 <kbd>Shift</kbd>+<kbd>F1</kbd> → 체크 → <kbd>F8</kbd></td></tr>
+  <tr><td class="wrap">백그라운드 잡에서만 실패한다</td><td>SM37 + JDBG</td><td>잡 체크 → 명령 필드에 <code>JDBG</code></td></tr>
+  <tr><td class="wrap">다른 유저 세션이 멈춰 있다</td><td>SM50 프로세스 디버깅</td><td>프로세스 선택 → 프로그램 &gt; 디버깅</td></tr>
+  <tr><td class="wrap">BSP · RFC · 인터페이스 건</td><td>외부 BP + 사전 설정</td><td>Settings &gt; Debugging &gt; User = 호출 ID</td></tr>
+  <tr><td class="wrap">외부 BP를 걸었는데 안 멈춘다</td><td>설정 3곳 점검</td><td>User ID / 앱서버 체크 / BP 종류</td></tr>
+  <tr><td class="wrap">이 프로그램이 왜 느린지 보고 싶다</td><td>SM50 세부 조회</td><td>프로세스 선택 → 세부사항 (디버깅 아님)</td></tr>
+  <tr><td class="wrap">특정 분기를 강제로 통과하고 싶다</td><td>Goto Statement</td><td>소스 우클릭 → Goto Statement</td></tr>
+  <tr><td class="wrap">덤프가 났다</td><td>ST22 → BP at Exception</td><td>예외 클래스명으로 직행</td></tr>
+</table>
+</div>
+</div>
+
+
+<!-- ══════════ 금기 ══════════ -->
+<div class="lesson" id="danger">
+<h2><span class="no">APPENDIX B</span>반드시 지킬 것</h2>
+
+<div class="note warn"><div class="t">운영기 데이터 변경 금지</div>
+<p>디버거로 값을 바꾸면 변경 로그도, 검증도 남지 않습니다. 원인 확인은 DEV / QA에서.</p></div>
+
+<div class="note warn"><div class="t">VIEW 저장 = 덤프</div>
+<p>SE16N 편집은 실 테이블에서만.</p></div>
+
+<div class="note warn"><div class="t">COMMIT WORK 이후는 롤백 불가</div>
+<p>COMMIT을 넘기기 전에 멈춥니다. <code>BP at Statement COMMIT WORK</code> 가 안전판입니다.</p></div>
+
+<div class="note warn"><div class="t">외부 BP는 반드시 해제</div>
+<p>남겨두면 같은 ID로 도는 인터페이스 · 배치가 디버거에 걸려 멈춥니다. <code>Delete all BPs</code> + 설정의 User 원복.</p></div>
+
+<div class="note warn"><div class="t">JDBG는 재실행이다</div>
+<p>끝난 잡을 다시 태우므로 DB 변경 · 전표 생성 · 인터페이스 전송이 또 일어납니다.</p></div>
+
+<div class="note warn"><div class="t">시스템 디버깅은 최소한</div>
+<p><code>/hs</code> 는 스텝이 폭증하고 권한 이슈가 따릅니다. 필요한 구간에서만.</p></div>
+
+</div>
+
+</div>
+</body>
+</html>
