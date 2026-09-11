@@ -28,7 +28,10 @@
         '<h1 class="sap-gate-title">SAP 학습 자료실</h1>' +
         '<p class="sap-gate-lede">비밀번호를 입력하면 학습 자료를 볼 수 있습니다.</p>' +
         '<label class="sap-gate-label" for="sap-gate-input">PASSWORD</label>' +
-        '<input class="sap-gate-input" id="sap-gate-input" type="password" inputmode="text" autocomplete="off" spellcheck="false" required />' +
+        '<div class="sap-gate-field">' +
+          '<input class="sap-gate-input" id="sap-gate-input" type="password" inputmode="text" autocomplete="off" spellcheck="false" required />' +
+          '<button type="button" class="sap-gate-toggle" aria-label="비밀번호 표시">SHOW</button>' +
+        '</div>' +
         '<p class="sap-gate-hint">영문 대문자 + 숫자 4자리 · 대소문자를 구분합니다</p>' +
         '<p class="sap-gate-error" role="alert">비밀번호가 올바르지 않습니다.</p>' +
         '<button class="sap-gate-btn" type="submit">입장</button>' +
@@ -42,10 +45,22 @@
     var input = overlay.querySelector(".sap-gate-input");
     var card = overlay.querySelector(".sap-gate-card");
     var errorMsg = overlay.querySelector(".sap-gate-error");
+    var toggle = overlay.querySelector(".sap-gate-toggle");
 
     setTimeout(function () {
       input.focus();
     }, 60);
+
+    input.addEventListener("input", function () {
+      errorMsg.style.display = "none";
+    });
+
+    toggle.addEventListener("click", function () {
+      var showing = input.type === "text";
+      input.type = showing ? "password" : "text";
+      toggle.textContent = showing ? "SHOW" : "HIDE";
+      input.focus();
+    });
 
     form.addEventListener("submit", function (e) {
       e.preventDefault();
@@ -81,10 +96,15 @@
       ".sap-gate-lede{margin:0 0 22px;font-size:13.5px;line-height:1.6;color:#9497AC;}" +
       ".sap-gate-label{display:block;font-family:'IBM Plex Mono',ui-monospace,monospace;font-size:11px;" +
       "letter-spacing:.08em;color:#6D6FE0;font-weight:600;margin-bottom:8px;}" +
+      ".sap-gate-field{position:relative;}" +
       ".sap-gate-input{width:100%;box-sizing:border-box;background:#12131A;border:1px solid #33354A;border-radius:7px;" +
-      "padding:11px 13px;font-family:'IBM Plex Mono',ui-monospace,monospace;font-size:16px;letter-spacing:.06em;" +
+      "padding:11px 62px 11px 13px;font-family:'IBM Plex Mono',ui-monospace,monospace;font-size:16px;letter-spacing:.06em;" +
       "color:#EEF0FA;outline:none;transition:border-color .15s ease;}" +
       ".sap-gate-input:focus{border-color:#6D6FE0;}" +
+      ".sap-gate-toggle{position:absolute;right:6px;top:50%;transform:translateY(-50%);" +
+      "background:none;border:none;color:#8B8DF0;font-family:'IBM Plex Mono',ui-monospace,monospace;" +
+      "font-size:10.5px;font-weight:700;letter-spacing:.06em;padding:6px 8px;cursor:pointer;border-radius:4px;}" +
+      ".sap-gate-toggle:hover{color:#EEF0FA;background:#262838;}" +
       ".sap-gate-hint{margin:9px 0 0;font-size:11.5px;color:#6A6D82;}" +
       ".sap-gate-error{display:none;margin:12px 0 0;font-size:12.5px;color:#F09590;font-weight:600;}" +
       ".sap-gate-btn{width:100%;margin-top:18px;padding:12px;border:none;border-radius:7px;background:#3A3CC0;" +

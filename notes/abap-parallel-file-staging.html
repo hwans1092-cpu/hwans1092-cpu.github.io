@@ -5,124 +5,9 @@
 <script src="/assets/gate.js"></script>
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>병렬처리 확장편 — 대외 연계 · AL11 Staging 아키텍처</title>
-<style>
-:root{
-  --ink:#1e1e1e; --ink-soft:#555;
-  --key:#4338CA; --key-soft:#EEF0FB;
-  --hl:#FEF08A; --danger:#B91C1C;
-  --ok:#047857;
-  --rule:#E5E7EB; --code-bg:#F3F4F6; --paper:#fff;
-}
-*{box-sizing:border-box;}
-body{
-  margin:0; background:#E9E9E9; color:var(--ink);
-  font-family:"Malgun Gothic","맑은 고딕","Apple SD Gothic Neo",system-ui,sans-serif;
-  font-size:11pt; line-height:1.7;
-}
-.sheet{
-  max-width:900px; margin:24px auto; padding:44px 56px 56px;
-  background:var(--paper); box-shadow:0 1px 8px rgba(0,0,0,.10);
-}
-
-.doc-head{border-bottom:3px solid var(--ink); padding-bottom:14px; margin-bottom:14px;}
-.doc-head .kicker{
-  display:inline-block; background:var(--key); color:#fff; font-size:9pt;
-  padding:3px 11px; border-radius:4px; letter-spacing:1px; font-weight:700;
-  margin-bottom:10px;
-}
-.doc-head h1{margin:0 0 8px; font-size:24pt; letter-spacing:-.6px; line-height:1.3;}
-.doc-head .sub{font-size:10pt; color:var(--ink-soft); line-height:1.6;}
-.doc-head .sub b{color:var(--key);}
-
-.lead{
-  background:#FAFAFE; border-left:4px solid var(--key);
-  padding:16px 22px; margin:0 0 32px; border-radius:0 5px 5px 0; font-size:11pt;
-}
-.lead > *:first-child{margin-top:0;} .lead > *:last-child{margin-bottom:0;}
-
-.toc{border:1px solid var(--rule); border-radius:6px; padding:18px 24px; margin-bottom:34px;}
-.toc h4{margin:0 0 10px; font-size:10pt; color:var(--key); letter-spacing:.4px;}
-.toc ol{margin:0; padding-left:20px; columns:2; column-gap:36px;}
-.toc li{margin-bottom:5px; font-size:10pt;}
-
-.lesson{margin:0 0 44px;}
-.lesson > h2{
-  margin:0 0 18px; font-size:16.5pt; letter-spacing:-.3px; line-height:1.35;
-  padding-bottom:9px; border-bottom:2px solid var(--key);
-}
-.lesson > h2 .no{
-  display:inline-block; background:var(--key); color:#fff;
-  font-size:9pt; padding:3px 9px; border-radius:4px; margin-right:10px;
-  vertical-align:3px; letter-spacing:.5px; font-weight:700;
-}
-h3{margin:28px 0 10px; font-size:12pt; color:var(--key);
-   padding-bottom:5px; border-bottom:1px solid var(--rule);}
-h4{margin:22px 0 8px; font-size:11pt;}
-
-p{margin:12px 0;}
-ul,ol{margin:12px 0; padding-left:24px;}
-li{margin-bottom:8px;}
-li::marker{color:var(--key);}
-li > ul{margin:8px 0;}
-
-.hl{background:var(--hl); padding:1px 3px; border-radius:2px;}
-.key{color:var(--key); font-weight:700;}
-.bad{color:var(--danger); font-weight:700;}
-.good{color:var(--ok); font-weight:700;}
-.tag{display:inline-block; font-size:8.5pt; padding:2px 8px; border-radius:10px;
-  background:var(--key-soft); color:var(--key); font-weight:700; margin-right:6px; vertical-align:2px;}
-.tag.warn{background:#FEF2F2; color:var(--danger);}
-.tag.ok{background:#ECFDF5; color:var(--ok);}
-
-.note{border-left:4px solid var(--key); background:#FAFAFE;
-  padding:14px 20px; margin:18px 0; border-radius:0 5px 5px 0;}
-.note.warn{border-left-color:var(--danger); background:#FEFAFA;}
-.note.ok{border-left-color:var(--ok); background:#F7FDFA;}
-.note .t{font-weight:700; color:var(--key); margin-bottom:6px; font-size:11pt;}
-.note.warn .t{color:var(--danger);}
-.note.ok .t{color:var(--ok);}
-.note > *:last-child{margin-bottom:0;} .note > *:first-child{margin-top:0;}
-
-code,pre{font-family:"D2Coding","Consolas","Menlo",monospace;}
-pre{background:var(--code-bg); border-radius:5px; padding:16px 20px;
-  font-size:9.6pt; line-height:1.6; margin:14px 0; overflow-x:auto; white-space:pre;}
-code{background:var(--code-bg); padding:2px 5px; border-radius:3px; font-size:10pt;}
-pre .c{color:#6B7280;}
-pre .k{color:var(--key); font-weight:700;}
-pre .r{color:var(--danger); font-weight:700;}
-
-.tbl-wrap{overflow-x:auto; margin:14px 0;}
-table{width:100%; border-collapse:collapse; font-size:10pt;}
-th{text-align:left; font-weight:700; padding:10px 12px 9px; color:var(--ink);
-  border-bottom:2px solid var(--ink); white-space:nowrap;}
-td{padding:11px 12px; border-bottom:1px solid var(--rule); vertical-align:top; line-height:1.6;}
-td:first-child{white-space:nowrap;}
-td.wrap:first-child{white-space:normal;}
-td code{font-size:9.4pt;}
-
-figure{margin:22px 0;}
-svg{display:block; max-width:100%; margin:0 auto;}
-figcaption{font-size:9.5pt; color:var(--ink-soft); text-align:center; margin-top:8px;}
-
-@media print{
-  body{background:#fff; font-size:10pt;}
-  .sheet{max-width:none; margin:0; box-shadow:none; padding:0;}
-  .lesson > h2{page-break-after:avoid;}
-  pre,table,figure,.note{page-break-inside:avoid;}
-  @page{size:A4; margin:16mm 14mm;}
-}
-@media (max-width:720px){
-  .sheet{padding:26px 20px 40px;}
-  .toc ol{columns:1;}
-}
-.crumb{
-  max-width:900px; margin:20px auto 0; padding:0 56px;
-  font-size:9.5pt; color:var(--ink-soft);
-}
-.crumb a{color:var(--key); text-decoration:none; font-weight:700;}
-.crumb a:hover{text-decoration:underline;}
-@media (max-width:720px){ .crumb{padding:0 20px;} }
-</style>
+<meta name="description" content="동기 직접 처리가 무너지는 지점부터 AL11 파일 Staging, 비동기 병렬 분할 처리, 청킹 전략, 재처리·멱등성 설계까지 정리한 ABAP 대외 연계 아키텍처 노트.">
+<link rel="icon" href="/assets/favicon.svg">
+<link rel="stylesheet" href="/assets/notes-paper.css">
 </head>
 <body>
 <div class="crumb"><a href="/">← SAP 학습 자료실</a> · ABAP 개발 · 병렬처리 / 인터페이스</div>
@@ -145,22 +30,22 @@ figcaption{font-size:9.5pt; color:var(--ink-soft); text-align:center; margin-top
 <div class="toc">
   <h4>목차</h4>
   <ol>
-    <li>동기 직접 처리가 실패하는 3가지 지점</li>
-    <li>전체 아키텍처 4단계</li>
-    <li>STEP 1 — 파일 수신과 인터페이스 계약</li>
-    <li>STEP 2 — Master Job: 디렉토리 감시와 파일 잠금</li>
-    <li>STEP 3 — 파일 읽기: OPEN DATASET과 인코딩</li>
-    <li>STEP 4 — 청킹 전략: 행 수가 아니라 락 키</li>
-    <li>STEP 5 — 병렬 디스패치와 결과 취합</li>
-    <li>STEP 6 — 파일 후처리와 로그 설계</li>
-    <li>재처리·멱등성 — Staging 상태머신</li>
-    <li>실패 시나리오와 체크리스트</li>
+    <li><a href="#l1">동기 직접 처리가 실패하는 3가지 지점</a></li>
+    <li><a href="#l2">전체 아키텍처 4단계</a></li>
+    <li><a href="#l3">STEP 1 — 파일 수신과 인터페이스 계약</a></li>
+    <li><a href="#l4">STEP 2 — Master Job: 디렉토리 감시와 파일 잠금</a></li>
+    <li><a href="#l5">STEP 3 — 파일 읽기: OPEN DATASET과 인코딩</a></li>
+    <li><a href="#l6">STEP 4 — 청킹 전략: 행 수가 아니라 락 키</a></li>
+    <li><a href="#l7">STEP 5 — 병렬 디스패치와 결과 취합</a></li>
+    <li><a href="#l8">STEP 6 — 파일 후처리와 로그 설계</a></li>
+    <li><a href="#l9">재처리·멱등성 — Staging 상태머신</a></li>
+    <li><a href="#l10">실패 시나리오와 체크리스트</a></li>
   </ol>
 </div>
 
 
 <!-- ══════════ 1 ══════════ -->
-<div class="lesson">
+<div class="lesson" id="l1">
 <h2><span class="no">LESSON 1</span>동기 직접 처리가 실패하는 3가지 지점</h2>
 
 <p>외부 시스템이 sRFC로 데이터를 넘기고 SAP이 그 자리에서 전표를 전기하는 구조. 건수가 적을 땐 잘 돌지만 대량이 되면 <b>정확히 세 군데</b>에서 무너집니다.</p>
@@ -206,7 +91,7 @@ figcaption{font-size:9.5pt; color:var(--ink-soft); text-align:center; margin-top
 
 
 <!-- ══════════ 2 ══════════ -->
-<div class="lesson">
+<div class="lesson" id="l2">
 <h2><span class="no">LESSON 2</span>전체 아키텍처 4단계</h2>
 
 <figure>
@@ -283,7 +168,7 @@ figcaption{font-size:9.5pt; color:var(--ink-soft); text-align:center; margin-top
 
 
 <!-- ══════════ 3 ══════════ -->
-<div class="lesson">
+<div class="lesson" id="l3">
 <h2><span class="no">LESSON 3</span>STEP 1 — 파일 수신과 인터페이스 계약</h2>
 
 <p>이 단계에서 <b>개발 이전에 문서로 합의해야 할 것</b>들이 있습니다. 여기서 대충 넘어가면 운영 중에 반드시 사고가 납니다.</p>
@@ -317,7 +202,7 @@ figcaption{font-size:9.5pt; color:var(--ink-soft); text-align:center; margin-top
 
 
 <!-- ══════════ 4 ══════════ -->
-<div class="lesson">
+<div class="lesson" id="l4">
 <h2><span class="no">LESSON 4</span>STEP 2 — Master Job: 디렉토리 감시와 파일 잠금</h2>
 
 <h3>디렉토리 목록 조회</h3>
@@ -379,7 +264,7 @@ figcaption{font-size:9.5pt; color:var(--ink-soft); text-align:center; margin-top
 
 
 <!-- ══════════ 5 ══════════ -->
-<div class="lesson">
+<div class="lesson" id="l5">
 <h2><span class="no">LESSON 5</span>STEP 3 — 파일 읽기: OPEN DATASET과 인코딩</h2>
 
 <h3>인코딩 모드 3종 구분</h3>
@@ -463,7 +348,7 @@ figcaption{font-size:9.5pt; color:var(--ink-soft); text-align:center; margin-top
 
 
 <!-- ══════════ 6 ══════════ -->
-<div class="lesson">
+<div class="lesson" id="l6">
 <h2><span class="no">LESSON 6</span>STEP 4 — 청킹 전략: 행 수가 아니라 락 키</h2>
 
 <p><b>이 문서에서 가장 중요한 장입니다.</b> 병렬처리 실패의 절대다수가 여기서 나옵니다.</p>
@@ -567,7 +452,7 @@ figcaption{font-size:9.5pt; color:var(--ink-soft); text-align:center; margin-top
 
 
 <!-- ══════════ 7 ══════════ -->
-<div class="lesson">
+<div class="lesson" id="l7">
 <h2><span class="no">LESSON 7</span>STEP 5 — 병렬 디스패치와 결과 취합</h2>
 
 <p>골격은 표준편 LESSON 5와 동일합니다. 여기서는 <b>파일 처리 문맥에서 달라지는 부분</b>만 짚습니다.</p>
@@ -674,7 +559,7 @@ figcaption{font-size:9.5pt; color:var(--ink-soft); text-align:center; margin-top
 
 
 <!-- ══════════ 8 ══════════ -->
-<div class="lesson">
+<div class="lesson" id="l8">
 <h2><span class="no">LESSON 8</span>STEP 6 — 파일 후처리와 로그 설계</h2>
 
 <h3>join 이후 분기</h3>
@@ -762,7 +647,7 @@ figcaption{font-size:9.5pt; color:var(--ink-soft); text-align:center; margin-top
 
 
 <!-- ══════════ 9 ══════════ -->
-<div class="lesson">
+<div class="lesson" id="l9">
 <h2><span class="no">LESSON 9</span>재처리·멱등성 — Staging 상태머신</h2>
 
 <p>병렬처리는 <b>전체 롤백을 포기</b>하는 구조입니다(표준편 LESSON 8). 그 대가를 치르는 방법이 <span class="key">멱등성 + 재처리</span>이고, 파일 연동에서는 이것이 <b>3중 방어선</b>으로 구현됩니다.</p>
@@ -833,7 +718,7 @@ figcaption{font-size:9.5pt; color:var(--ink-soft); text-align:center; margin-top
 
 
 <!-- ══════════ 10 ══════════ -->
-<div class="lesson">
+<div class="lesson" id="l10">
 <h2><span class="no">LESSON 10</span>실패 시나리오와 체크리스트</h2>
 
 <h3>실패 시나리오 8가지</h3>
@@ -909,5 +794,6 @@ figcaption{font-size:9.5pt; color:var(--ink-soft); text-align:center; margin-top
 </div>
 
 </div>
+<script src="/assets/site.js" defer></script>
 </body>
 </html>

@@ -6,6 +6,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>SAP 학습 자료실</title>
 <meta name="description" content="ABAP 디버깅, 병렬처리, 대외 인터페이스, EAI(SAP Integration Suite)를 중심으로 정리하는 개인 SAP 학습 저장소.">
+<link rel="icon" href="/assets/favicon.svg">
 
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -85,14 +86,23 @@ h1 em{
 }
 
 .terminal{
+  display:flex; align-items:center; gap:10px;
   font-family:var(--mono); font-size:14px; color:var(--muted);
   background:var(--paper); border:1px solid var(--rule); border-radius:8px;
   padding:14px 18px; max-width:620px; margin:0 0 30px;
   box-shadow:0 1px 2px rgba(30,40,60,.04);
+  transition:border-color .15s ease, box-shadow .15s ease;
 }
-.terminal .p{color:var(--accent); margin-right:8px;}
-.terminal .caret{display:inline-block; width:7px; height:15px; background:var(--accent); vertical-align:-2px; animation:blink 1.1s steps(1) infinite;}
-@keyframes blink{50%{opacity:0;}}
+.terminal:focus-within{border-color:var(--accent-dim); box-shadow:0 0 0 3px var(--accent-soft);}
+.terminal .p{color:var(--accent); flex:none;}
+.terminal-input{
+  flex:1; min-width:0; border:none; outline:none; background:transparent;
+  font:inherit; color:var(--ink); padding:0;
+}
+.terminal-input::placeholder{color:var(--muted); opacity:1;}
+.terminal-count{
+  flex:none; font-size:11.5px; color:var(--muted); white-space:nowrap;
+}
 
 .lede{max-width:620px; color:var(--muted); font-size:16px; margin:0 0 28px;}
 .lede b{color:var(--ink); font-weight:600;}
@@ -111,8 +121,12 @@ h1 em{
   content:""; position:absolute; left:1px; top:-4px; width:7px; height:4px;
   background:var(--accent); border-radius:2px 2px 0 0;
 }
-.pkg-id{font-family:var(--mono); font-size:12.5px; color:var(--accent-dim); font-weight:600;}
 .pkg-head h2{margin:0; font-size:20px; font-weight:700; letter-spacing:-.01em;}
+.pkg-id{
+  font-family:var(--mono); font-size:10.5px; font-weight:600; letter-spacing:.02em;
+  color:var(--muted); background:var(--rule); padding:3px 9px; border-radius:99px;
+  cursor:help;
+}
 .pkg-desc{margin:0 0 26px; color:var(--muted); font-size:14.5px; max-width:640px;}
 
 .cards{display:grid; grid-template-columns:repeat(auto-fill,minmax(300px,1fr)); gap:18px;}
@@ -192,7 +206,11 @@ footer a:hover{text-decoration:underline;}
     <h1><em>ABAP · EAI · BTP</em>SAP 학습 자료실</h1>
 
     <div class="terminal">
-      <span class="p">$</span>ls ./sap-learning/ <span class="caret"></span>
+      <span class="p">$</span>
+      <input type="text" id="site-search-input" class="terminal-input"
+             placeholder='grep -i &quot;LUW | EAI | JDBG&quot; ./sap-learning/*' autocomplete="off"
+             aria-label="문서 검색 — 키워드로 필터링">
+      <span class="terminal-count" id="site-search-count"></span>
     </div>
 
     <p class="lede">
@@ -212,13 +230,14 @@ footer a:hover{text-decoration:underline;}
   <section class="pkg">
     <div class="pkg-head">
       <span class="folder"></span>
-      <span class="pkg-id">$ZLEARN_BATCH_INTERFACE</span>
       <h2>ABAP 배치 · 대외 인터페이스</h2>
+      <span class="pkg-id" title="내부 학습 트랙 코드 (참고용)">$ZLEARN_BATCH_INTERFACE</span>
     </div>
     <p class="pkg-desc">대량 데이터를 안전하게 주고받고, 병렬로 처리하고, 실패해도 다시 돌릴 수 있게 만드는 법.</p>
 
     <div class="cards">
-      <a class="card" data-n="01" href="/notes/abap-parallel-file-staging.html">
+      <a class="card" data-n="01" href="/notes/abap-parallel-file-staging.html"
+         data-keywords="LUW aRFC 라이프사이클 STARTING NEW TASK 타임아웃 TIME_OUT FOREIGN_LOCK Master Job SM36 OPEN DATASET 재처리 상태머신 체크리스트">
         <span class="kicker">LESSON 01–10 · EXTENSION</span>
         <h3>병렬처리 확장편 — 대외 연계 · AL11 Staging 아키텍처</h3>
         <p>동기 직접 처리가 무너지는 지점부터, 파일 Staging과 비동기 병렬 분할 처리로 이어지는 실무 표준 4단계 패턴, 청킹 전략과 재처리·멱등성 설계까지 정리.</p>
@@ -243,13 +262,14 @@ footer a:hover{text-decoration:underline;}
   <section class="pkg">
     <div class="pkg-head">
       <span class="folder"></span>
-      <span class="pkg-id">$ZLEARN_EAI_BTP</span>
       <h2>EAI · SAP Integration Suite (BTP)</h2>
+      <span class="pkg-id" title="내부 학습 트랙 코드 (참고용)">$ZLEARN_EAI_BTP</span>
     </div>
     <p class="pkg-desc">SAP BTP 위에서 동작하는 통합 플랫폼을 처음부터 — Cloud Integration, 어댑터·매핑·라우팅, 모니터링까지.</p>
 
     <div class="cards">
-      <a class="card" data-n="02" href="/notes/eai-integration-suite.html">
+      <a class="card" data-n="02" href="/notes/eai-integration-suite.html"
+         data-keywords="EAI iFlow Adapter Router Filter Content Modifier AMQP Solace 프록시 거버넌스 예외처리 모니터링">
         <span class="kicker">LESSON 01–10 · SAP HELP PORTAL 기준</span>
         <h3>SAP Integration Suite 학습 노트</h3>
         <p>BTP → Integration Suite → Cloud Integration(iFlow) → 어댑터·매핑·라우팅 → 예외처리·모니터링 → API Management → Event Mesh 순서로, ABAP 개발자 관점의 실무 연결 포인트를 함께 정리.</p>
@@ -276,13 +296,14 @@ footer a:hover{text-decoration:underline;}
   <section class="pkg">
     <div class="pkg-head">
       <span class="folder"></span>
-      <span class="pkg-id">$ZLEARN_DEBUG</span>
       <h2>ABAP 디버깅 · 운영 트러블슈팅</h2>
+      <span class="pkg-id" title="내부 학습 트랙 코드 (참고용)">$ZLEARN_DEBUG</span>
     </div>
     <p class="pkg-desc">재현이 안 되는 건을 잡는 법. 진입·멈춤·값 조작을 실제 작업 화면 측정 캐프처와 함께.</p>
 
     <div class="cards">
-      <a class="card" data-n="03" href="/notes/abap-debugging.html">
+      <a class="card" data-n="03" href="/notes/abap-debugging.html"
+         data-keywords="/h /hs ST22 Update Debugging COMMIT WORK 디버거 덤프">
         <span class="kicker">FIELD NOTE · 캐프처 15장</span>
         <h3>ABAP 디버깅 실무 노트 — 진입 · 멈추기 · 값 바꾸기</h3>
         <p>/h와 세션·외부 BP의 차이, 외부 디버깅 User 설정, F5·F6·F7·F8의 이동 경로, SM50·SM37+JDBG, Breakpoint at Message와 Watchpoint, SE16N GD-EDIT까지 조작 지점을 표시해 정리.</p>
@@ -306,9 +327,10 @@ footer a:hover{text-decoration:underline;}
 
   <footer>
     <span>정리 기준: 실무 적용 가능한 패턴 중심 · 개인 학습 목적</span>
-    <span>최근 업데이트 2026-09</span>
+    <span>최근 업데이트 2026-11</span>
   </footer>
 
 </div>
+<script src="/assets/site.js" defer></script>
 </body>
 </html>
