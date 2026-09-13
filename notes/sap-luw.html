@@ -1,0 +1,1018 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<script src="/assets/gate.js"></script>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>SAP LUW 완전 정리 — 트랜잭션 · 번들링 · 락</title>
+<meta name="description" content="SAP LUW(논리적 작업 단위)를 그림으로 이해하는 실무 노트. DB LUW와의 차이, 번들링 기법 5종, Update Task(V1/V2), COMMIT/ROLLBACK, Enqueue와 _SCOPE, 암묵적 커밋 함정, SM13 장애 복구까지.">
+<link rel="icon" href="/assets/favicon.svg">
+<link rel="stylesheet" href="/assets/notes-paper.css">
+<style>
+/* ── 이 노트 전용: 도해(SVG) 스타일 ─────────────────────────── */
+.dgm{display:block; width:100%; height:auto;}
+.dgm text{font-family:"Malgun Gothic","맑은 고딕","Apple SD Gothic Neo",sans-serif; fill:#1e1e1e;}
+.dgm .t-h{font-size:15px; font-weight:700;}
+.dgm .t{font-size:13px;}
+.dgm .t-s{font-size:11.5px; fill:#555;}
+.dgm .t-xs{font-size:10.5px; fill:#6B7280;}
+.dgm .m{font-family:"D2Coding","Consolas",monospace; font-size:12px;}
+.dgm .m-s{font-family:"D2Coding","Consolas",monospace; font-size:10.5px;}
+.dgm .c-key{fill:#4338CA;} .dgm .c-bad{fill:#B91C1C;} .dgm .c-ok{fill:#047857;}
+.dgm .b{fill:#FFFFFF; stroke:#C7CBD6; stroke-width:1.2;}
+.dgm .b-key{fill:#EEF0FB; stroke:#4338CA; stroke-width:1.4;}
+.dgm .b-bad{fill:#FEF2F2; stroke:#B91C1C; stroke-width:1.3;}
+.dgm .b-ok{fill:#ECFDF5; stroke:#047857; stroke-width:1.3;}
+.dgm .b-mut{fill:#F3F4F6; stroke:#D1D5DB; stroke-width:1.1;}
+.dgm .b-hl{fill:#FEF08A; stroke:#CA8A04; stroke-width:1.2;}
+.dgm .b-ghost{fill:none; stroke:#9AA3B2; stroke-width:1.1; stroke-dasharray:5 4;}
+.dgm .ln{stroke:#7C8697; stroke-width:1.4; fill:none;}
+.dgm .ln-key{stroke:#4338CA; stroke-width:1.8; fill:none;}
+.dgm .ln-bad{stroke:#B91C1C; stroke-width:1.6; fill:none;}
+.dgm .ln-ok{stroke:#047857; stroke-width:1.6; fill:none;}
+.dgm .ln-d{stroke:#9AA3B2; stroke-width:1.2; stroke-dasharray:4 4; fill:none;}
+.dgm .arw{fill:#7C8697;} .dgm .arw-key{fill:#4338CA;}
+.dgm .arw-bad{fill:#B91C1C;} .dgm .arw-ok{fill:#047857;}
+.figwrap{background:#FAFAFE; border:1px solid var(--rule); border-radius:6px;
+  padding:18px 16px 10px; margin:22px 0;}
+.figwrap figcaption{margin-top:12px; padding-top:10px; border-top:1px solid var(--rule);}
+.cmp{display:grid; grid-template-columns:1fr 1fr; gap:16px; margin:18px 0;}
+.cmp > div{border:1px solid var(--rule); border-radius:6px; padding:14px 18px;}
+.cmp h5{margin:0 0 8px; font-size:10.5pt;}
+.cmp ul{margin:8px 0 0; padding-left:20px;} .cmp li{font-size:10pt; margin-bottom:6px;}
+.cmp .x{border-top:3px solid var(--danger);} .cmp .x h5{color:var(--danger);}
+.cmp .o{border-top:3px solid var(--ok);} .cmp .o h5{color:var(--ok);}
+@media (max-width:720px){ .cmp{grid-template-columns:1fr;} }
+</style>
+</head>
+<body>
+<div class="crumb"><a href="/">← SAP 학습 자료실</a> · ABAP 개발 · 트랜잭션 / LUW · 락</div>
+<div class="sheet">
+
+<div class="doc-head">
+  <div class="kicker">CORE CONCEPT</div>
+  <h1>SAP LUW 완전 정리 — 트랜잭션 · 번들링 · 락</h1>
+  <div class="sub">
+    "왜 SAP은 DB 커밋만으로 부족한가"에서 출발해 번들링 · Update Task · Enqueue까지<br>
+    연관 문서: <b>병렬처리 확장편</b>(aRFC 라이프사이클) · <b>ABAP 디버깅 실무 노트</b>(Update Debugging)
+  </div>
+</div>
+
+<div class="lead">
+  <p><b>한 문장으로.</b> LUW는 <span class="hl">"모두 반영되거나, 하나도 반영되지 않거나" 둘 중 하나만 허용하는 작업 단위</span>입니다.</p>
+  <p>DB는 이 보장을 <code>COMMIT</code> 한 번 단위로만 해 줍니다. 그런데 SAP의 업무 한 건은 <b>화면을 여러 번 넘나들고</b>, 그때마다 워크 프로세스가 바뀌면서 <span class="bad">DB 커밋이 내 의사와 무관하게 일어납니다.</span> 그래서 SAP은 DB LUW 위에 <b>SAP LUW</b>라는 한 겹을 더 쌓고, 실제 DB 변경을 <b>마지막 한 순간까지 미뤄 두는(번들링) 기법</b>을 제공합니다. 이 노트는 그 구조 전체를 그림으로 따라갑니다.</p>
+</div>
+
+<div class="toc">
+  <h4>목차</h4>
+  <ol>
+    <li><a href="#l1">LUW란 무엇인가 — 원자성과 ACID</a></li>
+    <li><a href="#l2">DB LUW vs SAP LUW — 화면 전환의 함정</a></li>
+    <li><a href="#l3">무대 이해하기 — 디스패처와 워크 프로세스</a></li>
+    <li><a href="#l4">번들링 기법 5종 — 변경을 미루는 방법</a></li>
+    <li><a href="#l5">Update Task 해부 — V1 · V2 · VBLOG</a></li>
+    <li><a href="#l6">COMMIT WORK / ROLLBACK WORK 정밀 동작</a></li>
+    <li><a href="#l7">암묵적 커밋 — 나도 모르게 끊기는 지점</a></li>
+    <li><a href="#l8">SAP 락(Enqueue)과 _SCOPE — LUW의 파트너</a></li>
+    <li><a href="#l9">RFC · BAPI와 LUW</a></li>
+    <li><a href="#l10">장애 · 복구 시나리오와 SM13</a></li>
+    <li><a href="#l11">모범 사례 · 체크리스트 · T-code</a></li>
+  </ol>
+</div>
+
+
+<!-- ══════════ LESSON 1 ══════════ -->
+<div class="lesson" id="l1">
+<h2><span class="no">LESSON 1</span>LUW란 무엇인가 — 원자성과 ACID</h2>
+
+<p><b>LUW(Logical Unit of Work, 논리적 작업 단위)</b>는 "업무상 한 덩어리로 취급되어야 하는 데이터 변경의 묶음"입니다. 이름 그대로 <span class="key">논리적</span>이라는 말이 핵심입니다. 기술적으로는 UPDATE 문 세 개일지 몰라도, <b>업무적으로는 "송금 한 건"</b>이기 때문에 쪼개지면 안 된다는 뜻입니다.</p>
+
+<figure class="figwrap">
+<svg class="dgm" viewBox="0 0 1000 300" role="img"
+     aria-label="송금 한 건은 출금과 입금 두 단계로 구성되며, 둘 다 성공하면 COMMIT으로 영구 반영되고 하나라도 실패하면 ROLLBACK으로 출금까지 함께 취소되어 중간 상태가 남지 않는다는 도해">
+  <defs>
+    <marker id="lu-a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><polygon class="arw" points="0,1 10,5 0,9"/></marker>
+    <marker id="lu-ao" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><polygon class="arw-ok" points="0,1 10,5 0,9"/></marker>
+    <marker id="lu-ab" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><polygon class="arw-bad" points="0,1 10,5 0,9"/></marker>
+  </defs>
+
+  <rect class="b-ghost" x="150" y="18" width="700" height="94" rx="8"/>
+  <text class="m-s c-key" x="166" y="38">ONE LUW — 업무상 "송금 1건"</text>
+
+  <rect class="b-key" x="180" y="46" width="280" height="52" rx="5"/>
+  <text class="t" x="200" y="70">① A계좌 잔액 &#8722; 10,000</text>
+  <text class="t-xs" x="200" y="88">UPDATE zacct SET bal = bal - 10000</text>
+
+  <line class="ln" x1="470" y1="72" x2="530" y2="72" marker-end="url(#lu-a)"/>
+
+  <rect class="b-key" x="540" y="46" width="280" height="52" rx="5"/>
+  <text class="t" x="560" y="70">② B계좌 잔액 &#43; 10,000</text>
+  <text class="t-xs" x="560" y="88">UPDATE zacct SET bal = bal + 10000</text>
+
+  <path class="ln-ok" d="M320 112 L320 148" marker-end="url(#lu-ao)"/>
+  <path class="ln-bad" d="M680 112 L680 148" marker-end="url(#lu-ab)"/>
+
+  <rect class="b-ok" x="90" y="156" width="380" height="108" rx="6"/>
+  <text class="t-h c-ok" x="112" y="182">① ② 모두 성공</text>
+  <text class="m c-ok" x="112" y="208">COMMIT WORK</text>
+  <text class="t-s" x="112" y="230">두 변경이 동시에 DB에 영구 반영된다.</text>
+  <text class="t-s" x="112" y="250">이 시점부터 다른 사용자도 결과를 본다.</text>
+
+  <rect class="b-bad" x="530" y="156" width="380" height="108" rx="6"/>
+  <text class="t-h c-bad" x="552" y="182">② 에서 오류 발생</text>
+  <text class="m c-bad" x="552" y="208">ROLLBACK WORK</text>
+  <text class="t-s" x="552" y="230">②뿐 아니라 <tspan class="c-bad" font-weight="700">이미 끝난 ①까지</tspan> 되돌린다.</text>
+  <text class="t-s" x="552" y="250">"돈이 증발한 상태"는 존재할 수 없다.</text>
+
+  <rect class="b-hl" x="300" y="278" width="400" height="0.1"/>
+  <text class="t-s" x="500" y="288" text-anchor="middle">← 이 "중간 상태 금지"가 곧 <tspan font-weight="700">원자성(Atomicity)</tspan> →</text>
+</svg>
+<figcaption><span class="fno">그림 1</span> LUW의 본질은 성능이 아니라 <b>중간 상태를 남기지 않는 것</b>입니다. ①만 반영된 순간이 단 1초라도 존재하면 그 시스템의 데이터는 이미 신뢰할 수 없습니다.</figcaption>
+</figure>
+
+<h3>ACID 중 LUW가 책임지는 부분</h3>
+<div class="tbl-wrap">
+<table>
+  <tr><th style="width:130px">원칙</th><th style="width:110px">누가 보장</th><th>LUW 관점에서의 의미</th></tr>
+  <tr><td><b>A</b>tomicity<br><span class="t-s">원자성</span></td><td><span class="key">LUW의 핵심</span></td>
+      <td>LUW 안의 모든 변경은 전부 반영되거나 전부 취소된다. SAP LUW가 직접 설계로 보장해야 하는 영역이며, 이 노트의 대부분이 여기에 해당한다.</td></tr>
+  <tr><td><b>C</b>onsistency<br><span class="t-s">일관성</span></td><td>개발자 &#43; DB</td>
+      <td>LUW 전후로 데이터가 업무 규칙을 만족해야 한다. 제약조건은 DB가, 업무 규칙(예: 재고가 음수 불가)은 <b>ABAP 로직이</b> 지킨다.</td></tr>
+  <tr><td><b>I</b>solation<br><span class="t-s">고립성</span></td><td>DB 락 &#43; <span class="key">SAP 락</span></td>
+      <td>동시에 도는 LUW들이 서로의 중간 상태를 보지 못하게 한다. SAP은 DB 락만으로 부족해 <b>Enqueue(Lesson 8)</b>를 따로 둔다.</td></tr>
+  <tr><td><b>D</b>urability<br><span class="t-s">영속성</span></td><td>DBMS</td>
+      <td>커밋된 변경은 장애가 나도 살아남는다. DB의 트랜잭션 로그(리두 로그)가 책임진다.</td></tr>
+</table>
+</div>
+
+<div class="note">
+  <div class="t">시험·면접 포인트</div>
+  <p>"LUW는 ACID 중 무엇을 보장하나?" → <span class="hl">원자성(Atomicity)</span>. 고립성은 락이, 영속성은 DBMS가 담당한다고 나눠서 답하면 정확합니다.</p>
+</div>
+</div>
+
+
+<!-- ══════════ LESSON 2 ══════════ -->
+<div class="lesson" id="l2">
+<h2><span class="no">LESSON 2</span>DB LUW vs SAP LUW — 화면 전환의 함정</h2>
+
+<p>여기가 SAP LUW를 이해하는 <b>가장 중요한 길목</b>입니다. 두 개념의 정의만 외우면 시험은 통과하지만, <span class="bad">왜 SAP LUW라는 별도 개념이 필요한지</span>를 모르면 실무에서 데이터를 깨뜨립니다.</p>
+
+<h3>정의부터</h3>
+<div class="tbl-wrap">
+<table>
+  <tr><th style="width:150px">구분</th><th>DB LUW</th><th>SAP LUW (= ABAP LUW)</th></tr>
+  <tr><td><b>관점</b></td><td>데이터베이스</td><td>업무(비즈니스)</td></tr>
+  <tr><td><b>범위</b></td><td>하나의 DB 커넥션에서 커밋과 커밋 사이</td><td>업무 한 건 전체. 화면 여러 개 · 프로그램 여러 개에 걸칠 수 있음</td></tr>
+  <tr><td><b>시작</b></td><td>직전 커밋/롤백 직후</td><td>새 내부 세션(Internal Session) 시작 시, 또는 직전 <code>COMMIT WORK</code> 직후</td></tr>
+  <tr><td><b>종료</b></td><td>DB <code>COMMIT</code> / <code>ROLLBACK</code></td><td><code>COMMIT WORK</code> / <code>ROLLBACK WORK</code> (명시적) 또는 암묵적 커밋(Lesson 7)</td></tr>
+  <tr><td><b>포함 관계</b></td><td colspan="2"><span class="hl">SAP LUW 하나 안에 DB LUW가 여러 개 들어간다</span> (1 : N)</td></tr>
+</table>
+</div>
+
+<h3>왜 DB LUW만으로는 안 되는가</h3>
+<p>SAP의 다이얼로그 프로그램은 화면 하나를 처리하고 사용자 입력을 기다리는 순간, <b>붙잡고 있던 워크 프로세스를 놓아줍니다(roll-out).</b> 사용자가 다음 버튼을 누르면 <span class="bad">전혀 다른 워크 프로세스</span>가 그 작업을 이어받습니다. 워크 프로세스가 바뀐다는 것은 <b>DB 커넥션이 바뀐다</b>는 뜻이고, SAP은 이 전환 직전에 반드시 <b>암묵적 DB 커밋</b>을 넣습니다.</p>
+
+<figure class="figwrap">
+<svg class="dgm" viewBox="0 0 1000 330" role="img"
+     aria-label="화면 1, 2, 3을 거쳐 저장하는 업무 한 건에서 화면 전환마다 암묵적 DB 커밋이 일어나 DB LUW가 3개로 쪼개지지만, SAP LUW는 저장 시점까지 하나로 유지된다는 타임라인 도해">
+  <defs>
+    <marker id="lu-b" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><polygon class="arw" points="0,1 10,5 0,9"/></marker>
+    <marker id="lu-bk" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><polygon class="arw-key" points="0,1 10,5 0,9"/></marker>
+  </defs>
+
+  <text class="m-s c-key" x="30" y="26">SAP LUW — 업무 "수주 등록" 1건</text>
+  <path class="ln-key" d="M30 38 L30 52 L900 52 L900 38"/>
+  <path class="ln-key" d="M465 52 L465 66"/>
+
+  <rect class="b" x="60" y="86" width="190" height="58" rx="5"/>
+  <text class="t" x="80" y="110">화면 100 · 헤더 입력</text>
+  <text class="t-xs" x="80" y="130">WP #3 이 처리</text>
+
+  <rect class="b" x="300" y="86" width="190" height="58" rx="5"/>
+  <text class="t" x="320" y="110">화면 200 · 품목 입력</text>
+  <text class="t-xs" x="320" y="130">WP #7 이 처리</text>
+
+  <rect class="b" x="540" y="86" width="190" height="58" rx="5"/>
+  <text class="t" x="560" y="110">화면 300 · 조건 입력</text>
+  <text class="t-xs" x="560" y="130">WP #2 가 처리</text>
+
+  <rect class="b-key" x="780" y="86" width="160" height="58" rx="5"/>
+  <text class="t c-key" x="800" y="110" font-weight="700">저장 버튼</text>
+  <text class="m-s c-key" x="800" y="130">COMMIT WORK</text>
+
+  <line class="ln" x1="250" y1="115" x2="292" y2="115" marker-end="url(#lu-b)"/>
+  <line class="ln" x1="490" y1="115" x2="532" y2="115" marker-end="url(#lu-b)"/>
+  <line class="ln" x1="730" y1="115" x2="772" y2="115" marker-end="url(#lu-b)"/>
+
+  <text class="t-xs c-bad" x="234" y="168">⚡ 암묵적 커밋</text>
+  <text class="t-xs c-bad" x="474" y="168">⚡ 암묵적 커밋</text>
+  <text class="t-xs c-bad" x="714" y="168">⚡ 암묵적 커밋</text>
+  <line class="ln-d" x1="270" y1="146" x2="270" y2="196"/>
+  <line class="ln-d" x1="510" y1="146" x2="510" y2="196"/>
+  <line class="ln-d" x1="750" y1="146" x2="750" y2="196"/>
+
+  <text class="t-xs c-key" x="60" y="188">DB 관점 — 실제로는 이렇게 쪼개진다</text>
+  <rect class="b-mut" x="60" y="196" width="210" height="40" rx="4"/>
+  <text class="t-s" x="90" y="221">DB LUW 1</text>
+  <rect class="b-mut" x="270" y="196" width="240" height="40" rx="4"/>
+  <text class="t-s" x="320" y="221">DB LUW 2</text>
+  <rect class="b-mut" x="510" y="196" width="240" height="40" rx="4"/>
+  <text class="t-s" x="560" y="221">DB LUW 3</text>
+  <rect class="b-ok" x="750" y="196" width="190" height="40" rx="4"/>
+  <text class="t-s c-ok" x="778" y="221" font-weight="700">DB LUW 4 — 실제 반영</text>
+
+  <rect class="b-bad" x="60" y="256" width="400" height="58" rx="5"/>
+  <text class="t c-bad" x="80" y="278" font-weight="700">잘못된 설계</text>
+  <text class="t-s" x="80" y="299">화면 100에서 바로 UPDATE → 화면 300에서 취소해도 못 되돌림</text>
+
+  <rect class="b-ok" x="540" y="256" width="400" height="58" rx="5"/>
+  <text class="t c-ok" x="560" y="278" font-weight="700">올바른 설계 — 번들링</text>
+  <text class="t-s" x="560" y="299">변경을 모아 두었다가 마지막 DB LUW 하나에 몰아서 반영</text>
+</svg>
+<figcaption><span class="fno">그림 2</span> 화면 전환마다 DB 커밋이 <b>강제로</b> 발생합니다. 따라서 "각 화면에서 그때그때 DB에 쓰는" 코드는 SAP에서 원자성을 잃습니다. 해법은 Lesson 4의 <b>번들링</b>입니다.</figcaption>
+</figure>
+
+<div class="note warn">
+  <div class="t">실무에서 가장 자주 보는 사고</div>
+  <p>화면 100의 PAI에서 <code>MODIFY zheader</code>를 해 버린 코드. 사용자가 화면 300에서 "취소"를 눌러도 헤더는 이미 DB에 들어가 있습니다. 다음 날 <span class="bad">품목 없는 고아 헤더</span>가 조회 리포트에 잡히고, 원인 추적에 반나절이 걸립니다.</p>
+</div>
+</div>
+
+
+<!-- ══════════ LESSON 3 ══════════ -->
+<div class="lesson" id="l3">
+<h2><span class="no">LESSON 3</span>무대 이해하기 — 디스패처와 워크 프로세스</h2>
+
+<p>LUW는 추상 개념이 아니라 <b>SAP 인스턴스 안에서 실제로 돌아가는 프로세스들의 약속</b>입니다. 등장인물을 먼저 알면 뒤의 모든 설명이 쉬워집니다.</p>
+
+<figure class="figwrap">
+<svg class="dgm" viewBox="0 0 1000 400" role="img"
+     aria-label="SAP GUI 요청이 디스패처를 거쳐 다이얼로그 워크 프로세스로 배분되고, 다이얼로그 WP가 업데이트 WP에 변경을 넘기며, 엔큐 서버가 전역 락 테이블을 관리하고 모든 WP가 하나의 데이터베이스를 공유하는 인스턴스 구성도">
+  <defs>
+    <marker id="lu-c" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><polygon class="arw" points="0,1 10,5 0,9"/></marker>
+    <marker id="lu-ck" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><polygon class="arw-key" points="0,1 10,5 0,9"/></marker>
+  </defs>
+
+  <rect class="b" x="40" y="28" width="150" height="54" rx="5"/>
+  <text class="t" x="66" y="52">SAP GUI</text>
+  <text class="t-xs" x="66" y="70">사용자 · 배치 · RFC</text>
+  <line class="ln" x1="190" y1="55" x2="246" y2="55" marker-end="url(#lu-c)"/>
+
+  <rect class="b-key" x="254" y="28" width="160" height="54" rx="5"/>
+  <text class="t c-key" x="280" y="52" font-weight="700">Dispatcher</text>
+  <text class="t-xs" x="280" y="70">요청 큐 · WP 배분</text>
+
+  <rect class="b-ghost" x="40" y="106" width="600" height="150" rx="8"/>
+  <text class="m-s c-key" x="56" y="126">WORK PROCESS POOL</text>
+
+  <rect class="b" x="62" y="140" width="120" height="48" rx="4"/>
+  <text class="t-h c-key" x="82" y="164">DIA</text>
+  <text class="t-xs" x="82" y="180">화면 처리</text>
+  <rect class="b" x="196" y="140" width="120" height="48" rx="4"/>
+  <text class="t-h c-key" x="216" y="164">UPD (V1)</text>
+  <text class="t-xs" x="216" y="180">동기성 변경 실행</text>
+  <rect class="b" x="330" y="140" width="120" height="48" rx="4"/>
+  <text class="t-h" x="350" y="164">UP2 (V2)</text>
+  <text class="t-xs" x="350" y="180">통계 등 후속</text>
+  <rect class="b" x="464" y="140" width="120" height="48" rx="4"/>
+  <text class="t-h" x="484" y="164">BTC</text>
+  <text class="t-xs" x="484" y="180">백그라운드 잡</text>
+
+  <rect class="b" x="62" y="198" width="120" height="48" rx="4"/>
+  <text class="t-h" x="82" y="222">ENQ</text>
+  <text class="t-xs" x="82" y="238">락 테이블 관리</text>
+  <rect class="b" x="196" y="198" width="120" height="48" rx="4"/>
+  <text class="t-h" x="216" y="222">SPO</text>
+  <text class="t-xs" x="216" y="238">출력(스풀)</text>
+  <rect class="b-mut" x="330" y="198" width="254" height="48" rx="4"/>
+  <text class="t-xs" x="350" y="220" font-weight="700">Message Server — 인스턴스 간 통신 · 부하분산</text>
+  <text class="t-xs" x="350" y="238">Enqueue 요청도 이 경로로 중앙 서버에 전달</text>
+
+  <line class="ln" x1="334" y1="82" x2="180" y2="134" marker-end="url(#lu-c)"/>
+  <line class="ln" x1="334" y1="82" x2="334" y2="134" marker-end="url(#lu-c)"/>
+
+
+  <rect class="b-key" x="680" y="106" width="270" height="150" rx="8"/>
+  <text class="t-h c-key" x="704" y="134">Enqueue Server</text>
+  <text class="t-s" x="704" y="158">전역 락 테이블(Lock Table)을 단독 보유</text>
+  <text class="t-s" x="704" y="180">모든 인스턴스의 ENQUEUE 요청이</text>
+  <text class="t-s" x="704" y="200">여기 한 곳으로 모여 충돌을 판정한다</text>
+  <text class="m-s c-key" x="704" y="228">SM12 로 현재 락 조회 · 해제</text>
+  <line class="ln-d" x1="584" y1="222" x2="676" y2="180" marker-end="url(#lu-c)"/>
+
+  <rect class="b-ok" x="300" y="300" width="400" height="70" rx="6"/>
+  <text class="t-h c-ok" x="330" y="328">Database (RDBMS)</text>
+  <text class="t-s" x="330" y="352">실제 저장 · 트랜잭션 로그 · DB 락(행 단위)</text>
+  <path class="ln" d="M122 246 L122 335 L294 335" marker-end="url(#lu-c)"/>
+  <path class="ln-key" d="M256 188 L256 300" marker-end="url(#lu-ck)"/>
+  <path class="ln" d="M390 188 L390 296" marker-end="url(#lu-c)"/>
+  <path class="ln" d="M524 188 L524 296" marker-end="url(#lu-c)"/>
+</svg>
+<figcaption><span class="fno">그림 3</span> 기억할 두 가지. ① <b>한 WP는 동시에 DB LUW 하나만</b> 처리합니다. ② 화면이 넘어가면 <b>WP가 교체</b>되므로 앞 화면의 DB 커넥션 상태는 이어지지 않습니다.</figcaption>
+</figure>
+
+<div class="tbl-wrap">
+<table>
+  <tr><th style="width:150px">구성요소</th><th>LUW 관점에서 하는 일</th></tr>
+  <tr><td><b>Dispatcher</b></td><td>들어온 요청을 유형에 맞는 WP에 배분한다. 화면 전환 때 <b>다른 WP를 배정</b>하는 주체이므로, 암묵적 커밋의 원인 제공자이기도 하다.</td></tr>
+  <tr><td><b>Dialog WP</b></td><td>ABAP 코드를 실행한다. 단, <span class="hl">DB 변경을 직접 하지 않고 "변경 요청"만 등록</span>하는 것이 SAP 표준 설계다.</td></tr>
+  <tr><td><b>Update WP (V1/V2)</b></td><td><code>COMMIT WORK</code> 시점에 등록된 변경 요청을 꺼내 <b>실제 DB 변경을 수행</b>한다. Lesson 5에서 자세히 본다.</td></tr>
+  <tr><td><b>Enqueue Server</b></td><td>SAP 전역 락을 판정·보관한다. 여러 DB LUW에 걸친 SAP LUW를 보호하는 유일한 수단이다.</td></tr>
+  <tr><td><b>Message Server</b></td><td>인스턴스 간 통신·부하분산. Enqueue 요청의 전달 경로이기도 하다.</td></tr>
+  <tr><td><b>DBMS</b></td><td>커밋된 데이터를 영속화하고, 행 단위 DB 락으로 <b>DB LUW 내부</b>의 동시성을 지킨다.</td></tr>
+</table>
+</div>
+</div>
+
+
+<!-- ══════════ LESSON 4 ══════════ -->
+<div class="lesson" id="l4">
+<h2><span class="no">LESSON 4</span>번들링 기법 5종 — 변경을 미루는 방법</h2>
+
+<p>Lesson 2의 결론은 "DB 변경을 <b>마지막 한 순간까지 미뤄야 한다</b>"였습니다. 그 미루는 기술을 SAP에서는 <span class="key">번들링(Bundling)</span>이라고 부릅니다. 다섯 가지 수단이 있고, 각각 실행 주체와 시점이 다릅니다.</p>
+
+<figure class="figwrap">
+<svg class="dgm" viewBox="0 0 1000 360" role="img"
+     aria-label="다이얼로그 워크 프로세스가 업데이트 함수 모듈 호출을 VBLOG 테이블에 등록해 두었다가 COMMIT WORK 시점에 업데이트 워크 프로세스가 이를 읽어 하나의 DB LUW로 실행하는 번들링 흐름도">
+  <defs>
+    <marker id="lu-d" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><polygon class="arw" points="0,1 10,5 0,9"/></marker>
+    <marker id="lu-dk" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><polygon class="arw-key" points="0,1 10,5 0,9"/></marker>
+  </defs>
+
+  <rect class="b-ghost" x="30" y="20" width="330" height="200" rx="8"/>
+  <text class="m-s c-key" x="46" y="42">① Dialog WP — 등록만 한다</text>
+
+  <rect class="b" x="52" y="56" width="286" height="42" rx="4"/>
+  <text class="m-s" x="68" y="82">CALL FUNCTION 'Z_UPD_HEADER' IN UPDATE TASK</text>
+  <rect class="b" x="52" y="106" width="286" height="42" rx="4"/>
+  <text class="m-s" x="68" y="132">CALL FUNCTION 'Z_UPD_ITEM'   IN UPDATE TASK</text>
+  <rect class="b" x="52" y="156" width="286" height="42" rx="4"/>
+  <text class="m-s" x="68" y="182">PERFORM update_stat ON COMMIT</text>
+  <text class="t-xs c-bad" x="52" y="212">이 시점에는 DB에 아무것도 쓰이지 않는다</text>
+
+  <path class="ln-key" d="M360 120 L418 120" marker-end="url(#lu-dk)"/>
+  <text class="t-xs c-key" x="362" y="110">등록</text>
+
+  <rect class="b-hl" x="424" y="56" width="180" height="142" rx="6"/>
+  <text class="t-h" x="446" y="82">VBLOG</text>
+  <text class="t-xs" x="446" y="104">VBHDR — 헤더</text>
+  <text class="t-xs" x="446" y="124">VBMOD — 모듈 목록</text>
+  <text class="t-xs" x="446" y="144">VBDATA — 파라미터 값</text>
+  <text class="t-xs" x="446" y="172">"할 일 목록"이 임시로</text>
+  <text class="t-xs" x="446" y="190">쌓이는 SAP 표준 테이블</text>
+
+  <rect class="b-key" x="424" y="232" width="180" height="48" rx="5"/>
+  <text class="m c-key" x="446" y="262" font-weight="700">COMMIT WORK</text>
+  <path class="ln-key" d="M514 198 L514 228" marker-end="url(#lu-dk)"/>
+  <text class="t-xs c-key" x="520" y="218">트리거</text>
+
+  <path class="ln-key" d="M604 256 L668 256" marker-end="url(#lu-dk)"/>
+
+  <rect class="b-ghost" x="676" y="20" width="300" height="200" rx="8"/>
+  <text class="m-s c-key" x="692" y="42">② Update WP — 실제로 쓴다</text>
+  <rect class="b-ok" x="698" y="56" width="256" height="142" rx="5"/>
+  <text class="t c-ok" x="718" y="82" font-weight="700">하나의 DB LUW 안에서</text>
+  <text class="t-s" x="718" y="106">Z_UPD_HEADER 실행</text>
+  <text class="t-s" x="718" y="128">Z_UPD_ITEM 실행</text>
+  <text class="t-s" x="718" y="150">update_stat 실행</text>
+  <text class="t-xs c-bad" x="718" y="178">하나라도 실패하면 전부 롤백 → SM13</text>
+
+  <text class="t-xs c-key" x="610" y="246">Update WP 가 VBLOG 를 읽어 실행</text>
+
+  <rect class="b-ok" x="676" y="300" width="300" height="46" rx="5"/>
+  <text class="t c-ok" x="700" y="328" font-weight="700">DB COMMIT — 이제서야 영구 반영</text>
+  <path class="ln-ok" d="M826 220 L826 296"/>
+</svg>
+<figcaption><span class="fno">그림 4</span> 번들링의 핵심 구조. Dialog WP는 <b>"할 일"만 VBLOG에 적어 두고</b>, COMMIT WORK 시점에 Update WP가 그 목록을 한 번에 실행합니다. 그래서 SAP LUW 전체가 마지막 DB LUW 하나로 수렴합니다.</figcaption>
+</figure>
+
+<h3>다섯 가지 번들링 수단</h3>
+<div class="tbl-wrap">
+<table>
+  <tr><th style="width:230px">기법</th><th style="width:120px">실행 주체</th><th>특징과 용도</th></tr>
+  <tr>
+    <td class="wrap"><code>CALL FUNCTION ...<br>IN UPDATE TASK</code><br><span class="tag">가장 표준</span></td>
+    <td>Update WP<br>(V1/V2)</td>
+    <td>업데이트 함수 모듈을 등록한다. <code>COMMIT WORK</code> 시 Update WP가 별도 프로세스에서 실행. <b>대량 변경, 전표 생성 등 본 업무에 사용.</b> 함수 속성이 <code>Update Module</code>이어야 한다.</td>
+  </tr>
+  <tr>
+    <td class="wrap"><code>PERFORM ... ON COMMIT</code></td>
+    <td>같은 WP<br>(Dialog)</td>
+    <td>서브루틴을 커밋 시점으로 미룬다. <b>같은 워크 프로세스에서 동기 실행</b>되므로 가볍고 빠르지만 파라미터를 넘길 수 없다(전역 변수 사용). 소규모 후처리에 적합.</td>
+  </tr>
+  <tr>
+    <td class="wrap"><code>PERFORM ... ON ROLLBACK</code></td>
+    <td>같은 WP</td>
+    <td>롤백 시에만 실행되는 정리 루틴. 임시 파일 삭제, 외부 자원 해제 등에 쓴다.</td>
+  </tr>
+  <tr>
+    <td class="wrap"><code>CALL FUNCTION ...<br>IN BACKGROUND TASK</code><br><span class="tag">tRFC</span></td>
+    <td>원격 시스템</td>
+    <td>tRFC(Transactional RFC)로 <b>원격 호출까지 LUW에 묶는다.</b> COMMIT WORK 시 전송되며, 실패해도 SM58에 남아 재전송 가능. 인터페이스 연계의 기본기.</td>
+  </tr>
+  <tr>
+    <td class="wrap">메모리에 모았다가<br>마지막에 한 번 저장</td>
+    <td>같은 WP</td>
+    <td>내부 테이블에 계속 쌓아 두었다가 저장 시점에 <code>INSERT ... FROM TABLE</code> 한 번. 가장 단순하고 성능도 좋다. 단, <b>여러 프로그램에 걸친 경우</b>에는 쓸 수 없어 ABAP Memory/SAP Memory를 병행해야 한다.</td>
+  </tr>
+</table>
+</div>
+
+<div class="note">
+  <div class="t">고르는 기준 — 한 줄 요약</div>
+  <p>업무 데이터 변경이면 <span class="hl">IN UPDATE TASK</span>, 가벼운 후처리면 <span class="hl">PERFORM ON COMMIT</span>, 원격 전송이면 <span class="hl">IN BACKGROUND TASK</span>. 한 프로그램 안에서 끝나는 단순 처리는 <b>내부 테이블에 모았다가 마지막에 한 번</b>이 제일 낫습니다.</p>
+</div>
+</div>
+
+
+<!-- ══════════ LESSON 5 ══════════ -->
+<div class="lesson" id="l5">
+<h2><span class="no">LESSON 5</span>Update Task 해부 — V1 · V2 · VBLOG</h2>
+
+<p>업데이트 함수 모듈은 종류가 나뉘고, <b>어느 종류로 만드느냐에 따라 실패했을 때의 결과가 완전히 달라집니다.</b> SE37의 Attributes 탭에서 고르는 그 라디오 버튼이 여기 해당합니다.</p>
+
+<figure class="figwrap">
+<svg class="dgm" viewBox="0 0 1000 300" role="img"
+     aria-label="COMMIT WORK 이후 V1 업데이트가 하나의 DB LUW로 먼저 실행되고 성공하면 락이 해제된 뒤 V2 업데이트가 별도 LUW로 실행되며, V1 실패 시 전체 롤백되고 SM13에 오류로 남는 순서 도해">
+  <defs>
+    <marker id="lu-e" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><polygon class="arw" points="0,1 10,5 0,9"/></marker>
+    <marker id="lu-eo" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><polygon class="arw-ok" points="0,1 10,5 0,9"/></marker>
+    <marker id="lu-eb" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><polygon class="arw-bad" points="0,1 10,5 0,9"/></marker>
+  </defs>
+
+  <rect class="b-key" x="30" y="30" width="170" height="52" rx="5"/>
+  <text class="m c-key" x="48" y="54" font-weight="700">COMMIT WORK</text>
+  <text class="t-xs" x="48" y="72">Dialog WP 는 여기서 해방</text>
+
+  <line class="ln-key" x1="200" y1="56" x2="256" y2="56" marker-end="url(#lu-e)"/>
+
+  <rect class="b-ok" x="264" y="24" width="300" height="66" rx="5"/>
+  <text class="t-h c-ok" x="286" y="50">V1 — 시간 임계(Time-critical)</text>
+  <text class="t-s" x="286" y="72">전표 · 재고 · 잔액처럼 업무상 반드시 반영돼야 하는 것</text>
+
+  <line class="ln-ok" x1="564" y1="57" x2="620" y2="57" marker-end="url(#lu-eo)"/>
+  <text class="t-xs c-ok" x="566" y="48">성공 시</text>
+
+  <rect class="b" x="628" y="24" width="300" height="66" rx="5"/>
+  <text class="t-h" x="650" y="50">V2 — 비임계(Non-critical)</text>
+  <text class="t-s" x="650" y="72">통계 · 집계 · 분석용처럼 늦어도 되는 것</text>
+
+  <rect class="b-mut" x="264" y="110" width="300" height="76" rx="5"/>
+  <text class="t-s" x="286" y="134">· 모든 V1 모듈이 <tspan font-weight="700">하나의 DB LUW</tspan> 안에서</text>
+  <text class="t-s" x="286" y="154">· 등록한 <tspan font-weight="700">순서대로</tspan> 실행된다</text>
+  <text class="t-s" x="286" y="174">· 이 구간 동안 SAP 락이 유지된다</text>
+
+  <rect class="b-mut" x="628" y="110" width="300" height="76" rx="5"/>
+  <text class="t-s" x="650" y="134">· V1 이 <tspan font-weight="700">완전히 끝난 뒤</tspan> 시작</text>
+  <text class="t-s" x="650" y="154">· <tspan font-weight="700">별도의 DB LUW</tspan>로 분리 실행</text>
+  <text class="t-s" x="650" y="174">· V2 가 실패해도 V1 은 그대로 유지</text>
+
+  <path class="ln-bad" d="M264 62 L228 62 L228 246 L258 246" marker-end="url(#lu-eb)" stroke-dasharray="5 4"/>
+  <text class="t-xs c-bad" x="150" y="150">V1 실패 시</text>
+
+  <rect class="b-bad" x="264" y="216" width="600" height="68" rx="5"/>
+  <text class="t-h c-bad" x="286" y="242">전체 롤백 &#43; 락 해제 &#43; SM13 에 오류 등록</text>
+  <text class="t-s" x="286" y="266">사용자에게는 이미 "저장되었습니다" 메시지가 나간 뒤일 수 있다 → 알림 설계 필요</text>
+</svg>
+<figcaption><span class="fno">그림 5</span> V1과 V2의 관계. <b>V1은 하나의 DB LUW, V2는 그 뒤의 또 다른 DB LUW</b>입니다. 업무 무결성이 걸린 것은 반드시 V1으로 만들어야 합니다.</figcaption>
+</figure>
+
+<h3>업데이트 모듈 유형 (SE37 → Attributes)</h3>
+<div class="tbl-wrap">
+<table>
+  <tr><th style="width:200px">유형</th><th style="width:110px">재시작</th><th>언제 쓰나</th></tr>
+  <tr><td><b>V1 — Update module</b><br><span class="t-s">Start immediately</span></td><td>가능</td>
+      <td>기본값이자 대부분의 선택. 실패 시 SM13에 남아 <b>재처리 가능</b>. 업무 데이터는 여기에.</td></tr>
+  <tr><td><b>V1 — 즉시 시작, 재시작 불가</b><br><span class="t-s">Immediate start, no restart</span></td><td>불가</td>
+      <td>중복 실행되면 안 되는 로직(번호 채번 등). 실패하면 그대로 폐기된다.</td></tr>
+  <tr><td><b>V2 — Start delayed</b></td><td>가능</td>
+      <td>통계·집계처럼 늦어도 되고, 실패해도 본 업무에 지장이 없는 것.</td></tr>
+  <tr><td><b>Collective run (V3)</b></td><td>가능</td>
+      <td>모아 두었다가 배치로 일괄 처리(<code>RSM13005</code>). LIS 갱신 등 대량 집계에 사용.</td></tr>
+</table>
+</div>
+
+<h3>업데이트 실행 방식 3가지</h3>
+<pre><code><span class="c">" ① 비동기(기본) — Dialog WP 는 등록만 하고 즉시 반환, Update WP 가 처리</span>
+CALL FUNCTION 'Z_SD_ORDER_UPDATE' IN UPDATE TASK
+  EXPORTING is_header = ls_header
+  TABLES    it_item   = lt_item.
+<span class="k">COMMIT WORK</span>.                <span class="c">" 반환 즉시 다음 줄로 — 결과는 아직 모른다</span>
+
+<span class="c">" ② 동기 — Update WP 가 끝날 때까지 기다린다</span>
+<span class="k">COMMIT WORK AND WAIT</span>.       <span class="c">" sy-subrc = 0 이면 업데이트까지 성공</span>
+IF sy-subrc &lt;&gt; 0.
+  <span class="c">" 업데이트 실패를 이 자리에서 알 수 있다 → 화면에 에러 표시 가능</span>
+ENDIF.
+
+<span class="c">" ③ 로컬 업데이트 — Update WP 를 안 쓰고 현재 WP 에서 바로 실행</span>
+<span class="k">SET UPDATE TASK LOCAL</span>.        <span class="c">" COMMIT WORK 전에 선언</span>
+CALL FUNCTION 'Z_SD_ORDER_UPDATE' IN UPDATE TASK ...
+<span class="k">COMMIT WORK</span>.                <span class="c">" 같은 WP · 같은 DB LUW 에서 실행됨</span></code></pre>
+
+<div class="tbl-wrap">
+<table>
+  <tr><th style="width:190px">방식</th><th style="width:130px">결과를 아는가</th><th>주 용도와 주의점</th></tr>
+  <tr><td><code>COMMIT WORK</code><br><span class="t-s">비동기</span></td><td><span class="bad">모른다</span></td>
+      <td>응답이 빠르다. 대신 실패는 SM13/워크플로 알림으로만 알 수 있다. <b>대화형 화면의 기본.</b></td></tr>
+  <tr><td><code>COMMIT WORK AND WAIT</code><br><span class="t-s">동기</span></td><td><span class="good">안다 (sy-subrc)</span></td>
+      <td>결과를 즉시 확인해야 할 때. <b>BAPI 호출 후, 배치 프로그램</b>에서 주로 쓴다. 응답이 느려지므로 대량 루프에서는 신중히.</td></tr>
+  <tr><td><code>SET UPDATE TASK LOCAL</code><br><span class="t-s">로컬</span></td><td><span class="good">안다</span></td>
+      <td>Update WP를 거치지 않아 <b>디버깅이 쉽다.</b> 또한 Update WP 부족 상황을 피할 수 있다. 단 현재 WP가 붙잡히므로 장시간 처리에는 부적합.</td></tr>
+</table>
+</div>
+
+<div class="note">
+  <div class="t">디버깅 팁 — Update 모듈에 브레이크포인트가 안 걸릴 때</div>
+  <p>업데이트 함수는 <b>다른 워크 프로세스</b>에서 돌기 때문에 일반 BP로는 안 잡힙니다. 두 가지 방법이 있습니다.</p>
+  <ul>
+    <li>디버거 메뉴에서 <b>Settings → Update Debugging</b> 체크 (표준 프로그램 디버깅 시)</li>
+    <li>테스트 프로그램이라면 <code>SET UPDATE TASK LOCAL</code>을 임시로 넣어 <b>같은 WP에서 실행</b>시킨 뒤 일반 BP로 추적</li>
+  </ul>
+</div>
+</div>
+
+
+<!-- ══════════ LESSON 6 ══════════ -->
+<div class="lesson" id="l6">
+<h2><span class="no">LESSON 6</span>COMMIT WORK / ROLLBACK WORK 정밀 동작</h2>
+
+<p>두 문장이 "정확히 무엇을 하는지"를 순서대로 알아 두면, 예상 못 한 동작의 90%는 스스로 설명할 수 있습니다.</p>
+
+<h3>COMMIT WORK 가 하는 일 — 순서대로</h3>
+<div class="tbl-wrap">
+<table>
+  <tr><th style="width:60px">순서</th><th>동작</th></tr>
+  <tr><td><b>1</b></td><td><code>PERFORM ... ON COMMIT</code>으로 등록된 서브루틴을 <b>등록 순서대로</b> 실행한다 (같은 WP).</td></tr>
+  <tr><td><b>2</b></td><td>V1 업데이트 모듈들을 Update WP로 넘긴다. <code>AND WAIT</code>이면 끝날 때까지 대기.</td></tr>
+  <tr><td><b>3</b></td><td>tRFC(<code>IN BACKGROUND TASK</code>) 호출들을 전송 대기열에 올린다.</td></tr>
+  <tr><td><b>4</b></td><td>현재 열린 <b>모든 DB 커넥션</b>에 실제 DB COMMIT을 건다 → 현재 DB LUW 종료.</td></tr>
+  <tr><td><b>5</b></td><td><code>_SCOPE = 2</code>로 잡힌 SAP 락을 Update WP에 인계하거나 해제한다 (Lesson 8).</td></tr>
+  <tr><td><b>6</b></td><td><span class="key">새 SAP LUW를 즉시 시작한다.</span> 즉 COMMIT은 "끝"이 아니라 "구분선"이다.</td></tr>
+</table>
+</div>
+
+<h3>ROLLBACK WORK 가 하는 일</h3>
+<ul>
+  <li>등록만 되어 있던 <b>모든 업데이트 모듈 · ON COMMIT 서브루틴 · tRFC 호출을 삭제</b>한다 (실행 자체를 안 한다).</li>
+  <li><code>PERFORM ... ON ROLLBACK</code>으로 등록된 루틴을 실행한다.</li>
+  <li>열린 DB 커넥션에 DB ROLLBACK을 건다 → 현재 DB LUW에서 이미 실행된 직접 SQL도 취소된다.</li>
+  <li>SAP 락을 해제하고 <b>새 SAP LUW를 시작</b>한다.</li>
+</ul>
+
+<div class="note warn">
+  <div class="t">가장 흔한 오해</div>
+  <p><span class="bad">"ROLLBACK WORK 하면 화면 100에서 한 UPDATE도 취소되겠지"</span> → <b>아닙니다.</b> 화면 전환 시 암묵적 커밋으로 <b>이미 다른 DB LUW가 종료</b>됐기 때문에, 현재 DB LUW 밖의 변경은 되돌아오지 않습니다. 이것이 Lesson 4의 번들링을 쓰는 이유입니다.</p>
+</div>
+
+<div class="cmp">
+  <div class="x">
+    <h5>✕ 이렇게 쓰면 안 된다</h5>
+<pre><code>LOOP AT lt_order INTO ls_order.
+  PERFORM post_document USING ls_order.
+  <span class="r">COMMIT WORK.</span>  <span class="c">" 루프 안 커밋</span>
+ENDLOOP.</code></pre>
+    <ul>
+      <li>중간에 실패하면 <b>앞부분만 반영</b>된 상태로 남는다</li>
+      <li>매 커밋마다 락이 풀려 다른 세션이 끼어든다</li>
+      <li>롤백으로 복구가 불가능해 수작업 정정이 필요해진다</li>
+    </ul>
+  </div>
+  <div class="o">
+    <h5>○ 이렇게 쓴다</h5>
+<pre><code>LOOP AT lt_order INTO ls_order.
+  PERFORM validate USING ls_order
+                CHANGING lv_err.
+  CHECK lv_err IS INITIAL.
+  PERFORM collect USING ls_order.
+ENDLOOP.
+IF lv_err IS INITIAL.
+  <span class="k">COMMIT WORK AND WAIT.</span>
+ELSE.
+  <span class="k">ROLLBACK WORK.</span>
+ENDIF.</code></pre>
+    <ul>
+      <li>검증을 먼저 끝내고 <b>전부 또는 전무</b>로 처리</li>
+      <li>대량이라 한 번에 무리라면 <b>업무 단위(전표 1건)로 끊어</b> 커밋하고 처리 결과를 로그 테이블에 남긴다</li>
+    </ul>
+  </div>
+</div>
+
+<div class="note">
+  <div class="t">대량 배치에서의 현실적인 타협</div>
+  <p>100만 건을 한 LUW로 묶으면 롤백 세그먼트가 터지고 락이 과도해집니다. 실무 기준은 <span class="hl">"업무적으로 쪼갤 수 있는 최소 단위"로 LUW를 끊고, 건별 성공/실패를 로그 테이블에 남겨 재처리 가능하게</span> 만드는 것입니다. 즉 <b>원자성의 단위를 전표 1건으로 재정의</b>하는 것이지, 루프 안에서 아무렇게나 커밋하는 것과는 다릅니다.</p>
+</div>
+</div>
+
+
+<!-- ══════════ LESSON 7 ══════════ -->
+<div class="lesson" id="l7">
+<h2><span class="no">LESSON 7</span>암묵적 커밋 — 나도 모르게 끊기는 지점</h2>
+
+<p>내가 <code>COMMIT WORK</code>를 쓰지 않았는데도 SAP LUW가 끊기는 지점들이 있습니다. <b>이 목록을 아느냐 모르느냐가 초급과 중급을 가릅니다.</b></p>
+
+<figure class="figwrap">
+<svg class="dgm" viewBox="0 0 1000 290" role="img"
+     aria-label="하나의 프로그램 흐름 위에 화면 전환, 동기 RFC 호출, WAIT UP TO, CALL TRANSACTION, 대화형 메시지 출력 지점에서 암묵적 커밋이 발생함을 번개 표시로 나타낸 도해">
+  <defs>
+    <marker id="lu-f" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><polygon class="arw" points="0,1 10,5 0,9"/></marker>
+  </defs>
+
+  <text class="m-s c-key" x="30" y="28">프로그램 실행 흐름 →</text>
+  <line class="ln" x1="30" y1="46" x2="950" y2="46" marker-end="url(#lu-f)"/>
+
+  <g>
+    <line class="ln-bad" x1="150" y1="46" x2="150" y2="78"/>
+    <circle cx="150" cy="46" r="5" fill="#B91C1C"/>
+    <rect class="b-bad" x="60" y="78" width="180" height="62" rx="5"/>
+    <text class="t-s c-bad" x="78" y="100" font-weight="700">⚡ 다이얼로그 단계 종료</text>
+    <text class="t-xs" x="78" y="120">화면 전환 · PAI 종료</text>
+    <text class="t-xs" x="78" y="134">WP 교체가 원인</text>
+  </g>
+  <g>
+    <line class="ln-bad" x1="340" y1="46" x2="340" y2="78"/>
+    <circle cx="340" cy="46" r="5" fill="#B91C1C"/>
+    <rect class="b-bad" x="256" y="78" width="180" height="62" rx="5"/>
+    <text class="t-s c-bad" x="274" y="100" font-weight="700">⚡ 동기 RFC 호출</text>
+    <text class="m-s" x="274" y="120">CALL FUNCTION ...</text>
+    <text class="m-s" x="274" y="134">DESTINATION</text>
+  </g>
+  <g>
+    <line class="ln-bad" x1="530" y1="46" x2="530" y2="78"/>
+    <circle cx="530" cy="46" r="5" fill="#B91C1C"/>
+    <rect class="b-bad" x="452" y="78" width="180" height="62" rx="5"/>
+    <text class="t-s c-bad" x="470" y="100" font-weight="700">⚡ WAIT 문</text>
+    <text class="m-s" x="470" y="120">WAIT UP TO n SECONDS</text>
+    <text class="m-s" x="470" y="134">WAIT UNTIL ...</text>
+  </g>
+  <g>
+    <line class="ln-bad" x1="720" y1="46" x2="720" y2="78"/>
+    <circle cx="720" cy="46" r="5" fill="#B91C1C"/>
+    <rect class="b-bad" x="648" y="78" width="180" height="62" rx="5"/>
+    <text class="t-s c-bad" x="666" y="100" font-weight="700">⚡ CALL TRANSACTION</text>
+    <text class="t-xs" x="666" y="120">SUBMIT ... AND RETURN</text>
+    <text class="t-xs" x="666" y="134">별도 세션이 열림</text>
+  </g>
+  <g>
+    <line class="ln-bad" x1="890" y1="46" x2="890" y2="78"/>
+    <circle cx="890" cy="46" r="5" fill="#B91C1C"/>
+    <rect class="b-bad" x="838" y="78" width="150" height="62" rx="5"/>
+    <text class="t-s c-bad" x="854" y="100" font-weight="700">⚡ 대화형 메시지</text>
+    <text class="m-s" x="854" y="120">MESSAGE ... TYPE 'I'</text>
+    <text class="t-xs" x="854" y="134">팝업 = 화면 전환</text>
+  </g>
+
+  <rect class="b-hl" x="60" y="176" width="880" height="44" rx="5"/>
+  <text class="t" x="84" y="204">이 지점을 지나는 순간 <tspan font-weight="700">직전까지의 직접 SQL 변경은 되돌릴 수 없게 됩니다.</tspan></text>
+
+  <rect class="b-ok" x="60" y="232" width="880" height="46" rx="5"/>
+  <text class="t c-ok" x="84" y="252" font-weight="700">대응 원칙</text>
+  <text class="t-s" x="196" y="252">위 지점 사이에는 직접 SQL을 두지 말고, 번들링으로 등록만 해 둔다.</text>
+  <text class="t-xs" x="84" y="270">불가피하게 RFC·WAIT가 필요하면, 그 앞에서 의도적으로 COMMIT WORK 하여 LUW 경계를 내가 정한다.</text>
+</svg>
+<figcaption><span class="fno">그림 6</span> 암묵적 커밋 지점. <b>"내가 커밋 위치를 정하지 못하면, 시스템이 대신 정한다"</b>가 이 그림의 결론입니다.</figcaption>
+</figure>
+
+<div class="tbl-wrap">
+<table>
+  <tr><th style="width:230px">상황</th><th style="width:110px">암묵적 커밋</th><th>비고</th></tr>
+  <tr><td>다이얼로그 단계 종료(화면 전환)</td><td><span class="bad">발생</span></td><td>WP roll-out 직전. 가장 빈번한 원인</td></tr>
+  <tr><td><code>CALL FUNCTION ... DESTINATION</code> (sRFC)</td><td><span class="bad">발생</span></td><td>동기 원격 호출. tRFC/qRFC는 해당 없음</td></tr>
+  <tr><td><code>WAIT UP TO</code> / <code>WAIT UNTIL</code></td><td><span class="bad">발생</span></td><td>병렬처리에서 특히 주의</td></tr>
+  <tr><td><code>MESSAGE</code> 타입 I / A / E (대화형)</td><td><span class="bad">발생</span></td><td>팝업이 뜨는 순간 화면 전환과 동일</td></tr>
+  <tr><td><code>CALL TRANSACTION</code>, <code>SUBMIT</code></td><td><span class="bad">발생</span></td><td>새 내부 세션·새 LUW가 열린다</td></tr>
+  <tr><td><code>CALL SCREEN</code>, <code>CALL DIALOG</code></td><td><span class="bad">발생</span></td><td>화면 스택이 바뀐다</td></tr>
+  <tr><td>프로그램 정상 종료(<code>LEAVE PROGRAM</code>)</td><td><span class="bad">발생</span></td><td>종료 시 암묵적 커밋</td></tr>
+  <tr><td>런타임 에러(덤프) 발생</td><td><span class="good">롤백</span></td><td>커밋이 아니라 <b>롤백</b>된다. ST22에 기록</td></tr>
+  <tr><td><code>IN UPDATE TASK</code> / <code>IN BACKGROUND TASK</code> 등록</td><td><span class="good">없음</span></td><td>등록만 하므로 안전. 번들링의 이유</td></tr>
+</table>
+</div>
+</div>
+
+
+<!-- ══════════ LESSON 8 ══════════ -->
+<div class="lesson" id="l8">
+<h2><span class="no">LESSON 8</span>SAP 락(Enqueue)과 _SCOPE — LUW의 파트너</h2>
+
+<p>LUW가 "내 변경을 언제 반영할지"의 문제라면, 락은 <b>"내가 작업하는 동안 남이 못 건드리게 하는"</b> 문제입니다. 두 개념은 <span class="key">반드시 짝으로</span> 이해해야 합니다.</p>
+
+<h3>왜 DB 락으로는 부족한가</h3>
+<div class="tbl-wrap">
+<table>
+  <tr><th style="width:130px">구분</th><th>DB 락</th><th>SAP 락 (Enqueue)</th></tr>
+  <tr><td><b>유지 기간</b></td><td>DB LUW 동안만 — 커밋하면 즉시 풀림</td><td><span class="hl">SAP LUW 전체</span> — 화면 여러 개에 걸쳐 유지 가능</td></tr>
+  <tr><td><b>대상</b></td><td>실제 테이블 행</td><td>논리적 락 오브젝트(키 조합). <b>아직 없는 행도 잠글 수 있다</b></td></tr>
+  <tr><td><b>관리 주체</b></td><td>DBMS</td><td>Enqueue Server의 락 테이블(메모리)</td></tr>
+  <tr><td><b>조회</b></td><td>DB 툴</td><td><code>SM12</code></td></tr>
+  <tr><td><b>결론</b></td><td colspan="2">화면 전환마다 DB 커밋이 나므로 DB 락은 화면을 못 넘긴다 → <b>SAP 락이 필요한 이유</b></td></tr>
+</table>
+</div>
+
+<h3>_SCOPE 파라미터 — 락과 LUW를 잇는 다리</h3>
+<p>락 오브젝트(SE11에서 <code>EZ*</code>로 생성)를 만들면 <code>ENQUEUE_EZxxxx</code> / <code>DEQUEUE_EZxxxx</code> 함수가 자동 생성됩니다. 이때 <code>_SCOPE</code>는 <b>"이 락을 누가 언제까지 책임질 것인가"</b>를 정하는 파라미터로, 실무 사고의 상당수가 여기서 나옵니다.</p>
+
+<figure class="figwrap">
+<svg class="dgm" viewBox="0 0 1000 330" role="img"
+     aria-label="ENQUEUE 호출 시 _SCOPE 값 1, 2, 3에 따라 락의 소유권이 대화형 프로그램에 남거나 COMMIT WORK 시점에 업데이트 워크 프로세스로 인계되는 차이를 보여주는 도해">
+  <defs>
+    <marker id="lu-g" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><polygon class="arw" points="0,1 10,5 0,9"/></marker>
+    <marker id="lu-gk" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><polygon class="arw-key" points="0,1 10,5 0,9"/></marker>
+  </defs>
+
+  <rect class="b-key" x="30" y="26" width="220" height="56" rx="5"/>
+  <text class="m-s c-key" x="48" y="48">CALL FUNCTION</text>
+  <text class="m-s c-key" x="48" y="66">'ENQUEUE_EZ_VBAK'</text>
+  <line class="ln-key" x1="250" y1="54" x2="310" y2="54" marker-end="url(#lu-gk)"/>
+  <rect class="b" x="318" y="26" width="230" height="56" rx="5"/>
+  <text class="t" x="338" y="50">Enqueue Server 락 테이블</text>
+  <text class="t-xs" x="338" y="70">충돌 판정 → 성공 또는 FOREIGN_LOCK</text>
+  <text class="t-xs c-bad" x="568" y="50">이미 남이 잡고 있으면</text>
+  <text class="m-s c-bad" x="568" y="70">EXCEPTION foreign_lock</text>
+
+  <line class="ln-d" x1="30" y1="100" x2="970" y2="100"/>
+
+  <rect class="b" x="30" y="118" width="300" height="196" rx="6"/>
+  <text class="t-h" x="52" y="146">_SCOPE = 1</text>
+  <text class="t-s" x="52" y="172">락은 <tspan font-weight="700">대화형 프로그램이 소유</tspan></text>
+  <text class="t-s" x="52" y="196">COMMIT WORK 해도 <tspan class="c-bad" font-weight="700">풀리지 않음</tspan></text>
+  <text class="t-s" x="52" y="220">반드시 DEQUEUE 를 직접 호출</text>
+  <rect class="b-mut" x="52" y="236" width="256" height="60" rx="4"/>
+  <text class="t-xs" x="68" y="258">쓰는 곳: 조회 중 편집 잠금처럼</text>
+  <text class="t-xs" x="68" y="276">내가 해제 시점을 직접 통제할 때</text>
+
+  <rect class="b-key" x="350" y="118" width="300" height="196" rx="6"/>
+  <text class="t-h c-key" x="372" y="146">_SCOPE = 2 <tspan class="t-xs">(기본값)</tspan></text>
+  <text class="t-s" x="372" y="172">락이 <tspan font-weight="700">Update WP 로 인계</tspan>된다</text>
+  <text class="t-s" x="372" y="196">COMMIT WORK → 업데이트 끝나면 <tspan class="c-ok" font-weight="700">자동 해제</tspan></text>
+  <text class="t-s" x="372" y="220">ROLLBACK WORK → 즉시 해제</text>
+  <rect class="b-hl" x="372" y="236" width="256" height="60" rx="4"/>
+  <text class="t-xs" x="388" y="258">쓰는 곳: 표준 업무 처리 대부분.</text>
+  <text class="t-xs" x="388" y="276">"등록 → 저장 → 자동 해제" 패턴</text>
+
+  <rect class="b" x="670" y="118" width="300" height="196" rx="6"/>
+  <text class="t-h" x="692" y="146">_SCOPE = 3</text>
+  <text class="t-s" x="692" y="172">1 과 2 를 <tspan font-weight="700">동시에</tspan> 적용</text>
+  <text class="t-s" x="692" y="196">Update WP 로 넘기면서</text>
+  <text class="t-s" x="692" y="220">대화형 쪽 락도 유지한다</text>
+  <rect class="b-mut" x="692" y="236" width="256" height="60" rx="4"/>
+  <text class="t-xs" x="708" y="258">쓰는 곳: 저장 후에도 계속 편집을</text>
+  <text class="t-xs" x="708" y="276">이어가야 하는 화면. 해제 누락 주의</text>
+</svg>
+<figcaption><span class="fno">그림 7</span> <code>_SCOPE</code>의 차이. 기본값 2를 쓰면 <b>COMMIT/ROLLBACK이 락 해제까지 알아서</b> 해 줍니다. 1을 쓰고 DEQUEUE를 빼먹으면 SM12에 <b>유령 락</b>이 남아 다음 사용자가 막힙니다.</figcaption>
+</figure>
+
+<pre><code>CALL FUNCTION <span class="k">'ENQUEUE_EZ_VBAK'</span>
+  EXPORTING
+    mode_vbak      = <span class="k">'E'</span>       <span class="c">" E=배타적(누적불가) X=배타적·누적 S=공유</span>
+    vbeln          = lv_vbeln
+    _scope         = <span class="k">'2'</span>       <span class="c">" 기본값: COMMIT/ROLLBACK 시 자동 해제</span>
+    _wait          = <span class="k">'X'</span>       <span class="c">" 잠깐 기다렸다 재시도</span>
+  EXCEPTIONS
+    foreign_lock   = 1                <span class="c">" 다른 사용자가 이미 점유 → sy-msgv1 에 사용자ID</span>
+    system_failure = 2
+    OTHERS         = 3.
+
+IF sy-subrc &lt;&gt; 0.
+  MESSAGE e001(zsd) WITH lv_vbeln sy-msgv1.  <span class="c">" 누가 잠갔는지 알려 주는 것이 친절한 설계</span>
+ENDIF.
+
+<span class="c">" ... 업무 처리 · 업데이트 함수 등록 ...</span>
+
+<span class="k">COMMIT WORK AND WAIT</span>.   <span class="c">" _scope=2 이므로 여기서 락까지 정리된다</span></code></pre>
+
+<h3>락 모드</h3>
+<div class="tbl-wrap">
+<table>
+  <tr><th style="width:90px">모드</th><th style="width:150px">이름</th><th>의미</th></tr>
+  <tr><td><code>E</code></td><td>Exclusive</td><td>나만 쓸 수 있다. <b>같은 사용자라도 중복 요청 시 거부</b>. 가장 흔한 선택</td></tr>
+  <tr><td><code>X</code></td><td>Exclusive, 누적</td><td>E와 같되 <b>같은 LUW 안에서는 중복 요청 허용</b>(누적 카운트)</td></tr>
+  <tr><td><code>S</code></td><td>Shared</td><td>읽기 공유. 다른 S는 허용, E는 거부</td></tr>
+  <tr><td><code>O</code></td><td>Optimistic</td><td>일단 읽고, 저장 시점에 E로 승격. 조회 위주 화면의 동시성을 높인다</td></tr>
+</table>
+</div>
+
+<div class="note warn">
+  <div class="t">데드락(교착상태)</div>
+  <p>세션 A가 자재를 잠그고 고객을 요청, 세션 B가 고객을 잠그고 자재를 요청하면 서로 무한 대기합니다. DB 레벨 데드락은 <b>DBMS가 한쪽을 강제 롤백</b>(예: Oracle <code>ORA-00060</code>)하고 해당 프로그램은 ST22에 덤프로 남습니다. 예방책은 단순합니다 → <span class="hl">모든 프로그램이 락을 거는 순서를 통일한다</span>(예: 항상 헤더 → 품목 → 파트너 순).</p>
+</div>
+</div>
+
+
+<!-- ══════════ LESSON 9 ══════════ -->
+<div class="lesson" id="l9">
+<h2><span class="no">LESSON 9</span>RFC · BAPI와 LUW</h2>
+
+<p>시스템 경계를 넘는 순간 LUW는 <b>더 이상 하나로 보장되지 않습니다.</b> 어떤 RFC를 쓰느냐에 따라 보장 수준이 달라집니다.</p>
+
+<div class="tbl-wrap">
+<table>
+  <tr><th style="width:150px">종류</th><th style="width:120px">LUW 보장</th><th>동작과 용도</th></tr>
+  <tr><td><b>sRFC</b><br><span class="t-s">동기</span></td><td><span class="bad">암묵적 커밋</span></td>
+      <td>호출 즉시 원격 실행하고 결과를 기다린다. <b>호출 시점에 로컬 LUW가 끊긴다</b>는 점이 핵심. 조회성 호출에 적합.</td></tr>
+  <tr><td><b>aRFC</b><br><span class="t-s">비동기</span></td><td><span class="bad">없음</span></td>
+      <td><code>STARTING NEW TASK</code>. 병렬처리용. 호출자와 완전히 별개의 LUW로 돈다. 결과는 콜백으로 받는다.</td></tr>
+  <tr><td><b>tRFC</b><br><span class="t-s">트랜잭션</span></td><td><span class="good">LUW에 포함</span></td>
+      <td><code>IN BACKGROUND TASK</code>. <b>COMMIT WORK 시점에 전송</b>되고, 실패하면 SM58에 남아 재전송된다. <span class="hl">정확히 한 번(exactly once) 보장.</span></td></tr>
+  <tr><td><b>qRFC</b><br><span class="t-s">큐</span></td><td><span class="good">LUW &#43; 순서</span></td>
+      <td>tRFC에 <b>순서 보장</b>을 더한 것. <code>TRFC_SET_QUEUE_NAME</code>으로 큐를 지정. 모니터는 SMQ1(아웃바운드) / SMQ2(인바운드).</td></tr>
+</table>
+</div>
+
+<h3>BAPI 호출 시의 철칙</h3>
+<p>BAPI는 <b>내부에 COMMIT WORK를 넣지 않는다</b>는 것이 SAP의 설계 규약입니다. 여러 BAPI를 연달아 호출하면 모두 <span class="key">하나의 SAP LUW</span>로 묶이고, 종료는 호출자가 명시적으로 해야 합니다.</p>
+
+<pre><code>CALL FUNCTION <span class="k">'BAPI_SALESORDER_CREATEFROMDAT2'</span>
+  EXPORTING  order_header_in = ls_header
+  IMPORTING  salesdocument   = lv_vbeln
+  TABLES     return          = lt_return
+             order_items_in  = lt_item.
+
+<span class="c">" ① 반드시 RETURN 을 먼저 검사한다 — sy-subrc 로는 실패를 알 수 없다</span>
+READ TABLE lt_return TRANSPORTING NO FIELDS
+     WITH KEY type = <span class="k">'E'</span>.
+IF sy-subrc = 0.
+  CALL FUNCTION <span class="k">'BAPI_TRANSACTION_ROLLBACK'</span>.   <span class="c">" 등록된 변경 전부 취소</span>
+  MESSAGE e002(zsd).
+ELSE.
+  CALL FUNCTION <span class="k">'BAPI_TRANSACTION_COMMIT'</span>      <span class="c">" = COMMIT WORK</span>
+    EXPORTING wait = <span class="k">'X'</span>.                     <span class="c">" = AND WAIT — 업데이트 완료까지 대기</span>
+ENDIF.</code></pre>
+
+<div class="note warn">
+  <div class="t">놓치기 쉬운 세 가지</div>
+  <ul>
+    <li><b>RETURN 미검사.</b> BAPI는 오류가 나도 <code>sy-subrc = 0</code>입니다. 반드시 <code>lt_return</code>의 <code>TYPE = 'E'/'A'</code>를 확인해야 합니다.</li>
+    <li><b><code>WAIT = 'X'</code> 누락.</b> 커밋 직후 방금 만든 전표를 다시 SELECT하면 <span class="bad">아직 없습니다.</span> 비동기 업데이트라 DB 반영 전이기 때문입니다.</li>
+    <li><b>커밋 누락.</b> BAPI만 부르고 끝내면 아무것도 저장되지 않습니다. 반대로 <b>BAPI 사이에 COMMIT을 끼워 넣으면</b> 뒤 BAPI 실패 시 앞 건이 남아 데이터가 깨집니다.</li>
+  </ul>
+</div>
+</div>
+
+
+<!-- ══════════ LESSON 10 ══════════ -->
+<div class="lesson" id="l10">
+<h2><span class="no">LESSON 10</span>장애 · 복구 시나리오와 SM13</h2>
+
+<p>비동기 업데이트는 빠른 대신 <b>실패가 사용자에게 즉시 보이지 않습니다.</b> 그래서 운영자는 SM13을 읽을 줄 알아야 합니다.</p>
+
+<figure class="figwrap">
+<svg class="dgm" viewBox="0 0 1000 300" role="img"
+     aria-label="업데이트 요청이 INIT 상태로 등록된 뒤 RUN을 거쳐 성공하면 삭제되고, 실패하면 ERR 상태로 SM13에 남아 재처리하거나 삭제되며, 반복 실패 시 업데이트가 비활성화되는 상태 흐름도">
+  <defs>
+    <marker id="lu-h" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><polygon class="arw" points="0,1 10,5 0,9"/></marker>
+    <marker id="lu-ho" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><polygon class="arw-ok" points="0,1 10,5 0,9"/></marker>
+    <marker id="lu-hb" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><polygon class="arw-bad" points="0,1 10,5 0,9"/></marker>
+  </defs>
+
+  <rect class="b-mut" x="30" y="60" width="160" height="56" rx="5"/>
+  <text class="t-h" x="52" y="86">INIT</text>
+  <text class="t-xs" x="52" y="106">VBLOG 에 등록됨</text>
+  <line class="ln" x1="190" y1="88" x2="246" y2="88" marker-end="url(#lu-h)"/>
+  <text class="t-xs" x="192" y="80">COMMIT</text>
+
+  <rect class="b-key" x="254" y="60" width="160" height="56" rx="5"/>
+  <text class="t-h c-key" x="276" y="86">RUN</text>
+  <text class="t-xs" x="276" y="106">Update WP 실행 중</text>
+
+  <line class="ln-ok" x1="414" y1="76" x2="490" y2="46" marker-end="url(#lu-ho)"/>
+  <line class="ln-bad" x1="414" y1="100" x2="490" y2="146" marker-end="url(#lu-hb)"/>
+
+  <rect class="b-ok" x="498" y="18" width="200" height="52" rx="5"/>
+  <text class="t c-ok" x="520" y="42" font-weight="700">성공 → 레코드 삭제</text>
+  <text class="t-xs" x="520" y="60">SM13 에 아무것도 안 남는다</text>
+
+  <rect class="b-bad" x="498" y="122" width="200" height="56" rx="5"/>
+  <text class="t-h c-bad" x="520" y="148">ERR</text>
+  <text class="t-xs" x="520" y="168">SM13 에 오류로 남음</text>
+
+  <line class="ln" x1="698" y1="136" x2="760" y2="112" marker-end="url(#lu-h)"/>
+  <line class="ln" x1="698" y1="158" x2="760" y2="196" marker-end="url(#lu-h)"/>
+
+  <rect class="b" x="768" y="86" width="200" height="52" rx="5"/>
+  <text class="t" x="788" y="110" font-weight="700">원인 수정 후 재처리</text>
+  <text class="t-xs" x="788" y="128">SM13 → Update → Repeat</text>
+
+  <rect class="b" x="768" y="172" width="200" height="52" rx="5"/>
+  <text class="t" x="788" y="196" font-weight="700">삭제(폐기)</text>
+  <text class="t-xs" x="788" y="214">업무적으로 무효인 요청일 때</text>
+
+  <rect class="b-bad" x="254" y="212" width="444" height="64" rx="5"/>
+  <text class="t c-bad" x="276" y="238" font-weight="700">⚠ 업데이트 비활성화(Update deactivated)</text>
+  <text class="t-xs" x="276" y="260">테이블스페이스 부족 등으로 오류가 반복되면 시스템이 업데이트 전체를 중단시킨다. SM14 에서 재활성화.</text>
+  <line class="ln-bad" x1="560" y1="178" x2="500" y2="208" marker-end="url(#lu-hb)" stroke-dasharray="5 4"/>
+</svg>
+<figcaption><span class="fno">그림 8</span> 업데이트 요청의 생애. 정상 처리되면 <b>흔적이 남지 않으므로</b>, SM13에 뭔가 보인다는 것 자체가 이상 신호입니다.</figcaption>
+</figure>
+
+<h3>장애 유형별 대응</h3>
+<div class="tbl-wrap">
+<table>
+  <tr><th style="width:170px">상황</th><th>일어나는 일</th><th style="width:140px">확인 경로</th></tr>
+  <tr><td><b>업데이트 모듈 오류</b></td>
+      <td>해당 LUW의 V1 전체가 롤백되고 ERR로 남는다. 사용자는 이미 "저장됨"을 본 뒤일 수 있다.</td>
+      <td><code>SM13</code><br><code>ST22</code></td></tr>
+  <tr><td><b>런타임 덤프</b></td>
+      <td>현재 DB LUW가 <b>롤백</b>된다. 등록만 된 업데이트는 실행되지 않는다.</td>
+      <td><code>ST22</code></td></tr>
+  <tr><td><b>WP 강제 종료 / 인스턴스 다운</b></td>
+      <td>진행 중이던 DB LUW는 DBMS가 롤백. VBLOG에 남은 요청은 재기동 후 재처리 대상이 된다.</td>
+      <td><code>SM21</code><br><code>SM13</code></td></tr>
+  <tr><td><b>네트워크 단절(RFC 중)</b></td>
+      <td>sRFC는 그대로 실패. tRFC는 SM58에 남아 <b>자동 재전송</b>되므로 데이터 유실이 없다.</td>
+      <td><code>SM58</code><br><code>SM59</code></td></tr>
+  <tr><td><b>유령 락</b></td>
+      <td>DEQUEUE 누락·비정상 종료로 락이 남아 다른 사용자가 진입 불가.</td>
+      <td><code>SM12</code></td></tr>
+  <tr><td><b>업데이트 비활성화</b></td>
+      <td>오류 반복 시 시스템이 업데이트를 중단. 이후 모든 저장이 대기 상태가 된다.</td>
+      <td><code>SM14</code></td></tr>
+  <tr><td><b>데드락</b></td>
+      <td>DBMS가 한쪽을 강제 롤백. 해당 프로그램은 덤프.</td>
+      <td><code>ST22</code><br><code>ST04</code></td></tr>
+</table>
+</div>
+
+<h3>분산 트랜잭션에 대하여</h3>
+<p>SAP은 애플리케이션 레벨에서 <b>2PC(2-Phase Commit)를 제공하지 않습니다.</b> 시스템 A와 B에 걸친 "하나의 LUW"는 존재할 수 없다는 뜻입니다. 실무에서는 대신 이렇게 풉니다.</p>
+<ul>
+  <li><b>tRFC / qRFC</b>로 "정확히 한 번" 전송을 보장하고, 수신 측에서 <b>자체 LUW로 커밋</b>한다.</li>
+  <li>수신 측에 <b>멱등성(idempotency)</b>을 둔다 — 같은 참조번호가 이미 처리됐으면 무시.</li>
+  <li>불일치는 <b>대사(reconciliation) 배치</b>로 주기적으로 잡아낸다.</li>
+  <li>ALE/IDoc은 위 구조를 표준화해 둔 것이며, 상태(WE02/WE05)로 재처리 지점을 관리한다.</li>
+</ul>
+</div>
+
+
+<!-- ══════════ LESSON 11 ══════════ -->
+<div class="lesson" id="l11">
+<h2><span class="no">LESSON 11</span>모범 사례 · 체크리스트 · T-code</h2>
+
+<h3>설계 원칙 6가지</h3>
+<ol>
+  <li><b>다이얼로그에서 직접 SQL을 쓰지 않는다.</b> 변경은 전부 번들링으로 등록하고 <code>COMMIT WORK</code>에서 한 번에 반영한다.</li>
+  <li><b>검증을 먼저, 변경을 나중에.</b> 커밋 이후에 나오는 오류는 되돌리기 어렵다. 모든 유효성 검사는 커밋 전에 끝낸다.</li>
+  <li><b>루프 안에서 커밋하지 않는다.</b> 불가피하면 <span class="hl">업무 단위(전표 1건)</span>로 끊고 건별 처리 로그를 남긴다.</li>
+  <li><b>락은 필요한 만큼만, 짧게.</b> <code>_SCOPE = 2</code>를 기본으로 두어 커밋 시 자동 해제되게 하고, 락 획득 순서를 프로젝트 전체에서 통일한다.</li>
+  <li><b>암묵적 커밋 지점을 피해 간다.</b> LUW 안에 sRFC·<code>WAIT</code>·대화형 MESSAGE를 넣지 않는다.</li>
+  <li><b>실패를 알 수 있게 만든다.</b> 비동기 업데이트는 성공 여부를 사용자에게 알려 주지 않으므로, 중요 업무는 <code>AND WAIT</code>이나 별도 모니터링을 붙인다.</li>
+</ol>
+
+<h3>코드 리뷰 체크리스트</h3>
+<ul>
+  <li>□ 화면 PAI에서 <b>직접 INSERT/UPDATE/DELETE</b>를 하고 있지 않은가</li>
+  <li>□ 업데이트 함수가 <b>V1인지 V2인지</b> 의도대로 설정돼 있는가</li>
+  <li>□ 커밋 직후 방금 저장한 데이터를 다시 읽는다면 <code>AND WAIT</code>이 붙어 있는가</li>
+  <li>□ <code>LOOP</code> 내부에 <code>COMMIT WORK</code>가 있지 않은가</li>
+  <li>□ ENQUEUE 실패(<code>foreign_lock</code>) 시 <b>누가 잠갔는지</b> 사용자에게 알려 주는가</li>
+  <li>□ <code>_SCOPE = 1</code>을 썼다면 모든 경로에서 <b>DEQUEUE가 호출</b>되는가 (예외 경로 포함)</li>
+  <li>□ BAPI 호출 후 <code>RETURN</code> 테이블의 <code>E/A</code> 메시지를 검사하는가</li>
+  <li>□ BAPI 사이에 불필요한 커밋이 끼어 있지 않은가</li>
+  <li>□ LUW 안에 sRFC · <code>WAIT</code> · <code>MESSAGE TYPE 'I'</code>가 들어 있지 않은가</li>
+  <li>□ 외부 시스템 연계는 tRFC/qRFC이며 <b>수신 측 멱등성</b>이 있는가</li>
+  <li>□ 롤백 시 정리해야 할 자원이 있다면 <code>PERFORM ... ON ROLLBACK</code>이 있는가</li>
+</ul>
+
+<h3>트랜잭션 코드 모음</h3>
+<div class="tbl-wrap">
+<table>
+  <tr><th style="width:120px">T-code</th><th style="width:190px">용도</th><th>LUW 관점에서 언제 보나</th></tr>
+  <tr><td><code>SM13</code></td><td>업데이트 요청 모니터</td><td><b>가장 먼저 볼 곳.</b> "저장했는데 데이터가 없다"는 문의의 1순위 확인 경로</td></tr>
+  <tr><td><code>SM14</code></td><td>업데이트 관리</td><td>업데이트가 비활성화됐을 때 재활성화</td></tr>
+  <tr><td><code>SM12</code></td><td>락 오브젝트 조회·해제</td><td>유령 락 확인, 누가 문서를 잡고 있는지 확인</td></tr>
+  <tr><td><code>SM50</code> / <code>SM66</code></td><td>WP 상태(로컬/전역)</td><td>Update WP가 모자라 밀리고 있는지, 특정 WP가 락 대기 중인지</td></tr>
+  <tr><td><code>SM21</code></td><td>시스템 로그</td><td>업데이트 종료·DB 오류 등 인스턴스 레벨 사건</td></tr>
+  <tr><td><code>ST22</code></td><td>ABAP 덤프</td><td>덤프로 인한 롤백, 데드락(<code>ORA-00060</code>) 추적</td></tr>
+  <tr><td><code>SM58</code></td><td>tRFC 대기열</td><td>원격 전송 실패분 확인·재전송</td></tr>
+  <tr><td><code>SMQ1</code> / <code>SMQ2</code></td><td>qRFC 아웃/인바운드 큐</td><td>순서 보장 연계가 막혔을 때</td></tr>
+  <tr><td><code>ST05</code></td><td>SQL 트레이스</td><td>어떤 SQL이 어느 LUW에서 실행되는지, 락 대기 시간 측정</td></tr>
+  <tr><td><code>ST03N</code></td><td>워크로드 분석</td><td>DB 커밋 시간·응답시간 추세로 병목 확인</td></tr>
+  <tr><td><code>ST04</code></td><td>DB 모니터</td><td>락 대기, 데드락 통계</td></tr>
+  <tr><td><code>SE11</code></td><td>락 오브젝트 생성</td><td><code>EZ*</code> 락 오브젝트 정의 → ENQUEUE/DEQUEUE 함수 자동 생성</td></tr>
+</table>
+</div>
+
+<div class="note ok">
+  <div class="t">한 장으로 요약하면</div>
+  <ul>
+    <li><b>LUW = 원자성의 단위.</b> 전부 반영되거나 전부 취소되거나.</li>
+    <li><b>SAP LUW 안에 DB LUW가 여럿 있다.</b> 화면이 넘어갈 때마다 암묵적 커밋이 나기 때문이다.</li>
+    <li><b>그래서 번들링한다.</b> Dialog WP는 등록만, Update WP가 마지막에 한 번에 실행.</li>
+    <li><b>락은 LUW의 파트너다.</b> <code>_SCOPE = 2</code>면 커밋·롤백이 락 해제까지 책임진다.</li>
+    <li><b>비동기는 실패를 알려 주지 않는다.</b> SM13을 보는 습관이 곧 운영 역량이다.</li>
+  </ul>
+</div>
+</div>
+
+<h3 style="border:0; color:var(--ink-soft); font-size:10pt; margin-top:40px;">참고 자료</h3>
+<ul style="font-size:9.5pt; color:var(--ink-soft);">
+  <li><a href="https://github.com/SAP-samples/abap-cheat-sheets/blob/main/17_SAP_LUW.md" style="color:var(--key);">SAP ABAP Cheat Sheets — SAP LUW (SAP-samples, GitHub)</a></li>
+  <li>SAP Help Portal — ABAP Keyword Documentation: <code>COMMIT WORK</code> / <code>ROLLBACK WORK</code> / <code>CALL FUNCTION ... IN UPDATE TASK</code></li>
+  <li>SAP Help Portal — SAP Lock Concept (Enqueue Server, <code>_SCOPE</code>)</li>
+  <li><a href="https://www.suretysystems.com/insights/understanding-sap-luw-a-guide-to-managing-database-updates/" style="color:var(--key);">Understanding SAP LUW — A Guide to Managing Database Updates</a></li>
+</ul>
+
+</div>
+<script src="/assets/site.js" defer></script>
+</body>
+</html>

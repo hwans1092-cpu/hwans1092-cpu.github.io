@@ -131,7 +131,8 @@
   var DOCS = [
     { file: "abap-parallel-file-staging.html", title: "병렬처리 확장편 — 대외 연계 · AL11 Staging" },
     { file: "eai-integration-suite.html", title: "SAP Integration Suite 학습 노트" },
-    { file: "abap-debugging.html", title: "ABAP 디버깅 실무 노트" }
+    { file: "abap-debugging.html", title: "ABAP 디버깅 실무 노트" },
+    { file: "sap-luw.html", title: "SAP LUW 완전 정리 — 트랜잭션 · 번들링 · 락" }
   ];
 
   function initDocNav() {
