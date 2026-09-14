@@ -1,0 +1,912 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<script src="../assets/gate.js"></script>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>aRFC 병렬처리 — 골격부터 덤프 도감까지</title>
+<meta name="description" content="CALL FUNCTION STARTING NEW TASK DESTINATION IN GROUP 기반 병렬처리를 RZ12 서버그룹, RFC FM 제약, 태스크 풀, WAIT UNTIL, SM50 관찰, AL11 확장까지 실습 순서대로 정리한 노트.">
+<link rel="icon" href="../assets/favicon.svg">
+<link rel="stylesheet" href="../assets/notes-paper.css">
+<style>
+/* ── 도해(SVG) 전용 ─────────────────────────────── */
+.figwrap{margin:22px 0}
+svg.dgm{width:100%;height:auto;display:block}
+svg.dgm text{font-family:"Malgun Gothic","맑은 고딕",sans-serif;fill:#1e1e1e}
+svg.dgm .t-h{font-size:15px;font-weight:700}
+svg.dgm .t{font-size:13px}
+svg.dgm .t-s{font-size:11.5px;fill:#6b7280}
+svg.dgm .t-xs{font-size:10.5px;fill:#6b7280}
+svg.dgm .m{font-family:"D2Coding","Consolas",monospace;font-size:12px}
+svg.dgm .m-s{font-family:"D2Coding","Consolas",monospace;font-size:10.5px;fill:#4b5563}
+svg.dgm .b{fill:#fff;stroke:#9ca3af;stroke-width:1.2;rx:4}
+svg.dgm .b-key{fill:#EEF2FF;stroke:#4338CA;stroke-width:1.4;rx:4}
+svg.dgm .b-bad{fill:#FEF2F2;stroke:#B91C1C;stroke-width:1.4;rx:4}
+svg.dgm .b-ok{fill:#ECFDF5;stroke:#047857;stroke-width:1.4;rx:4}
+svg.dgm .b-mut{fill:#F3F4F6;stroke:#d1d5db;stroke-width:1;rx:4}
+svg.dgm .b-hl{fill:#FEF08A;stroke:#CA8A04;stroke-width:1.2;rx:4}
+svg.dgm .b-ghost{fill:none;stroke:#9ca3af;stroke-width:1.2;stroke-dasharray:5 4;rx:4}
+svg.dgm .ln{stroke:#9ca3af;stroke-width:1.4;fill:none}
+svg.dgm .ln-key{stroke:#4338CA;stroke-width:1.8;fill:none}
+svg.dgm .ln-bad{stroke:#B91C1C;stroke-width:1.8;fill:none}
+svg.dgm .ln-ok{stroke:#047857;stroke-width:1.8;fill:none}
+svg.dgm .ln-d{stroke:#9ca3af;stroke-width:1.2;stroke-dasharray:4 4;fill:none}
+svg.dgm .arw{fill:#9ca3af}
+svg.dgm .arw-key{fill:#4338CA}
+svg.dgm .arw-bad{fill:#B91C1C}
+svg.dgm .arw-ok{fill:#047857}
+</style>
+</head>
+<body>
+<div class="crumb"><a href="../index.html">← SAP 학습 자료실</a> · 배치 · 인터페이스 · aRFC 병렬처리</div>
+<div class="sheet">
+
+<div class="doc-head">
+  <div class="kicker">FIELD NOTE</div>
+  <h1>aRFC 병렬처리 — 골격부터 덤프 도감까지</h1>
+  <div class="sub">순차 6.036초를 3초로 줄이기까지 밟은 덤프 6종과 그 공통 뿌리<br>
+  대상 시스템: <b>winerp01 / MEP</b> · 캡처 14장 예정 · 계속 추가 중</div>
+</div>
+
+<div class="lead">
+  <p><b>결론부터.</b> 병렬처리에서 실제로 어려운 건 <code>STARTING NEW TASK</code> 한 줄이 아니라
+  <span class="hl">① 언제 끝났는지 판정하는 일</span>과
+  <span class="hl">② RFC가 메모리를 공유하지 못한다는 제약</span> 두 가지다.
+  이 노트에서 밟은 덤프 6종은 전부 ②에서 나왔고, 결과가 0건으로 나오던 현상은 전부 ①에서 나왔다.</p>
+  <p class="t-s">실습 프로그램: <code>ZTEST_PARALLEL_PROCESS</code> + RFC FM <code>YFM_PARALTEST</code>
+  (함수그룹 <code>YSTUDY_HSH</code>) + DDIC 구조 <code>ZTEST_PARAL_S</code></p>
+</div>
+
+<div class="note">
+<div class="t">먼저 알아야 할 것</div>
+<p><b>워크프로세스(WP)</b> — SAP에서 실제로 일을 수행하는 단위. 한 프로그램은 기본적으로 WP 하나만 쓴다.<br>
+<b>DIA</b> — 화면 응답을 담당하는 WP 유형. aRFC 병렬 태스크도 여기서 돈다.<br>
+<b>RFC</b> — 다른 세션·서버의 함수를 호출하는 방식. <b>aRFC</b>는 그중 결과를 기다리지 않는 비동기 변형.<br>
+<b>서버그룹</b> — 병렬 태스크를 던질 서버들의 명단. RZ12에서 만든다.<br>
+<b>청크</b> — 전체 데이터를 태스크 하나가 처리할 만큼 잘라낸 묶음. 이 노트에서만 쓰는 말.<br>
+<b>태스크</b> — 병렬로 떠서 청크 하나를 처리하는 실행 단위.</p>
+<p>자세히는 → <a href="sap-runtime-basics.html"><b>SAP 실행 환경 기초</b></a></p>
+</div>
+
+<div class="toc">
+  <h4>목차</h4>
+  <ol>
+    <li><a href="#l1">왜 병렬인가 — 코어 32개인데 1개만 쓰는 프로그램</a></li>
+    <li><a href="#l2">준비물 3가지 — 서버그룹 · 워크프로세스 · 상한</a></li>
+    <li><a href="#l3">RFC FM 제약 4개는 전부 한 뿌리다</a></li>
+    <li><a href="#l4">골격 — 태스크 풀과 카운터 불변식</a></li>
+    <li><a href="#l5">구문 3종 — 호출 · 콜백 · 수신</a></li>
+    <li><a href="#l6">WAIT UNTIL의 정체 — 대기가 아니라 실행 창</a></li>
+    <li><a href="#l7">검증 순서 — 단독 → 순차 → 병렬</a></li>
+    <li><a href="#l8">덤프 도감 — 이번에 밟은 6종</a></li>
+    <li><a href="#l9">SM50 · SM66 읽는 법</a></li>
+    <li><a href="#l10">확장 — AL11 파일수신과 서버 함정</a></li>
+    <li><a href="#l11">실무로 넘어갈 때 — LUW · 락 · 분할 기준</a></li>
+    <li><a href="#lap">APPENDIX — 치트시트</a></li>
+    <li><a href="#lref">참고</a></li>
+  </ol>
+</div>
+
+
+<!-- ══════════════════ LESSON 1 ══════════════════ -->
+<div class="lesson" id="l1">
+<h2><span class="no">LESSON 1</span>왜 병렬인가 — 코어 32개인데 1개만 쓰는 프로그램</h2>
+
+<p><b>언제 이걸 쓰는가.</b> 배치가 밤새 돌다 업무 시작 시간을 넘길 때, 혹은
+<code>rdisp/max_wprun_time</code>(기본 300초) 제한에 걸려 중단될 때다.
+<span class="key">안 쓰면</span> 서버에 코어가 아무리 많아도 프로그램 하나는 워크프로세스 1개,
+즉 사실상 코어 1개만 쓰고 끝난다.</p>
+
+<p>실습 측정값이다. 10건을 5건씩 2청크로 나누고, 청크 하나당 3초 걸리게 만들었다.</p>
+
+<div class="tbl-wrap">
+<table>
+<tr><th>방식</th><th>태스크</th><th>소요</th><th>설명</th></tr>
+<tr><td>순차</td><td>1</td><td><b>6.036초</b></td><td>3초 × 2청크, 정직하게 더해진다</td></tr>
+<tr><td>병렬</td><td>2</td><td><b>3초대</b></td><td>두 청크가 동시에 돈다</td></tr>
+<tr><td>병렬</td><td>10</td><td>3초대</td><td class="wrap">더 안 빨라진다 — 청크가 2개뿐이라 8개가 논다</td></tr>
+</table>
+</div>
+
+<div class="figwrap">
+<figure>
+<svg class="dgm" viewBox="0 0 1000 290" role="img"
+     aria-label="순차는 청크를 시간축에 이어 붙여 6초가 걸리고, 병렬은 같은 청크를 동시에 놓아 3초에 끝난다. 태스크를 더 늘려도 청크 하나의 처리시간 3초 아래로는 내려가지 않는다.">
+  <defs>
+    <marker id="a1" markerWidth="9" markerHeight="9" refX="8" refY="3" orient="auto">
+      <polygon class="arw" points="0 0, 9 3, 0 6"/>
+    </marker>
+  </defs>
+
+  <text class="t-h" x="20" y="26">순차 — 워크프로세스 1개</text>
+  <rect class="b-mut" x="20" y="40" width="280" height="44"/>
+  <text class="t" x="40" y="60">청크 1 (5건)</text>
+  <text class="m-s" x="40" y="76">TASK 없음 · 3초</text>
+  <rect class="b-mut" x="308" y="40" width="280" height="44"/>
+  <text class="t" x="328" y="60">청크 2 (5건)</text>
+  <text class="m-s" x="328" y="76">3초</text>
+  <line class="ln-bad" x1="588" y1="34" x2="588" y2="92"/>
+  <text class="t-h" x="602" y="68" fill="#B91C1C">6.036초</text>
+
+  <text class="t-h" x="20" y="140">병렬 — 워크프로세스 2개</text>
+  <rect class="b-key" x="20" y="154" width="280" height="40"/>
+  <text class="t" x="40" y="172">청크 1 (5건)</text>
+  <text class="m-s" x="40" y="187">TASK-1 · 3초</text>
+  <rect class="b-key" x="20" y="200" width="280" height="40"/>
+  <text class="t" x="40" y="218">청크 2 (5건)</text>
+  <text class="m-s" x="40" y="233">TASK-2 · 3초</text>
+  <line class="ln-ok" x1="300" y1="148" x2="300" y2="248"/>
+  <text class="t-h" x="314" y="202" fill="#047857">3초</text>
+
+  <rect class="b-ghost" x="420" y="154" width="300" height="86"/>
+  <text class="t-s" x="440" y="188">태스크를 10개로 늘려도</text>
+  <text class="t-s" x="440" y="208">청크 하나의 3초는 못 줄인다</text>
+
+  <line class="ln" x1="20" y1="268" x2="960" y2="268" marker-end="url(#a1)"/>
+  <text class="t-xs" x="20" y="284">0초</text>
+  <text class="t-xs" x="286" y="284">3초</text>
+  <text class="t-xs" x="574" y="284">6초</text>
+  <text class="t-xs" x="920" y="284">시간</text>
+</svg>
+<figcaption><span class="fno">그림 1</span>순차와 병렬의 시간축 비교. 병렬화의 하한은
+<b>청크 하나의 처리 시간</b>이며, 태스크를 그 이상 늘려도 총 시간은 줄지 않는다.</figcaption>
+</figure>
+</div>
+
+<div class="note">
+<div class="t">청크 크기를 정하는 진짜 기준</div>
+<p>aRFC는 <b>DIALOG 워크프로세스</b>에서 돈다. 따라서 청크 하나가
+<code>rdisp/max_wprun_time</code>(기본 300초)을 넘기면 그 태스크만 강제 종료된다.
+"몇 건씩 나눌까"의 답은 <span class="hl">한 청크가 300초 안에 끝나는 건수</span>이지
+보기 좋은 라운드 숫자가 아니다.</p>
+</div>
+</div>
+
+
+<!-- ══════════════════ LESSON 2 ══════════════════ -->
+<div class="lesson" id="l2">
+<h2><span class="no">LESSON 2</span>준비물 3가지 — 서버그룹 · 워크프로세스 · 상한</h2>
+
+<p><b>안 챙기면 뭐가 터지나.</b> 서버그룹이 없으면 호출 자체가 안 되고,
+워크프로세스를 다 쓰면 <span class="bad">같은 시스템을 쓰는 다른 사용자 화면이 멈춘다.</span>
+학습용 프로그램이 운영 장애를 내는 가장 흔한 경로다.</p>
+
+<h3>① RFC 서버그룹 (RZ12)</h3>
+<p><code>DESTINATION IN GROUP</code>에 넘기는 그룹명이다. 등록 현황은 테이블 <code>RZLLITAB</code>에서
+<code>GRPTYPE = 'S'</code>로 조회된다. 파라미터 타입은 DDIC의 <code>RZLLI_APCL</code>을 써야 한다.</p>
+
+<pre><span class="c">* 화면 입력을 존중하고, 비어 있을 때만 등록분을 가져온다</span>
+<span class="k">IF</span> pa_group <span class="k">IS INITIAL</span>.
+  <span class="k">SELECT SINGLE</span> classname <span class="k">FROM</span> rzllitab <span class="k">INTO</span> pa_group
+   <span class="k">WHERE</span> grouptype <span class="k">EQ</span> <span class="s">'S'</span>.
+<span class="k">ENDIF</span>.</pre>
+
+<div class="tbl-wrap">
+<table>
+<tr><th>지정</th><th>동작</th></tr>
+<tr><td><code>IN GROUP grp</code></td><td>RZ12에 등록된 그룹 안의 서버로만 분배</td></tr>
+<tr><td><code>IN GROUP DEFAULT</code></td><td class="wrap">현재 시스템의 가용 서버 전부를 그룹으로 사용</td></tr>
+<tr><td>변수가 <code>INITIAL</code></td><td><code>DEFAULT</code>와 동일하게 동작</td></tr>
+</table>
+</div>
+
+<div class="note warn">
+<div class="t">프로그램 하나에 서버그룹 하나</div>
+<p>한 프로그램 안에서는 <b>RFC 서버그룹을 하나만</b> 쓸 수 있다.
+첫 번째 aRFC 호출 시점에 그 그룹이 초기화되고, 이후 호출은 그 그룹 안에서
+가장 적합한 서버가 자동 선택된다. 중간에 그룹을 바꿔 호출하면 안 된다.</p>
+</div>
+
+<h3>② 가용 워크프로세스 확인 — <code>SPBT_INITIALIZE</code></h3>
+<p>선택사항이지만 넣어두면 디버깅이 훨씬 쉬워진다. 호출하기 전에
+"지금 이 그룹에 WP가 몇 개 있는지"를 숫자로 알 수 있다.</p>
+
+<pre><span class="k">CALL FUNCTION</span> <span class="s">'SPBT_INITIALIZE'</span>
+  <span class="k">EXPORTING</span> group_name  = pa_group
+  <span class="k">IMPORTING</span> max_pbt_wps  = lv_max_wp
+            free_pbt_wps = lv_free_wp
+  <span class="k">EXCEPTIONS</span>
+    invalid_group_name          = 1
+    internal_error              = 2
+    pbt_env_already_initialized = 3
+    <span class="c">" ... 이하 생략</span>
+    <span class="k">OTHERS</span>                      = 7.
+
+<span class="c">* SUBRC 3(이미 초기화됨)은 정상 — 같은 세션 재실행 시 항상 발생한다</span>
+<span class="k">IF</span> sy-subrc <span class="k">NE</span> 0 <span class="k">AND</span> sy-subrc <span class="k">NE</span> 3.
+  <span class="k">MESSAGE</span> |병렬 처리 환경 초기화 실패 ({ sy-subrc })| <span class="k">TYPE</span> <span class="s">'E'</span>.
+<span class="k">ENDIF</span>.</pre>
+
+<div class="note warn">
+<div class="t">SUBRC 3을 에러로 막으면 두 번째 실행이 안 된다</div>
+<p><code>PBT_ENV_ALREADY_INITIALIZED</code>는 실패가 아니다. 다만 이때는
+<code>lv_free_wp</code>가 채워지지 않으므로, 이 값으로 태스크 수를 조정하는 로직에
+<code>lv_free_wp &gt; 0</code> 가드를 반드시 걸어야 한다.
+안 걸면 <code>pa_tasks = 0</code>이 되어 아무것도 안 돈다.</p>
+</div>
+
+<h3>③ 상한 — 이게 매너다</h3>
+<p>실습 중 <code>PA_TASKS = 50</code>으로 돌린 적이 있다. 이 서버의 DIA WP는 10여 개라
+안전장치가 7로 깎아줬지만, 없었다면 <span class="bad">131초 동안 다른 사용자 화면이 멈췄을 것</span>이다.
+실무 병렬 프로그램에는 거의 예외 없이 이런 상한이 들어간다.</p>
+
+<pre><span class="c">* 가용 WP를 전부 점유하지 않는다 — 절반, 그리고 절대 상한</span>
+<span class="k">DATA</span>(lv_limit) = lv_free_wp / 2.
+<span class="k">IF</span> lv_limit <span class="k">GT</span> 5. lv_limit = 5. <span class="k">ENDIF</span>.
+
+<span class="k">IF</span> lv_limit <span class="k">GT</span> 0 <span class="k">AND</span> pa_tasks <span class="k">GT</span> lv_limit.
+  pa_tasks = lv_limit.
+<span class="k">ENDIF</span>.
+<span class="k">IF</span> pa_tasks <span class="k">LT</span> 1. pa_tasks = 1. <span class="k">ENDIF</span>.</pre>
+
+<!-- [캡처 대기] 01-rz12-server-group.png / 02-sm50-idle.png -->
+</div>
+
+
+<!-- ══════════════════ LESSON 3 ══════════════════ -->
+<div class="lesson" id="l3">
+<h2><span class="no">LESSON 3</span>RFC FM 제약 4개는 전부 한 뿌리다</h2>
+
+<p><b>뿌리 한 문장.</b> <span class="hl">원격 호출은 메모리 주소를 공유할 수 없다.</span>
+다른 워크프로세스, 경우에 따라 다른 서버에서 돌기 때문에 값을 직렬화해서 복사해 보내는 수밖에 없다.
+아래 제약들은 전부 여기서 파생된다. 이 문장 하나를 잡고 있으면 나머지는 외울 필요가 없다.</p>
+
+<div class="tbl-wrap">
+<table>
+<tr><th>제약</th><th>일반 FM</th><th>RFC FM</th><th>어기면</th></tr>
+<tr><td>원격 릴리즈</td><td>불필요</td><td><b>필수</b></td><td><code>CALL_FUNCTION_NOT_REMOTE</code></td></tr>
+<tr><td>값 전달</td><td>선택</td><td><b>필수</b></td><td>FL381</td></tr>
+<tr><td>파라미터 타입</td><td>로컬 타입 가능</td><td><b>DDIC만</b></td><td>활성화 거부</td></tr>
+<tr><td>flat 구조 (TABLES)</td><td><code>TYPE</code></td><td><b><code>LIKE</code></b></td><td>FL039</td></tr>
+<tr><td>CHANGING</td><td>가능</td><td><b>불가</b></td><td>—</td></tr>
+<tr><td>STRING 인자</td><td>대체로 통과</td><td><b>불가</b></td><td><code>CALL_FUNCTION_CONFLICT_TYPE</code></td></tr>
+</table>
+</div>
+
+<h3>SE37 설정 — 이 3개만 맞으면 된다</h3>
+
+<div class="step"><span class="n">1</span>
+<p><b>Attributes 탭</b> → Processing Type을 <b>Remote-Enabled Module</b>(원격 사용 가능 모듈)로.
+여기가 <code>Regular Function Module</code>로 남아 있으면 SE37 단독 실행과 동기 호출은
+멀쩡히 되는데 <code>STARTING NEW TASK</code>만 덤프난다.</p></div>
+
+<div class="step"><span class="n">2</span>
+<p><b>Import 탭</b> → 모든 파라미터의 <b>값 전달(Pass Value)</b> 체크.
+원격으로 전환한 직후 활성화하면 FL381이 뜨는데, 이 체크가 빠져서다.</p></div>
+
+<div class="step"><span class="n">3</span>
+<p><b>Tables 탭</b> → Typing을 <b><code>LIKE</code></b>로. <code>TYPE</code>으로 두면 FL039가 뜬다.
+TABLES 파라미터에는 값 전달 체크박스가 아예 없다 — 항상 값 전달이기 때문이다.</p></div>
+
+<h3>실습에 쓴 인터페이스</h3>
+
+<pre><span class="c">*"  IMPORTING</span>
+<span class="c">*"     VALUE(IV_TASKNAME) TYPE  CHAR10</span>
+<span class="c">*"  TABLES</span>
+<span class="c">*"      CT_DATA STRUCTURE  ZTEST_PARAL_S</span></pre>
+
+<p>DDIC 구조 <code>ZTEST_PARAL_S</code>는 <code>PERNR</code> / <code>TASKNAME</code> / <code>SUBRC</code> 세 필드다.
+<code>SUBRC</code>를 초기값 4로 채워 보내고 FM에서 0으로 바꿔 돌려받는 식으로,
+<span class="key">어느 건이 실제로 처리됐는지</span>를 결과에서 눈으로 구분할 수 있게 했다.</p>
+
+<div class="note ok">
+<div class="t">TABLES는 obsolete인데 왜 쓰나</div>
+<p>SE37이 <code>TABLES parameters are obsolete!</code> 경고를 띄우지만,
+<b>RFC FM은 CHANGING을 쓸 수 없다.</b> 하나의 테이블로 보내고 받으려면 TABLES 외에 방법이 없다.
+경고를 피하려면 테이블 타입을 만들어 <code>IMPORTING it_data</code> + <code>EXPORTING et_data</code>로
+쪼개면 되는데, 코드가 늘어나는 대신 제약이 사라진다.</p>
+</div>
+
+<!-- [캡처 대기] 03-se37-attributes.png / 04-se37-import-value.png / 05-se37-tables-like.png -->
+</div>
+
+
+<!-- ══════════════════ LESSON 4 ══════════════════ -->
+<div class="lesson" id="l4">
+<h2><span class="no">LESSON 4</span>골격 — 태스크 풀과 카운터 불변식</h2>
+
+<p><b>왜 필요한가.</b> aRFC는 던지고 끝이라 "지금 몇 개가 돌고 있는지"를
+시스템이 알려주지 않는다. 직접 세야 한다.
+<span class="bad">이 숫자가 틀어지면 프로그램이 타임아웃까지 멈춰 있거나, 결과가 빈 채로 끝난다.</span></p>
+
+<div class="figwrap">
+<figure>
+<svg class="dgm" viewBox="0 0 1000 360" role="img"
+     aria-label="원천 데이터를 청크로 잘라 태스크 슬롯에 넣고, 콜백이 결과를 회수하며 슬롯을 반납한다. 수행중 개수는 송신 빼기 수신과 항상 같아야 한다.">
+  <defs>
+    <marker id="a2" markerWidth="9" markerHeight="9" refX="8" refY="3" orient="auto">
+      <polygon class="arw-key" points="0 0, 9 3, 0 6"/>
+    </marker>
+    <marker id="a3" markerWidth="9" markerHeight="9" refX="8" refY="3" orient="auto">
+      <polygon class="arw-ok" points="0 0, 9 3, 0 6"/>
+    </marker>
+  </defs>
+
+  <!-- 원천 -->
+  <text class="t-h" x="20" y="24">GT_DATA</text>
+  <rect class="b-mut" x="20" y="36" width="150" height="30"/><text class="m" x="36" y="56">청크 1</text>
+  <rect class="b-mut" x="20" y="72" width="150" height="30"/><text class="m" x="36" y="92">청크 2</text>
+  <rect class="b-mut" x="20" y="108" width="150" height="30"/><text class="m" x="36" y="128">청크 3</text>
+  <rect class="b-ghost" x="20" y="144" width="150" height="30"/><text class="m-s" x="36" y="164">…</text>
+  <text class="t-xs" x="20" y="192">앞에서 잘라내고 원본에서 삭제</text>
+
+  <!-- 태스크 풀 -->
+  <rect class="b-ghost" x="320" y="20" width="320" height="180"/>
+  <text class="t-h" x="336" y="44">GT_TASK — 태스크 풀</text>
+  <rect class="b-key" x="340" y="58" width="280" height="34"/>
+  <text class="m" x="356" y="79">TASK-1</text><text class="t-s" x="470" y="79">status = I  수행중</text>
+  <rect class="b-key" x="340" y="98" width="280" height="34"/>
+  <text class="m" x="356" y="119">TASK-2</text><text class="t-s" x="470" y="119">status = I  수행중</text>
+  <rect class="b" x="340" y="138" width="280" height="34"/>
+  <text class="m" x="356" y="159">TASK-3</text><text class="t-s" x="470" y="159">status = S  유휴</text>
+  <text class="t-xs" x="336" y="192">S 유휴 · I 수행중 · E 호출실패</text>
+
+  <!-- 결과 -->
+  <text class="t-h" x="790" y="24">GT_RESULT</text>
+  <rect class="b-ok" x="790" y="36" width="170" height="30"/><text class="m" x="806" y="56">결과 1</text>
+  <rect class="b-ok" x="790" y="72" width="170" height="30"/><text class="m" x="806" y="92">결과 2</text>
+  <rect class="b-ghost" x="790" y="108" width="170" height="30"/><text class="m-s" x="806" y="128">…</text>
+
+  <!-- 화살표 -->
+  <path class="ln-key" d="M176 86 L 330 86" marker-end="url(#a2)"/>
+  <text class="t-s" x="196" y="76">aRFC 호출</text>
+  <text class="m-s" x="196" y="104">gv_sent + 1</text>
+
+  <path class="ln-ok" d="M626 130 L 784 130" marker-end="url(#a3)"/>
+  <text class="t-s" x="650" y="120">콜백 수신</text>
+  <text class="m-s" x="650" y="148">gv_recv + 1</text>
+
+  <path class="ln-d" d="M626 160 C 700 230, 420 240, 480 186"/>
+  <text class="t-xs" x="612" y="228">슬롯 반납 (I → S)</text>
+
+  <!-- 불변식 -->
+  <rect class="b-hl" x="20" y="270" width="940" height="64"/>
+  <text class="t-h" x="44" y="298">불변식</text>
+  <text class="m" x="140" y="298">gv_running  =  gv_sent  −  gv_recv</text>
+  <text class="t-s" x="44" y="320">이 등식이 깨지는 순간 WAIT UNTIL은 영원히 풀리지 않거나, 아직 안 돌아온 결과를 두고 프로그램이 끝난다</text>
+</svg>
+<figcaption><span class="fno">그림 2</span>태스크 풀 구조와 카운터 불변식.
+슬롯은 유한하고, 콜백이 반납해야 다음 청크를 던질 수 있다.</figcaption>
+</figure>
+</div>
+
+<h3>카운터를 올리는 위치에 규칙이 있다</h3>
+
+<div class="tbl-wrap">
+<table>
+<tr><th>변수</th><th>올리는 위치</th><th>이유</th></tr>
+<tr><td><code>gv_sent</code></td><td class="wrap">호출이 <b>성공</b>했을 때만 (<code>sy-subrc = 0</code>)</td>
+    <td class="wrap">호출 실패한 태스크는 콜백이 오지 않는다. 올리면 WAIT가 안 풀린다</td></tr>
+<tr><td><code>gv_recv</code></td><td class="wrap">콜백 폼 <b>맨 첫 줄</b></td>
+    <td class="wrap"><code>RECEIVE</code>가 예외로 빠져도 "돌아온 건 돌아온 것"이다</td></tr>
+</table>
+</div>
+
+<pre><span class="c">* 호출 측 — 성공 분기에서만</span>
+<span class="k">CASE</span> sy-subrc.
+  <span class="k">WHEN</span> 0.
+    ls_task-status = <span class="s">'I'</span>.
+    gv_sent    = gv_sent    + 1.
+    gv_running = gv_running + 1.
+  <span class="k">WHEN</span> 3.  <span class="c">" RESOURCE_FAILURE — 하나 끝나길 기다렸다 재시도</span>
+    <span class="k">WAIT UNTIL</span> gv_running <span class="k">LT</span> pa_tasks <span class="k">UP TO</span> pa_time <span class="k">SECONDS</span>.
+    <span class="k">PERFORM</span> call_function.
+    <span class="k">RETURN</span>.
+  <span class="k">WHEN OTHERS</span>.
+    ls_task-status = <span class="s">'E'</span>.
+    <span class="c">" 카운터를 올리지 않는다. 미처리분은 결과에 그대로 편입</span>
+    <span class="k">APPEND LINES OF</span> gt_taskdata <span class="k">TO</span> gt_result.
+<span class="k">ENDCASE</span>.</pre>
+
+<h3>청크 분할 — 꺼내고 지우고</h3>
+<p>인덱스 변수를 굴리면 오프바이원 실수가 나고, 정수 나눗셈이 0이 되면 무한루프에 빠진다
+(<code>1건 / 3태스크 = 0</code>). 원본을 고갈시키는 방식이 안전하다.</p>
+
+<pre><span class="k">WHILE</span> gt_data <span class="k">IS NOT INITIAL</span>.
+  lv_to = <span class="k">nmin</span>( val1 = pa_count val2 = <span class="k">lines</span>( gt_data ) ).
+
+  <span class="k">CLEAR</span> gt_taskdata.                                       <span class="c">" APPEND는 덮어쓰지 않는다</span>
+  <span class="k">APPEND LINES OF</span> gt_data <span class="k">FROM</span> 1 <span class="k">TO</span> lv_to <span class="k">TO</span> gt_taskdata.  <span class="c">" 앞에서 꺼내고</span>
+  <span class="k">DELETE</span> gt_data <span class="k">FROM</span> 1 <span class="k">TO</span> lv_to.                        <span class="c">" 원본에서 지우고</span>
+
+  <span class="k">PERFORM</span> call_function.
+<span class="k">ENDWHILE</span>.</pre>
+</div>
+
+
+<!-- ══════════════════ LESSON 5 ══════════════════ -->
+<div class="lesson" id="l5">
+<h2><span class="no">LESSON 5</span>구문 3종 — 호출 · 콜백 · 수신</h2>
+
+<p>세 구문은 <b>세트라 쪼갤 수 없다.</b> 하나라도 빠지면 결과가 비거나 무한 대기한다.</p>
+
+<h3>① 호출</h3>
+<pre><span class="k">CALL FUNCTION</span> <span class="s">'YFM_PARALTEST'</span>
+  <span class="k">STARTING NEW TASK</span> ls_task-taskname          <span class="c">" 비동기 — 제어권 즉시 반환</span>
+  <span class="k">DESTINATION IN GROUP</span> pa_group              <span class="c">" 그룹 내 여유 서버에 자동 분배</span>
+  <span class="k">PERFORMING</span> receive_rfc_result <span class="k">ON END OF TASK</span>  <span class="c">" 완료 시 실행될 콜백</span>
+  <span class="k">EXPORTING</span>
+    iv_taskname           = ls_task-taskname   <span class="c">" CHAR10 변수 — STRING 금지</span>
+  <span class="k">TABLES</span>
+    ct_data               = gt_taskdata
+  <span class="k">EXCEPTIONS</span>
+    system_failure        = 1
+    communication_failure = 2
+    resource_failure      = 3
+    <span class="k">OTHERS</span>                = 4.</pre>
+
+<div class="note warn">
+<div class="t">EXCEPTIONS 절이 없으면 SY-SUBRC가 세팅되지 않는다</div>
+<p>이 절을 빼고 <code>IF sy-subrc NE 0</code>을 쓰면 <span class="bad">그 IF문은 아무 의미가 없다.</span>
+그리고 WP가 전부 소진됐을 때 잡아줄 곳이 없어 그냥 덤프난다.
+<code>resource_failure</code>는 병렬처리에서 가장 자주 만나는 예외다.</p>
+</div>
+
+<h3>② 콜백 폼</h3>
+<pre><span class="k">FORM</span> receive_rfc_result <span class="k">USING</span> p_taskname <span class="k">TYPE</span> clike.
+  <span class="c">" 시그니처 고정 — 태스크명 1개. 메인 프로그램에 있어야 하고</span>
+  <span class="c">" 클래스 메서드는 PERFORMING으로 못 쓴다 (CALLING을 써야 함)</span>
+
+  gv_recv    = gv_recv    + 1.   <span class="c">" 맨 앞에서</span>
+  gv_running = gv_running − 1.</pre>
+
+<h3>③ 수신</h3>
+<pre>  <span class="k">RECEIVE RESULTS FROM FUNCTION</span> <span class="s">'YFM_PARALTEST'</span>
+    <span class="k">TABLES</span>
+      ct_data               = lt_data          <span class="c">" 호출 때와 동일한 파라미터명</span>
+    <span class="k">EXCEPTIONS</span>
+      system_failure        = 1 <span class="k">MESSAGE</span> lv_msg  <span class="c">" 원격 실패 사유를 문자열로</span>
+      communication_failure = 2 <span class="k">MESSAGE</span> lv_msg
+      <span class="k">OTHERS</span>                = 3.
+
+  <span class="k">IF</span> sy-subrc <span class="k">EQ</span> 0.
+    <span class="k">APPEND LINES OF</span> lt_data <span class="k">TO</span> gt_result.
+  <span class="k">ENDIF</span>.
+
+  <span class="c">" 슬롯 반납 — READ 실패 시 SY-TABIX = 0, MODIFY INDEX 0 은 덤프</span>
+  <span class="k">READ TABLE</span> gt_task <span class="k">INTO</span> <span class="k">DATA</span>(ls_task) <span class="k">WITH KEY</span> taskname = p_taskname.
+  <span class="k">IF</span> sy-subrc <span class="k">NE</span> 0. <span class="k">RETURN</span>. <span class="k">ENDIF</span>.
+  lv_idx = sy-tabix.                          <span class="c">" READ 직후에 잡아둔다</span>
+
+  ls_task-status = <span class="s">'S'</span>.
+  <span class="k">MODIFY</span> gt_task <span class="k">FROM</span> ls_task <span class="k">INDEX</span> lv_idx <span class="k">TRANSPORTING</span> status.</pre>
+
+<p><code>MESSAGE lv_msg</code>가 진단의 핵심이다. 이게 없으면 원격에서 뭐가 터졌는지
+<span class="key">SUBRC 숫자 하나만 남는다.</span></p>
+</div>
+
+
+<!-- ══════════════════ LESSON 6 ══════════════════ -->
+<div class="lesson" id="l6">
+<h2><span class="no">LESSON 6</span>WAIT UNTIL의 정체 — 대기가 아니라 실행 창</h2>
+
+<p><b>안 쓰면 뭐가 터지나.</b> 덤프도 안 나고 에러도 없이
+<span class="bad">결과만 0건으로 나온다.</span> 병렬 프로그램에서 가장 흔하고 가장 헷갈리는 증상이다.</p>
+
+<p>콜백 폼은 커널이 아무 때나 끼워 넣는 게 아니다.
+<span class="hl">메인 프로그램이 대기 상태에 들어갔을 때만 실행된다.</span>
+그래서 <code>DO ... ENDDO</code>로 CPU를 태우며 기다리면 콜백이 영영 안 잡힌다.</p>
+
+<div class="figwrap">
+<figure>
+<svg class="dgm" viewBox="0 0 1000 340" role="img"
+     aria-label="WAIT UNTIL이 있으면 그 구간 안에서 콜백이 실행되어 결과가 회수되지만, 없으면 마지막 호출 직후 프로그램이 끝나 콜백이 실행될 기회조차 없다.">
+  <defs>
+    <marker id="a4" markerWidth="9" markerHeight="9" refX="8" refY="3" orient="auto">
+      <polygon class="arw-ok" points="0 0, 9 3, 0 6"/>
+    </marker>
+    <marker id="a5" markerWidth="9" markerHeight="9" refX="8" refY="3" orient="auto">
+      <polygon class="arw-bad" points="0 0, 9 3, 0 6"/>
+    </marker>
+  </defs>
+
+  <!-- 있는 경우 -->
+  <text class="t-h" x="20" y="26">WAIT UNTIL 있음</text>
+  <rect class="b-key" x="20" y="40" width="70" height="34"/><text class="m-s" x="32" y="61">호출1</text>
+  <rect class="b-key" x="96" y="40" width="70" height="34"/><text class="m-s" x="108" y="61">호출2</text>
+  <rect class="b-hl" x="172" y="40" width="420" height="34"/>
+  <text class="m" x="300" y="61">WAIT UNTIL</text>
+  <rect class="b-ok" x="598" y="40" width="120" height="34"/><text class="m-s" x="612" y="61">ALV 출력</text>
+
+  <path class="ln-ok" d="M240 128 L 240 80" marker-end="url(#a4)"/>
+  <path class="ln-ok" d="M380 128 L 380 80" marker-end="url(#a4)"/>
+  <text class="t-s" x="200" y="146">콜백 실행</text>
+  <text class="t-s" x="340" y="146">콜백 실행</text>
+  <text class="t-xs" x="200" y="164">gv_recv +1</text>
+  <text class="t-xs" x="340" y="164">gv_recv +1</text>
+  <text class="t-s" x="612" y="100" fill="#047857">결과 10건</text>
+
+  <line class="ln-d" x1="20" y1="192" x2="960" y2="192"/>
+
+  <!-- 없는 경우 -->
+  <text class="t-h" x="20" y="228">WAIT UNTIL 없음</text>
+  <rect class="b-key" x="20" y="242" width="70" height="34"/><text class="m-s" x="32" y="263">호출1</text>
+  <rect class="b-key" x="96" y="242" width="70" height="34"/><text class="m-s" x="108" y="263">호출2</text>
+  <rect class="b-bad" x="172" y="242" width="120" height="34"/><text class="m-s" x="186" y="263">프로그램 종료</text>
+
+  <path class="ln-bad" d="M240 320 L 240 300" marker-end="url(#a5)"/>
+  <rect class="b-ghost" x="330" y="282" width="330" height="44"/>
+  <text class="t-s" x="350" y="300">콜백이 실행될 창이 없다</text>
+  <text class="t-s" x="350" y="318" fill="#B91C1C">GT_RESULT = 0건 · 덤프도 에러도 없음</text>
+</svg>
+<figcaption><span class="fno">그림 3</span><code>WAIT UNTIL</code>은 시간을 버리는 구문이 아니라
+콜백이 끼어들 수 있는 <b>실행 창</b>을 여는 구문이다.</figcaption>
+</figure>
+</div>
+
+<pre><span class="c">* 전체 완료 대기 — UP TO 는 안전장치, 반드시 건다</span>
+<span class="k">IF</span> gv_running <span class="k">GT</span> 0.
+  <span class="k">WAIT UNTIL</span> gv_recv <span class="k">GE</span> gv_sent <span class="k">UP TO</span> pa_time <span class="k">SECONDS</span>.
+
+  <span class="k">IF</span> sy-subrc <span class="k">NE</span> 0.
+    <span class="k">MESSAGE</span> |타임아웃: { gv_recv }/{ gv_sent } 완료| <span class="k">TYPE</span> <span class="s">'S'</span> <span class="k">DISPLAY LIKE</span> <span class="s">'W'</span>.
+  <span class="k">ENDIF</span>.
+<span class="k">ENDIF</span>.</pre>
+
+<div class="note warn">
+<div class="t">aRFC는 호출 시점에 DB 커밋을 유발한다</div>
+<p>비동기 RFC 호출은 <b>호출하는 프로그램 쪽에서 데이터베이스 커밋을 일으킨다.</b>
+메인에서 DB를 건드리다가 중간에 aRFC를 던지면 그 시점에 커밋이 끊긴다.
+LUW 경계를 신경 써야 하는 로직이라면 호출 위치를 반드시 확인할 것.</p>
+</div>
+</div>
+
+
+<!-- ══════════════════ LESSON 7 ══════════════════ -->
+<div class="lesson" id="l7">
+<h2><span class="no">LESSON 7</span>검증 순서 — 단독 → 순차 → 병렬</h2>
+
+<p><b>왜 순서가 중요한가.</b> 처음에 DDIC·FM·프로그램·병렬로직을 한꺼번에 만들고 한꺼번에 돌렸다.
+덤프가 나도 <span class="bad">원인 후보가 넷이었다.</span>
+순서를 지키면 <span class="key">문제가 한 번에 하나씩만 나타난다.</span></p>
+
+<div class="tbl-wrap">
+<table>
+<tr><th>Step</th><th>할 일</th><th>통과하면 제외되는 용의자</th></tr>
+<tr><td>0</td><td class="wrap">RZ12 그룹 · 원천 테이블 건수 · SM50 WP 확인</td><td class="wrap">환경</td></tr>
+<tr><td>1</td><td class="wrap">DDIC 구조 생성 후 <code>DATA: ls TYPE ...</code> 신택스 체크</td><td class="wrap">타입</td></tr>
+<tr><td><b>2</b></td><td class="wrap"><b>SE37에서 FM만 단독 실행(F8)</b> — 값이 바뀌어 나오는지</td><td class="wrap"><b>FM 본문·인터페이스</b></td></tr>
+<tr><td>3</td><td class="wrap">병렬 빼고 동기 <code>CALL FUNCTION</code>으로 한 바퀴</td><td class="wrap">청크 분할 · 결과 수집 · ALV</td></tr>
+<tr><td>4</td><td class="wrap">4종 세트 투입 (호출·콜백·카운터·WAIT)</td><td class="wrap">— 남은 건 병렬 하나뿐</td></tr>
+<tr><td>5</td><td class="wrap">SM50 관찰 · 태스크 수 바꿔가며 측정</td><td class="wrap">—</td></tr>
+</table>
+</div>
+
+<div class="note ok">
+<div class="t">이 순서가 실제로 범인을 잡아준 방식</div>
+<p>Step 2 단독 실행 성공 → Step 3 순차 성공 → <b>Step 4 병렬만 결과 0건.</b>
+FM 본문과 인터페이스는 이미 무죄가 확정됐으므로,
+남는 건 "동기에서는 되는데 비동기에서만 안 되는 것" — 즉 <span class="hl">원격 릴리즈 누락</span>뿐이었다.
+한꺼번에 만들었다면 이 소거법이 성립하지 않는다.</p>
+</div>
+
+<p>Step 3에서 <b>순차 소요 시간을 반드시 측정해 둔다.</b> Step 4의 비교 기준이 된다.</p>
+
+<pre><span class="k">DATA</span>: lv_start <span class="k">TYPE</span> i, lv_end <span class="k">TYPE</span> i, lv_sec <span class="k">TYPE</span> p <span class="k">DECIMALS</span> 3.
+
+<span class="k">GET RUN TIME FIELD</span> lv_start.   <span class="c">" 1회차 = 타이머 초기화, 값은 0</span>
+<span class="c">" ... 처리 ...</span>
+<span class="k">GET RUN TIME FIELD</span> lv_end.     <span class="c">" 2회차 = 경과 마이크로초</span>
+
+lv_sec = ( lv_end − lv_start ) / 1000000.   <span class="c">" WRITE에 계산식은 못 쓴다</span>
+<span class="k">WRITE</span>: / <span class="s">'소요(초):'</span>, lv_sec.</pre>
+
+<!-- [캡처 대기] 06-result-sequential.png / 07-result-parallel.png -->
+</div>
+
+
+<!-- ══════════════════ LESSON 8 ══════════════════ -->
+<div class="lesson" id="l8">
+<h2><span class="no">LESSON 8</span>덤프 도감 — 이번에 밟은 6종</h2>
+
+<div class="note warn">
+<div class="t">원격 태스크의 덤프는 화면에 뜨지 않는다</div>
+<p>병렬 구간에서 이상하면 <b>무조건 ST22부터 본다.</b>
+메인 화면은 멀쩡한데 원격에서 916개가 터지고 있을 수 있다.
+순차 디버깅과 가장 다른 지점이다.</p>
+</div>
+
+<div class="tbl-wrap">
+<table>
+<tr><th>에러</th><th>증상</th><th>원인</th><th>조치</th></tr>
+<tr><td><code>CALL_FUNCTION_PARM_UNKNOWN</code></td><td class="wrap">FM 호출 즉시</td>
+    <td class="wrap">파라미터명·종류가 인터페이스와 다름</td>
+    <td class="wrap">SE37 인터페이스 확인. 패턴(<kbd>Ctrl</kbd>+<kbd>F6</kbd>)으로 삽입</td></tr>
+<tr><td><code>CALL_FUNCTION_PARM_MISSING</code></td><td class="wrap">FM 호출 즉시</td>
+    <td class="wrap">필수 파라미터 누락</td><td class="wrap">동일</td></tr>
+<tr><td><code>CALL_FUNCTION_CONFLICT_TYPE</code></td><td class="wrap">FM 호출 즉시</td>
+    <td class="wrap">STRING을 RFC 파라미터에 직접 전달</td>
+    <td class="wrap">선언된 타입의 변수에 담아서 전달</td></tr>
+<tr><td><code>CALL_FUNCTION_NOT_REMOTE</code></td><td class="wrap"><b>병렬에서만</b> 발생</td>
+    <td class="wrap">FM이 Regular Function Module</td>
+    <td class="wrap">Attributes → Remote-Enabled Module</td></tr>
+<tr><td>FL039</td><td class="wrap">FM 활성화 거부</td>
+    <td class="wrap">TABLES에 flat 구조를 <code>TYPE</code>으로 참조</td>
+    <td class="wrap">Typing을 <code>LIKE</code>로</td></tr>
+<tr><td>FL381</td><td class="wrap">FM 활성화 거부</td>
+    <td class="wrap">참조 파라미터가 RFC에서 불허</td>
+    <td class="wrap">Import 탭 값 전달 체크</td></tr>
+</table>
+</div>
+
+<h3>증상별 역추적</h3>
+
+<div class="tbl-wrap">
+<table>
+<tr><th>보이는 것</th><th>의심할 곳</th></tr>
+<tr><td class="wrap">송신 = 수신인데 결과 0건</td><td class="wrap"><code>RECEIVE</code> 실패 → ST22, <code>MESSAGE lv_msg</code></td></tr>
+<tr><td class="wrap">수신 = 0</td><td class="wrap">콜백 자체가 안 불림 → <code>PERFORMING</code> 구문</td></tr>
+<tr><td class="wrap">타임아웃까지 멈춤</td><td class="wrap">카운터 불변식 위반</td></tr>
+<tr><td class="wrap">예상보다 너무 빨리 끝남</td><td class="wrap">처리가 아니라 덤프가 난 것 → ST22</td></tr>
+<tr><td class="wrap">화면이 그대로, 아무 반응 없음</td><td class="wrap"><code>MESSAGE ... TYPE 'E'</code>로 선택화면 복귀 → <b>상태바 확인</b></td></tr>
+<tr><td class="wrap"><code>RESOURCE_FAILURE</code></td><td class="wrap">WP 소진 — 정상 동작. 대기 후 재시도로 처리</td></tr>
+</table>
+</div>
+
+<div class="note warn">
+<div class="t">CALL FUNCTION은 런타임 바인딩이다</div>
+<p>파라미터 이름이 틀리든 빠지든 <b>신택스 체크를 통과한다.</b>
+그래서 FM 호출은 손으로 타이핑하지 말고 SE38 에디터의
+패턴 버튼(<kbd>Ctrl</kbd>+<kbd>F6</kbd>) → CALL FUNCTION으로 삽입하는 게 정석이다.
+이 노트의 덤프 중 3종이 손타이핑에서 나왔다.</p>
+</div>
+
+<!-- [캡처 대기] 08-st22-list.png / 09-dump-not-remote.png -->
+</div>
+
+
+<!-- ══════════════════ LESSON 9 ══════════════════ -->
+<div class="lesson" id="l9">
+<h2><span class="no">LESSON 9</span>SM50 · SM66 읽는 법</h2>
+
+<p>병렬이 <b>실제로</b> 돌고 있는지는 코드로 알 수 없다. 눈으로 확인해야 한다.</p>
+
+<div class="tbl-wrap">
+<table>
+<tr><th>보이는 행</th><th>정체</th></tr>
+<tr><td class="wrap">유형 <code>DIA</code> · 상태 <b>보류 중</b> · 보류 사유 <b>RFC 응답</b> ·
+    프로그램 <code>ZTEST_PARALLEL_PROCESS</code></td>
+    <td class="wrap"><b>메인.</b> <code>WAIT UNTIL</code>로 콜백을 기다리는 상태</td></tr>
+<tr><td class="wrap">유형 <code>DIA</code> · 상태 <b>실행 중</b> · 프로그램 <code>SAPLYSTUDY_HSH</code></td>
+    <td class="wrap"><b>태스크.</b> 함수그룹 <code>YSTUDY_HSH</code>의 런타임 프로그램명</td></tr>
+<tr><td class="wrap"><code>SAPMSSY1</code> · RFC 응답</td>
+    <td class="wrap">RFC 수신 측 디스패처. 다른 사용자 것도 여기 뜬다</td></tr>
+</table>
+</div>
+
+<div class="note">
+<div class="t">함수그룹은 SAPL + 그룹명으로 보인다</div>
+<p>SM50에서 FM 이름(<code>YFM_PARALTEST</code>)을 찾으면 안 나온다.
+실행 중인 건 그 FM이 속한 함수그룹의 런타임 프로그램, 즉 <code>SAPL</code> + <code>YSTUDY_HSH</code>다.
+<span class="key">이 행이 여러 개 동시에 "실행 중"이면 병렬이 붙은 것이다.</span></p>
+</div>
+
+<h3>관찰 요령</h3>
+<div class="step"><span class="n">1</span>
+<p>3초짜리는 놓치기 쉽다. <code>PA_ROWS</code>를 30, <code>PA_TASKS</code>를 3으로 두면
+약 6초간 지속돼 <kbd>F5</kbd>로 잡을 여유가 생긴다.</p></div>
+
+<div class="step"><span class="n">2</span>
+<p><b>SM50은 접속한 서버 한 대만</b> 보여준다. <code>DESTINATION IN GROUP</code>은
+여러 인스턴스로 분산되므로, 태스크가 안 보이면 <b>SM66</b>(전체 서버)로 확인한다.</p></div>
+
+<div class="step"><span class="n">3</span>
+<p>프로세스를 더블클릭하면 실행 지점이 보인다.
+메뉴 <b>Administration → Program → Debugging</b>으로 원격 태스크 내부에 디버거를 붙일 수도 있다.
+FM 안의 대기 시간을 10초쯤으로 늘려두면 잡을 여유가 생긴다.</p></div>
+
+<div class="note warn">
+<div class="t">유령 태스크 확인</div>
+<p>타임아웃이나 중단으로 회수 안 된 태스크가 남으면
+다음 실행분과 합쳐져 보여서 측정값이 오염된다.
+<b>아무것도 실행하지 않은 상태에서 SM50을 새로고침</b>했을 때
+함수그룹 프로그램이 계속 남아 있으면 유령이다. 세션을 새로 열고 재측정할 것.</p>
+</div>
+
+<!-- [캡처 대기] 10-sm50-parallel.png / 11-sm50-main-waiting.png / 12-sm66-global.png -->
+</div>
+
+
+<!-- ══════════════════ LESSON 10 ══════════════════ -->
+<div class="lesson" id="l10">
+<h2><span class="no">LESSON 10</span>확장 — AL11 파일수신과 서버 함정</h2>
+
+<p><b>먼저 함정부터.</b> AL11 디렉토리는 <span class="bad">그 서버의 로컬 파일시스템</span>이다.
+그런데 <code>DESTINATION IN GROUP</code>은 태스크를 그룹 안의 아무 서버로나 던진다.</p>
+
+<pre><span class="c">[서버 A]  /interface/po/in/PO_001.txt   ← 파일은 여기만 있음</span>
+<span class="c">[서버 B]  /interface/po/in/            ← 비어 있음</span>
+
+TASK-1 → 서버 A → OPEN DATASET 성공
+TASK-2 → 서버 B → <span class="r">OPEN DATASET 실패 (sy-subrc = 8)</span></pre>
+
+<p><span class="bad">실행할 때마다 결과가 달라진다.</span> 재현이 안 돼서 디버깅이 가장 어려운 유형이다.</p>
+
+<div class="tbl-wrap">
+<table>
+<tr><th>해결</th><th>방식</th><th>적합도</th></tr>
+<tr><td>①</td><td class="wrap">NFS 등 공유 마운트 디렉토리 사용</td><td class="wrap">운영 시스템은 대개 이미 이 구조</td></tr>
+<tr><td>②</td><td class="wrap"><code>IN GROUP</code> 대신 단일 서버 고정</td><td class="wrap">병렬 효과가 서버 1대로 제한</td></tr>
+<tr><td><b>③</b></td><td class="wrap"><b>파일 I/O는 메인에서 직렬, 가공만 병렬</b></td>
+    <td class="wrap"><b>권장</b> — 서버 종속이 아예 사라진다</td></tr>
+</table>
+</div>
+
+<p>③을 권하는 이유는 성능 관점에서도 맞다. 파일 읽기는 I/O 바운드라 병렬화 이득이 작고,
+무거운 건 파싱·검증·BAPI 호출이다. 그 부분만 병렬로 돌리면 된다.</p>
+
+<h3>디렉토리 목록 조회</h3>
+<pre><span class="k">DATA</span>: lt_dir <span class="k">TYPE TABLE OF</span> salfldir.
+
+<span class="k">CALL FUNCTION</span> <span class="s">'RZL_READ_DIR_LOCAL'</span>          <span class="c">" AL11과 동일한 조회</span>
+  <span class="k">EXPORTING</span> name = pa_dir
+  <span class="k">TABLES</span>    file_tbl = lt_dir
+  <span class="k">EXCEPTIONS</span> argument_error = 1
+             not_found      = 2
+             <span class="k">OTHERS</span>         = 3.
+
+<span class="k">LOOP AT</span> lt_dir <span class="k">INTO</span> <span class="k">DATA</span>(ls_dir).
+  <span class="k">CHECK</span> ls_dir-name <span class="k">NE</span> <span class="s">'.'</span> <span class="k">AND</span> ls_dir-name <span class="k">NE</span> <span class="s">'..'</span>.
+  <span class="k">CHECK</span> ls_dir-name <span class="k">CP</span> pa_mask.        <span class="c">" CP = Contains Pattern, *.txt 등</span>
+  <span class="c">" ... 처리 대상 적재 ...</span>
+<span class="k">ENDLOOP</span>.</pre>
+
+<h3>파일 읽기 — 한 건 실패가 전체를 막지 않게</h3>
+<pre><span class="k">LOOP AT</span> ct_file <span class="k">INTO</span> ls_file.
+
+  ls_file-servname = sy-host.      <span class="c">" ★ 어느 서버에서 읽었는지 추적</span>
+
+  <span class="k">OPEN DATASET</span> ls_file-filename
+       <span class="k">FOR INPUT IN TEXT MODE ENCODING</span> <span class="k">UTF-8</span>
+       <span class="k">MESSAGE</span> lv_msg.                <span class="c">" 실패 사유를 문자열로 받는다</span>
+
+  <span class="k">IF</span> sy-subrc <span class="k">NE</span> 0.
+    ls_file-subrc   = 8.
+    ls_file-message = lv_msg.
+    <span class="k">MODIFY</span> ct_file <span class="k">FROM</span> ls_file.
+    <span class="k">CONTINUE</span>.                      <span class="c">" ★ 한 파일 실패로 청크 전체를 잃지 않는다</span>
+  <span class="k">ENDIF</span>.
+
+  <span class="k">DO</span>.
+    <span class="k">READ DATASET</span> ls_file-filename <span class="k">INTO</span> lv_line.
+    <span class="k">IF</span> sy-subrc <span class="k">NE</span> 0. <span class="k">EXIT</span>. <span class="k">ENDIF</span>.
+    <span class="c">" === 파싱 · 검증 로직 자리 ===</span>
+  <span class="k">ENDDO</span>.
+
+  <span class="k">CLOSE DATASET</span> ls_file-filename.
+<span class="k">ENDLOOP</span>.</pre>
+
+<div class="note ok">
+<div class="t">sy-host를 결과에 남기는 이유</div>
+<p>태스크가 실제로 여러 서버에 분산됐는지 <b>ALV에서 바로 보인다.</b>
+서버 로컬 파일 문제를 의심할 때 가장 먼저 확인할 값이고,
+학습 관점에서는 <code>IN GROUP</code>이 뭘 하는지를 눈으로 확인시켜 주는 장치다.</p>
+</div>
+
+<!-- [캡처 대기] 13-al11-directory.png / 14-al11-file-content.png -->
+</div>
+
+
+<!-- ══════════════════ LESSON 11 ══════════════════ -->
+<div class="lesson" id="l11">
+<h2><span class="no">LESSON 11</span>실무로 넘어갈 때 — LUW · 락 · 분할 기준</h2>
+
+<p>학습 프로그램의 <code>WAIT UP TO 3 SECONDS</code> 자리에 진짜 업무 로직을 넣는 순간
+병렬 특유의 문제가 세 개 더 나타난다.</p>
+
+<h3>① LUW 분리</h3>
+<p>원격 태스크는 <b>독립 LUW</b>다. 메인의 글로벌 변수에 접근할 수 없고,
+<code>BAPI_TRANSACTION_COMMIT</code>은 <span class="key">태스크 안에서</span> 호출해야 한다.
+메인에서 호출해봐야 아무 효과가 없다.</p>
+<p>따라서 <span class="bad">실패 시 전체 롤백이 안 된다.</span>
+"5개 태스크 중 3번만 실패"를 되돌리려면 보상 트랜잭션을 따로 설계해야 한다.
+이건 코딩이 아니라 업무 설계 영역이다.</p>
+
+<h3>② ENQUEUE 락 경합</h3>
+<p>같은 자재·같은 공급처를 여러 태스크가 동시에 건드리면 락이 충돌한다.
+<span class="bad">병렬로 바꿨는데 순차보다 느려지는</span> 전형적인 원인이다.</p>
+
+<pre><span class="c">* 나쁜 분할 — 앞에서부터 N건씩 자르면 같은 키가 여러 태스크에 흩어진다</span>
+<span class="k">APPEND LINES OF</span> gt_data <span class="k">FROM</span> 1 <span class="k">TO</span> lv_to <span class="k">TO</span> gt_taskdata.
+
+<span class="c">* 좋은 분할 — 키 기준으로 묶어 같은 키는 반드시 같은 태스크에</span>
+<span class="k">SORT</span> gt_data <span class="k">BY</span> matnr.
+<span class="c">" matnr가 바뀌는 지점에서 청크를 끊는다</span></pre>
+
+<p>이 노트의 실습 코드는 인덱스 기준 분할이다.
+<span class="key">실무에 쓰려면 키 기준 분할로 바꿔야 한다.</span></p>
+
+<h3>③ 300초 제한</h3>
+<p>aRFC는 DIA에서 돌므로 청크 하나가 <code>rdisp/max_wprun_time</code>을 넘기면 죽는다.
+건수가 아니라 <b>예상 소요 시간</b>으로 청크 크기를 잡는다.</p>
+
+<h3>참고 — 표준 프레임워크</h3>
+<p>직접 구현 대신 SAP 표준 병렬 프레임워크(<code>SPTA_PARA_PROCESS_START_2</code> 계열)를 쓰는 선택지도 있다.
+태스크 관리·리소스 대기·결과 회수를 대신 해준다.</p>
+<div class="note warn">
+<div class="t">확인 필요</div>
+<p>SPTA 계열 FM의 가용 여부와 릴리즈별 인터페이스는
+<b>대상 시스템(winerp01 / MEP)에서 SE37로 직접 확인</b>할 것. 이 노트에서는 미검증이다.</p>
+</div>
+</div>
+
+
+<!-- ══════════════════ APPENDIX ══════════════════ -->
+<div class="lesson" id="lap">
+<h2><span class="no">APPENDIX</span>치트시트</h2>
+
+<h3>상황별 처방</h3>
+<div class="tbl-wrap">
+<table>
+<tr><th>상황</th><th>처방</th></tr>
+<tr><td class="wrap">병렬인데 결과가 0건</td><td class="wrap"><code>WAIT UNTIL</code> 확인 → ST22 → <code>MESSAGE lv_msg</code> 추가</td></tr>
+<tr><td class="wrap">프로그램이 안 끝남</td><td class="wrap">카운터 불변식 확인. <code>UP TO n SECONDS</code> 걸었는지</td></tr>
+<tr><td class="wrap">병렬인데 안 빨라짐</td><td class="wrap">SM50에서 태스크가 실제 여러 개인지 → 락 경합 의심</td></tr>
+<tr><td class="wrap">태스크가 SM50에 안 보임</td><td class="wrap">SM66으로 전체 서버 확인</td></tr>
+<tr><td class="wrap">두 번째 실행이 안 됨</td><td class="wrap"><code>SPBT_INITIALIZE</code> SUBRC 3 처리</td></tr>
+<tr><td class="wrap">FM 활성화가 안 됨</td><td class="wrap">Import 값 전달 / Tables <code>LIKE</code></td></tr>
+<tr><td class="wrap">파일을 못 찾음</td><td class="wrap"><code>sy-host</code> 확인 — 다른 서버에서 돌았다</td></tr>
+</table>
+</div>
+
+<h3>진단 3종</h3>
+<pre><span class="c">* ① 어디서 끊겼는지</span>
+<span class="k">PERFORM</span> get_data.
+<span class="k">WRITE</span>: / <span class="s">'&gt;&gt; gt_data:'</span>, <span class="k">lines</span>( gt_data ).
+
+<span class="c">* ② 콜백이 돌긴 했는지</span>
+<span class="k">WRITE</span>: / <span class="s">'송신:'</span>, gv_sent, <span class="s">'수신:'</span>, gv_recv, <span class="s">'결과:'</span>, <span class="k">lines</span>( gt_result ).
+
+<span class="c">* ③ 원격에서 뭐가 터졌는지</span>
+<span class="k">WRITE</span>: / p_taskname, <span class="s">'SUBRC='</span>, sy-subrc, <span class="s">'건수='</span>, <span class="k">lines</span>( lt_data ), lv_msg.</pre>
+
+<h3>반드시 지킬 것</h3>
+
+<div class="note warn">
+<div class="t">가용 워크프로세스를 전부 쓰지 않는다</div>
+<p>공용 시스템에서 DIA를 다 점유하면 다른 사용자의 화면이 멈춘다.
+코드에 상한을 박아두고, <b>작게 돌려 확인한 뒤 키운다.</b></p>
+</div>
+
+<div class="note warn">
+<div class="t">EXCEPTIONS 없는 SY-SUBRC 판정은 무의미하다</div>
+<p><code>STARTING NEW TASK</code>와 <code>RECEIVE RESULTS</code> 모두 해당.
+특히 <code>resource_failure</code>를 안 잡으면 WP 소진 시 그냥 덤프난다.</p>
+</div>
+
+<div class="note warn">
+<div class="t">카운터는 성공 시 송신 · 콜백 진입 즉시 수신</div>
+<p>이 규칙이 깨지면 무한 대기다. <code>UP TO n SECONDS</code>는 선택이 아니라 안전장치.</p>
+</div>
+
+<div class="note warn">
+<div class="t">병렬 구간이 이상하면 ST22부터</div>
+<p>원격 태스크의 덤프는 메인 화면에 뜨지 않는다.
+화면이 멀쩡해도 뒤에서 수백 건이 터지고 있을 수 있다.</p>
+</div>
+
+<div class="note ok">
+<div class="t">FM 호출은 패턴 버튼으로 삽입한다</div>
+<p><code>CALL FUNCTION</code>은 런타임 바인딩이라 이름이 틀려도 신택스 체크를 통과한다.
+<kbd>Ctrl</kbd>+<kbd>F6</kbd>이 덤프 3종을 막아준다.</p>
+</div>
+</div>
+
+
+<!-- ══════════════════ 참고 ══════════════════ -->
+<div class="lesson" id="lref">
+<h2><span class="no">참고</span>출처</h2>
+<ul>
+  <li><a href="https://help.sap.com/docs/r/753088fc00704d0a80e7fbd6803c8adb/7.51.12/en-US/489aa5b948c673e8e10000000a42189b.html">SAP Help — Parallel Processing with Asynchronous RFC</a>
+      (DIA 워크프로세스 사용, <code>rdisp/max_wprun_time</code> 300초 제한, 올바른 변형만 쓸 것)</li>
+  <li><a href="https://help.sap.com/doc/abapdocu_750_index_htm/7.50/en-US/abapcall_function_starting.htm">ABAP Keyword Documentation — CALL FUNCTION … STARTING NEW TASK</a>
+      (<code>RZLLI_APCL</code> 타입, 프로그램당 서버그룹 1개, aRFC의 DB 커밋)</li>
+  <li><a href="http://saphelp.ucc.ovgu.de/NW750/EN/4d/909309eba36e73e10000000a15822b/content.htm">SAP Help — Implementing Parallel Processing</a>
+      (<code>SPBT_INITIALIZE</code>는 선택, <code>RECEIVE</code>는 결과 회수 시 필수)</li>
+</ul>
+</div>
+
+</div>
+<script src="../assets/site.js" defer></script>
+</body>
+</html>

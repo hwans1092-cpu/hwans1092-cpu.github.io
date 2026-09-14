@@ -1,0 +1,535 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<script src="../assets/gate.js"></script>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>SAP 실행 환경 기초 — 워크프로세스와 RFC 지도</title>
+<meta name="description" content="인스턴스·워크프로세스·다이얼로그 스텝·RFC 5종·SM59와 RZ12의 차이를 처음 보는 사람 기준으로 정리한 선행 노트. 병렬처리·배치·인터페이스 노트의 바닥이 된다.">
+<link rel="icon" href="../assets/favicon.svg">
+<link rel="stylesheet" href="../assets/notes-paper.css">
+<style>
+.figwrap{margin:22px 0}
+svg.dgm{width:100%;height:auto;display:block}
+svg.dgm text{font-family:"Malgun Gothic","맑은 고딕",sans-serif;fill:#1e1e1e}
+svg.dgm .t-h{font-size:15px;font-weight:700}
+svg.dgm .t{font-size:13px}
+svg.dgm .t-s{font-size:11.5px;fill:#6b7280}
+svg.dgm .t-xs{font-size:10.5px;fill:#6b7280}
+svg.dgm .m{font-family:"D2Coding","Consolas",monospace;font-size:12px}
+svg.dgm .m-s{font-family:"D2Coding","Consolas",monospace;font-size:10.5px;fill:#4b5563}
+svg.dgm .b{fill:#fff;stroke:#9ca3af;stroke-width:1.2;rx:4}
+svg.dgm .b-key{fill:#EEF2FF;stroke:#4338CA;stroke-width:1.4;rx:4}
+svg.dgm .b-bad{fill:#FEF2F2;stroke:#B91C1C;stroke-width:1.4;rx:4}
+svg.dgm .b-ok{fill:#ECFDF5;stroke:#047857;stroke-width:1.4;rx:4}
+svg.dgm .b-mut{fill:#F3F4F6;stroke:#d1d5db;stroke-width:1;rx:4}
+svg.dgm .b-hl{fill:#FEF08A;stroke:#CA8A04;stroke-width:1.2;rx:4}
+svg.dgm .b-ghost{fill:none;stroke:#9ca3af;stroke-width:1.2;stroke-dasharray:5 4;rx:4}
+svg.dgm .ln{stroke:#9ca3af;stroke-width:1.4;fill:none}
+svg.dgm .ln-key{stroke:#4338CA;stroke-width:1.8;fill:none}
+svg.dgm .ln-bad{stroke:#B91C1C;stroke-width:1.8;fill:none}
+svg.dgm .ln-ok{stroke:#047857;stroke-width:1.8;fill:none}
+svg.dgm .ln-d{stroke:#9ca3af;stroke-width:1.2;stroke-dasharray:4 4;fill:none}
+svg.dgm .arw{fill:#9ca3af}
+svg.dgm .arw-key{fill:#4338CA}
+</style>
+</head>
+<body>
+<div class="crumb"><a href="../index.html">← SAP 학습 자료실</a> · 기초 · 실행 환경</div>
+<div class="sheet">
+
+<div class="doc-head">
+  <div class="kicker">FIELD NOTE · 선행</div>
+  <h1>SAP 실행 환경 기초 — 워크프로세스와 RFC 지도</h1>
+  <div class="sub">"워크프로세스가 뭐지?" "RFC는 또 뭐지?"에서 막히지 않기 위한 바닥 다지기<br>
+  대상 시스템: <b>winerp01 / MEP</b> · 캡처 6장 예정</div>
+</div>
+
+<div class="lead">
+  <p><b>결론부터.</b> ABAP 프로그램은 혼자 도는 게 아니라
+  <span class="hl">서버에 있는 한정된 개수의 "일하는 손"(워크프로세스) 중 하나를 빌려서</span> 돈다.
+  성능·병렬처리·배치·인터페이스 이야기는 전부 이 문장 하나에서 갈라져 나온다.</p>
+  <p class="t-s">이 노트는 다른 노트를 읽기 전에 깔아두는 선행 노트다.
+  깊이 들어가지 않고, <b>용어가 무엇을 가리키는지</b>와 <b>어느 T-code로 확인하는지</b>까지만 다룬다.</p>
+</div>
+
+<div class="toc">
+  <h4>목차</h4>
+  <ol>
+    <li><a href="#l1">SAP는 어디서 도는가 — 시스템 · 인스턴스 · 서버</a></li>
+    <li><a href="#l2">워크프로세스 — 일하는 손이 몇 개인가</a></li>
+    <li><a href="#l3">다이얼로그 스텝과 300초 제한</a></li>
+    <li><a href="#l4">RFC 지도 — 5종을 한 장에</a></li>
+    <li><a href="#l5">SM59와 RZ12는 다른 것이다</a></li>
+    <li><a href="#l6">LUW 맛보기 — 어디까지가 한 덩어리인가</a></li>
+    <li><a href="#lap">APPENDIX — T-code 지도 · 용어 색인</a></li>
+    <li><a href="#lref">참고</a></li>
+  </ol>
+</div>
+
+
+<!-- ══════════════════ LESSON 1 ══════════════════ -->
+<div class="lesson" id="l1">
+<h2><span class="no">LESSON 1</span>SAP는 어디서 도는가 — 시스템 · 인스턴스 · 서버</h2>
+
+<p><b>왜 알아야 하나.</b> "다른 서버에서 돌았다"는 말이 나오는 순간
+파일이 안 보이거나 모니터링 화면에 태스크가 안 뜬다.
+<span class="key">SAP 한 대인 줄 알았는데 실은 여러 대</span>인 경우가 흔하다.</p>
+
+<div class="tbl-wrap">
+<table>
+<tr><th>용어</th><th>무엇인가</th><th>비유</th></tr>
+<tr><td><b>SAP 시스템</b></td><td class="wrap">SID로 식별되는 논리적 단위 하나. DB 하나를 공유한다</td>
+    <td class="wrap">회사 하나</td></tr>
+<tr><td><b>인스턴스</b><br>= 애플리케이션 서버</td>
+    <td class="wrap">실제로 프로그램을 실행하는 서버 프로세스 묶음. 한 시스템에 여러 개일 수 있다</td>
+    <td class="wrap">지점 사무실 여러 곳</td></tr>
+<tr><td><b>워크프로세스</b></td><td class="wrap">인스턴스 안에서 실제 작업을 수행하는 단위</td>
+    <td class="wrap">각 사무실의 직원</td></tr>
+<tr><td><b>세션(모드)</b></td><td class="wrap">사용자가 여는 화면 단위. <code>/o</code>로 새로 연다</td>
+    <td class="wrap">직원에게 맡긴 일감</td></tr>
+</table>
+</div>
+
+<p>DB는 하나지만 <b>파일시스템은 인스턴스마다 따로</b>다. 이 차이가 나중에 크게 작용한다.</p>
+
+<div class="note warn">
+<div class="t">AL11 디렉토리는 시스템 공용이 아니다</div>
+<p>AL11에서 보이는 경로는 <b>지금 접속해 있는 인스턴스의 로컬 디스크</b>다.
+서버 A에 올린 파일이 서버 B에서는 안 보인다 — 공유 마운트(NFS 등)로 묶여 있지 않다면.
+<span class="key">내 프로그램이 지금 어느 서버에서 돌고 있는지</span>는 <code>sy-host</code>로 확인한다.</p>
+</div>
+
+<pre><span class="k">WRITE</span>: / <span class="s">'시스템:'</span>, sy-sysid,   <span class="c">" SID</span>
+       / <span class="s">'서버:'</span>,   sy-host,    <span class="c">" 지금 이 코드가 도는 인스턴스</span>
+       / <span class="s">'클라이언트:'</span>, sy-mandt.</pre>
+
+<p>어떤 서버들이 있는지는 <b>SM51</b>(서버 목록)에서 본다.
+한 줄만 보이면 단일 인스턴스, 여러 줄이면 분산 구성이다.</p>
+
+<!-- [캡처 대기] 01-sm51-server-list.png -->
+</div>
+
+
+<!-- ══════════════════ LESSON 2 ══════════════════ -->
+<div class="lesson" id="l2">
+<h2><span class="no">LESSON 2</span>워크프로세스 — 일하는 손이 몇 개인가</h2>
+
+<p><b>핵심 한 문장.</b> <span class="hl">ABAP 프로그램 하나는 워크프로세스 하나를 점유한다.</span>
+서버 CPU에 코어가 32개여도, 내 프로그램 하나는 손 하나만 쓴다.
+<span class="key">병렬처리란 손을 여러 개 빌리는 기술</span>이고, 그래서 항상 "지금 빈 손이 몇 개냐"가 따라붙는다.</p>
+
+<div class="figwrap">
+<figure>
+<svg class="dgm" viewBox="0 0 1000 380" role="img"
+     aria-label="사용자 화면 요청, RFC 호출, 배치 잡이 디스패처로 들어오면 유형에 맞는 워크프로세스로 배정되고, 해당 유형이 모두 사용 중이면 큐에서 대기한다.">
+  <defs>
+    <marker id="b1" markerWidth="9" markerHeight="9" refX="8" refY="3" orient="auto">
+      <polygon class="arw" points="0 0, 9 3, 0 6"/>
+    </marker>
+    <marker id="b2" markerWidth="9" markerHeight="9" refX="8" refY="3" orient="auto">
+      <polygon class="arw-key" points="0 0, 9 3, 0 6"/>
+    </marker>
+  </defs>
+
+  <!-- 요청 -->
+  <text class="t-h" x="20" y="24">들어오는 요청</text>
+  <rect class="b" x="20" y="38" width="150" height="34"/><text class="t" x="36" y="60">SAP GUI 화면</text>
+  <rect class="b" x="20" y="80" width="150" height="34"/><text class="t" x="36" y="102">RFC 호출</text>
+  <rect class="b" x="20" y="122" width="150" height="34"/><text class="t" x="36" y="144">배치 잡 (SM36)</text>
+
+  <path class="ln" d="M176 97 L 246 97" marker-end="url(#b1)"/>
+
+  <!-- 디스패처 -->
+  <rect class="b-key" x="252" y="52" width="130" height="90"/>
+  <text class="t-h" x="272" y="88">디스패처</text>
+  <text class="t-s" x="272" y="110">유형에 맞는</text>
+  <text class="t-s" x="272" y="126">WP로 배정</text>
+
+  <path class="ln-key" d="M388 97 L 452 97" marker-end="url(#b2)"/>
+
+  <!-- 큐 -->
+  <rect class="b-hl" x="252" y="176" width="130" height="52"/>
+  <text class="t" x="272" y="198">요청 큐</text>
+  <text class="t-xs" x="272" y="216">빈 WP가 없으면 대기</text>
+  <path class="ln-d" d="M317 148 L 317 172"/>
+
+  <!-- WP 풀 -->
+  <rect class="b-ghost" x="452" y="20" width="528" height="240"/>
+  <text class="t-h" x="470" y="44">인스턴스의 워크프로세스</text>
+
+  <rect class="b-key" x="470" y="58" width="120" height="32"/><text class="m" x="486" y="79">DIA</text>
+  <rect class="b-key" x="598" y="58" width="120" height="32"/><text class="m" x="614" y="79">DIA</text>
+  <rect class="b-key" x="726" y="58" width="120" height="32"/><text class="m" x="742" y="79">DIA</text>
+  <rect class="b-key" x="854" y="58" width="110" height="32"/><text class="m" x="870" y="79">DIA …</text>
+  <text class="t-s" x="470" y="110">화면 응답 · <b>aRFC 병렬 태스크도 여기서 돈다</b></text>
+
+  <rect class="b" x="470" y="126" width="120" height="32"/><text class="m" x="486" y="147">BTC</text>
+  <rect class="b" x="598" y="126" width="120" height="32"/><text class="m" x="614" y="147">BTC</text>
+  <text class="t-s" x="732" y="147">배치 잡 전용</text>
+
+  <rect class="b" x="470" y="170" width="120" height="32"/><text class="m" x="486" y="191">UPD</text>
+  <rect class="b" x="598" y="170" width="120" height="32"/><text class="m" x="614" y="191">UP2</text>
+  <text class="t-s" x="732" y="191">업데이트 태스크 (V1 / V2)</text>
+
+  <rect class="b" x="470" y="214" width="120" height="32"/><text class="m" x="486" y="235">ENQ</text>
+  <rect class="b" x="598" y="214" width="120" height="32"/><text class="m" x="614" y="235">SPO</text>
+  <text class="t-s" x="732" y="235">락 관리 · 스풀(인쇄)</text>
+
+  <rect class="b-hl" x="20" y="296" width="960" height="62"/>
+  <text class="t-h" x="44" y="322">기억할 것</text>
+  <text class="t" x="140" y="322">프로그램 1개 = WP 1개. 병렬처리는 DIA를 여러 개 빌리는 것이고, 빌릴 수 있는 개수는 유한하다.</text>
+  <text class="t-s" x="44" y="344">현재 상태는 SM50(이 서버) · SM66(전체 서버)에서 본다</text>
+</svg>
+<figcaption><span class="fno">그림 1</span>디스패처가 요청을 유형별 워크프로세스로 배정한다.
+해당 유형이 전부 사용 중이면 요청은 큐에서 대기한다.</figcaption>
+</figure>
+</div>
+
+<h3>유형 6가지</h3>
+<div class="tbl-wrap">
+<table>
+<tr><th>유형</th><th>하는 일</th><th>언제 신경 쓰나</th></tr>
+<tr><td><code>DIA</code></td><td class="wrap">사용자 화면의 다이얼로그 스텝 실행</td>
+    <td class="wrap"><b>병렬처리(aRFC)도 여기서 돈다</b> — 다 쓰면 다른 사람 화면이 멈춘다</td></tr>
+<tr><td><code>BTC</code></td><td class="wrap">백그라운드 잡 실행</td><td class="wrap">SM36/SM37 배치</td></tr>
+<tr><td><code>UPD</code></td><td class="wrap">V1(시간 임계) 업데이트</td><td class="wrap">LUW · 업데이트 태스크</td></tr>
+<tr><td><code>UP2</code></td><td class="wrap">V2(비임계) 업데이트</td><td class="wrap">통계성 후처리</td></tr>
+<tr><td><code>ENQ</code></td><td class="wrap">SAP 락 오브젝트 설정·해제</td><td class="wrap">락 경합 조사</td></tr>
+<tr><td><code>SPO</code></td><td class="wrap">스풀(출력) 처리</td><td class="wrap">인쇄</td></tr>
+</table>
+</div>
+
+<div class="note">
+<div class="t">개수는 고정이 아니다</div>
+<p>유형별 개수는 프로파일 파라미터 <code>rdisp/wp_no_dia</code>, <code>rdisp/wp_no_btc</code> 등으로 설정하지만,
+<b>운영 모드 전환으로 운영 중에도 바뀐다.</b> (예: 야간에 DIA를 줄이고 BTC를 늘림)
+그래서 파라미터 값이 아니라 <span class="key">SM50에 지금 실제로 몇 개가 있는지</span>를 봐야 한다.</p>
+</div>
+
+<div class="note warn">
+<div class="t">병렬처리는 DIA를 쓴다</div>
+<p>"배치니까 BTC를 쓰겠지"가 아니다. <code>CALL FUNCTION ... STARTING NEW TASK</code>로 뜬 태스크는
+<b>DIA에서 돈다.</b> 그래서 병렬 프로그램을 크게 돌리면
+<span class="bad">같은 서버에 접속한 다른 사용자의 화면이 느려지거나 멈춘다.</span>
+가용 DIA를 전부 점유하지 않는 것이 실무 매너다.</p>
+</div>
+
+<!-- [캡처 대기] 02-sm50-wp-types.png -->
+</div>
+
+
+<!-- ══════════════════ LESSON 3 ══════════════════ -->
+<div class="lesson" id="l3">
+<h2><span class="no">LESSON 3</span>다이얼로그 스텝과 300초 제한</h2>
+
+<p><b>안 알면 뭐가 터지나.</b> 프로그램이 잘 돌다가 갑자기 죽는데 로직에는 문제가 없다.
+<code>TIME_OUT</code> 덤프다. <span class="key">코드가 아니라 시간 때문에 죽은 것이다.</span></p>
+
+<h3>다이얼로그 스텝이란</h3>
+<p>사용자가 <kbd>Enter</kbd>나 실행 버튼을 눌러서 <b>화면이 다시 그려질 때까지의 한 구간</b>이다.
+SAP은 이 구간 단위로 WP를 빌려주고 돌려받는다. 그래서 한 스텝이 너무 길면 강제로 끊는다.</p>
+
+<div class="tbl-wrap">
+<table>
+<tr><th>파라미터</th><th>기본</th><th>의미</th></tr>
+<tr><td><code>rdisp/max_wprun_time</code></td><td>300초</td>
+    <td class="wrap">DIA 워크프로세스에서 한 스텝이 돌 수 있는 최대 시간</td></tr>
+</table>
+</div>
+
+<div class="note warn">
+<div class="t">배치(BTC)에는 이 제한이 없다</div>
+<p>대량 처리를 SM36 배치 잡으로 돌리는 이유가 여기 있다.
+<b>그런데 병렬 태스크는 DIA에서 돈다.</b> 배치 잡 안에서 병렬처리를 해도
+<span class="bad">태스크 하나하나는 300초 제한을 받는다.</span></p>
+<p>그래서 병렬처리에서 "몇 건씩 나눌까"의 답은
+<span class="hl">한 덩어리가 300초 안에 끝나는 건수</span>이지 보기 좋은 숫자가 아니다.</p>
+</div>
+
+<h3>실행 시간을 재는 법</h3>
+<pre><span class="k">DATA</span>: lv_start <span class="k">TYPE</span> i, lv_end <span class="k">TYPE</span> i, lv_sec <span class="k">TYPE</span> p <span class="k">DECIMALS</span> 3.
+
+<span class="k">GET RUN TIME FIELD</span> lv_start.   <span class="c">" 1회차 = 타이머 초기화, 값은 0</span>
+<span class="c">" ... 측정할 로직 ...</span>
+<span class="k">GET RUN TIME FIELD</span> lv_end.     <span class="c">" 2회차 = 경과 마이크로초</span>
+
+lv_sec = ( lv_end − lv_start ) / 1000000.
+<span class="k">WRITE</span>: / <span class="s">'소요(초):'</span>, lv_sec.   <span class="c">" WRITE에 계산식은 못 쓴다</span></pre>
+
+<p>단위는 <b>마이크로초</b>(1초 = 1,000,000). 필드는 <code>TYPE i</code>여야 한다.
+<code>SY-UZEIT</code> 차이로 재면 초 단위라 소수점이 안 보이고, 자정을 넘기면 음수가 나온다.</p>
+
+<!-- [캡처 대기] 03-st22-timeout.png -->
+</div>
+
+
+<!-- ══════════════════ LESSON 4 ══════════════════ -->
+<div class="lesson" id="l4">
+<h2><span class="no">LESSON 4</span>RFC 지도 — 5종을 한 장에</h2>
+
+<p><b>RFC란.</b> Remote Function Call — <span class="hl">다른 세션이나 다른 시스템의 함수를 불러 쓰는 방식</span>이다.
+"원격"이라고 해서 꼭 다른 회사 서버일 필요는 없다. 같은 시스템의 다른 워크프로세스도 원격이다.</p>
+
+<p>변형이 5가지나 되는 이유는 요구사항이 다르기 때문이다.
+<span class="key">결과를 받아야 하는가 / 순서를 지켜야 하는가 / 지금 실행해야 하는가</span> 세 질문으로 갈린다.</p>
+
+<div class="figwrap">
+<figure>
+<svg class="dgm" viewBox="0 0 1000 400" role="img"
+     aria-label="결과를 받아야 하면 동기 RFC 또는 비동기 RFC를, 받지 않아도 되면 순서 보장 여부에 따라 bgRFC 타입 T 또는 타입 Q를 고른다.">
+  <defs>
+    <marker id="b3" markerWidth="9" markerHeight="9" refX="8" refY="3" orient="auto">
+      <polygon class="arw" points="0 0, 9 3, 0 6"/>
+    </marker>
+  </defs>
+
+  <rect class="b-key" x="380" y="16" width="240" height="40"/>
+  <text class="t-h" x="404" y="42">결과를 받아야 하나?</text>
+
+  <!-- YES -->
+  <path class="ln" d="M440 60 L 240 96" marker-end="url(#b3)"/>
+  <text class="t-s" x="330" y="76">예</text>
+  <rect class="b" x="100" y="102" width="280" height="40"/>
+  <text class="t" x="124" y="128">지금 답이 있어야 하나?</text>
+
+  <path class="ln" d="M180 146 L 130 182" marker-end="url(#b3)"/>
+  <text class="t-xs" x="120" y="170">예</text>
+  <rect class="b-ok" x="30" y="188" width="190" height="66"/>
+  <text class="t-h" x="50" y="212">sRFC 동기</text>
+  <text class="t-xs" x="50" y="230">CALL FUNCTION</text>
+  <text class="t-xs" x="50" y="246">DESTINATION dest</text>
+
+  <path class="ln" d="M300 146 L 330 182" marker-end="url(#b3)"/>
+  <text class="t-xs" x="318" y="170">아니오</text>
+  <rect class="b-ok" x="238" y="188" width="200" height="66"/>
+  <text class="t-h" x="258" y="212">aRFC 비동기</text>
+  <text class="t-xs" x="258" y="230">STARTING NEW TASK</text>
+  <text class="t-xs" x="258" y="246">RECEIVE로 결과 회수</text>
+
+  <!-- NO -->
+  <path class="ln" d="M560 60 L 760 96" marker-end="url(#b3)"/>
+  <text class="t-s" x="640" y="76">아니오 — 보내고 잊는다</text>
+  <rect class="b" x="620" y="102" width="280" height="40"/>
+  <text class="t" x="644" y="128">순서를 지켜야 하나?</text>
+
+  <path class="ln" d="M700 146 L 660 182" marker-end="url(#b3)"/>
+  <text class="t-xs" x="648" y="170">아니오</text>
+  <rect class="b-key" x="560" y="188" width="190" height="66"/>
+  <text class="t-h" x="580" y="212">bgRFC 타입 T</text>
+  <text class="t-xs" x="580" y="230">(구: tRFC)</text>
+  <text class="t-xs" x="580" y="246">정확히 한 번 실행</text>
+
+  <path class="ln" d="M820 146 L 860 182" marker-end="url(#b3)"/>
+  <text class="t-xs" x="856" y="170">예</text>
+  <rect class="b-key" x="768" y="188" width="200" height="66"/>
+  <text class="t-h" x="788" y="212">bgRFC 타입 Q</text>
+  <text class="t-xs" x="788" y="230">(구: qRFC)</text>
+  <text class="t-xs" x="788" y="246">순서까지 보장</text>
+
+  <rect class="b-hl" x="30" y="286" width="938" height="44"/>
+  <text class="t" x="54" y="314">결과를 받을 수 있는 건 왼쪽 둘뿐이다. 오른쪽은 "보냈다"만 알 수 있고 반환값을 못 받는다.</text>
+
+  <rect class="b-ghost" x="30" y="344" width="938" height="44"/>
+  <text class="t-s" x="54" y="370">병렬처리에 쓰는 것은 aRFC — 그중에서도 DESTINATION IN GROUP 변형. 다른 변형은 안전장치를 우회한다.</text>
+</svg>
+<figcaption><span class="fno">그림 2</span>RFC 변형 선택 흐름.
+SAP은 신규 개발에 <b>bgRFC</b>를 권장하며, tRFC·qRFC는 그 전신이다.</figcaption>
+</figure>
+</div>
+
+<div class="tbl-wrap">
+<table>
+<tr><th>변형</th><th>구문</th><th>결과</th><th>보장</th><th>주 용도</th></tr>
+<tr><td><b>sRFC</b> 동기</td><td class="wrap"><code>DESTINATION dest</code></td><td>받음</td>
+    <td class="wrap">—</td><td class="wrap">조회, 즉시 응답</td></tr>
+<tr><td><b>aRFC</b> 비동기</td><td class="wrap"><code>STARTING NEW TASK</code></td><td class="wrap">콜백으로 받음</td>
+    <td class="wrap">—</td><td class="wrap"><b>병렬처리</b></td></tr>
+<tr><td><b>tRFC</b></td><td class="wrap"><code>IN BACKGROUND TASK</code></td><td>못 받음</td>
+    <td class="wrap">한 번만</td><td class="wrap">전송 보장 (구세대)</td></tr>
+<tr><td><b>qRFC</b></td><td class="wrap">tRFC + 큐 이름 지정</td><td>못 받음</td>
+    <td class="wrap">한 번 + 순서</td><td class="wrap">순서 필요한 연계 (구세대)</td></tr>
+<tr><td><b>bgRFC</b></td><td class="wrap">클래스 API</td><td>못 받음</td>
+    <td class="wrap">T=한 번 / Q=순서</td><td class="wrap"><b>신규 개발 권장</b></td></tr>
+</table>
+</div>
+
+<h3>RFC 함수 모듈의 제약 — 한 뿌리에서 나온다</h3>
+<p><span class="hl">원격 호출은 메모리 주소를 공유할 수 없다.</span>
+다른 워크프로세스, 경우에 따라 다른 서버에서 돌기 때문에
+값을 직렬화해 복사해 보내는 수밖에 없다. 아래는 전부 여기서 파생된 규칙이다.</p>
+
+<ul>
+  <li>SE37 속성에서 <b>원격 사용 가능 모듈</b>로 지정돼 있어야 한다</li>
+  <li>파라미터는 <b>값 전달(pass by value)만</b> 허용된다 — 테이블 파라미터는 암묵적으로 값 전달</li>
+  <li>파라미터 타입은 <b>DDIC 타입</b>이어야 한다 (프로그램 로컬 구조 불가)</li>
+  <li><code>CHANGING</code> 파라미터를 쓸 수 없다</li>
+</ul>
+
+<div class="note ok">
+<div class="t">SE37에서는 되는데 병렬에서만 안 되던 이유</div>
+<p>원격 사용 가능 모듈은 <b>자기 시스템 안에서는 일반 FM처럼도 호출된다.</b>
+<code>DESTINATION</code> / <code>STARTING NEW TASK</code> / <code>IN BACKGROUND TASK</code> 없이 부르면 로컬 호출이다.</p>
+<p>뒤집으면, <span class="key">원격 플래그가 없는 FM도 SE37 단독 실행과 동기 호출은 멀쩡히 된다.</span>
+<code>STARTING NEW TASK</code>를 붙이는 순간에만 <code>CALL_FUNCTION_NOT_REMOTE</code>로 터진다.
+"단독은 되는데 병렬만 안 된다"면 이걸 먼저 의심한다.</p>
+</div>
+</div>
+
+
+<!-- ══════════════════ LESSON 5 ══════════════════ -->
+<div class="lesson" id="l5">
+<h2><span class="no">LESSON 5</span>SM59와 RZ12는 다른 것이다</h2>
+
+<p>둘 다 "RFC 설정"이라 헷갈리는데, <b>가리키는 대상이 다르다.</b></p>
+
+<div class="tbl-wrap">
+<table>
+<tr><th></th><th>SM59 — RFC Destination</th><th>RZ12 — RFC 서버그룹</th></tr>
+<tr><td>무엇의 목록인가</td><td class="wrap"><b>어디로</b> 보낼지 (상대 시스템)</td>
+    <td class="wrap"><b>어느 서버들에</b> 나눠 돌릴지 (내 시스템 안)</td></tr>
+<tr><td>방향</td><td class="wrap">바깥 (다른 SAP, 외부 프로그램)</td><td class="wrap">안쪽 (같은 시스템의 인스턴스들)</td></tr>
+<tr><td>ABAP 구문</td><td class="wrap"><code>DESTINATION 'PRD100'</code></td><td class="wrap"><code>DESTINATION IN GROUP grp</code></td></tr>
+<tr><td>테이블</td><td class="wrap"><code>RFCDES</code></td><td class="wrap"><code>RZLLITAB</code> (<code>GRPTYPE = 'S'</code>)</td></tr>
+<tr><td>타입</td><td class="wrap">—</td><td class="wrap">DDIC <code>RZLLI_APCL</code></td></tr>
+</table>
+</div>
+
+<p><b>서버그룹이란</b> 병렬 태스크를 던질 서버들의 명단이다.
+RZ12에서 만들고 이름을 붙인다. <code>DESTINATION IN GROUP</code>에 그 이름을 넘기면,
+SAP이 명단 안에서 <span class="key">여유 있는 서버를 자동으로 골라</span> 태스크를 배정한다.</p>
+
+<pre><span class="c">* 등록된 서버그룹 확인</span>
+<span class="k">SELECT SINGLE</span> classname <span class="k">FROM</span> rzllitab <span class="k">INTO</span> lv_group
+ <span class="k">WHERE</span> grouptype <span class="k">EQ</span> <span class="s">'S'</span>.</pre>
+
+<div class="tbl-wrap">
+<table>
+<tr><th>지정</th><th>동작</th></tr>
+<tr><td><code>IN GROUP grp</code></td><td class="wrap">RZ12 등록 그룹 안의 서버로만 분배</td></tr>
+<tr><td><code>IN GROUP DEFAULT</code></td><td class="wrap">현재 시스템의 가용 서버 전부를 그룹으로 사용</td></tr>
+<tr><td>변수가 <code>INITIAL</code></td><td class="wrap"><code>DEFAULT</code>와 동일하게 동작</td></tr>
+</table>
+</div>
+
+<div class="note warn">
+<div class="t">프로그램 하나에 서버그룹 하나</div>
+<p>한 프로그램 안에서는 RFC 서버그룹을 <b>하나만</b> 쓸 수 있다.
+첫 aRFC 호출 시점에 그 그룹이 초기화되고, 이후 호출은 그 안에서 서버가 자동 선택된다.</p>
+</div>
+
+<div class="note">
+<div class="t">aRFC는 외부 시스템으로 못 나간다</div>
+<p>동기·비동기 호출은 상대 서버가 <b>살아 있어야</b> 성립한다.
+그리고 비동기 호출은 SM59의 TCP/IP 연결(외부 프로그램)로는 쓸 수 없다.
+"보내두면 나중에 알아서" 방식이 필요하면 tRFC/bgRFC 쪽이다.</p>
+</div>
+
+<!-- [캡처 대기] 04-sm59-destination.png / 05-rz12-server-group.png -->
+</div>
+
+
+<!-- ══════════════════ LESSON 6 ══════════════════ -->
+<div class="lesson" id="l6">
+<h2><span class="no">LESSON 6</span>LUW 맛보기 — 어디까지가 한 덩어리인가</h2>
+
+<p><b>LUW</b>(Logical Unit of Work)는 <span class="hl">전부 반영되거나 전부 취소되는 작업 한 덩어리</span>다.
+"중간까지만 저장"이 없어야 하는 범위를 말한다.</p>
+
+<div class="tbl-wrap">
+<table>
+<tr><th>경계</th><th>일어나는 일</th></tr>
+<tr><td><code>COMMIT WORK</code></td><td class="wrap">여기까지를 확정. 새 LUW 시작</td></tr>
+<tr><td><code>ROLLBACK WORK</code></td><td class="wrap">이번 LUW를 통째로 취소</td></tr>
+<tr><td>다이얼로그 스텝 끝</td><td class="wrap">암묵적 커밋이 일어날 수 있다</td></tr>
+</table>
+</div>
+
+<div class="note warn">
+<div class="t">병렬처리에서 반드시 알아야 할 두 가지</div>
+<p><b>① aRFC 호출은 호출하는 쪽에서 DB 커밋을 유발한다.</b>
+메인에서 DB를 건드리다가 중간에 aRFC를 던지면 그 시점에 커밋이 끊긴다.</p>
+<p><b>② 원격 태스크는 독립 LUW다.</b> 메인의 글로벌 변수에 접근할 수 없고,
+<code>BAPI_TRANSACTION_COMMIT</code>은 태스크 안에서 호출해야 한다.
+따라서 <span class="bad">"5개 태스크 중 3번만 실패"를 전체 롤백으로 되돌릴 수 없다.</span>
+보상 트랜잭션을 따로 설계해야 한다 — 이건 코딩이 아니라 업무 설계 영역이다.</p>
+</div>
+
+<p>번들링, 업데이트 태스크(V1/V2), <code>ENQUEUE</code>의 <code>_SCOPE</code> 같은 자세한 내용은 별도 노트에 있다.</p>
+<p>→ <a href="sap-luw.html"><b>SAP LUW 완전 정리</b></a></p>
+</div>
+
+
+<!-- ══════════════════ APPENDIX ══════════════════ -->
+<div class="lesson" id="lap">
+<h2><span class="no">APPENDIX</span>T-code 지도 · 용어 색인</h2>
+
+<h3>이 노트에 나온 T-code</h3>
+<div class="tbl-wrap">
+<table>
+<tr><th>T-code</th><th>무엇을 보나</th><th>언제 쓰나</th></tr>
+<tr><td><b>SM50</b></td><td class="wrap">이 서버의 워크프로세스 현황</td>
+    <td class="wrap">병렬이 실제로 도는지, 뭐가 오래 걸리는지</td></tr>
+<tr><td><b>SM66</b></td><td class="wrap"><b>전체 서버</b>의 워크프로세스</td>
+    <td class="wrap">SM50에 안 보일 때. 운영에서는 이쪽이 안전</td></tr>
+<tr><td><b>SM51</b></td><td class="wrap">인스턴스(서버) 목록</td><td class="wrap">서버가 몇 대인지 확인</td></tr>
+<tr><td><b>SM59</b></td><td class="wrap">RFC Destination</td><td class="wrap">외부 시스템 연결 설정·테스트</td></tr>
+<tr><td><b>RZ12</b></td><td class="wrap">RFC 서버그룹</td><td class="wrap">병렬처리 대상 서버 명단</td></tr>
+<tr><td><b>RZ11</b></td><td class="wrap">프로파일 파라미터 조회</td><td class="wrap"><code>rdisp/*</code> 값 확인</td></tr>
+<tr><td><b>ST22</b></td><td class="wrap">런타임 에러(덤프)</td>
+    <td class="wrap"><b>원격 태스크 덤프는 여기서만 보인다</b></td></tr>
+<tr><td><b>SM37</b></td><td class="wrap">백그라운드 잡</td><td class="wrap">배치 모니터링</td></tr>
+<tr><td><b>AL11</b></td><td class="wrap">서버 디렉토리</td><td class="wrap">파일 인터페이스. <b>서버별로 다르다</b></td></tr>
+<tr><td><b>SM12</b></td><td class="wrap">락 엔트리</td><td class="wrap">락 경합 조사</td></tr>
+</table>
+</div>
+
+<div class="note warn">
+<div class="t">운영 시스템에서는 SM50보다 SM66</div>
+<p>SM50에서는 프로세스를 실수로 종료시킬 수 있다.
+조회 목적이라면 전체 서버를 한 화면에서 보여주는 SM66이 더 안전하고 더 유용하다.</p>
+</div>
+
+<h3>용어 빠른 색인</h3>
+<div class="tbl-wrap">
+<table>
+<tr><th>용어</th><th>한 줄 정의</th></tr>
+<tr><td>인스턴스 / 애플리케이션 서버</td><td class="wrap">프로그램을 실제로 실행하는 서버. 한 시스템에 여러 대 가능</td></tr>
+<tr><td>워크프로세스 (WP)</td><td class="wrap">작업을 수행하는 단위. 프로그램 1개가 1개를 점유한다</td></tr>
+<tr><td>디스패처</td><td class="wrap">들어온 요청을 유형에 맞는 WP로 배정하는 역할</td></tr>
+<tr><td>다이얼로그 스텝</td><td class="wrap">화면이 한 번 처리되고 다시 그려질 때까지의 구간. 300초 제한</td></tr>
+<tr><td>RFC</td><td class="wrap">다른 세션·시스템의 함수를 호출하는 방식</td></tr>
+<tr><td>aRFC</td><td class="wrap">결과를 기다리지 않는 비동기 RFC. 병렬처리에 쓴다</td></tr>
+<tr><td>Destination</td><td class="wrap">호출할 상대. SM59에서 정의</td></tr>
+<tr><td>서버그룹</td><td class="wrap">병렬 태스크를 나눠 받을 서버 명단. RZ12에서 정의</td></tr>
+<tr><td>LUW</td><td class="wrap">전부 반영되거나 전부 취소되는 작업 한 덩어리</td></tr>
+<tr><td>태스크</td><td class="wrap">병렬로 떠서 한 덩어리를 처리하는 실행 단위</td></tr>
+<tr><td>청크</td><td class="wrap">전체 데이터를 태스크 하나가 처리할 만큼 자른 묶음</td></tr>
+</table>
+</div>
+
+<p>→ 이어서 읽기: <a href="abap-parallel-arfc.html"><b>aRFC 병렬처리 — 골격부터 덤프 도감까지</b></a></p>
+</div>
+
+
+<!-- ══════════════════ 참고 ══════════════════ -->
+<div class="lesson" id="lref">
+<h2><span class="no">참고</span>출처</h2>
+<ul>
+  <li><a href="https://help.sap.com/docs/ABAP_PLATFORM_NEW/753088fc00704d0a80e7fbd6803c8adb/4899b53cee2b73e7e10000000a42189b.html">SAP Help — RFC Variants</a>
+      (bgRFC 타입 T/Q, tRFC·qRFC와의 관계, 신규 개발 권장)</li>
+  <li><a href="https://help.sap.com/saphelp_snc700_ehp01/helpdata/en/80/09680289c751429ab3b07ad2a61c10/content.htm">SAP Help — RFC 인터페이스</a>
+      (값 전달만 허용, 원격 FM의 로컬 호출, aRFC의 TCP/IP 제약)</li>
+  <li><a href="https://help.sap.com/docs/r/753088fc00704d0a80e7fbd6803c8adb/7.51.12/en-US/489aa5b948c673e8e10000000a42189b.html">SAP Help — Parallel Processing with Asynchronous RFC</a>
+      (DIA 워크프로세스 사용, 300초 제한)</li>
+  <li><a href="https://help.sap.com/saphelp_erp2005/helpdata/EN/6e/3f560a3e0f6f4a90fb1e7db1388d4d/content.htm">SAP Help — 병렬 RFC 시스템 구성</a>
+      (<code>rdisp/wp_no_*</code>, 운영 모드 전환으로 개수가 바뀜, SM50에서 현재값 확인)</li>
+  <li><a href="https://help.sap.com/saphelp_erp2005/helpdata/EN/d3/75d938c6fba936e10000000a114084/content.htm">SAP Help — Queue Info</a>
+      (디스패처의 유형별 요청 큐, WP 유형 목록)</li>
+</ul>
+</div>
+
+</div>
+<script src="../assets/site.js" defer></script>
+</body>
+</html>

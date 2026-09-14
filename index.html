@@ -2,11 +2,11 @@
 <html lang="ko">
 <head>
 <meta charset="UTF-8">
-<script src="/assets/gate.js"></script>
+<script src="assets/gate.js"></script>
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>SAP 학습 자료실</title>
 <meta name="description" content="ABAP 디버깅, 병렬처리, 대외 인터페이스, EAI(SAP Integration Suite)를 중심으로 정리하는 개인 SAP 학습 저장소.">
-<link rel="icon" href="/assets/favicon.svg">
+<link rel="icon" href="assets/favicon.svg">
 
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -104,7 +104,7 @@ h1 em{
   flex:none; font-size:11.5px; color:var(--muted); white-space:nowrap;
 }
 
-.lede{max-width:620px; color:var(--muted); font-size:16px; margin:0 0 28px;}
+.lede{max-width:920px; color:var(--muted); font-size:16px; margin:0 0 28px;}
 .lede b{color:var(--ink); font-weight:600;}
 
 .stat-row{display:flex; gap:28px; flex-wrap:wrap; font-family:var(--mono); font-size:12.5px; color:var(--muted); border-top:1px solid var(--rule); padding-top:18px;}
@@ -215,12 +215,12 @@ footer a:hover{text-decoration:underline;}
 
     <p class="lede">
       실무에서 부딪힌 문제를 <b>ABAP 병렬처리·대외 인터페이스</b>부터 <b>EAI(SAP Integration Suite / BTP)</b>까지
-      직접 정리하며 쌓아가는 저장소입니다. 완성된 결과물이 아니라 <b>공부하는 과정 그대로</b>가 쌓이는 곳이라,
+      직접 정리하며 쌓아가는 저장소입니다.<br>완성된 결과물이 아니라 <b>공부하는 과정 그대로</b>가 쌓이는 곳이라,
       새 주제를 학습할 때마다 문서가 계속 추가됩니다.
     </p>
 
     <div class="stat-row">
-      <span><b>4</b>등록된 문서</span>
+      <span><b>6</b>등록된 문서</span>
       <span><b>3</b>학습 트랙</span>
       <span><b>ONGOING</b>업데이트 주기</span>
     </div>
@@ -236,7 +236,7 @@ footer a:hover{text-decoration:underline;}
     <p class="pkg-desc">대량 데이터를 안전하게 주고받고, 병렬로 처리하고, 실패해도 다시 돌릴 수 있게 만드는 법.</p>
 
     <div class="cards">
-      <a class="card" data-n="01" href="/notes/abap-parallel-file-staging.html"
+      <a class="card" data-n="01" href="notes/abap-parallel-file-staging.html"
          data-keywords="LUW aRFC 라이프사이클 STARTING NEW TASK 타임아웃 TIME_OUT FOREIGN_LOCK Master Job SM36 OPEN DATASET 재처리 상태머신 체크리스트">
         <span class="kicker">LESSON 01–10 · EXTENSION</span>
         <h3>병렬처리 확장편 — 대외 연계 · AL11 Staging 아키텍처</h3>
@@ -250,7 +250,7 @@ footer a:hover{text-decoration:underline;}
         <span class="open">문서 열기<span class="arrow">→</span></span>
       </a>
 
-      <a class="card" data-n="04" href="/notes/sap-luw.html"
+      <a class="card" data-n="04" href="notes/sap-luw.html"
          data-keywords="LUW SAP LUW DB LUW COMMIT WORK ROLLBACK WORK AND WAIT 번들링 bundling IN UPDATE TASK PERFORM ON COMMIT IN BACKGROUND TASK V1 V2 VBLOG VBHDR VBMOD SM13 SM14 SM12 ENQUEUE DEQUEUE _SCOPE foreign_lock 락 오브젝트 데드락 암묵적 커밋 BAPI_TRANSACTION_COMMIT tRFC qRFC ACID 원자성 Update Task 업데이트 디버깅">
         <span class="kicker">CORE CONCEPT · 도해 8장</span>
         <h3>SAP LUW 완전 정리 — 트랜잭션 · 번들링 · 락</h3>
@@ -261,6 +261,35 @@ footer a:hover{text-decoration:underline;}
           <span class="chip">V1 · V2</span>
           <span class="chip">Enqueue _SCOPE</span>
           <span class="chip">SM13 · SM12</span>
+        </div>
+        <span class="open">문서 열기<span class="arrow">→</span></span>
+      </a>
+
+      <a class="card" data-n="05" href="notes/sap-runtime-basics.html"
+         data-keywords="기초 basics 실행환경 runtime 인스턴스 instance 애플리케이션서버 application server 워크프로세스 work process WP DIA BTC UPD UP2 ENQ SPO 디스패처 dispatcher 다이얼로그스텝 dialog step 300초 rdisp max_wprun_time TIME_OUT 타임아웃 RFC sRFC aRFC tRFC qRFC bgRFC 동기 비동기 SM50 SM51 SM66 SM59 RZ11 RZ12 ST22 SM37 SM12 AL11 destination 서버그룹 server group RFCDES RZLLITAB RZLLI_APCL LUW COMMIT WORK sy-host sy-sysid GET RUN TIME 용어 색인">
+        <span class="kicker">LESSON 01–06 · 선행 노트 · 캡처 5장</span>
+        <h3>SAP 실행 환경 기초 — 워크프로세스와 RFC 지도</h3>
+        <p>"워크프로세스가 뭐지?"에서 막히지 않기 위한 바닥. 인스턴스·WP 유형·300초 제한·RFC 5종·SM59와 RZ12의 차이까지. 병렬처리와 인터페이스 노트를 읽기 전에.</p>
+        <div class="chips">
+          <span class="chip">기초</span>
+          <span class="chip">워크프로세스</span>
+          <span class="chip">RFC</span>
+          <span class="chip">T-code 지도</span>
+        </div>
+        <span class="open">문서 열기<span class="arrow">→</span></span>
+      </a>
+
+      <a class="card" data-n="06" href="notes/abap-parallel-arfc.html"
+         data-keywords="병렬처리 parallel processing aRFC 비동기 asynchronous RFC STARTING NEW TASK DESTINATION IN GROUP PERFORMING ON END OF TASK RECEIVE RESULTS WAIT UNTIL 태스크 task 워크프로세스 work process RZ12 서버그룹 server group RZLLITAB RZLLI_APCL SPBT_INITIALIZE SM50 SM66 ST22 SE37 덤프 dump CALL_FUNCTION_NOT_REMOTE CALL_FUNCTION_CONFLICT_TYPE CALL_FUNCTION_PARM_UNKNOWN FL039 FL381 원격사용가능모듈 remote enabled 값전달 pass value TABLES LIKE DDIC AL11 OPEN DATASET READ DATASET RZL_READ_DIR_LOCAL salfldir sy-host 파일수신 청크 chunk ENQUEUE 락 LUW rdisp max_wprun_time GET RUN TIME">
+        <span class="kicker">LESSON 01–11 · 캡처 14장</span>
+        <h3>aRFC 병렬처리 — 골격부터 덤프 도감까지</h3>
+        <p>CALL FUNCTION STARTING NEW TASK로 순차 6초를 3초로. 서버그룹·RFC FM 제약·태스크 풀·WAIT UNTIL·SM50 관찰과 덤프 6종의 공통 뿌리까지 실습 그대로.</p>
+        <div class="chips">
+          <span class="chip">aRFC</span>
+          <span class="chip">STARTING NEW TASK</span>
+          <span class="chip">서버그룹 RZ12</span>
+          <span class="chip">덤프 도감</span>
+          <span class="chip">SM50 · SM66</span>
         </div>
         <span class="open">문서 열기<span class="arrow">→</span></span>
       </a>
@@ -283,7 +312,7 @@ footer a:hover{text-decoration:underline;}
     <p class="pkg-desc">SAP BTP 위에서 동작하는 통합 플랫폼을 처음부터 — Cloud Integration, 어댑터·매핑·라우팅, 모니터링까지.</p>
 
     <div class="cards">
-      <a class="card" data-n="02" href="/notes/eai-integration-suite.html"
+      <a class="card" data-n="02" href="notes/eai-integration-suite.html"
          data-keywords="EAI iFlow Adapter Router Filter Content Modifier AMQP Solace 프록시 거버넌스 예외처리 모니터링">
         <span class="kicker">LESSON 01–10 · SAP HELP PORTAL 기준</span>
         <h3>SAP Integration Suite 학습 노트</h3>
@@ -317,7 +346,7 @@ footer a:hover{text-decoration:underline;}
     <p class="pkg-desc">재현이 안 되는 건을 잡는 법. 진입·멈춤·값 조작을 실제 작업 화면 측정 캐프처와 함께.</p>
 
     <div class="cards">
-      <a class="card" data-n="03" href="/notes/abap-debugging.html"
+      <a class="card" data-n="03" href="notes/abap-debugging.html"
          data-keywords="/h /hs ST22 Update Debugging COMMIT WORK 디버거 덤프">
         <span class="kicker">FIELD NOTE · 캐프처 15장</span>
         <h3>ABAP 디버깅 실무 노트 — 진입 · 멈추기 · 값 바꾸기</h3>
@@ -343,10 +372,10 @@ footer a:hover{text-decoration:underline;}
 
   <footer>
     <span>정리 기준: 실무 적용 가능한 패턴 중심 · 개인 학습 목적</span>
-    <span>최근 업데이트 2026-09</span>
+    <span>최근 업데이트 2026-09-14</span>
   </footer>
 
 </div>
-<script src="/assets/site.js" defer></script>
+<script src="assets/site.js" defer></script>
 </body>
 </html>

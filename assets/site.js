@@ -129,6 +129,8 @@
 
   /* 학습 순서 — 홈 화면에 표시되는 01·02·03 순서와 동일 */
   var DOCS = [
+    { file: "sap-runtime-basics.html", title: "SAP 실행 환경 기초 — 워크프로세스와 RFC 지도" },
+    { file: "abap-parallel-arfc.html", title: "aRFC 병렬처리 — 골격부터 덤프 도감까지" },
     { file: "abap-parallel-file-staging.html", title: "병렬처리 확장편 — 대외 연계 · AL11 Staging" },
     { file: "eai-integration-suite.html", title: "SAP Integration Suite 학습 노트" },
     { file: "abap-debugging.html", title: "ABAP 디버깅 실무 노트" },
@@ -155,15 +157,15 @@
     var left = document.createElement("div");
     left.className = "prev";
     left.innerHTML = prev
-      ? '<a href="/notes/' + prev.file + '">← ' + prev.title + '</a>'
-      : '<a href="/">← SAP 학습 자료실 홈</a>';
+      ? '<a href="' + prev.file + '">← ' + prev.title + '</a>'
+      : '<a href="../index.html">← SAP 학습 자료실 홈</a>';
     nav.appendChild(left);
 
     var right = document.createElement("div");
     right.className = "next";
     right.innerHTML = next
-      ? '<a href="/notes/' + next.file + '">' + next.title + ' →</a>'
-      : '<a href="/">SAP 학습 자료실 홈 →</a>';
+      ? '<a href="' + next.file + '">' + next.title + ' →</a>'
+      : '<a href="../index.html">SAP 학습 자료실 홈 →</a>';
     nav.appendChild(right);
 
     container.appendChild(nav);
