@@ -130,11 +130,18 @@
   /* 학습 순서 — 홈 화면에 표시되는 01·02·03 순서와 동일 */
   var DOCS = [
     { file: "sap-runtime-basics.html", title: "SAP 실행 환경 기초 — 워크프로세스와 RFC 지도" },
+    { file: "sap-al11-file-setup.html", title: "AL11 · FILE 세팅 — 서버 디렉토리와 논리 파일 경로" },
     { file: "abap-parallel-arfc.html", title: "aRFC 병렬처리 — 골격부터 덤프 도감까지" },
     { file: "abap-parallel-file-staging.html", title: "병렬처리 확장편 — 대외 연계 · AL11 Staging" },
     { file: "eai-integration-suite.html", title: "SAP Integration Suite 학습 노트" },
     { file: "abap-debugging.html", title: "ABAP 디버깅 실무 노트" },
-    { file: "sap-luw.html", title: "SAP LUW 완전 정리 — 트랜잭션 · 번들링 · 락" }
+    { file: "sap-luw.html", title: "SAP LUW 완전 정리 — 트랜잭션 · 번들링 · 락" },
+    { file: "sap-logon-exit.html", title: "SAP 로그온 User Exit — SUSR0001로 접속이력 남기기" },
+    { file: "mm-basic-tcodes.html", title: "MM 기본 T-Code와 흐름 — 자재·재고·구매·입고·전표·BOM" },
+    { file: "sd-basic-tcodes.html", title: "SD 기본 T-Code와 흐름 — 수주·출하·청구·가격·문서흐름" },
+    { file: "fi-basic-tcodes.html", title: "FI 기본 T-Code와 흐름 — 원장·전표·반제·자동전기·결산" },
+    { file: "pp-basic-tcodes.html", title: "PP 기본 T-Code와 흐름 — MRP·생산오더·확정·정산" },
+    { file: "qm-basic-tcodes.html", title: "QM 기본 T-Code와 흐름 — 검사로트·결과·사용결정·품질통지" }
   ];
 
   function initDocNav() {
