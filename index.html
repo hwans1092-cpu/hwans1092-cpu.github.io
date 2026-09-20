@@ -2,7 +2,6 @@
 <html lang="ko">
 <head>
 <meta charset="UTF-8">
-<script src="assets/gate.js"></script>
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>SAP 학습 자료실</title>
 <meta name="description" content="ABAP 디버깅, 병렬처리, 대외 인터페이스, EAI(SAP Integration Suite)를 중심으로 정리하는 개인 SAP 학습 저장소.">
@@ -67,17 +66,17 @@ body{
 .topstrip .dot{display:inline-block; width:6px; height:6px; border-radius:50%; background:var(--ok); margin-right:7px; box-shadow:0 0 0 3px var(--ok-soft);}
 
 /* ── hero ────────────────────────────────────────────────────── */
-.hero{padding:56px 0 40px; position:relative;}
+.hero{padding:22px 0 14px; position:relative;}
 .eyebrow{
   display:inline-flex; align-items:center; gap:8px;
   font-family:var(--mono); font-size:11.5px; letter-spacing:.09em; font-weight:600;
   color:var(--accent); background:var(--accent-soft);
-  padding:6px 12px; border-radius:99px; margin-bottom:22px;
+  padding:5px 12px; border-radius:99px; margin-bottom:16px;
 }
 .eyebrow::before{content:"◆"; font-size:9px;}
 
 h1{
-  margin:0 0 18px; font-size:clamp(32px,5vw,50px); letter-spacing:-.02em;
+  margin:0 0 14px; font-size:clamp(27px,3.4vw,36px); letter-spacing:-.02em;
   line-height:1.15; font-weight:700;
 }
 h1 em{
@@ -89,7 +88,7 @@ h1 em{
   display:flex; align-items:center; gap:10px;
   font-family:var(--mono); font-size:14px; color:var(--muted);
   background:var(--paper); border:1px solid var(--rule); border-radius:8px;
-  padding:14px 18px; max-width:620px; margin:0 0 30px;
+  padding:13px 18px; max-width:640px; margin:0 0 20px;
   box-shadow:0 1px 2px rgba(30,40,60,.04);
   transition:border-color .15s ease, box-shadow .15s ease;
 }
@@ -104,14 +103,14 @@ h1 em{
   flex:none; font-size:11.5px; color:var(--muted); white-space:nowrap;
 }
 
-.lede{max-width:920px; color:var(--muted); font-size:16px; margin:0 0 28px;}
+.lede{max-width:920px; color:var(--muted); font-size:15px; margin:0 0 20px;}
 .lede b{color:var(--ink); font-weight:600;}
 
-.stat-row{display:flex; gap:28px; flex-wrap:wrap; font-family:var(--mono); font-size:12.5px; color:var(--muted); border-top:1px solid var(--rule); padding-top:18px;}
+.stat-row{display:flex; gap:26px; flex-wrap:wrap; font-family:var(--mono); font-size:12.5px; color:var(--muted); border-top:1px solid var(--rule); padding-top:14px;}
 .stat-row span b{display:block; font-family:var(--sans); font-size:20px; color:var(--ink); font-weight:700; margin-bottom:2px;}
 
 /* ── package sections ───────────────────────────────────────── */
-.pkg{margin-top:64px;}
+.pkg{margin-top:52px;}
 .pkg-head{display:flex; align-items:baseline; gap:14px; margin-bottom:22px; flex-wrap:wrap;}
 .pkg-head .folder{
   width:15px; height:12px; border:1.6px solid var(--accent); border-radius:2px;
@@ -173,6 +172,67 @@ a.card:hover .open .arrow{transform:translateX(4px);}
 .card.empty p{margin-bottom:0;}
 .card.empty::before{display:none;}
 
+/* ── sticky 트랙 바 ──────────────────────────────────────────── */
+.tracknav{
+  position:fixed; top:0; left:0; width:100%; z-index:30; padding:9px 28px;
+  background:rgba(241,243,248,.92); backdrop-filter:blur(10px);
+  border-bottom:1px solid var(--rule);
+  display:flex; gap:8px; flex-wrap:wrap; align-items:center; justify-content:center;
+  opacity:0; pointer-events:none; transform:translateY(-8px);
+  transition:opacity .18s ease, transform .18s ease;
+}
+.tracknav.show{opacity:1; pointer-events:auto; transform:none;}
+.tracknav a{
+  font-family:var(--mono); font-size:11.5px; font-weight:600; text-decoration:none;
+  color:var(--muted); border:1px solid var(--rule); background:var(--paper);
+  padding:5px 11px; border-radius:99px; white-space:nowrap;
+}
+.tracknav a:hover{color:var(--accent); border-color:var(--accent-dim);}
+.tracknav .tn-top{color:var(--accent); border-color:var(--accent-dim); background:var(--accent-soft);}
+
+/* ── 첫 화면 퀵 인덱스 ───────────────────────────────────────── */
+.quick{margin-top:20px;}
+.quick-head{display:flex; align-items:baseline; justify-content:space-between; gap:12px; flex-wrap:wrap; margin-bottom:11px;}
+.quick-head h2{margin:0; font-size:15px; font-weight:700; letter-spacing:-.01em;}
+.quick-head .hint{font-family:var(--mono); font-size:11.5px; color:var(--muted);}
+
+.qgrid{display:grid; grid-template-columns:1fr 1fr; gap:14px; align-items:start;}
+/* 가장 긴 그룹(배치·인터페이스)을 오른쪽 한 칸에 몰아 좌우 높이를 맞춘다 */
+.qgroup[data-g="hub"]  {grid-column:1; grid-row:1;}
+.qgroup[data-g="eai"]  {grid-column:1; grid-row:2;}
+.qgroup[data-g="debug"]{grid-column:1; grid-row:3;}
+.qgroup[data-g="batch"]{grid-column:2; grid-row:1 / span 3;}
+/* 검색 중에는 고정 배치를 풀어 빈칸이 생기지 않게 */
+.qgrid.searching .qgroup{grid-column:auto !important; grid-row:auto !important;}
+@media (max-width:820px){
+  .qgrid{grid-template-columns:1fr;}
+  .qgroup{grid-column:auto !important; grid-row:auto !important;}
+}
+.qgroup{background:var(--paper); border:1px solid var(--rule); border-radius:10px;
+  padding:13px 18px 9px;}
+.qgroup.is-ext{border-color:var(--accent-dim); background:linear-gradient(180deg,var(--accent-soft),var(--paper) 52%);}
+.qtitle{display:flex; align-items:center; gap:9px; text-decoration:none; color:inherit; margin-bottom:7px;}
+.qtitle .qdot{width:7px; height:7px; border-radius:2px; background:var(--accent); flex:none;}
+.qtitle .qname{font-size:14px; font-weight:700; letter-spacing:-.01em;}
+.qtitle .qcount{font-family:var(--mono); font-size:10.5px; font-weight:600; color:var(--accent);
+  background:var(--accent-soft); padding:2px 7px; border-radius:99px; margin-left:auto; flex:none;}
+.qgroup.is-ext .qtitle .qcount{background:var(--paper);}
+.qtitle:hover .qname{color:var(--accent);}
+
+.qrow{display:flex; align-items:baseline; gap:9px; padding:5.5px 0; border-top:1px solid var(--rule);
+  text-decoration:none; color:inherit; font-size:13.5px; line-height:1.5;}
+.qrow .qn{font-family:var(--mono); font-size:10.5px; color:var(--muted); flex:none; width:24px;}
+.qrow .qt{flex:1; min-width:0;}
+.qrow .qmeta{font-family:var(--mono); font-size:10.5px; color:var(--muted); flex:none;}
+.qrow:hover .qt{color:var(--accent); text-decoration:underline;}
+.qrow:hover .qn{color:var(--accent);}
+.qgroup.is-hidden{display:none;}
+.qnone{display:none; font-family:var(--mono); font-size:12.5px; color:var(--muted);
+  border:1.6px dashed var(--rule-strong); border-radius:10px; padding:16px 18px;}
+.qnone.show{display:block;}
+
+.pkg{scroll-margin-top:62px;}
+
 /* ── footer ──────────────────────────────────────────────────── */
 footer{
   margin-top:80px; padding-top:22px; border-top:1px solid var(--rule);
@@ -186,6 +246,9 @@ footer a:hover{text-decoration:underline;}
   .shell{padding:0 18px 72px;}
   .topstrip{font-size:10.5px;}
   .stat-row{gap:20px;}
+  .tracknav{padding:8px 14px; gap:6px;}
+  .tracknav a{font-size:10.5px; padding:4px 9px;}
+  .qgrid{column-count:1;}
   .cards{grid-template-columns:1fr;}
 }
 </style>
@@ -194,12 +257,22 @@ footer a:hover{text-decoration:underline;}
 
 <div class="backdrop"></div>
 
-<div class="shell">
+<div class="shell" id="top">
 
   <div class="topstrip">
     <span class="path"><span class="dot"></span>local · <b>/sap-learning</b></span>
     <span>REPO STATUS: GROWING</span>
   </div>
+
+  <nav class="tracknav" id="tracknav" aria-label="트랙 바로가기">
+    <a class="tn-top" href="#top">↑ 맨 위</a>
+    <a href="#t-hub">Learning Hub 자료실</a>
+    <a href="#t-batch">배치 · 인터페이스</a>
+    <a href="#t-eai">EAI · BTP</a>
+    <a href="#t-debug">디버깅</a>
+    <a href="#t-exit">확장 · User Exit</a>
+    <a href="#t-module">모듈 기초</a>
+  </nav>
 
   <header class="hero">
     <div class="eyebrow">PERSONAL KNOWLEDGE BASE</div>
@@ -215,19 +288,117 @@ footer a:hover{text-decoration:underline;}
 
     <p class="lede">
       실무에서 부딪힌 문제를 <b>ABAP 병렬처리·대외 인터페이스</b>부터 <b>EAI(SAP Integration Suite / BTP)</b>까지
-      직접 정리하며 쌓아가는 저장소입니다.<br>완성된 결과물이 아니라 <b>공부하는 과정 그대로</b>가 쌓이는 곳이라,
-      새 주제를 학습할 때마다 문서가 계속 추가됩니다.
+      직접 정리하며 쌓아가는 저장소입니다. 완성된 결과물이 아니라 <b>공부하는 과정 그대로</b>가 쌓입니다.
     </p>
 
     <div class="stat-row">
-      <span><b>6</b>등록된 문서</span>
-      <span><b>3</b>학습 트랙</span>
+      <span><b>13</b>등록된 문서</span>
+      <span><b>5</b>학습 트랙</span>
+      <span><b>45</b>연계 노트</span>
       <span><b>ONGOING</b>업데이트 주기</span>
     </div>
   </header>
 
+  <!-- ═══════════ 첫 화면 퀵 인덱스 ═══════════ -->
+  <section class="quick">
+    <div class="quick-head">
+      <h2>전체 문서 한눈에 보기</h2>
+      <span class="hint">제목을 누르면 문서로, 트랙명을 누르면 아래 카드 목록으로 이동합니다</span>
+    </div>
+
+    <div class="qgrid" id="qgrid">
+
+      <div class="qgroup is-ext" data-g="hub">
+        <a class="qtitle" href="#t-hub"><span class="qdot"></span><span class="qname">SAP Learning Hub 자료실</span><span class="qcount">노트 45</span></a>
+        <a class="qrow" href="learning-hub/index.html" data-k="learning hub 자료실 저니 SD MM FI PP BASIS TADM10 IEE2E 자격증 C_TS462">
+          <span class="qn">HUB</span><span class="qt">자료실 홈 — 6개 Learning Journey</span><span class="qmeta">6개 저니</span></a>
+        <a class="qrow" href="learning-hub/notes/common/knowledge-map.html" data-k="지식맵 knowledge map 색인 전체 정리 분류 심화 아키텍처">
+          <span class="qn">MAP</span><span class="qt">SAP S/4HANA 통합 지식맵</span><span class="qmeta">전체 색인</span></a>
+        <a class="qrow" href="learning-hub/notes/common/verify-checklist.html" data-k="체크리스트 확인 필요 checklist 평가영역 OX14 winerp01 MEP 확정">
+          <span class="qn">CHK</span><span class="qt">확인 필요 체크리스트</span><span class="qmeta">86줄</span></a>
+      </div>
+
+      <div class="qgroup" data-g="batch">
+        <a class="qtitle" href="#t-batch"><span class="qdot"></span><span class="qname">ABAP 배치 · 대외 인터페이스</span><span class="qcount">5</span></a>
+        <a class="qrow" href="notes/abap-parallel-file-staging.html" data-k="LUW aRFC STARTING NEW TASK 타임아웃 AL11 Staging 청킹 재처리 멱등성 병렬처리 확장편">
+          <span class="qn">01</span><span class="qt">병렬처리 확장편 — 대외 연계 · AL11 Staging</span><span class="qmeta">L01–10</span></a>
+        <a class="qrow" href="notes/sap-luw.html" data-k="LUW COMMIT WORK ROLLBACK 번들링 UPDATE TASK V1 V2 SM13 ENQUEUE 락 ACID 암묵적 커밋">
+          <span class="qn">04</span><span class="qt">SAP LUW 완전 정리 — 트랜잭션 · 번들링 · 락</span><span class="qmeta">도해 8장</span></a>
+        <a class="qrow" href="notes/sap-runtime-basics.html" data-k="워크프로세스 디스패처 RFC 실행환경 SM50 SM51 기초 선행">
+          <span class="qn">05</span><span class="qt">SAP 실행 환경 기초 — 워크프로세스와 RFC 지도</span><span class="qmeta">L01–06</span></a>
+        <a class="qrow" href="notes/abap-parallel-arfc.html" data-k="aRFC 병렬처리 골격 덤프 도감 RFCGROUP 서버그룹 RZ12">
+          <span class="qn">06</span><span class="qt">aRFC 병렬처리 — 골격부터 덤프 도감까지</span><span class="qmeta">캡처 14장</span></a>
+        <a class="qrow" href="notes/sap-al11-file-setup.html" data-k="AL11 FILE 논리파일 서버 디렉토리 경로 세팅 FILE_GET_NAME">
+          <span class="qn">07</span><span class="qt">AL11 · FILE 세팅 — 서버 디렉토리와 논리 파일 경로</span><span class="qmeta">캡처 8장</span></a>
+      </div>
+
+      <div class="qgroup" data-g="eai">
+        <a class="qtitle" href="#t-eai"><span class="qdot"></span><span class="qname">EAI · SAP Integration Suite (BTP)</span><span class="qcount">1</span></a>
+        <a class="qrow" href="notes/eai-integration-suite.html" data-k="EAI Integration Suite BTP Cloud Integration 어댑터 매핑 라우팅 모니터링 iFlow">
+          <span class="qn">02</span><span class="qt">SAP Integration Suite 학습 노트</span><span class="qmeta">L01–10</span></a>
+      </div>
+
+      <div class="qgroup" data-g="debug">
+        <a class="qtitle" href="#t-debug"><span class="qdot"></span><span class="qname">ABAP 디버깅 · 운영 트러블슈팅</span><span class="qcount">1</span></a>
+        <a class="qrow" href="notes/abap-debugging.html" data-k="/h /hs ST22 Update Debugging 디버거 덤프 SM50 JDBG Watchpoint SE16N Breakpoint">
+          <span class="qn">03</span><span class="qt">ABAP 디버깅 실무 노트 — 진입 · 멈추기 · 값 바꾸기</span><span class="qmeta">캡처 15장</span></a>
+      </div>
+
+      <div class="qgroup" data-g="exit">
+        <a class="qtitle" href="#t-exit"><span class="qdot"></span><span class="qname">SAP 확장 — User Exit · Enhancement</span><span class="qcount">1</span></a>
+        <a class="qrow" href="notes/sap-logon-exit.html" data-k="SUSR0001 EXIT_SAPLSUSF_001 ZXUSRU01 SMOD CMOD 로그온 User Exit 기능확장 CHECK IF STARTING NEW TASK 원격활성화 RFC CALL_FUNCTION_NOT_FOUND CX_SY_DYN_CALL_ILLEGAL_FUNC EXCEPTIONS 덤프 sy-uzeit sy-datlo sy-zonlo TTZZ CONVERT TIME STAMP 시간대 RANGES TVARVC STVARV ZUSER_LOG 접속이력 SM04 AL08 CALL CUSTOMER-FUNCTION">
+          <span class="qn">08</span><span class="qt">SAP 로그온 User Exit — SUSR0001로 접속이력 남기기</span><span class="qmeta">캡처 8장</span></a>
+      </div>
+
+      <div class="qgroup" data-g="module">
+        <a class="qtitle" href="#t-module"><span class="qdot"></span><span class="qname">SAP 모듈 기초 — MM · SD · FI · PP · QM</span><span class="qcount">5</span></a>
+        <a class="qrow" href="notes/mm-basic-tcodes.html" data-k="MM MM01 MM02 MM03 MM04 MM06 MM17 MM50 MM60 MMSC 자재마스터 MARA MARC MARD MBEW MVKE MCHA MCHB MCH1 VFDAT 삭제플래그 SARA MM_MATNR MSTAE MIGO 561 501 551 201 101 102 103 105 122 161 301 303 305 311 313 315 309 343 344 321 이동유형 초기재고 폐기 반품 재고이동 MBST MB03 MB51 MB52 MB5B MB53 MB5T MMBE MSC3N MB56 MD04 재고조회 MI01 MI04 MI07 MI20 재고실사 ME11 ME01 ME51N ME21N ME22N ME23N ME29N ME28 ME57 ME59N ME2M ME2L ME2N ME5A ME80FN ME9F BP 구매요청 구매오더 정보레코드 소스리스트 EBAN EKKO EKPO EKET EKBE EINA EINE EORD MIRO MIR4 MIR7 MR8M MRBR MR11 MR51 CKM3 FB03 FBL1N FBL3N OBYC GR/IR BSX WRX PRD 송장 회계전표 BKPF AWKEY MATDOC MKPF MSEG RBKP RSEG BOM CS01 CS02 CS03 CS11 CS12 CS13 CS14 CS15 CS20 CS80 MAST STKO STPO CS_BOM_EXPL_MAT_V2 판매BOM 역전개 MB1C MB1A MB1B BAPI_GOODSMVT_CREATE MB_CHECK_LINE_BADI CHECK_LINE MB_MIGO_BADI MB_DOCUMENT_BADI BAdI 유저엑짓 user exit 저장위치 입출고 제한 SE18 SE19">
+          <span class="qn">09</span><span class="qt">MM 기본 T-Code와 흐름 — 재고 · 구매 · 전표 · BOM</span><span class="qmeta">도해 9장</span></a>
+        <a class="qrow" href="notes/sd-basic-tcodes.html" data-k="SD VA01 VA02 VA03 VA05 VA21 VA41 V.02 VKM1 CO09 BP KNA1 KNVV KNB1 VD51 KNMT 판매영역 판매조직 유통경로 제품군 VKORG VTWEG SPART 오더유형 OR RE CR DR 품목범주 TAN REN VOV4 일정라인 VBAK VBAP VBEP VBPA 가격결정 조건기법 VK11 VK12 VK13 V/06 V/07 V/08 OVKK PR00 PPR0 KONV PRCD_ELEMENTS KONH KONP 액세스시퀀스 조건테이블 출하 VL01N VL02N VL03N VL10A VL06O VL06G VL09 LIKP LIPS 피킹 PGI 출고전기 601 602 배치결정 FEFO VCH1 청구 VF01 VF02 VF03 VF04 VF05 VF11 VF31 VFX3 VBRK VBRP VKOA 문서흐름 VBFA VBTYP VBUK VBUP GBSTK 반품 651 653 453 크레딧메모 G2 BAPI_SALESORDER_CREATEFROMDAT2">
+          <span class="qn">10</span><span class="qt">SD 흐름 — 수주 · 출하 · 청구 · 가격</span><span class="qmeta">도해 8장</span></a>
+        <a class="qrow" href="notes/fi-basic-tcodes.html" data-k="FI GL AP AR AA 총계정원장 보조원장 조정계정 ACDOCA BKPF BSEG FS00 FSP0 FSS0 SKA1 SKB1 BP LFA1 LFB1 KNA1 KNB1 AKONT 미결관리 FB50 FB60 FB70 FB65 FB75 F-02 FV50 FV60 전기키 40 50 31 21 01 11 전표유형 SA KR DR FB03 FBL1N FBL3N FBL5N FAGLL03 FAGLB03 FS10N FK10N FD10N FB02 F-53 F110 F-28 F-44 F-32 F-03 FBRA 반제 AUGBL BSIK BSAK BSID BSAD FB08 F.80 FBV0 FBV3 역분개 임시저장 OBYC VKOA OMWB AWTYP AWKEY OB52 MMPV AFAB FAGL_FCV F.19 FAGLGVTR F.01 결산 BAPI_ACC_DOCUMENT_POST">
+          <span class="qn">11</span><span class="qt">FI 흐름 — 원장 · 전표 · 반제 · 결산</span><span class="qmeta">도해 5장</span></a>
+        <a class="qrow" href="notes/pp-basic-tcodes.html" data-k="PP BOM CS01 CS03 CS11 CS12 CS15 작업장 CR01 CRHD 라우팅 CA01 PLKO PLPO 생산버전 C223 MKAL MRP MD61 PIR PBIM PBED MD01 MD01N MD02 MD04 MD05 MD06 MD12 계획오더 PLAF EBAN 생산오더 CO01 CO02 CO03 CO40 CO41 CO05N COOIS AUFK AFKO AFPO RESB AFVC CRTD REL TECO CLSD JEST 261 262 101 531 CO11N CO13 AFRU 확정 백플러시 COGI AFFW KKAX KKS2 KO88 CO88 KOB1 정산 차이 BAPI_PRODORD_CREATE BAPI_PRODORDCONF_CREATE_TT">
+          <span class="qn">12</span><span class="qt">PP 흐름 — MRP · 생산오더 · 확정 · 정산</span><span class="qmeta">도해 4장</span></a>
+        <a class="qrow" href="notes/qm-basic-tcodes.html" data-k="QM 검사로트 QALS 검사유형 01 04 05 03 08 89 QMAT QA08 검사특성 QS21 QPMK 샘플링 QDV1 검사계획 QP01 PLMK QA01 QA32 QA33 결과기록 QE51N QE03 QAMR QASR 사용결정 QA11 QA12 QA13 QA16 QA10 QAVE 품질검사재고 INSME CINSM 321 350 553 331 품질통지 QM01 QM02 QM03 QM10 QM11 QMEL QMFE QMSM Q1 Q2 Q3 클레임 BAPI_INSPLOT_SETUSAGEDECISION">
+          <span class="qn">13</span><span class="qt">QM 흐름 — 검사로트 · 사용결정 · 통지</span><span class="qmeta">도해 3장</span></a>
+      </div>
+
+    </div>
+    <div class="qnone" id="qnone">일치하는 문서가 없습니다 — 다른 키워드로 찾아보세요.</div>
+  </section>
+
+
+  <!-- ═══════════ 연계 자료실 — SAP Learning Hub ═══════════ -->
+  <section class="pkg" id="t-hub">
+    <div class="pkg-head">
+      <span class="folder"></span>
+      <h2>SAP Learning Hub 자료실</h2>
+      <span class="pkg-id" title="같은 저장소 안의 연계 자료실">/learning-hub</span>
+    </div>
+    <p class="pkg-desc">노션에 쌓아 둔 SAP Learning Hub 강의노트를 HTML 노트로 옮긴 <b>연계 자료실</b>입니다. 같은 저장소의 <code>/learning-hub</code> 아래에 있습니다.</p>
+
+    <div class="cards">
+      <a class="card" data-n="HUB" href="learning-hub/index.html"
+         data-keywords="learning hub 러닝허브 자격증 C_TS462 SD MM FI PP BASIS TADM10 IEE2E S46000 S46001 S46050 S46051 S46052 S46055 S46056 S46100 S46150 S46200 S4C03 RISE S4500 S4510 S4515 S4520 S45250 S4550 S4F12 S4F13 S4F15 S4F17 S42000 S42010 S42020 S42025 S42100 S42220 S42240 S42300 S4260 pricing condition technique ATP 가용성확인 납품 청구 재고관리 송장검증 이동유형 자동계정결정 OBYC VKOA 결산 자산회계 권한 PFCG RFC IDoc 커널 워크프로세스 Fiori ICF Gateway 지식맵 체크리스트">
+        <span class="kicker">EXTERNAL · 노트 45건 · 도해 160여 장</span>
+        <h3>SAP Learning Hub 자료실 — 6개 Learning Journey 전체</h3>
+        <p>노션 원본 173장을 코스 단위 노트 45건으로 변환한 자료실. 전체 색인 역할을 하는 <b>통합 지식맵</b>과, 실제 시스템에서 확정할 항목을 모은 <b>확인 필요 체크리스트(86줄)</b>가 단독 문서로 들어 있습니다.</p>
+        <div class="chips">
+          <span class="chip">SD 12</span>
+          <span class="chip">MM 6</span>
+          <span class="chip">FI 4</span>
+          <span class="chip">PP 9</span>
+          <span class="chip">BASIS 6</span>
+          <span class="chip">E2E 6</span>
+        </div>
+        <span class="open">자료실 열기<span class="arrow">→</span></span>
+      </a>
+    </div>
+  </section>
+
   <!-- ═══════════ PACKAGE 1 — ABAP / 배치·인터페이스 ═══════════ -->
-  <section class="pkg">
+  <section class="pkg" id="t-batch">
     <div class="pkg-head">
       <span class="folder"></span>
       <h2>ABAP 배치 · 대외 인터페이스</h2>
@@ -294,6 +465,21 @@ footer a:hover{text-decoration:underline;}
         <span class="open">문서 열기<span class="arrow">→</span></span>
       </a>
 
+      <a class="card" data-n="07" href="notes/sap-al11-file-setup.html"
+         data-keywords="AL11 FILE SF01 SF04 논리파일 logical file name 논리경로 logical path 물리경로 physical path FILE_GET_NAME FILE_VALIDATE_NAME OPEN DATASET READ DATASET CLOSE DATASET TRANSFER 디렉토리 directory USER_DIR RSWATCH0 DIR_HOME DIR_TRANS DIR_TEMP DIR_GLOBAL C_SAPGPARAM 프로파일파라미터 profile parameter syntax group FILENAME PARAM_1 SYSID 예약어 S_DATASET S_PATH SPTH S_DEVELOP SFIL S_CTS_ADM EPS1 EPS2_GET_DIRECTORY_LISTING 권한 authorization SU53 CG3Y CG3Z STMS DIR_TRANS cofiles data RZL_READ_DIR_LOCAL salfldir 파일인터페이스 file interface 이관 transport ENCODING UTF-8 sy-host sy-opsys Extract for ABAP PwC ZPWCXTRACT50 XTRACT60 추출 애드온 설치">
+        <span class="kicker">LESSON 01–09 · 실전 대조 · 캡처 8장</span>
+        <h3>AL11 · FILE 세팅 — 서버 디렉토리와 논리 파일 경로</h3>
+        <p>경로를 코드에 쓰면 이관 때 깨진다. AL11 디렉토리 등록부터 FILE 3단 정의, FILE_GET_NAME·OPEN DATASET, S_DATASET 권한까지. 마지막 LESSON에서 Extract for ABAP 설치 때 따라 했던 세팅을 개념과 1:1로 맞춰본다.</p>
+        <div class="chips">
+          <span class="chip">AL11</span>
+          <span class="chip">FILE 3단</span>
+          <span class="chip">OPEN DATASET</span>
+          <span class="chip">권한</span>
+          <span class="chip">실전 대조</span>
+        </div>
+        <span class="open">문서 열기<span class="arrow">→</span></span>
+      </a>
+
       <div class="card empty" data-n="+">
         <span class="kicker">예정</span>
         <h3>다음 학습 자료 업로드 예정</h3>
@@ -303,7 +489,7 @@ footer a:hover{text-decoration:underline;}
   </section>
 
   <!-- ═══════════ PACKAGE 2 — EAI / Integration Suite ═══════════ -->
-  <section class="pkg">
+  <section class="pkg" id="t-eai">
     <div class="pkg-head">
       <span class="folder"></span>
       <h2>EAI · SAP Integration Suite (BTP)</h2>
@@ -337,7 +523,7 @@ footer a:hover{text-decoration:underline;}
 
 
   <!-- ═══════════ PACKAGE 3 — ABAP 디버깅 ═══════════ -->
-  <section class="pkg">
+  <section class="pkg" id="t-debug">
     <div class="pkg-head">
       <span class="folder"></span>
       <h2>ABAP 디버깅 · 운영 트러블슈팅</h2>
@@ -370,12 +556,176 @@ footer a:hover{text-decoration:underline;}
   </section>
 
 
+  <!-- ═══════════ SAP 확장 — User Exit · Enhancement ═══════════ -->
+  <section class="pkg" id="t-exit">
+    <div class="pkg-head">
+      <span class="folder"></span>
+      <h2>SAP 확장 — User Exit · Enhancement</h2>
+      <span class="pkg-id" title="내부 학습 트랙 코드 (참고용)">$ZLEARN_EXIT</span>
+    </div>
+    <p class="pkg-desc">표준에 내 코드를 끼워 넣는 자리들. 찾아 들어가는 경로와, 거기서 하면 안 되는 것들을 실제 덤프와 함께.</p>
+
+    <div class="cards">
+      <a class="card" data-n="08" href="notes/sap-logon-exit.html"
+         data-keywords="SUSR0001 EXIT_SAPLSUSF_001 ZXUSRU01 SMOD CMOD 로그온 User Exit 기능확장 CHECK IF ENDIF STARTING NEW TASK 원격활성화 모듈 RFC 값에 의한 전달 CALL_FUNCTION_NOT_FOUND CX_SY_DYN_CALL_ILLEGAL_FUNC EXCEPTIONS TRY CATCH 덤프 ST22 sy-uzeit sy-datum sy-datlo sy-timlo sy-zonlo TTZZ CONVERT TIME STAMP GET TIME STAMP 시간대 RANGES TVARVC STVARV ZUSER_LOG 접속이력 SM04 AL08 SE37 SE11 SU3 CALL CUSTOMER-FUNCTION">
+        <span class="kicker">FIELD NOTE · L01–09 · 캡처 8장 · 도해 3장</span>
+        <h3>SAP 로그온 User Exit — SUSR0001로 접속이력 남기기</h3>
+        <p>SMOD → CMOD → ZXUSRU01 찾아 들어가는 경로, CHECK가 남의 코드를 죽이는 이유, STARTING NEW TASK로 로그온 LUW 분리, EXCEPTIONS가 못 잡는 덤프 실물, sy-uzeit 시간대 함정, RANGES 대상자 한정까지.</p>
+        <div class="chips">
+          <span class="chip">SMOD · CMOD</span>
+          <span class="chip">CHECK vs IF</span>
+          <span class="chip">STARTING NEW TASK</span>
+          <span class="chip">CALL_FUNCTION_NOT_FOUND</span>
+          <span class="chip">CONVERT TIME STAMP</span>
+        </div>
+        <span class="open">문서 열기<span class="arrow">→</span></span>
+      </a>
+
+      <div class="card empty" data-n="+">
+        <span class="kicker">예정</span>
+        <h3>다음 학습 자료 업로드 예정</h3>
+        <p>BAdI(신·구 방식) 비교, Enhancement Framework(암묵적·명시적 포인트), CALL CUSTOMER-FUNCTION 역추적 노트가 이어질 예정입니다.</p>
+      </div>
+    </div>
+  </section>
+
+  <section class="pkg" id="t-module">
+    <div class="pkg-head">
+      <span class="folder"></span>
+      <h2>SAP 모듈 기초 — MM · SD · FI · PP · QM</h2>
+      <span class="pkg-id" title="내부 학습 트랙 코드 (참고용)">$ZLEARN_MODULE</span>
+    </div>
+    <p class="pkg-desc">모듈별 기본 T-Code를 외우는 대신 흐름 위의 정거장으로. 어느 화면에서 만들고, 어느 테이블에 쌓이고, 어디서 다시 보는지.</p>
+
+    <div class="cards">
+      <a class="card" data-n="09" href="notes/mm-basic-tcodes.html"
+         data-keywords="MM MM01 MM02 MM03 MM04 MM06 MM17 MM50 MM60 MMSC 자재마스터 MARA MARC MARD MBEW MVKE MCHA MCHB MCH1 VFDAT 삭제플래그 SARA MM_MATNR MSTAE MIGO 561 501 551 201 101 102 103 105 122 161 301 303 305 311 313 315 309 343 344 321 이동유형 초기재고 폐기 반품 재고이동 MBST MB03 MB51 MB52 MB5B MB53 MB5T MMBE MSC3N MB56 MD04 재고조회 MI01 MI04 MI07 MI20 재고실사 ME11 ME01 ME51N ME21N ME22N ME23N ME29N ME28 ME57 ME59N ME2M ME2L ME2N ME5A ME80FN ME9F BP 구매요청 구매오더 정보레코드 소스리스트 EBAN EKKO EKPO EKET EKBE EINA EINE EORD MIRO MIR4 MIR7 MR8M MRBR MR11 MR51 CKM3 FB03 FBL1N FBL3N OBYC GR/IR BSX WRX PRD 송장 회계전표 BKPF AWKEY MATDOC MKPF MSEG RBKP RSEG BOM CS01 CS02 CS03 CS11 CS12 CS13 CS14 CS15 CS20 CS80 MAST STKO STPO CS_BOM_EXPL_MAT_V2 판매BOM 역전개 MB1C MB1A MB1B BAPI_GOODSMVT_CREATE MB_CHECK_LINE_BADI CHECK_LINE MB_MIGO_BADI MB_DOCUMENT_BADI BAdI 유저엑짓 user exit 저장위치 입출고 제한 SE18 SE19">
+        <span class="kicker">MODULE BASICS · L01–09 · 도해 9장</span>
+        <h3>MM 기본 T-Code와 흐름 — 자재 · 재고 · 구매 · 입고 · 전표 · BOM</h3>
+        <p>MM01 자재마스터 조직레벨부터 MIGO 이동유형(561·551·101·122·311·301), MMBE·MB52·MB5B 재고조회, ME21N 구매, MIRO와 GR/IR, MB51·MATDOC·EKBE 문서 추적, CS01·CS15 BOM까지 한 흐름으로.</p>
+        <div class="chips">
+          <span class="chip">MIGO 이동유형</span>
+          <span class="chip">MMBE · MB52 · MB5B</span>
+          <span class="chip">ME21N · EKBE</span>
+          <span class="chip">GR/IR</span>
+          <span class="chip">MATDOC · BKPF-AWKEY</span>
+        </div>
+        <span class="open">문서 열기<span class="arrow">→</span></span>
+      </a>
+
+            <a class="card" data-n="10" href="notes/sd-basic-tcodes.html"
+         data-keywords="SD VA01 VA02 VA03 VA05 VA21 VA41 V.02 VKM1 CO09 BP KNA1 KNVV KNB1 VD51 KNMT 판매영역 판매조직 유통경로 제품군 VKORG VTWEG SPART 오더유형 OR RE CR DR 품목범주 TAN REN VOV4 일정라인 VBAK VBAP VBEP VBPA 가격결정 조건기법 VK11 VK12 VK13 V/06 V/07 V/08 OVKK PR00 PPR0 KONV PRCD_ELEMENTS KONH KONP 액세스시퀀스 조건테이블 출하 VL01N VL02N VL03N VL10A VL06O VL06G VL09 LIKP LIPS 피킹 PGI 출고전기 601 602 배치결정 FEFO VCH1 청구 VF01 VF02 VF03 VF04 VF05 VF11 VF31 VFX3 VBRK VBRP VKOA 문서흐름 VBFA VBTYP VBUK VBUP GBSTK 반품 651 653 453 크레딧메모 G2 BAPI_SALESORDER_CREATEFROMDAT2">
+        <span class="kicker">MODULE BASICS · L01–08 · 도해 8장</span>
+        <h3>SD 기본 T-Code와 흐름 — 수주 · 출하 · 청구 · 가격 · 문서흐름</h3>
+        <p>VA01·오더유형·품목범주, 조건기법(VK11·PR00·액세스 시퀀스), VL01N 출하·피킹·PGI 601, VF01·VF04 청구와 VFX3·VKOA 회계 이전, VBFA 문서흐름, 반품 RE·651·크레딧메모까지.</p>
+        <div class="chips">
+          <span class="chip">조건기법 VK11</span>
+          <span class="chip">VL01N · PGI 601</span>
+          <span class="chip">VF04 · VFX3</span>
+          <span class="chip">VBFA</span>
+        </div>
+        <span class="open">문서 열기<span class="arrow">→</span></span>
+      </a>
+
+      <a class="card" data-n="11" href="notes/fi-basic-tcodes.html"
+         data-keywords="FI GL AP AR AA 총계정원장 보조원장 조정계정 ACDOCA BKPF BSEG FS00 FSP0 FSS0 SKA1 SKB1 BP LFA1 LFB1 KNA1 KNB1 AKONT 미결관리 FB50 FB60 FB70 FB65 FB75 F-02 FV50 FV60 전기키 40 50 31 21 01 11 전표유형 SA KR DR FB03 FBL1N FBL3N FBL5N FAGLL03 FAGLB03 FS10N FK10N FD10N FB02 F-53 F110 F-28 F-44 F-32 F-03 FBRA 반제 AUGBL BSIK BSAK BSID BSAD FB08 F.80 FBV0 FBV3 역분개 임시저장 OBYC VKOA OMWB AWTYP AWKEY OB52 MMPV AFAB FAGL_FCV F.19 FAGLGVTR F.01 결산 BAPI_ACC_DOCUMENT_POST">
+        <span class="kicker">MODULE BASICS · L01–08 · 도해 5장</span>
+        <h3>FI 기본 T-Code와 흐름 — 원장 · 전표 · 반제 · 자동전기 · 결산</h3>
+        <p>G/L·AP·AR 원장과 조정계정, FS00·BP 마스터, FB50·FB60·FB70 전표와 전기키, FBL1N·FBL5N 조회, F-53·F110·F-28 반제, FB08 역분개, OBYC·VKOA·AWKEY 자동 전기, OB52 결산 기초까지.</p>
+        <div class="chips">
+          <span class="chip">전기키</span>
+          <span class="chip">미결 · 반제</span>
+          <span class="chip">FB08 · FBRA</span>
+          <span class="chip">AWKEY</span>
+        </div>
+        <span class="open">문서 열기<span class="arrow">→</span></span>
+      </a>
+
+      <a class="card" data-n="12" href="notes/pp-basic-tcodes.html"
+         data-keywords="PP BOM CS01 CS03 CS11 CS12 CS15 작업장 CR01 CRHD 라우팅 CA01 PLKO PLPO 생산버전 C223 MKAL MRP MD61 PIR PBIM PBED MD01 MD01N MD02 MD04 MD05 MD06 MD12 계획오더 PLAF EBAN 생산오더 CO01 CO02 CO03 CO40 CO41 CO05N COOIS AUFK AFKO AFPO RESB AFVC CRTD REL TECO CLSD JEST 261 262 101 531 CO11N CO13 AFRU 확정 백플러시 COGI AFFW KKAX KKS2 KO88 CO88 KOB1 정산 차이 BAPI_PRODORD_CREATE BAPI_PRODORDCONF_CREATE_TT">
+        <span class="kicker">MODULE BASICS · L01–06 · 도해 4장</span>
+        <h3>PP 기본 T-Code와 흐름 — MRP · 생산오더 · 확정 · 정산</h3>
+        <p>BOM·작업장·라우팅·생산버전 마스터, MD61·MD01N·MD04 MRP, CO40·CO01 생산오더와 시스템 상태, 261·CO11N·101·백플러시·COGI, TECO·KKS2·KO88 정산까지. 제조업 대비용.</p>
+        <div class="chips">
+          <span class="chip">MD04 · MD01N</span>
+          <span class="chip">생산오더 상태</span>
+          <span class="chip">백플러시 · COGI</span>
+          <span class="chip">KO88 정산</span>
+        </div>
+        <span class="open">문서 열기<span class="arrow">→</span></span>
+      </a>
+
+      <a class="card" data-n="13" href="notes/qm-basic-tcodes.html"
+         data-keywords="QM 검사로트 QALS 검사유형 01 04 05 03 08 89 QMAT QA08 검사특성 QS21 QPMK 샘플링 QDV1 검사계획 QP01 PLMK QA01 QA32 QA33 결과기록 QE51N QE03 QAMR QASR 사용결정 QA11 QA12 QA13 QA16 QA10 QAVE 품질검사재고 INSME CINSM 321 350 553 331 품질통지 QM01 QM02 QM03 QM10 QM11 QMEL QMFE QMSM Q1 Q2 Q3 클레임 BAPI_INSPLOT_SETUSAGEDECISION">
+        <span class="kicker">MODULE BASICS · L01–07 · 도해 3장</span>
+        <h3>QM 기본 T-Code와 흐름 — 검사로트 · 결과 · 사용결정 · 품질통지</h3>
+        <p>자재 QM 뷰와 검사유형(01·04·89), QS21·QDV1·QP01 마스터, QA32 검사로트, QE51N 결과 기록, QA11 사용결정과 321·350·553 재고 전기, QM01 품질통지까지.</p>
+        <div class="chips">
+          <span class="chip">검사유형 01</span>
+          <span class="chip">QA32 · QE51N</span>
+          <span class="chip">QA11 사용결정</span>
+          <span class="chip">품질검사 재고</span>
+        </div>
+        <span class="open">문서 열기<span class="arrow">→</span></span>
+      </a>
+
+<div class="card empty" data-n="+">
+        <span class="kicker">예정</span>
+        <h3>다음 학습 자료 업로드 예정</h3>
+        <p>모듈 간 연결(MM↔SD↔FI 통합 시나리오), CO 기초 노트가 이어질 예정입니다.</p>
+      </div>
+    </div>
+  </section>
+
+
   <footer>
     <span>정리 기준: 실무 적용 가능한 패턴 중심 · 개인 학습 목적</span>
-    <span>최근 업데이트 2026-09-14</span>
+    <span>최근 업데이트 2026-09-18</span>
   </footer>
 
 </div>
 <script src="assets/site.js" defer></script>
+<script>
+/* 첫 화면 UI — sticky 트랙 바 + 퀵 인덱스 검색 연동 */
+(function(){
+  var nav = document.getElementById('tracknav');
+  var hero = document.querySelector('.hero');
+  if (nav && hero) {
+    var onScroll = function(){
+      var past = (window.scrollY || document.documentElement.scrollTop) > (hero.offsetTop + hero.offsetHeight - 40);
+      nav.classList.toggle('show', past);
+    };
+    addEventListener('scroll', onScroll, {passive:true});
+    addEventListener('resize', onScroll);
+    onScroll();
+  }
+
+  var input = document.getElementById('site-search-input');
+  var none  = document.getElementById('qnone');
+  if (!input) return;
+  var groups = Array.prototype.slice.call(document.querySelectorAll('.qgroup'));
+  input.addEventListener('input', function(){
+    var q = this.value.trim().toLowerCase();
+    var grid = document.getElementById('qgrid');
+    if (grid) grid.classList.toggle('searching', !!q);
+    var hitTotal = 0;
+    groups.forEach(function(g){
+      var rows = Array.prototype.slice.call(g.querySelectorAll('.qrow'));
+      var hit = 0;
+      rows.forEach(function(r){
+        var hay = ((r.dataset.k||'') + ' ' + r.textContent).toLowerCase();
+        var ok = !q || hay.indexOf(q) >= 0;
+        r.style.display = ok ? '' : 'none';
+        if (ok) hit++;
+      });
+      g.classList.toggle('is-hidden', q && hit === 0);
+      var c = g.querySelector('.qcount');
+      if (c) { if (!c.dataset.orig) c.dataset.orig = c.textContent; c.textContent = q ? hit + '건' : c.dataset.orig; }
+      hitTotal += hit;
+    });
+    if (none) none.classList.toggle('show', !!q && hitTotal === 0);
+  });
+})();
+</script>
 </body>
 </html>
