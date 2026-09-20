@@ -1,0 +1,920 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>AL11 · FILE 세팅 — 서버 디렉토리와 논리 파일 경로</title>
+<meta name="description" content="AL11 디렉토리 등록과 트랜잭션 FILE의 논리 파일 경로·파일명 정의를 처음부터 정리. FILE_GET_NAME, OPEN DATASET, S_DATASET 권한, 병렬처리와 엮을 때의 서버 함정까지.">
+<link rel="icon" href="../assets/favicon.svg">
+<link rel="stylesheet" href="../assets/notes-paper.css">
+<style>
+.figwrap{margin:22px 0}
+svg.dgm{width:100%;height:auto;display:block}
+svg.dgm text{font-family:"Malgun Gothic","맑은 고딕",sans-serif;fill:#1e1e1e}
+svg.dgm .t-h{font-size:15px;font-weight:700}
+svg.dgm .t{font-size:13px}
+svg.dgm .t-s{font-size:11.5px;fill:#6b7280}
+svg.dgm .t-xs{font-size:10.5px;fill:#6b7280}
+svg.dgm .m{font-family:"D2Coding","Consolas",monospace;font-size:12px}
+svg.dgm .m-s{font-family:"D2Coding","Consolas",monospace;font-size:10.5px;fill:#4b5563}
+svg.dgm .b{fill:#fff;stroke:#9ca3af;stroke-width:1.2;rx:4}
+svg.dgm .b-key{fill:#EEF2FF;stroke:#4338CA;stroke-width:1.4;rx:4}
+svg.dgm .b-bad{fill:#FEF2F2;stroke:#B91C1C;stroke-width:1.4;rx:4}
+svg.dgm .b-ok{fill:#ECFDF5;stroke:#047857;stroke-width:1.4;rx:4}
+svg.dgm .b-mut{fill:#F3F4F6;stroke:#d1d5db;stroke-width:1;rx:4}
+svg.dgm .b-hl{fill:#FEF08A;stroke:#CA8A04;stroke-width:1.2;rx:4}
+svg.dgm .b-ghost{fill:none;stroke:#9ca3af;stroke-width:1.2;stroke-dasharray:5 4;rx:4}
+svg.dgm .ln{stroke:#9ca3af;stroke-width:1.4;fill:none}
+svg.dgm .ln-key{stroke:#4338CA;stroke-width:1.8;fill:none}
+svg.dgm .ln-bad{stroke:#B91C1C;stroke-width:1.8;fill:none}
+svg.dgm .ln-ok{stroke:#047857;stroke-width:1.8;fill:none}
+svg.dgm .ln-d{stroke:#9ca3af;stroke-width:1.2;stroke-dasharray:4 4;fill:none}
+svg.dgm .arw{fill:#9ca3af}
+svg.dgm .arw-key{fill:#4338CA}
+svg.dgm .arw-bad{fill:#B91C1C}
+</style>
+</head>
+<body>
+<div class="crumb"><a href="../index.html">← SAP 학습 자료실</a> · 인터페이스 · 파일 · AL11 · FILE</div>
+<div class="sheet">
+
+<div class="doc-head">
+  <div class="kicker">FIELD NOTE</div>
+  <h1>AL11 · FILE 세팅 — 서버 디렉토리와 논리 파일 경로</h1>
+  <div class="sub">파일 인터페이스를 만들기 전에 반드시 깔아야 하는 두 가지 설정<br>
+  대상 시스템: <b>winerp01 / MEP</b> · 캡처 8장 예정</div>
+</div>
+
+<div class="lead">
+  <p><b>결론부터.</b> <span class="hl">ABAP 코드에 서버 경로를 직접 쓰면 안 된다.</span>
+  DEV에서 만든 프로그램을 QA·PRD로 이관하는 순간 경로가 달라서 깨지기 때문이다.
+  그래서 SAP은 경로를 코드 밖으로 빼는 장치를 두 개 제공한다.</p>
+  <p><b>AL11</b>은 <span class="key">서버에 어떤 디렉토리가 있는지 보는 창</span>이고,
+  <b>FILE</b>은 <span class="key">"논리 이름 → 실제 경로" 변환표</span>다.
+  이름이 비슷해 헷갈리지만 역할이 완전히 다르다.</p>
+</div>
+
+<div class="note">
+<div class="t">먼저 알아야 할 것</div>
+<p><b>애플리케이션 서버</b> — 프로그램이 실제로 실행되는 서버. 한 시스템에 여러 대일 수 있다.<br>
+<b>OPEN DATASET</b> — 애플리케이션 서버의 파일을 여는 ABAP 구문. PC 파일이 아니다.<br>
+<b>프로파일 파라미터</b> — 인스턴스 설정값. <code>DIR_HOME</code> 같은 디렉토리 경로도 여기 들어 있다.<br>
+<b>Syntax group</b> — 경로 표기법 묶음. UNIX는 <code>/</code>, Windows는 <code>\</code>를 쓰는 차이를 흡수한다.</p>
+<p>자세히는 → <a href="sap-runtime-basics.html"><b>SAP 실행 환경 기초</b></a></p>
+</div>
+
+<div class="toc">
+  <h4>목차</h4>
+  <ol>
+    <li><a href="#l1">왜 경로를 코드에 쓰면 안 되는가</a></li>
+    <li><a href="#l2">AL11 읽는 법 — 두 종류의 디렉토리</a></li>
+    <li><a href="#l3">AL11에 내 디렉토리 등록하기</a></li>
+    <li><a href="#l4">FILE — 논리 경로와 논리 파일명</a></li>
+    <li><a href="#l5">세팅 절차 — 순서대로</a></li>
+    <li><a href="#l6">ABAP에서 쓰기 — FILE_GET_NAME과 OPEN DATASET</a></li>
+    <li><a href="#l7">권한 — S_DATASET · SPTH · S_PATH</a></li>
+    <li><a href="#l8">병렬처리와 엮을 때</a></li>
+    <li><a href="#l9">실전 대조 — Extract for ABAP 설치 때 했던 그 세팅</a></li>
+    <li><a href="#lap">APPENDIX — 체크리스트 · T-code</a></li>
+    <li><a href="#lref">참고</a></li>
+  </ol>
+</div>
+
+
+<!-- ══════════════════ LESSON 1 ══════════════════ -->
+<div class="lesson" id="l1">
+<h2><span class="no">LESSON 1</span>왜 경로를 코드에 쓰면 안 되는가</h2>
+
+<p><b>안 지키면 뭐가 터지나.</b> DEV에서는 잘 도는데 <span class="bad">이관 후 PRD에서만 파일을 못 찾는다.</span>
+소스를 고쳐야 하므로 다시 이관해야 하고, 그때마다 같은 일이 반복된다.</p>
+
+<pre><span class="c">* 이렇게 쓰면 안 된다</span>
+<span class="k">OPEN DATASET</span> <span class="s">'/interface/dev/po/in/PO_20260914.txt'</span> <span class="k">FOR INPUT</span> ...
+<span class="r">" DEV 전용 경로가 소스에 박혔다. QA·PRD에서는 존재하지 않는다.</span></pre>
+
+<div class="tbl-wrap">
+<table>
+<tr><th>문제</th><th>구체적으로</th></tr>
+<tr><td class="wrap">시스템마다 경로가 다르다</td>
+    <td class="wrap">DEV <code>/interface/dev/…</code> · PRD <code>/interface/prd/…</code></td></tr>
+<tr><td class="wrap">OS마다 표기가 다르다</td>
+    <td class="wrap">UNIX <code>/usr/sap/…</code> · Windows <code>C:\usr\sap\…</code></td></tr>
+<tr><td class="wrap">날짜·순번이 파일명에 들어간다</td>
+    <td class="wrap">매번 <code>CONCATENATE</code>로 조립하는 코드가 흩어진다</td></tr>
+<tr><td class="wrap">경로가 바뀌면 소스를 고쳐야 한다</td>
+    <td class="wrap">운영 중 디렉토리 이전 = 프로그램 수정 + 이관</td></tr>
+</table>
+</div>
+
+<p>해결은 <span class="hl">코드에는 이름만 쓰고, 실제 경로는 설정에서 찾아오는 것</span>이다.
+설정은 이관 대상이 아니므로 시스템별로 다른 값을 가질 수 있다.</p>
+
+<pre><span class="c">* 이렇게 쓴다</span>
+<span class="k">CONSTANTS</span> lc_logfile <span class="k">LIKE</span> filename-fileintern <span class="k">VALUE</span> <span class="s">'Z_PO_IN'</span>.
+
+<span class="k">CALL FUNCTION</span> <span class="s">'FILE_GET_NAME'</span>
+  <span class="k">EXPORTING</span> logical_filename = lc_logfile
+  <span class="k">IMPORTING</span> file_name        = lv_path.   <span class="c">" 시스템에 맞는 실제 경로가 나온다</span>
+
+<span class="k">OPEN DATASET</span> lv_path <span class="k">FOR INPUT</span> ...</pre>
+</div>
+
+
+<!-- ══════════════════ LESSON 2 ══════════════════ -->
+<div class="lesson" id="l2">
+<h2><span class="no">LESSON 2</span>AL11 읽는 법 — 두 종류의 디렉토리</h2>
+
+<p><b>AL11은 무엇인가.</b> 애플리케이션 서버의 디렉토리와 파일을 <span class="key">SAP GUI에서 들여다보는 조회 화면</span>이다.
+OS에 직접 접속하지 않고도 파일이 왔는지, 내용이 어떤지 확인할 수 있다.
+실제 프로그램은 <code>RSWATCH0</code>이다.</p>
+
+<p>목록에 뜨는 디렉토리는 출처가 두 가지다. 이걸 구분해야 "내 폴더를 어떻게 추가하나"의 답이 나온다.</p>
+
+<div class="figwrap">
+<figure>
+<svg class="dgm" viewBox="0 0 1000 300" role="img"
+     aria-label="AL11 목록은 프로파일 파라미터에서 읽어온 표준 디렉토리와 USER_DIR 테이블에 등록한 사용자 정의 디렉토리 두 출처가 합쳐진 것이다.">
+  <defs>
+    <marker id="c1" markerWidth="9" markerHeight="9" refX="8" refY="3" orient="auto">
+      <polygon class="arw" points="0 0, 9 3, 0 6"/>
+    </marker>
+  </defs>
+
+  <rect class="b-mut" x="20" y="30" width="300" height="96"/>
+  <text class="t-h" x="42" y="56">① 표준 디렉토리</text>
+  <text class="t-s" x="42" y="78">프로파일 파라미터에서 읽어옴</text>
+  <text class="m-s" x="42" y="98">DIR_HOME · DIR_TRANS · DIR_TEMP …</text>
+  <text class="t-xs" x="42" y="116">RSWATCH0에 하드코딩 · 변경 불가</text>
+
+  <rect class="b-key" x="20" y="152" width="300" height="96"/>
+  <text class="t-h" x="42" y="178">② 사용자 정의 디렉토리</text>
+  <text class="t-s" x="42" y="200">AL11에서 직접 등록</text>
+  <text class="m-s" x="42" y="220">테이블 USER_DIR 에 저장</text>
+  <text class="t-xs" x="42" y="238">여기에 내 인터페이스 폴더를 넣는다</text>
+
+  <path class="ln" d="M326 78 C 400 78, 400 140, 470 140" marker-end="url(#c1)"/>
+  <path class="ln" d="M326 200 C 400 200, 400 150, 470 150" marker-end="url(#c1)"/>
+
+  <rect class="b-ok" x="476" y="88" width="250" height="112"/>
+  <text class="t-h" x="500" y="118">AL11 화면 목록</text>
+  <text class="t-s" x="500" y="142">두 출처가 합쳐져 보인다</text>
+  <text class="t-s" x="500" y="164">더블클릭 → 파일 목록</text>
+  <text class="t-s" x="500" y="186">한 번 더 → 파일 내용</text>
+
+  <rect class="b-hl" x="760" y="88" width="220" height="112"/>
+  <text class="t-h" x="782" y="118">주의</text>
+  <text class="t-s" x="782" y="142">이 경로는</text>
+  <text class="t-s" x="782" y="164">지금 접속한 서버의</text>
+  <text class="t-s" x="782" y="186">로컬 디스크다</text>
+</svg>
+<figcaption><span class="fno">그림 1</span>AL11 목록의 두 출처.
+내 인터페이스 폴더를 추가한다는 것은 <b>② 사용자 정의 디렉토리를 등록</b>한다는 뜻이다.</figcaption>
+</figure>
+</div>
+
+<h3>자주 보는 표준 디렉토리</h3>
+<div class="tbl-wrap">
+<table>
+<tr><th>파라미터</th><th>용도</th></tr>
+<tr><td><code>DIR_HOME</code></td><td class="wrap">인스턴스 작업 디렉토리. <b>상대 경로의 기준점</b>이 된다</td></tr>
+<tr><td><code>DIR_TRANS</code></td><td class="wrap">이관(트랜스포트) 디렉토리. 보통 시스템 간 공유</td></tr>
+<tr><td><code>DIR_TEMP</code></td><td class="wrap">임시 파일</td></tr>
+<tr><td><code>DIR_GLOBAL</code></td><td class="wrap">인스턴스 간 공유 디렉토리</td></tr>
+</table>
+</div>
+
+<p>ABAP에서 값을 직접 읽을 수도 있다. AL11(<code>RSWATCH0</code>)이 쓰는 방식과 같다.</p>
+
+<pre><span class="k">DATA</span>: lv_dir(200).
+
+<span class="k">CALL</span> <span class="s">'C_SAPGPARAM'</span> <span class="k">ID</span> <span class="s">'NAME'</span>  <span class="k">FIELD</span> <span class="s">'DIR_HOME'</span>
+                   <span class="k">ID</span> <span class="s">'VALUE'</span> <span class="k">FIELD</span> lv_dir.</pre>
+
+<div class="note warn">
+<div class="t">AL11 경로는 시스템 공용이 아니다</div>
+<p>보이는 경로는 <b>지금 접속해 있는 인스턴스의 로컬 디스크</b>다.
+서버가 여러 대인 시스템에서는 A에 올린 파일이 B에서 안 보인다 —
+공유 마운트(NFS 등)로 묶여 있지 않다면.
+<span class="key">파일 인터페이스 설계에서 가장 먼저 확인할 항목</span>이다.</p>
+</div>
+
+<!-- [캡처 대기] 01-al11-directory-list.png / 02-al11-file-content.png -->
+</div>
+
+
+<!-- ══════════════════ LESSON 3 ══════════════════ -->
+<div class="lesson" id="l3">
+<h2><span class="no">LESSON 3</span>AL11에 내 디렉토리 등록하기</h2>
+
+<p>인터페이스용 폴더를 목록에 띄우는 작업이다. <span class="key">조회 편의를 위한 등록</span>이지,
+이것만으로 프로그램이 그 경로를 알게 되는 건 아니다 — 그건 LESSON 4의 FILE이 담당한다.</p>
+
+<div class="step"><span class="n">1</span>
+<p><b>AL11 실행</b> → 툴바의 <b>Configure User Directories</b> (<kbd>Shift</kbd>+<kbd>F1</kbd>)</p></div>
+
+<div class="step"><span class="n">2</span>
+<p><b>신규 항목</b>을 추가하고 아래를 입력한다.</p>
+<div class="tbl-wrap">
+<table>
+<tr><th>필드</th><th>입력</th><th>비고</th></tr>
+<tr><td class="wrap">Name of Directory Parameter</td><td><code>DIR_Z_PO_IN</code></td>
+    <td class="wrap">관례상 <code>DIR_</code> 접두사. 이게 AL11 목록에 뜨는 이름</td></tr>
+<tr><td class="wrap">Directory Name</td><td class="wrap"><code>/interface/po/in</code></td>
+    <td class="wrap">애플리케이션 서버의 <b>전체 경로</b></td></tr>
+<tr><td class="wrap">Server Name</td><td class="wrap"><code>all</code> 또는 서버명</td>
+    <td class="wrap"><code>all</code>이면 모든 인스턴스에서 보인다</td></tr>
+</table>
+</div></div>
+
+<div class="step"><span class="n">3</span>
+<p><b>저장</b> 후 목록으로 돌아와 방금 만든 항목을 더블클릭. 파일 목록이 나오면 성공이다.</p></div>
+
+<div class="note warn">
+<div class="t">등록했는데 안 열린다면</div>
+<p>AL11 등록은 <b>경로를 만들어주지 않는다.</b> 이름표만 붙이는 작업이다.
+OS 레벨에 그 디렉토리가 실제로 존재하고 SAP 시스템 사용자에게 읽기·쓰기 권한이 있어야 한다.
+없으면 Basis에 생성을 요청해야 한다.</p>
+</div>
+
+<p>등록 결과는 테이블 <code>USER_DIR</code>에 저장된다. ABAP에서 직접 조회할 수도 있다.</p>
+
+<pre><span class="k">SELECT SINGLE</span> dirname <span class="k">FROM</span> user_dir <span class="k">INTO</span> <span class="k">@DATA</span>(lv_path)
+ <span class="k">WHERE</span> aliass <span class="k">EQ</span> <span class="s">'DIR_Z_PO_IN'</span>.</pre>
+
+<div class="note">
+<div class="t">다만 이 방식은 권하지 않는다</div>
+<p><code>USER_DIR</code>을 직접 읽으면 결국 <b>코드가 특정 이름에 묶인다.</b>
+날짜·순번 조립도 직접 해야 하고, 시스템별로 다른 값을 주기도 어렵다.
+<span class="key">프로그램에서는 FILE 트랜잭션 방식을 쓴다.</span> AL11 등록은 사람이 눈으로 확인하는 용도다.</p>
+</div>
+
+<!-- [캡처 대기] 03-al11-configure-button.png / 04-al11-user-directory-entry.png -->
+</div>
+
+
+<!-- ══════════════════ LESSON 4 ══════════════════ -->
+<div class="lesson" id="l4">
+<h2><span class="no">LESSON 4</span>FILE — 논리 경로와 논리 파일명</h2>
+
+<p><b>FILE이 하는 일.</b> <span class="hl">코드에 쓴 이름을 실행 시점에 실제 경로로 바꿔주는 변환표</span>다.
+변환표는 설정이므로 시스템마다 다른 값을 가질 수 있고, 프로그램은 손댈 필요가 없다.</p>
+
+<div class="figwrap">
+<figure>
+<svg class="dgm" viewBox="0 0 1000 420" role="img"
+     aria-label="프로그램은 논리 파일명만 넘기고, FILE_GET_NAME이 FILE 트랜잭션의 정의를 따라 시스템별로 다른 실제 경로를 돌려준다.">
+  <defs>
+    <marker id="c2" markerWidth="9" markerHeight="9" refX="8" refY="3" orient="auto">
+      <polygon class="arw-key" points="0 0, 9 3, 0 6"/>
+    </marker>
+    <marker id="c3" markerWidth="9" markerHeight="9" refX="8" refY="3" orient="auto">
+      <polygon class="arw" points="0 0, 9 3, 0 6"/>
+    </marker>
+  </defs>
+
+  <!-- 프로그램 -->
+  <rect class="b" x="20" y="30" width="200" height="76"/>
+  <text class="t-h" x="42" y="56">ABAP 프로그램</text>
+  <text class="m-s" x="42" y="78">logical_filename</text>
+  <text class="m" x="42" y="96">= 'Z_PO_IN'</text>
+
+  <path class="ln-key" d="M226 68 L 288 68" marker-end="url(#c2)"/>
+
+  <rect class="b-key" x="294" y="30" width="180" height="76"/>
+  <text class="t-h" x="316" y="60">FILE_GET_NAME</text>
+  <text class="t-s" x="316" y="84">런타임 변환</text>
+
+  <!-- FILE 정의 3층 -->
+  <rect class="b-ghost" x="20" y="130" width="454" height="180"/>
+  <text class="t-h" x="42" y="156">트랜잭션 FILE — 3단 정의</text>
+
+  <rect class="b-mut" x="40" y="168" width="414" height="40"/>
+  <text class="t" x="58" y="186">① 논리 파일명</text>
+  <text class="m-s" x="220" y="186">Z_PO_IN → 논리 경로 Z_IF_IN 참조</text>
+  <text class="t-xs" x="58" y="202">물리 파일명: PO_&lt;PARAM_1&gt;.txt</text>
+
+  <rect class="b-mut" x="40" y="216" width="414" height="34"/>
+  <text class="t" x="58" y="237">② 논리 경로</text>
+  <text class="m-s" x="220" y="237">Z_IF_IN — 이름만 있는 껍데기</text>
+
+  <rect class="b-mut" x="40" y="258" width="414" height="40"/>
+  <text class="t" x="58" y="276">③ 물리 경로</text>
+  <text class="m-s" x="220" y="276">syntax group 별로 각각 지정</text>
+  <text class="t-xs" x="58" y="292">UNIX: /interface/po/in/&lt;FILENAME&gt;</text>
+
+  <path class="ln-d" d="M384 110 L 384 164"/>
+
+  <!-- 결과 -->
+  <path class="ln-key" d="M480 68 L 560 68" marker-end="url(#c2)"/>
+
+  <rect class="b-ok" x="566" y="30" width="414" height="76"/>
+  <text class="t-h" x="588" y="56">DEV 시스템</text>
+  <text class="m-s" x="588" y="80">/interface/dev/po/in/PO_01.txt</text>
+
+  <rect class="b-ok" x="566" y="122" width="414" height="76"/>
+  <text class="t-h" x="588" y="148">PRD 시스템</text>
+  <text class="m-s" x="588" y="172">/interface/prd/po/in/PO_01.txt</text>
+
+  <rect class="b-hl" x="566" y="214" width="414" height="84"/>
+  <text class="t-h" x="588" y="242">소스는 동일하다</text>
+  <text class="t-s" x="588" y="266">설정만 시스템별로 다르게 두면</text>
+  <text class="t-s" x="588" y="286">이관 후에도 고칠 것이 없다</text>
+
+  <!-- 대비 -->
+  <rect class="b-bad" x="20" y="336" width="960" height="66"/>
+  <text class="t-h" x="44" y="362" fill="#B91C1C">하드코딩했다면</text>
+  <text class="m-s" x="200" y="362">OPEN DATASET '/interface/dev/po/in/PO_01.txt'</text>
+  <text class="t-s" x="44" y="386">PRD에서 파일을 못 찾는다 → 소스 수정 → 재이관. 경로가 바뀔 때마다 반복된다.</text>
+</svg>
+<figcaption><span class="fno">그림 2</span>논리 파일명이 실제 경로로 변환되는 흐름.
+프로그램은 이름만 알고, 경로는 시스템의 설정이 결정한다.</figcaption>
+</figure>
+</div>
+
+<h3>왜 3단인가</h3>
+<div class="tbl-wrap">
+<table>
+<tr><th>층</th><th>무엇을 담나</th><th>왜 분리하나</th></tr>
+<tr><td class="wrap"><b>논리 파일명</b><br>Logical file name</td>
+    <td class="wrap">코드에 쓰는 이름 + 물리 <b>파일명</b> 규칙</td>
+    <td class="wrap">파일마다 이름 규칙이 다르다</td></tr>
+<tr><td class="wrap"><b>논리 경로</b><br>Logical file path</td>
+    <td class="wrap">이름만 있는 중간 껍데기</td>
+    <td class="wrap">여러 파일이 같은 폴더를 공유한다</td></tr>
+<tr><td class="wrap"><b>물리 경로</b><br>Physical path</td>
+    <td class="wrap">OS별 실제 <b>디렉토리</b> 경로</td>
+    <td class="wrap">UNIX와 Windows의 표기가 다르다</td></tr>
+</table>
+</div>
+
+<p>정리하면 <span class="key">파일명 규칙과 디렉토리 규칙을 따로 관리</span>하기 위한 구조다.
+인터페이스 파일이 10종이어도 폴더가 하나면 논리 경로는 하나만 만들면 된다.</p>
+
+<h3>예약어 — 꺾쇠 안의 값은 런타임에 치환된다</h3>
+<div class="tbl-wrap">
+<table>
+<tr><th>예약어</th><th>치환되는 값</th></tr>
+<tr><td><code>&lt;FILENAME&gt;</code></td>
+    <td class="wrap">논리 파일명이 만들어낸 실제 파일명. <b>물리 경로에 반드시 포함</b></td></tr>
+<tr><td><code>&lt;SYSID&gt;</code></td><td class="wrap">시스템 ID</td></tr>
+<tr><td><code>&lt;DATE&gt;</code>, <code>&lt;YYYY&gt;</code>, <code>&lt;MM&gt;</code>, <code>&lt;DD&gt;</code></td>
+    <td class="wrap">실행 시점 날짜</td></tr>
+<tr><td><code>&lt;PARAM_1&gt;</code> ~ <code>&lt;PARAM_3&gt;</code></td>
+    <td class="wrap"><code>FILE_GET_NAME</code>의 <code>PARAMETER_1</code> 등으로 넘긴 값</td></tr>
+</table>
+</div>
+
+<div class="note warn">
+<div class="t">물리 경로에 &lt;FILENAME&gt;이 없으면 안 된다</div>
+<p>물리 경로는 <b>디렉토리 + <code>&lt;FILENAME&gt;</code></b> 형태여야 한다.
+이 자리에 논리 파일명이 만들어낸 파일명이 끼워진다.
+입력 필드에 커서를 두고 <kbd>F1</kbd>을 누르면 쓸 수 있는 예약어 목록이 나온다.</p>
+</div>
+
+<!-- [캡처 대기] 05-file-navigation.png / 06-file-logical-path.png -->
+</div>
+
+
+<!-- ══════════════════ LESSON 5 ══════════════════ -->
+<div class="lesson" id="l5">
+<h2><span class="no">LESSON 5</span>세팅 절차 — 순서대로</h2>
+
+<p>FILE 첫 화면 왼쪽의 <b>Navigation</b> 블록에서 항목을 골라 이동한다.
+<span class="key">아래→위 순서로 만드는 것</span>이 편하다. 참조 대상이 먼저 있어야 하기 때문이다.</p>
+
+<div class="step"><span class="n">1</span>
+<p><b>논리 파일 경로 정의</b> (Logical File Path Definition)</p>
+<div class="tbl-wrap">
+<table>
+<tr><td class="wrap">Logical path</td><td><code>Z_IF_IN</code></td></tr>
+<tr><td class="wrap">Name</td><td class="wrap">인터페이스 수신 디렉토리</td></tr>
+</table>
+</div>
+<p>이름만 만들고 저장한다. 이 단계에는 실제 경로가 없다.</p></div>
+
+<div class="step"><span class="n">2</span>
+<p><b>물리 경로를 논리 경로에 할당</b> (Assignment of Physical Paths to Logical Path)</p>
+<div class="tbl-wrap">
+<table>
+<tr><td class="wrap">Logical path</td><td><code>Z_IF_IN</code></td></tr>
+<tr><td class="wrap">Syntax group</td><td><code>UNIX</code></td></tr>
+<tr><td class="wrap">Physical path</td><td><code>/interface/po/in/&lt;FILENAME&gt;</code></td></tr>
+</table>
+</div>
+<p>Windows 서버라면 syntax group을 바꿔 한 줄 더 만든다.
+<span class="key">시스템별로 다른 경로를 주는 지점이 바로 여기</span>다 —
+DEV·QA·PRD에서 각각 다른 값을 넣으면 된다.</p></div>
+
+<div class="step"><span class="n">3</span>
+<p><b>논리 파일명 정의</b> (Logical File Name Definition, Cross-Client)</p>
+<div class="tbl-wrap">
+<table>
+<tr><td class="wrap">Logical file</td><td><code>Z_PO_IN</code></td><td class="wrap">코드에 쓸 이름. <b>대문자</b></td></tr>
+<tr><td class="wrap">Name</td><td class="wrap">PO 수신 파일</td><td></td></tr>
+<tr><td class="wrap">Physical file</td><td><code>PO_&lt;PARAM_1&gt;.txt</code></td><td class="wrap">파일명 규칙</td></tr>
+<tr><td class="wrap">Data format</td><td><code>ASC</code></td><td class="wrap">텍스트</td></tr>
+<tr><td class="wrap">Logical path</td><td><code>Z_IF_IN</code></td><td class="wrap">①에서 만든 것</td></tr>
+</table>
+</div></div>
+
+<div class="step"><span class="n">4</span>
+<p><b>SE37에서 변환 테스트</b> — 프로그램에 넣기 전에 여기서 확인한다.</p>
+<p><code>FILE_GET_NAME</code>을 단독 실행하고 <code>FILE_NAME</code>에 기대한 경로가 나오는지 본다.
+<span class="bad">이때 "대/소문자 구분" 지시자를 반드시 켠다.</span>
+<code>OPERATING_SYSTEM</code> 필드가 대소문자를 가리고, 논리 파일명은 전부 대문자여야 한다.</p></div>
+
+<div class="note warn">
+<div class="t">구문이 맞다고 파일이 열리는 건 아니다</div>
+<p>FILE 정의가 문법적으로 완전해도, <b>그 경로가 서버에 실제로 존재하지 않으면</b> 파일 접근은 실패한다.
+정의를 만든 뒤 <span class="key">AL11에서 그 경로가 실제로 열리는지 확인</span>하는 것이 LESSON 3 등록의 진짜 쓸모다.</p>
+</div>
+
+<div class="note">
+<div class="t">FILE과 SF01, 그리고 SF04</div>
+<p>유지보수 테이블은 클라이언트 종속이다. 그래서 트랜잭션이 나뉘어 있다.</p>
+<p><b>FILE</b> — 클라이언트 공통(cross-client) 정의. 보통 이걸 쓴다.<br>
+<b>SF01</b> — 클라이언트별 정의가 필요할 때.<br>
+<b>SF04</b> — 운영체제와 syntax group의 연결 관계를 보는 곳.</p>
+<p>IMG 경로는 <code>SAP NetWeaver → Application Server → System Administration → Platform-Independent File Names</code>.</p>
+</div>
+
+<!-- [캡처 대기] 07-file-physical-assignment.png / 08-se37-file-get-name-test.png -->
+</div>
+
+
+<!-- ══════════════════ LESSON 6 ══════════════════ -->
+<div class="lesson" id="l6">
+<h2><span class="no">LESSON 6</span>ABAP에서 쓰기</h2>
+
+<h3><code>FILE_GET_NAME</code> — 논리명을 실제 경로로</h3>
+
+<pre><span class="k">CONSTANTS</span> lc_logfile <span class="k">LIKE</span> filename-fileintern <span class="k">VALUE</span> <span class="s">'Z_PO_IN'</span>.
+
+<span class="k">DATA</span>: lv_path <span class="k">TYPE</span> string.
+
+<span class="k">CALL FUNCTION</span> <span class="s">'FILE_GET_NAME'</span>
+  <span class="k">EXPORTING</span>
+    client           = sy-mandt      <span class="c">" 정의 테이블이 클라이언트 종속</span>
+    logical_filename = lc_logfile    <span class="c">" 반드시 대문자</span>
+    operating_system = sy-opsys      <span class="c">" syntax group 결정</span>
+    parameter_1      = <span class="s">'01'</span>       <span class="c">" &lt;PARAM_1&gt; 자리에 치환</span>
+  <span class="k">IMPORTING</span>
+    file_name        = lv_path
+  <span class="k">EXCEPTIONS</span>
+    file_not_found   = 1
+    <span class="k">OTHERS</span>           = 2.
+
+<span class="k">IF</span> sy-subrc <span class="k">NE</span> 0.
+  <span class="k">MESSAGE</span> |논리 파일명 { lc_logfile } 정의를 찾을 수 없습니다| <span class="k">TYPE</span> <span class="s">'E'</span>.
+<span class="k">ENDIF</span>.</pre>
+
+<div class="tbl-wrap">
+<table>
+<tr><th>파라미터</th><th>역할</th></tr>
+<tr><td><code>LOGICAL_FILENAME</code></td><td class="wrap">변환할 논리 파일명. 대문자</td></tr>
+<tr><td><code>OPERATING_SYSTEM</code></td>
+    <td class="wrap">어느 syntax group으로 만들지 결정. 보통 <code>sy-opsys</code></td></tr>
+<tr><td><code>PARAMETER_1</code>~<code>3</code></td><td class="wrap">물리 파일명·경로의 <code>&lt;PARAM_n&gt;</code> 자리에 치환</td></tr>
+<tr><td><code>INCLUDING_DIR</code></td><td class="wrap"><code>'X'</code>면 디렉토리까지 포함한 경로를 돌려준다</td></tr>
+<tr><td><code>FILE_NAME</code></td><td class="wrap">결과 — 이걸 <code>OPEN DATASET</code>에 넘긴다</td></tr>
+</table>
+</div>
+
+<h3>화면 입력을 받을 때는 <code>FILE_VALIDATE_NAME</code></h3>
+<p>사용자가 선택화면에 경로를 직접 입력하는 구조라면, 그 값이
+<span class="key">허용된 디렉토리 안에 있는지 검증</span>해야 한다.
+검증 없이 받으면 임의 경로 접근을 허용하는 셈이 된다.</p>
+
+<pre><span class="c">* 기본값은 FILE_GET_NAME으로 만들어 주고</span>
+<span class="k">INITIALIZATION</span>.
+  <span class="k">CALL FUNCTION</span> <span class="s">'FILE_GET_NAME'</span>
+    <span class="k">EXPORTING</span> logical_filename = lc_logfile
+              including_dir    = <span class="s">'X'</span>
+    <span class="k">IMPORTING</span> file_name        = pa_file
+    <span class="k">EXCEPTIONS</span> <span class="k">OTHERS</span>          = 1.
+
+<span class="c">* 사용자가 바꿔 넣었다면 검증한다</span>
+<span class="k">AT SELECTION-SCREEN</span>.
+  <span class="k">CALL FUNCTION</span> <span class="s">'FILE_VALIDATE_NAME'</span>
+    <span class="k">EXPORTING</span> logical_filename = lc_logfile
+    <span class="k">CHANGING</span>  physical_filename = pa_file
+    <span class="k">EXCEPTIONS</span> <span class="k">OTHERS</span>          = 1.</pre>
+
+<h3><code>OPEN DATASET</code> — 실제 읽기</h3>
+
+<pre><span class="k">DATA</span>: lv_line <span class="k">TYPE</span> string,
+      lv_msg  <span class="k">TYPE</span> char100.
+
+<span class="k">OPEN DATASET</span> lv_path
+     <span class="k">FOR INPUT IN TEXT MODE ENCODING</span> <span class="k">UTF-8</span>
+     <span class="k">MESSAGE</span> lv_msg.            <span class="c">" ★ 실패 사유를 문자열로 받는다</span>
+
+<span class="k">IF</span> sy-subrc <span class="k">NE</span> 0.
+  <span class="k">MESSAGE</span> |파일 열기 실패: { lv_msg }| <span class="k">TYPE</span> <span class="s">'E'</span>.
+<span class="k">ENDIF</span>.
+
+<span class="k">DO</span>.
+  <span class="k">READ DATASET</span> lv_path <span class="k">INTO</span> lv_line.
+  <span class="k">IF</span> sy-subrc <span class="k">NE</span> 0. <span class="k">EXIT</span>. <span class="k">ENDIF</span>.
+  <span class="c">" 파싱 · 검증</span>
+<span class="k">ENDDO</span>.
+
+<span class="k">CLOSE DATASET</span> lv_path.</pre>
+
+<div class="note ok">
+<div class="t">MESSAGE 절을 꼭 붙인다</div>
+<p><code>OPEN DATASET</code>이 실패하면 <code>sy-subrc</code> 숫자 하나만 남는다.
+<b>권한 문제인지, 경로가 없는 건지, 파일이 잠긴 건지</b> 구분이 안 된다.
+<code>MESSAGE lv_msg</code>를 붙이면 OS가 준 사유가 문자열로 들어온다.</p>
+</div>
+
+<div class="tbl-wrap">
+<table>
+<tr><th>모드</th><th>용도</th></tr>
+<tr><td class="wrap"><code>FOR INPUT</code></td><td class="wrap">읽기</td></tr>
+<tr><td class="wrap"><code>FOR OUTPUT</code></td><td class="wrap">쓰기 — <b>기존 내용을 지운다</b></td></tr>
+<tr><td class="wrap"><code>FOR APPENDING</code></td><td class="wrap">이어 쓰기</td></tr>
+<tr><td class="wrap"><code>IN TEXT MODE ENCODING UTF-8</code></td><td class="wrap">텍스트. 한글이 있으면 인코딩 명시 필수</td></tr>
+<tr><td class="wrap"><code>IN BINARY MODE</code></td><td class="wrap">바이너리</td></tr>
+</table>
+</div>
+</div>
+
+
+<!-- ══════════════════ LESSON 7 ══════════════════ -->
+<div class="lesson" id="l7">
+<h2><span class="no">LESSON 7</span>권한 — S_DATASET · SPTH · S_PATH</h2>
+
+<p>파일 접근은 권한 오브젝트로 통제된다.
+<span class="key">여기서 막히면 코드가 완벽해도 <code>sy-subrc</code>가 0이 아니다.</span></p>
+
+<div class="tbl-wrap">
+<table>
+<tr><th>오브젝트 / 테이블</th><th>통제 단위</th><th>비고</th></tr>
+<tr><td><code>S_DATASET</code></td><td class="wrap"><b>파일</b> 단위</td>
+    <td class="wrap">필드: 활동, 프로그램명, 파일명. 디렉토리 단위가 아니다</td></tr>
+<tr><td><code>SPTH</code> (테이블)</td><td class="wrap"><b>경로</b>에 권한그룹 부여</td>
+    <td class="wrap">디렉토리 단위로 가르려면 여기서 시작</td></tr>
+<tr><td><code>S_PATH</code></td><td class="wrap">SPTH의 권한그룹</td>
+    <td class="wrap">SPTH와 짝으로 동작</td></tr>
+</table>
+</div>
+
+<div class="note warn">
+<div class="t">권한 체크는 자동이다 — 코드에 넣지 말 것</div>
+<p><code>OPEN DATASET</code> 계열 구문은 <b>실행 시 권한 검사를 자동으로 수행한다.</b>
+프로그램에 <code>AUTHORITY-CHECK OBJECT 'S_DATASET'</code>을 따로 넣을 필요가 없다.</p>
+</div>
+
+<div class="note warn">
+<div class="t">S_DATASET에 프로파일 파라미터는 못 쓴다</div>
+<p><code>&lt;P=DIR_HOME&gt;/*</code> 같은 표기는 <b>치환되지 않는다.</b>
+권한에서는 파라미터 치환을 지원하지 않으므로 실제 경로를 직접 적어야 한다.
+랜드스케이프 전체에 같은 롤을 쓰고 싶다면 SPTH 쪽을 검토한다.</p>
+</div>
+
+<div class="note warn">
+<div class="t">AL11은 디렉토리 목록을 가리지 않는다</div>
+<p>AL11은 기본적으로 <b>설정된 모든 디렉토리를 보여준다.</b>
+<code>S_DATASET</code>은 파일 접근을 막을 뿐 디렉토리가 목록에 뜨는 것 자체는 막지 못한다.
+운영에서 AL11 권한을 폭넓게 주면 <span class="bad">의도치 않은 파일이 노출될 수 있다.</span>
+롤에 <code>S_DATASET</code> 값이 <code>*</code>로 열려 있지 않은지 확인할 것.</p>
+</div>
+</div>
+
+
+<!-- ══════════════════ LESSON 8 ══════════════════ -->
+<div class="lesson" id="l8">
+<h2><span class="no">LESSON 8</span>병렬처리와 엮을 때</h2>
+
+<p>파일 수신을 병렬로 돌리려 할 때 <span class="bad">가장 먼저 밟는 지뢰</span>가 있다.</p>
+
+<pre><span class="c">[서버 A]  /interface/po/in/PO_001.txt   ← 파일은 여기만 있음</span>
+<span class="c">[서버 B]  /interface/po/in/            ← 비어 있음</span>
+
+TASK-1 → 서버 A → OPEN DATASET 성공
+TASK-2 → 서버 B → <span class="r">OPEN DATASET 실패 (sy-subrc = 8)</span></pre>
+
+<p><code>DESTINATION IN GROUP</code>은 태스크를 그룹 안의 <b>아무 서버로나</b> 던진다.
+그런데 AL11 경로는 서버 로컬이다. <span class="key">실행할 때마다 결과가 달라져</span> 재현이 안 된다.</p>
+
+<div class="tbl-wrap">
+<table>
+<tr><th>해결</th><th>방식</th><th>적합도</th></tr>
+<tr><td>①</td><td class="wrap">NFS 등 공유 마운트 디렉토리 사용</td>
+    <td class="wrap">운영 시스템은 대개 이미 이 구조</td></tr>
+<tr><td>②</td><td class="wrap"><code>IN GROUP</code> 대신 단일 서버 고정</td>
+    <td class="wrap">병렬 효과가 서버 1대로 제한</td></tr>
+<tr><td><b>③</b></td><td class="wrap"><b>파일 I/O는 메인에서 직렬, 가공만 병렬</b></td>
+    <td class="wrap"><b>권장</b> — 서버 종속이 사라진다</td></tr>
+</table>
+</div>
+
+<p>③이 성능 관점에서도 맞다. 파일 읽기는 I/O 바운드라 병렬화 이득이 작고,
+무거운 건 파싱·검증·BAPI 호출이다.</p>
+
+<div class="note ok">
+<div class="t">sy-host를 결과에 남긴다</div>
+<p>파일 처리 결과 테이블에 <code>sy-host</code>를 넣어두면
+<b>어느 서버에서 읽었는지가 ALV에 그대로 보인다.</b>
+서버 로컬 문제를 의심할 때 가장 먼저 확인할 값이다.</p>
+</div>
+
+<pre><span class="c">* AL11 디렉토리의 파일 목록 조회</span>
+<span class="k">DATA</span>: lt_dir <span class="k">TYPE TABLE OF</span> salfldir.
+
+<span class="k">CALL FUNCTION</span> <span class="s">'RZL_READ_DIR_LOCAL'</span>
+  <span class="k">EXPORTING</span> name = lv_path
+  <span class="k">TABLES</span>    file_tbl = lt_dir
+  <span class="k">EXCEPTIONS</span> argument_error = 1
+             not_found      = 2
+             <span class="k">OTHERS</span>         = 3.
+
+<span class="k">LOOP AT</span> lt_dir <span class="k">INTO</span> <span class="k">DATA</span>(ls_dir).
+  <span class="k">CHECK</span> ls_dir-name <span class="k">NE</span> <span class="s">'.'</span> <span class="k">AND</span> ls_dir-name <span class="k">NE</span> <span class="s">'..'</span>.
+  <span class="k">CHECK</span> ls_dir-name <span class="k">CP</span> <span class="s">'PO_*.txt'</span>.     <span class="c">" CP = Contains Pattern</span>
+<span class="k">ENDLOOP</span>.</pre>
+
+<p>→ 이어서 읽기: <a href="abap-parallel-arfc.html"><b>aRFC 병렬처리 — 골격부터 덤프 도감까지</b></a></p>
+</div>
+
+
+<!-- ══════════════════ LESSON 9 ══════════════════ -->
+<div class="lesson" id="l9">
+<h2><span class="no">LESSON 9</span>실전 대조 — Extract for ABAP 설치 때 했던 그 세팅</h2>
+
+<p>PwC <b>Extract for ABAP</b>(데이터 추출 애드온) 설치 가이드의 Step 2~4는
+<span class="hl">앞 LESSON들과 정확히 1:1로 겹친다.</span>
+가이드를 따라가며 화면만 채웠던 작업이 실제로는 무엇을 하고 있었는지를 여기서 되짚는다.</p>
+
+<h3>가이드 단계 ↔ 이 노트</h3>
+<div class="tbl-wrap">
+<table>
+<tr><th>가이드 단계</th><th>화면에서 실제로 한 일</th><th>이 노트</th></tr>
+<tr><td class="wrap"><b>Step 2</b>-1<br>Destination Folder</td>
+    <td class="wrap">추출 파일을 저장할 디렉토리를 고르거나 새로 만든다<br>
+        예: <code>E:\usr\sap\trans\tmp</code></td>
+    <td class="wrap">LESSON 2<br>서버 로컬 디스크</td></tr>
+<tr><td class="wrap"><b>Step 2</b>-2·3</td>
+    <td class="wrap">FILE → Logical File Path Definition →
+        <code>ZPWCXTRACT50</code> 신규 생성</td>
+    <td class="wrap">LESSON 5-①<br>논리 경로 = 껍데기</td></tr>
+<tr><td class="wrap"><b>Step 2</b>-5~7</td>
+    <td class="wrap">Assignment of Physical Path<br>
+        Syntax group <code>WINDOWS NT</code><br>
+        Physical path <code>E:\usr\sap\trans\tmp\&lt;FILENAME&gt;</code></td>
+    <td class="wrap">LESSON 5-②<br><code>&lt;FILENAME&gt;</code> 필수</td></tr>
+<tr><td class="wrap"><b>Step 2</b>-8·9</td>
+    <td class="wrap">Logical File Name Definition<br>
+        Logical file <code>ZPWCXTRACT50</code> · Physical file <b>공란</b><br>
+        Data format <code>DIR</code> · Applic.area <code>BC</code></td>
+    <td class="wrap">LESSON 5-③<br>논리 파일명</td></tr>
+<tr><td class="wrap"><b>Step 3</b><br><i>optional</i></td>
+    <td class="wrap">AL11 → Configure → 사용자 디렉토리 등록<br>
+        같은 경로 · Valid for Server Name <code>all</code></td>
+    <td class="wrap">LESSON 3<br>조회용 이름표</td></tr>
+<tr><td class="wrap"><b>Step 4</b><br><i>optional</i></td>
+    <td class="wrap"><code>S_DATASET</code> · <code>S_DEVELOP</code> · <code>S_CTS_ADM</code> 등
+        롤 구성</td>
+    <td class="wrap">LESSON 7<br>권한</td></tr>
+</table>
+</div>
+
+<div class="figwrap">
+<figure>
+<svg class="dgm" viewBox="0 0 1000 400" role="img"
+     aria-label="Extract for ABAP 설치에서 만든 FILE 3단 정의의 실제 값과, 프로그램이 그 이름을 참조해 디렉토리를 확보하는 흐름. AL11 등록은 선택 사항으로 아래에 따로 표시했다.">
+  <defs>
+    <marker id="a9" markerWidth="9" markerHeight="9" refX="8" refY="3" orient="auto">
+      <polygon class="arw" points="0 0, 9 3, 0 6"/>
+    </marker>
+    <marker id="a9k" markerWidth="9" markerHeight="9" refX="8" refY="3" orient="auto">
+      <polygon class="arw-key" points="0 0, 9 3, 0 6"/>
+    </marker>
+  </defs>
+
+  <text class="t-h" x="20" y="26">트랜잭션 FILE — 필수</text>
+  <text class="t-h" x="520" y="26">프로그램이 하는 일</text>
+
+  <rect class="b-key" x="20" y="40" width="410" height="84"/>
+  <text class="t-h" x="42" y="66">① 논리 파일명  ZPWCXTRACT50</text>
+  <text class="m-s" x="42" y="90">Physical file: (공란)   ·   Data format: DIR</text>
+  <text class="m-s" x="42" y="110">Applic.area: BC   ·   Logical path: ZPWCXTRACT50</text>
+
+  <path class="ln" d="M225 126 L 225 146" marker-end="url(#a9)"/>
+
+  <rect class="b-mut" x="20" y="152" width="410" height="56"/>
+  <text class="t-h" x="42" y="178">② 논리 경로  ZPWCXTRACT50</text>
+  <text class="t-xs" x="42" y="198">이름만 있다. 실제 값은 아래 ③에서 들어온다</text>
+
+  <path class="ln" d="M225 210 L 225 230" marker-end="url(#a9)"/>
+
+  <rect class="b-mut" x="20" y="236" width="410" height="76"/>
+  <text class="t-h" x="42" y="262">③ 물리 경로</text>
+  <text class="m-s" x="42" y="284">Syntax group: WINDOWS NT</text>
+  <text class="m-s" x="42" y="304">E:\usr\sap\trans\tmp\&lt;FILENAME&gt;</text>
+
+  <path class="ln-key" d="M436 82 L 514 82" marker-end="url(#a9k)"/>
+
+  <rect class="b" x="520" y="40" width="460" height="84"/>
+  <text class="t-h" x="542" y="66">/PWC/XTRACT60 실행</text>
+  <text class="m-s" x="542" y="90">FILE_GET_NAME( &apos;ZPWCXTRACT50&apos; )</text>
+  <text class="t-xs" x="542" y="110">이름이 코드에 박혀 있다 — 그래서 철자를 맞춰야 한다</text>
+
+  <path class="ln-key" d="M750 126 L 750 146" marker-end="url(#a9k)"/>
+
+  <rect class="b-ok" x="520" y="152" width="460" height="56"/>
+  <text class="t-h" x="542" y="178">저장할 디렉토리를 확보</text>
+  <text class="m-s" x="542" y="198">E:\usr\sap\trans\tmp\</text>
+
+  <path class="ln-key" d="M750 210 L 750 230" marker-end="url(#a9k)"/>
+
+  <rect class="b-ok" x="520" y="236" width="460" height="76"/>
+  <text class="t-h" x="542" y="262">zip 파일명은 프로그램이 직접 만든다</text>
+  <text class="t-s" x="542" y="284">청크마다 카운터가 붙는다</text>
+  <text class="t-s" x="542" y="304">→ 그래서 Physical file은 공란, Data format은 DIR</text>
+
+  <rect class="b-ghost" x="20" y="330" width="960" height="60"/>
+  <text class="t-h" x="44" y="356">AL11 사용자 디렉토리  ZPWCXTRACT50  (Step 3 · optional)</text>
+  <text class="t-s" x="44" y="378">프로그램 동작과 무관하다. 사람이 추출 파일을 눈으로 찾기 위한 이름표일 뿐이다.</text>
+</svg>
+<figcaption><span class="fno">그림 3</span>설치 때 채운 값들의 실제 역할.
+<b>왼쪽이 프로그램이 읽는 정의, 아래가 사람이 보는 이름표</b>다.</figcaption>
+</figure>
+</div>
+
+<h3>그때 그냥 따라 했던 것들 — 이유</h3>
+
+<div class="step"><span class="n">1</span>
+<p><b>Step 3(AL11 등록)이 왜 <i>optional</i>인가</b></p>
+<p>프로그램은 FILE 정의만 읽는다. AL11 등록은 <span class="key">추출된 zip이 어디 쌓였는지 사람이 확인하기 위한 것</span>이라
+안 해도 추출은 정상 동작한다. LESSON 3에서 "조회 편의를 위한 등록"이라고 한 게 이 말이다.
+반대로 <b>Step 2(FILE)는 optional이 아니다</b> — 저장할 곳을 프로그램이 알아내는 유일한 통로다.</p></div>
+
+<div class="step"><span class="n">2</span>
+<p><b>Physical file을 공란, Data format을 <code>DIR</code>로 둔 이유</b></p>
+<p>이 논리 파일명은 파일 하나를 가리키지 않는다. <span class="key">디렉토리만 돌려받으려고 쓴다.</span>
+추출 결과는 청크 크기(<code>PWCXTRACT50_CHUNKSIZE</code> 기본 10MB)로 쪼개져 여러 zip이 되고,
+파일명 끝의 카운터는 프로그램이 <code>/PWC/XTR60_FILES</code> 테이블로 관리하며 직접 붙인다.
+파일명 규칙을 FILE에 적을 수가 없으니 공란으로 두고, 용도를 <code>DIR</code>로 표시한 것이다.</p>
+<p class="t-s"><code>DIR</code>은 Data format 값 중 하나다. 해당 옵션이 없는 버전이면 그냥 비워두라고 가이드가 안내한다.</p></div>
+
+<div class="step"><span class="n">3</span>
+<p><b>Logical file과 Logical path 이름을 똑같이 <code>ZPWCXTRACT50</code>으로 맞추라는 이유</b></p>
+<p>LESSON 1의 원칙은 "경로를 코드에 쓰지 말라"였지 <b>이름까지 자유롭다</b>는 뜻은 아니다.
+프로그램 안에 <code>ZPWCXTRACT50</code>이 상수로 박혀 있고 그걸 <code>FILE_GET_NAME</code>에 넘긴다.
+<span class="hl">경로는 설정이 정하지만, 이름은 프로그램과 설정 사이의 계약이다.</span>
+철자가 하나라도 다르면 <code>FILE_NOT_FOUND</code>가 난다 — LESSON 5-④에서 대소문자를 강조한 이유와 같은 지점이다.</p></div>
+
+<div class="step"><span class="n">4</span>
+<p><b><code>S_DEVELOP</code>이 왜 권한 목록에 있나</b></p>
+<p>가이드 설명은 "Logical file path validation"이고 값이 <code>DEVCLASS/OBJNAME = SFIL</code>, <code>OBJTYPE = FUGR</code>이다.
+경로 검증 로직이 함수그룹 <b><code>SFIL</code></b>에 들어 있고,
+<code>FILE_GET_NAME</code>의 인터페이스를 동적으로 다루기 위해 그 오브젝트 조회 권한이 필요하다.
+<span class="key">개발 권한을 주려는 게 아니라</span> 경로 검증 때문에 붙은 항목이다 — 값이 <code>03-Display</code>인 것도 그래서다.</p></div>
+
+<div class="step"><span class="n">5</span>
+<p><b><code>S_CTS_ADM</code> <code>CTS_ADMFCT = EPS1</code>은 무엇인가</b></p>
+<p>애플리케이션 서버의 파일 <b>목록</b>을 읽기 위한 권한이다.
+함수모듈 <code>EPS2_GET_DIRECTORY_LISTING</code>(TMS 컴포넌트)을 호출하는데 필요하다.
+LESSON 8에서 쓴 <code>RZL_READ_DIR_LOCAL</code>과 목적은 같고, 이쪽은 이관 시스템 쪽 FM이라 권한 오브젝트가 다르다.</p></div>
+
+<div class="step"><span class="n">6</span>
+<p><b><code>S_DATASET</code>에 <code>06-Delete</code>까지 들어간 이유</b></p>
+<p>가이드가 "추출 파일을 PwC에 전달한 뒤에는 서버에서 삭제하라"고 안내한다.
+읽기·쓰기만으로는 그 정리를 못 하기 때문에 삭제 활동까지 포함된다.
+<code>FILENAME</code> 값은 <span class="key">&lt;물리 경로&gt; + <code>*</code></span> 형태로 좁히라고 되어 있다 —
+LESSON 7에서 말한 "파일 단위 통제"를 그대로 적용한 예다.</p></div>
+
+<div class="step"><span class="n">7</span>
+<p><b>Step 5에서 <code>DIR_TRANS</code>를 찾아본 이유</b></p>
+<p>이관 파일(K9*·R9*)을 업로드할 위치를 알아야 해서다.
+<code>DIR_TRANS</code>는 LESSON 2의 <b>표준 디렉토리</b> — AL11에서 값만 확인하고
+<b>CG3Z</b>로 헤더는 <code>\cofiles\</code>, 바디는 <code>\data\</code>에 올린다.
+이후 STMS에서 그 요청이 Import Queue에 잡힌다.</p></div>
+
+<div class="note warn">
+<div class="t">예시 경로가 <code>E:\usr\sap\trans\tmp</code>인 것을 그대로 따라 쓰지 말 것</div>
+<p>가이드 화면은 <b>이관 디렉토리 밑</b>을 쓰고 있지만, 같은 가이드가
+"본 프로그램 전용의 별도 Directory 사용을 권장"한다고 적어 뒀다. 이유는 두 가지다.</p>
+<p><b>권한을 좁힐 수 없다.</b> <code>S_DATASET</code>의 <code>FILENAME</code>을 <code>&lt;경로&gt;/*</code>로 주는 순간
+이관 디렉토리 전체가 열린다.<br>
+<b>공유 디렉토리다.</b> <code>DIR_TRANS</code>는 보통 시스템 간 공유라 추출 데이터가 다른 시스템에서도 보인다.
+추출물에 민감 정보가 들어갈 수 있다는 점을 가이드도 짚고 있다.</p>
+</div>
+
+<div class="note ok">
+<div class="t">Step 7 Config Check가 점검하는 항목 = 이 노트 체크리스트</div>
+<p><code>/PWC/XTR60_CONFIG</code> 리포트가 보는 것은 네 가지다.</p>
+<p><b>a.</b> 논리 file/path가 존재하는가 → APPENDIX 체크리스트 4<br>
+<b>b.</b> 올바르게 구성되었는가 (<code>&lt;FILENAME&gt;</code>·syntax group) → 4<br>
+<b>c.</b> 사용자가 물리 경로에 읽기·쓰기 권한이 있는가 → 6<br>
+<b>d.</b> SAP_BASIS 700 이상 · 필수 FM 존재 → 설치 전제</p>
+<p>직접 만든 파일 인터페이스에는 이런 점검 리포트가 없다.
+그래서 <span class="key">SE37에서 <code>FILE_GET_NAME</code>을 한 번 돌려보는 것</span>(LESSON 5-④)이
+그 자리를 대신한다.</p>
+</div>
+
+<h3>한 줄 요약</h3>
+<div class="tbl-wrap">
+<table>
+<tr><th>그때 한 일</th><th>사실은</th></tr>
+<tr><td class="wrap">FILE에 이름 두 개를 똑같이 넣었다</td>
+    <td class="wrap">프로그램과 설정 사이의 <b>계약 이름</b>을 맞춘 것</td></tr>
+<tr><td class="wrap">경로 끝에 <code>&lt;FILENAME&gt;</code>을 붙였다</td>
+    <td class="wrap">파일명이 끼워질 <b>자리</b>를 지정한 것</td></tr>
+<tr><td class="wrap">AL11에 디렉토리를 등록했다</td>
+    <td class="wrap">프로그램과 무관한 <b>사람용 이름표</b>를 단 것</td></tr>
+<tr><td class="wrap">권한 오브젝트를 롤에 넣었다</td>
+    <td class="wrap">파일 접근이 <b>구문 실행 시 자동 검사</b>되기 때문</td></tr>
+</table>
+</div>
+</div>
+
+
+<!-- ══════════════════ APPENDIX ══════════════════ -->
+<div class="lesson" id="lap">
+<h2><span class="no">APPENDIX</span>체크리스트 · T-code</h2>
+
+<h3>신규 파일 인터페이스 세팅 체크리스트</h3>
+<div class="tbl-wrap">
+<table>
+<tr><th>#</th><th>할 일</th><th>확인 방법</th></tr>
+<tr><td>1</td><td class="wrap">OS에 디렉토리가 실제로 존재하는가</td><td class="wrap">Basis 확인 · AL11</td></tr>
+<tr><td>2</td><td class="wrap">서버가 여러 대면 공유 마운트인가</td><td class="wrap">SM51로 서버 수 확인 후 Basis 문의</td></tr>
+<tr><td>3</td><td class="wrap">AL11에 사용자 디렉토리 등록</td><td class="wrap">AL11 <kbd>Shift</kbd>+<kbd>F1</kbd></td></tr>
+<tr><td>4</td><td class="wrap">FILE에 논리 경로 → 물리 경로 → 논리 파일명</td><td class="wrap">FILE 3단계</td></tr>
+<tr><td>5</td><td class="wrap">SE37에서 <code>FILE_GET_NAME</code> 변환 테스트</td><td class="wrap">대소문자 지시자 켜기</td></tr>
+<tr><td>6</td><td class="wrap">권한 확인</td><td class="wrap"><code>S_DATASET</code> · 필요시 SPTH</td></tr>
+<tr><td>7</td><td class="wrap">QA·PRD에도 물리 경로 할당</td><td class="wrap"><b>이관과 별개로 각 시스템에서</b></td></tr>
+</table>
+</div>
+
+<div class="note warn">
+<div class="t">7번을 자주 놓친다</div>
+<p>논리 파일명 정의는 이관되지만, <b>물리 경로 값은 시스템마다 다르게 두는 것이 목적</b>이다.
+이관만 하고 PRD에 물리 경로를 안 넣으면 <code>FILE_GET_NAME</code>이 엉뚱한 값을 주거나 실패한다.
+운영 이관 전에 반드시 확인한다.</p>
+</div>
+
+<h3>T-code</h3>
+<div class="tbl-wrap">
+<table>
+<tr><th>T-code</th><th>무엇을</th></tr>
+<tr><td><b>AL11</b></td><td class="wrap">서버 디렉토리·파일 조회, 사용자 디렉토리 등록</td></tr>
+<tr><td><b>FILE</b></td><td class="wrap">논리 파일 경로·파일명 정의 (클라이언트 공통)</td></tr>
+<tr><td><b>SF01</b></td><td class="wrap">클라이언트별 논리 파일 정의</td></tr>
+<tr><td><b>SF04</b></td><td class="wrap">운영체제 ↔ syntax group 할당</td></tr>
+<tr><td><b>RZ11</b></td><td class="wrap">프로파일 파라미터 조회 (<code>DIR_*</code> 값 확인)</td></tr>
+<tr><td><b>SM51</b></td><td class="wrap">서버(인스턴스) 목록 — 몇 대인지</td></tr>
+<tr><td><b>SU53</b></td><td class="wrap">직전 권한 실패 내역 — 권한 의심 시</td></tr>
+<tr><td><b>CG3Y / CG3Z</b></td><td class="wrap">서버 ↔ PC 파일 다운로드·업로드</td></tr>
+</table>
+</div>
+
+<h3>자주 만나는 증상</h3>
+<div class="tbl-wrap">
+<table>
+<tr><th>증상</th><th>확인할 곳</th></tr>
+<tr><td class="wrap"><code>FILE_GET_NAME</code>이 <code>FILE_NOT_FOUND</code></td>
+    <td class="wrap">논리 파일명 대문자인지, FILE에 정의가 있는지</td></tr>
+<tr><td class="wrap">경로는 나오는데 <code>OPEN DATASET</code> 실패</td>
+    <td class="wrap">경로 실존 여부(AL11) → 권한(SU53) 순서로</td></tr>
+<tr><td class="wrap">DEV는 되는데 PRD만 안 됨</td>
+    <td class="wrap">PRD에 물리 경로 할당이 빠졌다</td></tr>
+<tr><td class="wrap">한글이 깨짐</td>
+    <td class="wrap"><code>ENCODING UTF-8</code> 명시했는지</td></tr>
+<tr><td class="wrap">병렬에서만 간헐적 실패</td>
+    <td class="wrap"><code>sy-host</code> 확인 — 다른 서버에서 돌았다</td></tr>
+<tr><td class="wrap">AL11에 안 보임</td>
+    <td class="wrap">Server Name을 <code>all</code>로 했는지</td></tr>
+</table>
+</div>
+</div>
+
+
+<!-- ══════════════════ 참고 ══════════════════ -->
+<div class="lesson" id="lref">
+<h2><span class="no">참고</span>출처</h2>
+<ul>
+  <li><a href="https://help.sap.com/saphelp_470/helpdata/EN/fc/eb3deb358411d1829f0000e829fbfe/content.htm">SAP Help — Creating and Defining Logical Paths</a>
+      (논리 경로 생성, syntax group별 물리 경로 할당, <code>&lt;FILENAME&gt;</code> 필수)</li>
+  <li><a href="https://help.sap.com/saphelp_46C/helpdata/EN/9f/db95e635c111d1829f0000e829fbfe/content.htm">SAP Help — Using Logical Files in ABAP Programs</a>
+      (<code>FILE_GET_NAME</code> 파라미터 전체)</li>
+  <li><a href="https://help.sap.com/saphelp_nw73/helpdata/en/48/dfbc22ab14280ee10000000a42189c/content.htm?no_cache=true">SAP Help — Using Logical File Names in Programs</a>
+      (SE37 테스트 시 대소문자 지시자, 물리 경로 실존 필요)</li>
+  <li><a href="https://help.sap.com/SAPHELP_NWPI71/helpdata/EN/2a/fa029d493111d182b70000e829fbfe/content.htm">SAP Help — Platform-Independent File Names 개요</a>
+      (FILE / SF01, IMG 경로, <code>FILE_VALIDATE_NAME</code>)</li>
+  <li><a href="https://help.sap.com/saphelp_em92/helpdata/en/38/bffdace37d4429998beb1e4acb11b7/content.htm">SAP Help — 파일명 검증 가이드</a>
+      (<code>INCLUDING_DIR</code>, 상대 경로 시 <code>DIR_HOME</code> 기준)</li>
+  <li><a href="https://community.sap.com/t5/application-development-and-automation-discussions/authorization-to-control-access-to-specific-directory-in-al11/td-p/12448879">SAP Community — AL11 디렉토리 권한 통제</a>
+      (SPTH + <code>S_PATH</code>, DATASET 구문의 자동 권한 검사)</li>
+  <li><a href="https://www.dan852.com/sap-add-new-directory-al11/">AL11 사용자 디렉토리 등록 절차</a>
+      (<kbd>Shift</kbd>+<kbd>F1</kbd>, <code>DIR_</code> 접두사, <code>USER_DIR</code> 테이블)</li>
+</ul>
+</div>
+
+</div>
+<script src="../assets/site.js" defer></script>
+</body>
+</html>

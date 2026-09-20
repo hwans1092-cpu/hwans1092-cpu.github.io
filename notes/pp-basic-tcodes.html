@@ -1,0 +1,421 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>PP 기본 T-Code와 흐름 — MRP·생산오더·확정·정산</title>
+<meta name="description" content="SAP PP 기본 T-Code 지도. BOM·작업장 CR01·라우팅 CA01·생산버전 C223, MD61·MD01N·MD04 MRP, CO40·CO01·릴리즈·시스템상태, 261·CO11N·101·백플러시·COGI, TECO·KKS2·KO88 정산을 흐름과 도해로 정리.">
+<link rel="icon" href="../assets/favicon.svg">
+<link rel="stylesheet" href="../assets/notes-paper.css">
+<style>
+/* ── 이 노트 전용: 도해(SVG) 스타일 (sap-luw.html 과 동일 세트) ── */
+.dgm{display:block; width:100%; height:auto;}
+.dgm text{font-family:"Malgun Gothic","맑은 고딕","Apple SD Gothic Neo",sans-serif; fill:#1e1e1e;}
+.dgm .t-h{font-size:15px; font-weight:700;}
+.dgm .t{font-size:13px;}
+.dgm .t-s{font-size:11.5px; fill:#555;}
+.dgm .t-xs{font-size:10.5px; fill:#6B7280;}
+.dgm .m{font-family:"D2Coding","Consolas",monospace; font-size:12px;}
+.dgm .m-s{font-family:"D2Coding","Consolas",monospace; font-size:10.5px;}
+.dgm .c-key{fill:#4338CA;} .dgm .c-bad{fill:#B91C1C;} .dgm .c-ok{fill:#047857;}
+.dgm .b{fill:#FFFFFF; stroke:#C7CBD6; stroke-width:1.2;}
+.dgm .b-key{fill:#EEF0FB; stroke:#4338CA; stroke-width:1.4;}
+.dgm .b-bad{fill:#FEF2F2; stroke:#B91C1C; stroke-width:1.3;}
+.dgm .b-ok{fill:#ECFDF5; stroke:#047857; stroke-width:1.3;}
+.dgm .b-mut{fill:#F3F4F6; stroke:#D1D5DB; stroke-width:1.1;}
+.dgm .b-hl{fill:#FEF08A; stroke:#CA8A04; stroke-width:1.2;}
+.dgm .b-ghost{fill:none; stroke:#9AA3B2; stroke-width:1.1; stroke-dasharray:5 4;}
+.dgm .ln{stroke:#7C8697; stroke-width:1.4; fill:none;}
+.dgm .ln-key{stroke:#4338CA; stroke-width:1.8; fill:none;}
+.dgm .ln-bad{stroke:#B91C1C; stroke-width:1.6; fill:none;}
+.dgm .ln-ok{stroke:#047857; stroke-width:1.6; fill:none;}
+.dgm .ln-d{stroke:#9AA3B2; stroke-width:1.2; stroke-dasharray:4 4; fill:none;}
+.dgm .arw{fill:#7C8697;} .dgm .arw-key{fill:#4338CA;}
+.dgm .arw-bad{fill:#B91C1C;} .dgm .arw-ok{fill:#047857;}
+.figwrap{background:#FAFAFE; border:1px solid var(--rule); border-radius:6px;
+  padding:18px 16px 10px; margin:22px 0;}
+.figwrap figcaption{margin-top:12px; padding-top:10px; border-top:1px solid var(--rule);}
+</style>
+
+</head>
+<body>
+<div class="crumb"><a href="../index.html">← SAP 학습 자료실</a> · SAP 모듈 기초 · PP</div>
+<div class="sheet">
+
+<div class="doc-head">
+  <div class="kicker">MODULE BASICS</div>
+  <h1>PP 기본 T-Code와 흐름 — MRP · 생산오더 · 확정 · 정산</h1>
+  <div class="sub">"무엇을 얼마나 만들고, 만든 원가는 어디로"를 한 장으로<br>대상: <b>S/4HANA 기준</b> · 도해 4장 · 개인 프로젝트 범위 밖(제조업 대비용)</div>
+</div>
+
+<div class="lead">
+  <p><b>결론부터.</b> PP는 <span class="hl">"계획 → 생산오더 → 출고 · 확정 · 입고 → 정산"</span>의 흐름이고, 생산오더는 원가를 모으는 그릇입니다.</p>
+  <p>MRP가 부족분을 계산해 계획오더를 제안하고, 생산오더로 바꿔 릴리즈해야 실제 작업이 시작됩니다. 부품 출고(261)와 확정으로 쌓인 비용이 완제품 입고(101)로 빠지고, 남은 차이를 정산합니다.</p>
+</div>
+
+<div class="toc">
+  <h4>목차</h4>
+  <ol>
+    <li><a href="#l1">PP 전체 지도 — 계획에서 정산까지</a></li>
+    <li><a href="#l2">마스터 — BOM · 작업장 · 라우팅 · 생산버전</a></li>
+    <li><a href="#l3">수요 · MRP — MD61 · MD01N · MD04</a></li>
+    <li><a href="#l4">생산오더 — 전환 · 생성 · 릴리즈</a></li>
+    <li><a href="#l5">출고 · 확정 · 입고 — 261 · CO11N · 101</a></li>
+    <li><a href="#l6">완료 · 정산 — TECO · KO88 · 조회</a></li>
+    <li><a href="#ap">APPENDIX — 상황별 치트시트 · 반드시 지킬 것</a></li>
+  </ol>
+</div>
+
+<!-- ═════ LESSON 1 ═════ -->
+<div class="lesson" id="l1">
+<h2><span class="no">LESSON 1</span>PP 전체 지도 — 계획에서 정산까지</h2>
+<p><b>언제 보나.</b> 제조업 SAP의 중심입니다. "왜 이 부품 PR이 생겼지?", "이 오더 원가 차이 왜 났지?" 문의가 여기서 옵니다.</p>
+<p><b>핵심.</b> PP는 <span class="key">계획(얼마나 만들까)</span>과 <span class="key">실행(만들고 넣고 정산)</span> 두 줄입니다. 계획오더까지는 제안이고, 생산오더를 <b>릴리즈</b>해야 실제 출고·확정이 가능합니다.</p>
+<figure class="figwrap">
+<svg class="dgm" viewBox="0 0 1000 420" role="img" aria-label="PP 흐름은 수요 계획, MRP, 계획오더, 생산오더 전환과 릴리즈, 부품 출고 261, 작업 확정, 완제품 입고 101, 기술적 완료와 정산 순으로 이어지며 출고 입고 확정 정산에서 원가가 움직인다는 도해">
+<defs><marker id="g1-a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><polygon class="arw" points="0,1 10,5 0,9"/></marker><marker id="g1-k" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><polygon class="arw-key" points="0,1 10,5 0,9"/></marker><marker id="g1-b" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><polygon class="arw-bad" points="0,1 10,5 0,9"/></marker><marker id="g1-o" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><polygon class="arw-ok" points="0,1 10,5 0,9"/></marker></defs>
+<text class="m-s c-key" x="20" y="24">PLAN — 무엇을 얼마나 만들까</text>
+<rect class="b-mut" x="20" y="36" width="145" height="84" rx="6"/>
+<text class="t-h" x="34" y="60">① 수요</text>
+<text class="m" x="34" y="79">MD61</text>
+<text class="t-xs" x="34" y="95">계획독립소요 PIR</text>
+<path class="ln" d="M165 78 L181 78" marker-end="url(#g1-a)"/>
+<rect class="b-key" x="183" y="36" width="145" height="84" rx="6"/>
+<text class="t-h" x="197" y="60">② MRP</text>
+<text class="m" x="197" y="79">MD01N · MD02</text>
+<text class="t-xs" x="197" y="95">부족분 계산</text>
+<path class="ln" d="M328 78 L344 78" marker-end="url(#g1-a)"/>
+<rect class="b-key" x="346" y="36" width="145" height="84" rx="6"/>
+<text class="t-h" x="360" y="60">③ 계획오더</text>
+<text class="m" x="360" y="79">MD04에서 확인</text>
+<text class="t-xs" x="360" y="95">PLAF · 제안일 뿐</text>
+<path class="ln" d="M491 78 L507 78" marker-end="url(#g1-a)"/>
+<rect class="b-key" x="509" y="36" width="145" height="84" rx="6"/>
+<text class="t-h" x="523" y="60">④ 생산오더</text>
+<text class="m" x="523" y="79">CO40 · CO01</text>
+<text class="t-xs" x="523" y="95">AUFK · AFKO · AFPO</text>
+<path class="ln" d="M654 78 L670 78" marker-end="url(#g1-a)"/>
+<rect class="b-hl" x="672" y="36" width="145" height="84" rx="6"/>
+<text class="t-h" x="686" y="60">⑤ 릴리즈</text>
+<text class="m" x="686" y="79">CO02</text>
+<text class="t-xs" x="686" y="95">이제부터 실행 가능</text>
+<path class="ln" d="M817 78 L833 78" marker-end="url(#g1-a)"/>
+<rect class="b-mut" x="835" y="36" width="145" height="84" rx="6"/>
+<text class="t-h" x="849" y="60">조회</text>
+<text class="m" x="849" y="79">COOIS</text>
+<text class="t-xs" x="849" y="95">오더 정보시스템</text>
+<rect class="b" x="20" y="160" width="145" height="80" rx="6"/>
+<text class="t" x="34" y="182">수요 계획</text>
+<text class="m-s" x="34" y="198">PBIM · PBED</text>
+<line class="ln-d" x1="92" y1="120" x2="92" y2="158"/>
+<rect class="b" x="183" y="160" width="145" height="80" rx="6"/>
+<text class="t" x="197" y="182">MRP 결과</text>
+<text class="m-s" x="197" y="198">MD04 리스트</text>
+<line class="ln-d" x1="255" y1="120" x2="255" y2="158"/>
+<rect class="b" x="346" y="160" width="145" height="80" rx="6"/>
+<text class="t" x="360" y="182">계획오더</text>
+<text class="m-s" x="360" y="198">PLAF</text>
+<line class="ln-d" x1="418" y1="120" x2="418" y2="158"/>
+<rect class="b" x="509" y="160" width="145" height="80" rx="6"/>
+<text class="t" x="523" y="182">오더 + 예약</text>
+<text class="m-s" x="523" y="198">RESB (부품)</text>
+<text class="m-s" x="523" y="214">AFVC (공정)</text>
+<line class="ln-d" x1="581" y1="120" x2="581" y2="158"/>
+<text class="m-s c-key" x="20" y="262">EXECUTE — 만들고 입고하고 정산</text>
+<rect class="b-key" x="20" y="272" width="178" height="90" rx="6"/>
+<text class="t-h" x="36" y="296">⑥ 부품 출고</text>
+<text class="m" x="36" y="315">261</text>
+<text class="t-xs" x="36" y="331">재공(WIP) 원가 +</text>
+<rect class="b-key" x="215" y="272" width="178" height="90" rx="6"/>
+<text class="t-h" x="231" y="296">⑦ 작업 확정</text>
+<text class="m" x="231" y="315">CO11N</text>
+<text class="t-xs" x="231" y="331">작업시간 → 활동원가</text>
+<rect class="b-key" x="410" y="272" width="178" height="90" rx="6"/>
+<text class="t-h" x="426" y="296">⑧ 완제품 입고</text>
+<text class="m" x="426" y="315">101</text>
+<text class="t-xs" x="426" y="331">재고 + / 오더 원가 −</text>
+<rect class="b-mut" x="605" y="272" width="178" height="90" rx="6"/>
+<text class="t-h" x="621" y="296">⑨ TECO</text>
+<text class="m" x="621" y="315">CO02</text>
+<text class="t-xs" x="621" y="331">기술적 완료</text>
+<rect class="b-hl" x="800" y="272" width="178" height="90" rx="6"/>
+<text class="t-h" x="816" y="296">⑩ 정산</text>
+<text class="m" x="816" y="315">KO88 · CO88</text>
+<text class="t-xs" x="816" y="331">차이 → 원가 차이 계정</text>
+<path class="ln-key" d="M198 317 L213 317" marker-end="url(#g1-k)"/>
+<path class="ln-key" d="M393 317 L408 317" marker-end="url(#g1-k)"/>
+<path class="ln-key" d="M588 317 L603 317" marker-end="url(#g1-k)"/>
+<path class="ln-key" d="M783 317 L798 317" marker-end="url(#g1-k)"/>
+<text class="t-s" x="20" y="392">⑥⑦⑧⑩은 원가가 움직인다 — 오더에 비용이 쌓이고(차변), 입고로 빠지고(대변), 남은 차이를 정산으로 턴다.</text>
+</svg>
+<figcaption><span class="fno">그림 1</span> PP 흐름. 위 줄은 계획, 아래 줄은 실행입니다. <b>생산오더는 원가를 모으는 그릇</b>이라는 관점으로 보면 정산까지 한 번에 이해됩니다.</figcaption>
+</figure>
+<div class="note">
+  <div class="t">참고</div>
+  <p>개인 프로젝트(식품 유통 CL04)는 생산이 없는 트레이딩 모델이라 PP를 쓰지 않습니다. 이 노트는 제조업 운영·면접 대비용입니다.</p>
+</div>
+</div>
+
+<!-- ═════ LESSON 2 ═════ -->
+<div class="lesson" id="l2">
+<h2><span class="no">LESSON 2</span>마스터 — BOM · 작업장 · 라우팅 · 생산버전</h2>
+<p><b>언제 쓰나.</b> 생산오더를 만들기 전에 준비해야 합니다. 자재마스터의 <b>MRP 뷰와 작업계획 뷰</b>도 같이 필요합니다.</p>
+<figure class="figwrap">
+<svg class="dgm" viewBox="0 0 1000 335" role="img" aria-label="생산에 필요한 마스터는 자재 BOM, 작업장, 라우팅이며, 생산버전이 어느 BOM과 어느 라우팅을 함께 쓸지 묶어 생산오더가 이 조합을 복사해 온다는 도해">
+<defs><marker id="g2-a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><polygon class="arw" points="0,1 10,5 0,9"/></marker><marker id="g2-k" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><polygon class="arw-key" points="0,1 10,5 0,9"/></marker><marker id="g2-b" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><polygon class="arw-bad" points="0,1 10,5 0,9"/></marker><marker id="g2-o" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><polygon class="arw-ok" points="0,1 10,5 0,9"/></marker></defs>
+<rect class="b-key" x="20" y="40" width="280" height="80" rx="6"/>
+<text class="t-h" x="36" y="64">BOM  <tspan class="m">CS01</tspan></text>
+<text class="t-s" x="36" y="81">무엇을 얼마나 쓰나 (부품)</text>
+<text class="m-s" x="36" y="97">MAST · STKO · STPO</text>
+<rect class="b-key" x="20" y="150" width="280" height="80" rx="6"/>
+<text class="t-h" x="36" y="174">라우팅  <tspan class="m">CA01</tspan></text>
+<text class="t-s" x="36" y="191">어떤 순서로 어디서 (공정)</text>
+<text class="m-s" x="36" y="207">PLKO · PLPO</text>
+<rect class="b" x="360" y="215" width="260" height="80" rx="6"/>
+<text class="t-h" x="376" y="239">작업장  <tspan class="m">CR01</tspan></text>
+<text class="t-s" x="376" y="256">설비·인력 · 원가센터 연결</text>
+<text class="m-s" x="376" y="272">CRHD</text>
+<path class="ln" d="M360 250 L302 215" marker-end="url(#g2-a)"/>
+<rect class="b-hl" x="680" y="80" width="300" height="110" rx="6"/>
+<text class="t-h" x="696" y="104">생산버전  <tspan class="m">C223</tspan></text>
+<text class="t-s" x="696" y="121">BOM 대체 + 라우팅 그룹 조합</text>
+<text class="t-s" x="696" y="138">유효기간 · 로트크기</text>
+<text class="m-s" x="696" y="154">MKAL</text>
+<path class="ln-key" d="M300 80 L678 120" marker-end="url(#g2-k)"/>
+<path class="ln-key" d="M300 175 L678 160" marker-end="url(#g2-k)"/>
+<rect class="b-ghost" x="20" y="303" width="960" height="26" rx="6"/>
+<text class="t-s" x="36" y="321">생산오더를 만드는 순간 BOM → 부품 예약(RESB), 라우팅 → 오더 공정(AFVC)으로 <tspan font-weight="700">복사</tspan>된다. 이후 마스터를 고쳐도 기존 오더는 안 바뀜</text>
+</svg>
+<figcaption><span class="fno">그림 2</span> PP 마스터 데이터. BOM은 "무엇을", 라우팅은 "어떻게", 작업장은 "어디서", 생산버전은 "어떤 조합으로"입니다.</figcaption>
+</figure>
+<div class="tbl-wrap">
+<table>
+<tr><th style="width:140px">T-Code</th><th style="width:150px">용도</th><th class="wrap">메모</th></tr>
+<tr><td><code>CS01/02/03</code></td><td>BOM</td><td class="wrap">용도 1(생산). 전개 CS11/CS12, 역전개 CS15</td></tr>
+<tr><td><code>CR01/02/03</code></td><td>작업장</td><td class="wrap">능력(Capacity) · 원가센터 · 활동유형</td></tr>
+<tr><td><code>CA01/02/03</code></td><td>라우팅</td><td class="wrap">공정 순서 · 표준값(시간)</td></tr>
+<tr><td><code>C223</code></td><td>생산버전</td><td class="wrap">BOM + 라우팅 조합. S/4에선 사실상 필수</td></tr>
+<tr><td><code>MM02</code></td><td>자재 MRP/작업계획 뷰</td><td class="wrap">MRP 유형 · 로트크기 · 조달유형(E 내부생산)</td></tr>
+</table>
+</div>
+</div>
+
+<!-- ═════ LESSON 3 ═════ -->
+<div class="lesson" id="l3">
+<h2><span class="no">LESSON 3</span>수요 · MRP — MD61 · MD01N · MD04</h2>
+<p><b>언제 쓰나.</b> "무엇을 언제 얼마나 만들고 사야 하나"를 시스템이 계산하게 할 때입니다.</p>
+<figure class="figwrap">
+<svg class="dgm" viewBox="0 0 1000 300" role="img" aria-label="MRP는 수요에서 현재 재고와 입고 예정을 뺀 순소요를 계산하고, 로트크기에 맞춰 조달 제안을 만들며, 내부생산 자재는 계획오더, 외부조달 자재는 구매요청으로 나오고 BOM을 따라 하위 부품까지 반복한다는 도해">
+<defs><marker id="g3-a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><polygon class="arw" points="0,1 10,5 0,9"/></marker><marker id="g3-k" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><polygon class="arw-key" points="0,1 10,5 0,9"/></marker><marker id="g3-b" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><polygon class="arw-bad" points="0,1 10,5 0,9"/></marker><marker id="g3-o" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><polygon class="arw-ok" points="0,1 10,5 0,9"/></marker></defs>
+<rect class="b-mut" x="20" y="40" width="220" height="90" rx="6"/>
+<text class="t-h" x="36" y="64">총소요</text>
+<text class="t-s" x="36" y="81">PIR(MD61) + 판매오더</text>
+<text class="t-xs" x="36" y="97">+ 상위 자재 종속소요</text>
+<rect class="b" x="280" y="40" width="220" height="90" rx="6"/>
+<text class="t-h" x="296" y="64">− 가용 재고</text>
+<text class="t-s" x="296" y="81">− 입고 예정</text>
+<text class="t-xs" x="296" y="97">PO · 생산오더 · 계획오더</text>
+<rect class="b-hl" x="540" y="40" width="200" height="90" rx="6"/>
+<text class="t-h" x="556" y="64">= 순소요</text>
+<text class="t-s" x="556" y="81">로트크기 적용</text>
+<text class="t-xs" x="556" y="97">EX · FX · WB …</text>
+<path class="ln" d="M240 85 L278 85" marker-end="url(#g3-a)"/>
+<path class="ln" d="M500 85 L538 85" marker-end="url(#g3-a)"/>
+<rect class="b-key" x="780" y="20" width="200" height="64" rx="6"/>
+<text class="t-h" x="796" y="44">내부생산 (E)</text>
+<text class="m-s" x="796" y="60">→ 계획오더 PLAF</text>
+<rect class="b-key" x="780" y="100" width="200" height="64" rx="6"/>
+<text class="t-h" x="796" y="124">외부조달 (F)</text>
+<text class="m-s" x="796" y="140">→ 구매요청 EBAN</text>
+<path class="ln-key" d="M740 75 L778 52" marker-end="url(#g3-k)"/>
+<path class="ln-key" d="M740 95 L778 132" marker-end="url(#g3-k)"/>
+<path class="ln-d" d="M880 84 C 880 230, 130 230, 130 132" marker-end="url(#g3-a)"/>
+<text class="t-s" x="420" y="222">계획오더의 BOM을 펼쳐 하위 부품 종속소요로 → 다시 계산 (다단계)</text>
+<rect class="b-ghost" x="20" y="250" width="960" height="40" rx="6"/>
+<text class="t-s" x="36" y="275">S/4HANA: <tspan class="m">MD01N</tspan> MRP Live(HANA에서 전체 실행) · 단품 다단계 <tspan class="m">MD02</tspan> · 결과는 <tspan class="m">MD04</tspan>(단품) / <tspan class="m">MD06</tspan>(MRP 관리자별)</text>
+</svg>
+<figcaption><span class="fno">그림 3</span> MRP 계산 원리. 부족분만큼 제안을 만들고, 내부생산이면 BOM을 따라 하위 부품까지 같은 계산을 반복합니다.</figcaption>
+</figure>
+<div class="tbl-wrap">
+<table>
+<tr><th style="width:140px">T-Code</th><th style="width:160px">용도</th><th class="wrap">메모</th></tr>
+<tr><td><code>MD61/62/63</code></td><td>계획독립소요(PIR)</td><td class="wrap">판매 예측 입력 · <code>PBIM</code>/<code>PBED</code></td></tr>
+<tr><td><code>MD01N</code></td><td>MRP Live (S/4)</td><td class="wrap">플랜트 전체. ECC는 <code>MD01</code></td></tr>
+<tr><td><code>MD02</code></td><td>단품 다단계 MRP</td><td class="wrap">자재 1개 + 하위</td></tr>
+<tr><td><code>MD04</code></td><td>재고/소요량 리스트</td><td class="wrap"><b>가장 많이 보는 화면.</b> 재고·소요·입고예정 한 줄씩, 실시간</td></tr>
+<tr><td><code>MD05</code></td><td>MRP 리스트</td><td class="wrap">마지막 MRP 실행 시점 결과 (정적)</td></tr>
+<tr><td><code>MD06</code></td><td>MRP 리스트 일괄</td><td class="wrap">MRP 관리자별 · 예외메시지 필터</td></tr>
+<tr><td><code>MD12/13</code></td><td>계획오더 변경·조회</td><td class="wrap"><code>PLAF</code></td></tr>
+</table>
+</div>
+<div class="note">
+  <div class="t">면접 포인트</div>
+  <p>MD04 vs MD05 → <span class="hl">MD04는 지금 이 순간(동적), MD05는 마지막 MRP 실행 결과(정적)</span>입니다.</p>
+</div>
+</div>
+
+<!-- ═════ LESSON 4 ═════ -->
+<div class="lesson" id="l4">
+<h2><span class="no">LESSON 4</span>생산오더 — 전환 · 생성 · 릴리즈</h2>
+<p><b>언제 쓰나.</b> 계획오더(제안)를 실제 작업 지시로 바꿀 때입니다.</p>
+<div class="step"><span class="n">1</span><p><b>계획오더 → 생산오더 전환.</b> 1건은 <code>CO40</code>, 여러 건은 <code>CO41</code>. 수동 생성은 <code>CO01</code>.</p></div>
+<div class="step"><span class="n">2</span><p><b>생성 시 복사.</b> BOM → 부품 예약(<code>RESB</code>), 라우팅 → 공정(<code>AFVC</code>/<code>AFVV</code>), 계획원가 계산.</p></div>
+<div class="step"><span class="n">3</span><p><b>릴리즈(REL).</b> <code>CO02</code>에서 릴리즈해야 출고·확정이 가능합니다. 일괄 릴리즈는 <code>CO05N</code>. 설정에 따라 생성 즉시 자동 릴리즈.</p></div>
+<div class="step"><span class="n">4</span><p><b>가용성 점검.</b> 부품이 모자라면 릴리즈가 막힐 수 있습니다. 오더 안에서 자재 가용성 점검(누락 부품 목록).</p></div>
+<div class="tbl-wrap">
+<table>
+<tr><th style="width:130px">시스템 상태</th><th style="width:150px">의미</th><th class="wrap">이 상태에서 가능한 것</th></tr>
+<tr><td><code>CRTD</code></td><td>생성</td><td class="wrap">변경만. 출고·확정 불가</td></tr>
+<tr><td><code>REL</code></td><td>릴리즈</td><td class="wrap">출고 261 · 확정 · 입고 101</td></tr>
+<tr><td><code>PCNF</code> / <code>CNF</code></td><td>부분 확정 / 확정</td><td class="wrap">남은 작업 확인</td></tr>
+<tr><td><code>DLV</code> / <code>PDLV</code></td><td>입고 완료 / 부분 입고</td><td class="wrap"></td></tr>
+<tr><td><code>TECO</code></td><td>기술적 완료</td><td class="wrap">더 이상 작업 없음. 예약 해제 · 정산 대상</td></tr>
+<tr><td><code>CLSD</code></td><td>종료</td><td class="wrap">어떤 전기도 불가</td></tr>
+</table>
+</div>
+<div class="tbl-wrap">
+<table>
+<tr><th style="width:160px">T-Code</th><th class="wrap">용도</th></tr>
+<tr><td><code>CO01/02/03</code></td><td>생산오더 생성·변경·조회</td></tr>
+<tr><td><code>CO40</code> / <code>CO41</code></td><td>계획오더 전환 (단건/일괄)</td></tr>
+<tr><td><code>CO05N</code></td><td>일괄 릴리즈</td></tr>
+<tr><td><code>COOIS</code></td><td>오더 정보시스템 — 오더·부품·공정·확정 리스트</td></tr>
+</table>
+</div>
+</div>
+
+<!-- ═════ LESSON 5 ═════ -->
+<div class="lesson" id="l5">
+<h2><span class="no">LESSON 5</span>출고 · 확정 · 입고 — 261 · CO11N · 101</h2>
+<p><b>언제 쓰나.</b> 현장에서 실제로 만드는 단계입니다. 부품을 꺼내고(261), 작업을 보고하고(CO11N), 완제품을 넣습니다(101).</p>
+<figure class="figwrap">
+<svg class="dgm" viewBox="0 0 1000 320" role="img" aria-label="생산오더는 원가를 모으는 그릇으로, 부품 출고 261과 작업 확정의 활동원가가 차변에 쌓이고 완제품 입고 101이 표준원가로 대변에서 빠지며, 남은 차이가 정산으로 원가차이 계정에 넘어간다는 도해">
+<defs><marker id="g4-a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><polygon class="arw" points="0,1 10,5 0,9"/></marker><marker id="g4-k" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><polygon class="arw-key" points="0,1 10,5 0,9"/></marker><marker id="g4-b" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><polygon class="arw-bad" points="0,1 10,5 0,9"/></marker><marker id="g4-o" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><polygon class="arw-ok" points="0,1 10,5 0,9"/></marker></defs>
+<rect class="b-bad" x="20" y="40" width="280" height="70" rx="6"/>
+<text class="t-h c-bad" x="36" y="64">부품 출고  261</text>
+<text class="t-s" x="36" y="81">차) 오더  / 대) 부품 재고</text>
+<rect class="b-bad" x="20" y="130" width="280" height="70" rx="6"/>
+<text class="t-h c-bad" x="36" y="154">작업 확정  CO11N</text>
+<text class="t-s" x="36" y="171">차) 오더  / 대) 작업장 원가센터</text>
+<rect class="b-hl" x="380" y="60" width="240" height="130" rx="6"/>
+<text class="t-h" x="396" y="84">생산오더</text>
+<text class="t-s" x="396" y="101">차변 합계 1,050</text>
+<text class="t-s" x="396" y="118">대변 합계 1,000</text>
+<text class="t-h" x="396" y="140">잔액 50</text>
+<rect class="b-ok" x="700" y="40" width="280" height="70" rx="6"/>
+<text class="t-h c-ok" x="716" y="64">완제품 입고  101</text>
+<text class="t-s" x="716" y="81">차) 완제품 재고 / 대) 오더 (표준가)</text>
+<rect class="b" x="700" y="130" width="280" height="70" rx="6"/>
+<text class="t-h" x="716" y="154">정산  KO88 · CO88</text>
+<text class="t-s" x="716" y="171">잔액 50 → 가격차이 계정</text>
+<path class="ln-bad" d="M300 75 L378 105" marker-end="url(#g4-b)"/>
+<path class="ln-bad" d="M300 165 L378 145" marker-end="url(#g4-b)"/>
+<path class="ln-ok" d="M620 105 L698 75" marker-end="url(#g4-o)"/>
+<path class="ln-key" d="M620 145 L698 165" marker-end="url(#g4-k)"/>
+<rect class="b-ghost" x="20" y="226" width="960" height="80" rx="6"/>
+<text class="t" x="36" y="250">백플러시: 확정(CO11N) 때 부품 261을 <tspan font-weight="700">자동으로</tspan> 같이 전기 — 부품마다 출고 치는 수고를 없앰</text>
+<text class="t-s" x="36" y="267">자동 입고: 마지막 공정 확정 시 101 자동 (제어키 설정)</text>
+<text class="t-xs" x="36" y="283">차이 분석 KKS2(오더별) · 실적 조회 CO03 → 원가 분석</text>
+</svg>
+<figcaption><span class="fno">그림 4</span> 생산오더 원가 흐름. 오더는 <b>비용이 쌓였다가 입고로 빠지는 그릇</b>이고, 남은 잔액이 곧 생산 차이입니다.</figcaption>
+</figure>
+<div class="tbl-wrap">
+<table>
+<tr><th style="width:160px">이동유형 / T-Code</th><th style="width:170px">의미</th><th class="wrap">메모</th></tr>
+<tr><td><code>261</code></td><td>생산오더 부품 출고</td><td class="wrap">MIGO A07 · 오더 참조. 취소 262</td></tr>
+<tr><td><code>101</code></td><td>생산오더 완제품 입고</td><td class="wrap">MIGO A01 · 오더 참조. 취소 102</td></tr>
+<tr><td><code>531</code></td><td>부산물 입고</td><td class="wrap">BOM에 음수 수량 부품</td></tr>
+<tr><td><code>CO11N</code></td><td>공정 확정</td><td class="wrap">작업시간·수량·불량 입력 · <code>AFRU</code></td></tr>
+<tr><td><code>CO13</code></td><td>확정 취소</td><td class="wrap"></td></tr>
+<tr><td><code>COGI</code></td><td>자동 출고 오류 후처리</td><td class="wrap">백플러시 실패(재고 부족 등)가 여기 쌓인다</td></tr>
+</table>
+</div>
+<div class="note">
+  <div class="t">자주 오는 문의</div>
+  <p>"확정은 했는데 재고가 안 빠졌다" → <code>COGI</code>에 백플러시 오류로 걸려 있는지 먼저 확인합니다. 재고 부족·배치 미지정이 대부분입니다.</p>
+</div>
+</div>
+
+<!-- ═════ LESSON 6 ═════ -->
+<div class="lesson" id="l6">
+<h2><span class="no">LESSON 6</span>완료 · 정산 — TECO · KO88 · 조회</h2>
+<p><b>언제 쓰나.</b> 월말 결산입니다. 오더를 닫고 원가 차이를 정리합니다.</p>
+<div class="tbl-wrap">
+<table>
+<tr><th style="width:120px">단계</th><th style="width:150px">T-Code</th><th class="wrap">하는 일</th></tr>
+<tr><td>기술적 완료</td><td><code>CO02</code> TECO</td><td class="wrap">남은 예약·계획 소요 해제</td></tr>
+<tr><td>재공 계산</td><td><code>KKAX</code> / <code>KKAO</code></td><td class="wrap">미완료 오더 재공(WIP) 평가</td></tr>
+<tr><td>차이 계산</td><td><code>KKS2</code> / <code>KKS1</code></td><td class="wrap">단건 / 일괄 생산 차이</td></tr>
+<tr><td>정산</td><td><code>KO88</code> / <code>CO88</code></td><td class="wrap">단건 / 일괄 — 차이를 가격차이·재고로</td></tr>
+<tr><td>종료</td><td><code>CO02</code> CLSD</td><td class="wrap">정산 후 완전 종료</td></tr>
+</table>
+</div>
+<div class="tbl-wrap">
+<table>
+<tr><th style="width:160px">T-Code</th><th class="wrap">용도</th></tr>
+<tr><td><code>COOIS</code></td><td>오더 헤더·부품·공정·확정 통합 리스트</td></tr>
+<tr><td><code>CO03</code></td><td>오더 1건 + 원가 분석</td></tr>
+<tr><td><code>MD04</code></td><td>이 자재 생산 계획·실적</td></tr>
+<tr><td><code>MB51</code></td><td>261/101 자재문서</td></tr>
+<tr><td><code>KOB1</code></td><td>오더 실적 라인아이템</td></tr>
+</table>
+</div>
+<div class="note warn">
+  <div class="t">확인 필요</div>
+  <p>재공·차이·정산 T-Code와 순서는 CO 설정(오더 원가 방식, 결과분석 키)에 따라 다릅니다. 실제 결산 매뉴얼을 확인하세요.</p>
+</div>
+</div>
+
+<!-- ═════ APPENDIX ═════ -->
+<div class="lesson" id="ap">
+<h2><span class="no">APPENDIX</span>상황별 치트시트 · 반드시 지킬 것</h2>
+<h3>이럴 땐 이것</h3>
+<div class="tbl-wrap">
+<table>
+<tr><th style="width:220px">상황</th><th style="width:230px">T-Code</th><th class="wrap">테이블</th></tr>
+<tr><td>BOM 보기 / 사용처</td><td><code>CS03</code> · <code>CS12</code> / <code>CS15</code></td><td class="wrap"><code>STKO</code> · <code>STPO</code></td></tr>
+<tr><td>공정 보기</td><td><code>CA03</code></td><td class="wrap"><code>PLKO</code> · <code>PLPO</code></td></tr>
+<tr><td>생산버전</td><td><code>C223</code></td><td class="wrap"><code>MKAL</code></td></tr>
+<tr><td>수요 입력</td><td><code>MD61</code></td><td class="wrap"><code>PBIM</code> · <code>PBED</code></td></tr>
+<tr><td>MRP 돌리기</td><td><code>MD01N</code> / <code>MD02</code></td><td class="wrap"><code>PLAF</code> · <code>EBAN</code></td></tr>
+<tr><td>재고·소요 현황</td><td><code>MD04</code></td><td class="wrap">실시간</td></tr>
+<tr><td>계획오더 → 생산오더</td><td><code>CO40</code> / <code>CO41</code></td><td class="wrap"><code>AUFK</code> · <code>AFKO</code> · <code>AFPO</code></td></tr>
+<tr><td>오더 릴리즈</td><td><code>CO02</code> / <code>CO05N</code></td><td class="wrap">상태 <code>JEST</code></td></tr>
+<tr><td>부품 출고</td><td><code>MIGO</code> 261</td><td class="wrap"><code>RESB</code> → <code>MATDOC</code></td></tr>
+<tr><td>작업 확정</td><td><code>CO11N</code></td><td class="wrap"><code>AFRU</code></td></tr>
+<tr><td>완제품 입고</td><td><code>MIGO</code> 101</td><td class="wrap"><code>MATDOC</code></td></tr>
+<tr><td>백플러시 실패</td><td><code>COGI</code></td><td class="wrap"><code>AFFW</code></td></tr>
+<tr><td>오더 리스트</td><td><code>COOIS</code></td><td class="wrap">—</td></tr>
+<tr><td>차이 · 정산</td><td><code>KKS2</code> · <code>KO88</code></td><td class="wrap">—</td></tr>
+</table>
+</div>
+<h3>반드시 지킬 것</h3>
+<div class="note warn">
+  <div class="t">1. 오더 상태를 먼저 본다</div>
+  <p>출고·확정이 안 되면 대부분 상태 문제(CRTD, TECO, CLSD)입니다. 상태 테이블 <code>JEST</code>/<code>TJ02T</code>.</p>
+</div>
+<div class="note warn">
+  <div class="t">2. COGI를 비워 둔다</div>
+  <p>백플러시 오류가 쌓이면 재고·원가가 동시에 틀어집니다. 매일 확인 대상입니다.</p>
+</div>
+<div class="note warn">
+  <div class="t">3. 오더 생성·확정은 BAPI로</div>
+  <p><code>BAPI_PRODORD_CREATE</code>, 확정 <code>BAPI_PRODORDCONF_CREATE_TT</code> 등. 테이블 직접 수정 금지.</p>
+</div>
+<div class="note warn">
+  <div class="t">4. 마스터 변경은 기존 오더에 반영되지 않는다</div>
+  <p>BOM·라우팅을 고쳤으면 이미 만든 오더는 "읽기(Read PP master data)"로 다시 불러와야 합니다.</p>
+</div>
+</div>
+
+<h3 style="border:0; color:var(--ink-soft); font-size:10pt; margin-top:40px;">참고 자료</h3>
+<ul style="font-size:9.5pt; color:var(--ink-soft);">
+  <li>SAP Help Portal — Production Planning: Production Orders / Confirmations</li>
+  <li>SAP Help Portal — MRP Live (MD01N) in S/4HANA</li>
+  <li>SAP Help Portal — Product Cost by Order: Variance Calculation and Settlement</li>
+</ul>
+
+</div>
+<script src="../assets/site.js" defer></script>
+</body>
+</html>

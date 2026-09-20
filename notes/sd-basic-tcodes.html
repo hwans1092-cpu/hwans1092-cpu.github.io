@@ -1,0 +1,597 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>SD 기본 T-Code와 흐름 — 수주·출하·청구·가격·문서흐름</title>
+<meta name="description" content="SAP SD 기본 T-Code 지도. 판매영역, VA01 오더유형·품목범주, 조건기법 VK11, 출하 VL01N·PGI 601, 청구 VF01·VF04·VFX3·VKOA, 문서흐름 VBFA, 반품 RE·651·크레딧메모를 흐름과 도해로 정리.">
+<link rel="icon" href="../assets/favicon.svg">
+<link rel="stylesheet" href="../assets/notes-paper.css">
+<style>
+/* ── 이 노트 전용: 도해(SVG) 스타일 (sap-luw.html 과 동일 세트) ── */
+.dgm{display:block; width:100%; height:auto;}
+.dgm text{font-family:"Malgun Gothic","맑은 고딕","Apple SD Gothic Neo",sans-serif; fill:#1e1e1e;}
+.dgm .t-h{font-size:15px; font-weight:700;}
+.dgm .t{font-size:13px;}
+.dgm .t-s{font-size:11.5px; fill:#555;}
+.dgm .t-xs{font-size:10.5px; fill:#6B7280;}
+.dgm .m{font-family:"D2Coding","Consolas",monospace; font-size:12px;}
+.dgm .m-s{font-family:"D2Coding","Consolas",monospace; font-size:10.5px;}
+.dgm .c-key{fill:#4338CA;} .dgm .c-bad{fill:#B91C1C;} .dgm .c-ok{fill:#047857;}
+.dgm .b{fill:#FFFFFF; stroke:#C7CBD6; stroke-width:1.2;}
+.dgm .b-key{fill:#EEF0FB; stroke:#4338CA; stroke-width:1.4;}
+.dgm .b-bad{fill:#FEF2F2; stroke:#B91C1C; stroke-width:1.3;}
+.dgm .b-ok{fill:#ECFDF5; stroke:#047857; stroke-width:1.3;}
+.dgm .b-mut{fill:#F3F4F6; stroke:#D1D5DB; stroke-width:1.1;}
+.dgm .b-hl{fill:#FEF08A; stroke:#CA8A04; stroke-width:1.2;}
+.dgm .b-ghost{fill:none; stroke:#9AA3B2; stroke-width:1.1; stroke-dasharray:5 4;}
+.dgm .ln{stroke:#7C8697; stroke-width:1.4; fill:none;}
+.dgm .ln-key{stroke:#4338CA; stroke-width:1.8; fill:none;}
+.dgm .ln-bad{stroke:#B91C1C; stroke-width:1.6; fill:none;}
+.dgm .ln-ok{stroke:#047857; stroke-width:1.6; fill:none;}
+.dgm .ln-d{stroke:#9AA3B2; stroke-width:1.2; stroke-dasharray:4 4; fill:none;}
+.dgm .arw{fill:#7C8697;} .dgm .arw-key{fill:#4338CA;}
+.dgm .arw-bad{fill:#B91C1C;} .dgm .arw-ok{fill:#047857;}
+.figwrap{background:#FAFAFE; border:1px solid var(--rule); border-radius:6px;
+  padding:18px 16px 10px; margin:22px 0;}
+.figwrap figcaption{margin-top:12px; padding-top:10px; border-top:1px solid var(--rule);}
+</style>
+
+</head>
+<body>
+<div class="crumb"><a href="../index.html">← SAP 학습 자료실</a> · SAP 모듈 기초 · SD</div>
+<div class="sheet">
+
+<div class="doc-head">
+  <div class="kicker">MODULE BASICS</div>
+  <h1>SD 기본 T-Code와 흐름 — 수주 · 출하 · 청구 · 가격 · 문서흐름</h1>
+  <div class="sub">"주문 하나가 돈이 되기까지"를 한 장으로<br>대상: <b>S/4HANA 기준</b>(ECC 차이는 따로 표시) · 도해 8장 · 캡처는 추후 추가</div>
+</div>
+
+<div class="lead">
+  <p><b>결론부터.</b> SD는 <span class="hl">"수주 → 출하 → 출고 → 청구"</span> 네 문서가 앞 문서를 참조해 이어지는 사슬입니다.</p>
+  <p>각 문서는 VBFA(문서흐름)로 서로를 가리키고, <b>출고(PGI)와 청구</b>에서만 MM 재고와 FI 원장에 영향을 줍니다. 이 사슬과 가격결정(조건기법)만 잡으면 SD 문의 대부분의 출발점이 보입니다.</p>
+</div>
+
+<div class="toc">
+  <h4>목차</h4>
+  <ol>
+    <li><a href="#l1">SD 전체 지도 — 정거장과 문서</a></li>
+    <li><a href="#l2">마스터 — 고객 · 자재 영업뷰 · 판매영역</a></li>
+    <li><a href="#l3">수주 — VA01 · 오더유형 · 품목범주</a></li>
+    <li><a href="#l4">가격결정 — 조건기법</a></li>
+    <li><a href="#l5">출하 — VL01N · 피킹 · PGI</a></li>
+    <li><a href="#l6">청구 — VF01 · VF04 · 회계 이전</a></li>
+    <li><a href="#l7">문서흐름 · 추적 — VBFA · 상태</a></li>
+    <li><a href="#l8">반품 · 크레딧메모</a></li>
+    <li><a href="#ap">APPENDIX — 상황별 치트시트 · 반드시 지킬 것</a></li>
+  </ol>
+</div>
+
+<!-- ═════ LESSON 1 ═════ -->
+<div class="lesson" id="l1">
+<h2><span class="no">LESSON 1</span>SD 전체 지도 — 정거장과 문서</h2>
+<p><b>언제 보나.</b> "이 주문 출고됐어요?", "세금계산서 나갔어요?" 같은 문의를 받을 때입니다.</p>
+<p>질문을 <b>흐름 위의 정거장</b>으로 바꾸면 T-Code와 테이블이 같이 떠오릅니다. MM이 "사 오는" 흐름이라면 SD는 <span class="key">"팔고 내보내는" 흐름</span>입니다.</p>
+<figure class="figwrap">
+<svg class="dgm" viewBox="0 0 1000 390" role="img" aria-label="SD 판매 흐름은 수주, 출하, 피킹, 출고, 청구, 수금 여섯 정거장으로 이어지고, 출고와 청구에서 회계전표가 생긴다는 도해">
+<defs><marker id="g1-a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><polygon class="arw" points="0,1 10,5 0,9"/></marker><marker id="g1-k" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><polygon class="arw-key" points="0,1 10,5 0,9"/></marker><marker id="g1-b" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><polygon class="arw-bad" points="0,1 10,5 0,9"/></marker><marker id="g1-o" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><polygon class="arw-ok" points="0,1 10,5 0,9"/></marker></defs>
+<text class="m-s c-key" x="20" y="24">STATION — 무엇을 하나 / 어느 T-Code</text>
+<rect class="b-mut" x="20" y="36" width="145" height="84" rx="6"/>
+<text class="t-h" x="34" y="60">① 수주</text>
+<text class="m" x="34" y="79">VA01</text>
+<text class="t-xs" x="34" y="95">고객 주문 접수</text>
+<path class="ln" d="M165 78 L181 78" marker-end="url(#g1-a)"/>
+<rect class="b-key" x="183" y="36" width="145" height="84" rx="6"/>
+<text class="t-h" x="197" y="60">② 출하</text>
+<text class="m" x="197" y="79">VL01N</text>
+<text class="t-xs" x="197" y="95">출하문서 생성</text>
+<path class="ln" d="M328 78 L344 78" marker-end="url(#g1-a)"/>
+<rect class="b-key" x="346" y="36" width="145" height="84" rx="6"/>
+<text class="t-h" x="360" y="60">③ 피킹</text>
+<text class="m" x="360" y="79">VL02N</text>
+<text class="t-xs" x="360" y="95">피킹 수량·배치</text>
+<path class="ln" d="M491 78 L507 78" marker-end="url(#g1-a)"/>
+<rect class="b-key" x="509" y="36" width="145" height="84" rx="6"/>
+<text class="t-h" x="523" y="60">④ 출고(PGI)</text>
+<text class="m" x="523" y="79">VL02N · 601</text>
+<text class="t-xs" x="523" y="95">재고 −, 매출원가</text>
+<path class="ln" d="M654 78 L670 78" marker-end="url(#g1-a)"/>
+<rect class="b-key" x="672" y="36" width="145" height="84" rx="6"/>
+<text class="t-h" x="686" y="60">⑤ 청구</text>
+<text class="m" x="686" y="79">VF01 · VF04</text>
+<text class="t-xs" x="686" y="95">세금계산서</text>
+<path class="ln" d="M817 78 L833 78" marker-end="url(#g1-a)"/>
+<rect class="b-key" x="835" y="36" width="145" height="84" rx="6"/>
+<text class="t-h" x="849" y="60">⑥ 수금</text>
+<text class="m" x="849" y="79">F-28</text>
+<text class="t-xs" x="849" y="95">FI에서 반제</text>
+<rect class="b" x="20" y="160" width="145" height="80" rx="6"/>
+<text class="t" x="34" y="182">판매문서</text>
+<text class="m-s" x="34" y="198">VBAK VBAP VBEP</text>
+<line class="ln-d" x1="92" y1="120" x2="92" y2="158"/>
+<rect class="b" x="183" y="160" width="145" height="80" rx="6"/>
+<text class="t" x="197" y="182">출하문서</text>
+<text class="m-s" x="197" y="198">LIKP LIPS</text>
+<line class="ln-d" x1="255" y1="120" x2="255" y2="158"/>
+<rect class="b" x="346" y="160" width="145" height="80" rx="6"/>
+<text class="t" x="360" y="182">피킹 수량</text>
+<text class="m-s" x="360" y="198">LIPS-PIKMG 등</text>
+<line class="ln-d" x1="418" y1="120" x2="418" y2="158"/>
+<rect class="b" x="509" y="160" width="145" height="80" rx="6"/>
+<text class="t" x="523" y="182">자재문서</text>
+<text class="m-s" x="523" y="198">MATDOC (601)</text>
+<line class="ln-d" x1="581" y1="120" x2="581" y2="158"/>
+<rect class="b" x="672" y="160" width="145" height="80" rx="6"/>
+<text class="t" x="686" y="182">청구문서</text>
+<text class="m-s" x="686" y="198">VBRK VBRP</text>
+<line class="ln-d" x1="744" y1="120" x2="744" y2="158"/>
+<rect class="b" x="835" y="160" width="145" height="80" rx="6"/>
+<text class="t" x="849" y="182">반제 전표</text>
+<text class="m-s" x="849" y="198">AUGBL</text>
+<line class="ln-d" x1="907" y1="120" x2="907" y2="158"/>
+<text class="m-s c-key" x="20" y="150">DOCUMENT — 그 결과 남는 것 (테이블)</text>
+<path class="ln-key" d="M581 240 L581 292" marker-end="url(#g1-k)"/>
+<path class="ln-key" d="M744 240 L744 292" marker-end="url(#g1-k)"/>
+<rect class="b-hl" x="518" y="296" width="462" height="76" rx="6"/>
+<text class="t-h" x="534" y="320">회계전표  BKPF · BSEG → S/4: ACDOCA</text>
+<text class="t-s" x="534" y="337">④ 출고: 차) 매출원가 / 대) 재고   ⑤ 청구: 차) 고객 / 대) 매출·부가세</text>
+<text class="t-xs" x="534" y="353">수주·출하·피킹은 돈이 안 움직인다 → 회계전표 없음</text>
+<rect class="b-ghost" x="20" y="296" width="480" height="76" rx="6"/>
+<text class="t" x="36" y="320">문서가 앞 문서를 <tspan font-weight="700">참조해서</tspan> 만들어진다</text>
+<text class="t-s" x="36" y="337">VL01N은 수주번호, VF01은 출하번호를 넣으면 품목을 끌어온다.</text>
+<text class="t-xs" x="36" y="353">→ 이 참조 관계가 문서흐름(VBFA) = Lesson 7</text>
+</svg>
+<figcaption><span class="fno">그림 1</span> SD 판매 흐름 여섯 정거장. <b>출고(④)와 청구(⑤)만 회계에 영향</b>을 줍니다. 출고는 MM 쪽 재고를 줄이고, 청구는 FI 쪽 매출·채권을 만듭니다.</figcaption>
+</figure>
+<h3>T-Code 이름 규칙 — 1 생성 · 2 변경 · 3 조회</h3>
+<div class="tbl-wrap">
+<table>
+<tr><th style="width:130px">대상</th><th>생성</th><th>변경</th><th>조회</th><th class="wrap">비고</th></tr>
+<tr><td>판매오더</td><td><code>VA01</code></td><td><code>VA02</code></td><td><code>VA03</code></td><td class="wrap">견적 VA21~23 · 조회 리스트 VA05</td></tr>
+<tr><td>출하문서</td><td><code>VL01N</code></td><td><code>VL02N</code></td><td><code>VL03N</code></td><td class="wrap">일괄 생성 VL10* · 모니터 VL06O</td></tr>
+<tr><td>청구문서</td><td><code>VF01</code></td><td><code>VF02</code></td><td><code>VF03</code></td><td class="wrap">일괄 VF04 · 취소 VF11</td></tr>
+<tr><td>고객</td><td><code>BP</code></td><td><code>BP</code></td><td><code>BP</code></td><td class="wrap">ECC: XD01/VD01</td></tr>
+<tr><td>가격 조건</td><td><code>VK11</code></td><td><code>VK12</code></td><td><code>VK13</code></td><td class="wrap">조건 레코드</td></tr>
+</table>
+</div>
+<div class="note">
+  <div class="t">면접 포인트</div>
+  <p>"수주를 만들면 회계에 뭐가 남나요?" → <span class="hl">아무것도 안 남습니다.</span> 회계전표는 출고(PGI)와 청구에서 생깁니다. 수주는 여신·가용성 확인과 납기 약속까지입니다.</p>
+</div>
+</div>
+
+<!-- ═════ LESSON 2 ═════ -->
+<div class="lesson" id="l2">
+<h2><span class="no">LESSON 2</span>마스터 — 고객 · 자재 영업뷰 · 판매영역</h2>
+<p><b>언제 쓰나.</b> 수주를 넣기 전에 반드시 갖춰야 하는 것들입니다. 고객이 해당 <b>판매영역</b>에 확장돼 있지 않으면 VA01 첫 화면에서 막힙니다.</p>
+<figure class="figwrap">
+<svg class="dgm" viewBox="0 0 1000 330" role="img" aria-label="판매조직, 유통경로, 제품군 세 개가 모여 판매영역이 되고, 고객마스터의 영업 데이터와 가격·출하 조건이 이 판매영역 단위로 저장된다는 도해">
+<defs><marker id="g2-a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><polygon class="arw" points="0,1 10,5 0,9"/></marker><marker id="g2-k" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><polygon class="arw-key" points="0,1 10,5 0,9"/></marker><marker id="g2-b" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><polygon class="arw-bad" points="0,1 10,5 0,9"/></marker><marker id="g2-o" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><polygon class="arw-ok" points="0,1 10,5 0,9"/></marker></defs>
+<rect class="b-key" x="20" y="36" width="200" height="62" rx="6"/>
+<text class="t-h" x="36" y="60">판매조직</text>
+<text class="m-s" x="36" y="76">VKORG · 누가 판다</text>
+<rect class="b-key" x="240" y="36" width="200" height="62" rx="6"/>
+<text class="t-h" x="256" y="60">유통경로</text>
+<text class="m-s" x="256" y="76">VTWEG · 어떤 경로로</text>
+<rect class="b-key" x="460" y="36" width="200" height="62" rx="6"/>
+<text class="t-h" x="476" y="60">제품군</text>
+<text class="m-s" x="476" y="76">SPART · 무엇을</text>
+<path class="ln-key" d="M120 98 L340 146" marker-end="url(#g2-k)"/>
+<path class="ln-key" d="M340 98 L340 146" marker-end="url(#g2-k)"/>
+<path class="ln-key" d="M560 98 L340 146" marker-end="url(#g2-k)"/>
+<rect class="b-hl" x="200" y="150" width="280" height="70" rx="6"/>
+<text class="t-h" x="216" y="174">판매영역 (Sales Area)</text>
+<text class="t-s" x="216" y="191">VKORG + VTWEG + SPART 조합</text>
+<path class="ln" d="M480 185 L578 185" marker-end="url(#g2-a)"/>
+<rect class="b" x="580" y="130" width="400" height="110" rx="6"/>
+<text class="t-h" x="596" y="154">고객마스터 영업뷰  <tspan class="m">KNVV</tspan></text>
+<text class="t-s" x="596" y="171">가격절차 · 인도조건 · 지급조건 · 출하플랜트</text>
+<text class="t-xs" x="596" y="187">일반 데이터 KNA1 (주소 등, 판매영역 무관)</text>
+<text class="t-xs" x="596" y="203">회사코드 데이터 KNB1 (조정계정 등)</text>
+<rect class="b-ghost" x="20" y="260" width="960" height="56" rx="6"/>
+<text class="t-s" x="36" y="294">출하 쪽 조직: <tspan class="m">플랜트 WERKS</tspan> → <tspan class="m">출하지점 VSTEL</tspan>(어디서 내보내나) · 출하지점은 플랜트 + 출하조건 + 적재그룹으로 자동 결정(OVL2)</text>
+</svg>
+<figcaption><span class="fno">그림 2</span> SD 조직 구조. <b>판매영역 = 판매조직 + 유통경로 + 제품군</b>. 고객의 영업 조건(KNVV)과 가격은 이 단위로 따로 관리됩니다.</figcaption>
+</figure>
+<div class="tbl-wrap">
+<table>
+<tr><th style="width:110px">T-Code</th><th style="width:180px">용도</th><th class="wrap">메모</th></tr>
+<tr><td><code>BP</code></td><td>고객 생성·변경</td><td class="wrap">S/4 비즈니스 파트너. 역할 <code>FLCU00</code>(FI 고객) · <code>FLCU01</code>(영업 고객). ECC는 <code>XD01</code>/<code>VD01</code></td></tr>
+<tr><td><code>MM01</code></td><td>자재 영업뷰</td><td class="wrap">영업: 영업조직 1·2(<code>MVKE</code>), 영업: 일반/플랜트(<code>MARC</code> — 가용성 점검·적재그룹)</td></tr>
+<tr><td><code>VD51</code></td><td>고객-자재 정보레코드</td><td class="wrap">고객이 쓰는 자재코드 ↔ 우리 자재코드 매핑 (<code>KNMT</code>)</td></tr>
+<tr><td><code>OVX5</code> 등</td><td>판매조직 정의</td><td class="wrap">IMG 설정. 조직 구조는 SPRO → 엔터프라이즈 구조</td></tr>
+</table>
+</div>
+<div class="note">
+  <div class="t">자주 막히는 것</div>
+  <p>고객은 만들었는데 VA01에서 "판매영역에 고객 없음"이 나오면 → BP에서 <b>해당 판매영역으로 영업 데이터(KNVV)를 추가</b>하지 않은 것입니다.</p>
+</div>
+</div>
+
+<!-- ═════ LESSON 3 ═════ -->
+<div class="lesson" id="l3">
+<h2><span class="no">LESSON 3</span>수주 — VA01 · 오더유형 · 품목범주</h2>
+<p><b>언제 쓰나.</b> 고객 주문을 시스템에 올리는 순간입니다. 이때 <b>가격 결정, 가용성 확인, 여신 체크</b>가 한꺼번에 돌아갑니다.</p>
+<p><b>핵심.</b> 판매오더는 <span class="key">헤더 · 품목 · 일정라인</span> 3층입니다. 각 층의 "유형"이 이후 출하·청구 동작을 결정합니다.</p>
+<figure class="figwrap">
+<svg class="dgm" viewBox="0 0 1000 300" role="img" aria-label="판매오더는 헤더 VBAK, 품목 VBAP, 일정라인 VBEP 3층 구조이며, 오더유형이 헤더를, 품목범주가 품목을, 일정라인범주가 재고 출고 여부를 결정한다는 도해">
+<defs><marker id="g3-a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><polygon class="arw" points="0,1 10,5 0,9"/></marker><marker id="g3-k" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><polygon class="arw-key" points="0,1 10,5 0,9"/></marker><marker id="g3-b" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><polygon class="arw-bad" points="0,1 10,5 0,9"/></marker><marker id="g3-o" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><polygon class="arw-ok" points="0,1 10,5 0,9"/></marker></defs>
+<rect class="b-key" x="20" y="36" width="300" height="90" rx="6"/>
+<text class="t-h" x="36" y="60">헤더  <tspan class="m">VBAK</tspan></text>
+<text class="t-s" x="36" y="77">오더유형 AUART (OR 표준, RE 반품)</text>
+<text class="t-xs" x="36" y="93">고객 · 판매영역 · 주문일</text>
+<rect class="b" x="350" y="36" width="300" height="90" rx="6"/>
+<text class="t-h" x="366" y="60">품목  <tspan class="m">VBAP</tspan></text>
+<text class="t-s" x="366" y="77">품목범주 PSTYV (TAN 표준, REN 반품)</text>
+<text class="t-xs" x="366" y="93">자재 · 수량 · 플랜트</text>
+<rect class="b" x="680" y="36" width="300" height="90" rx="6"/>
+<text class="t-h" x="696" y="60">일정라인  <tspan class="m">VBEP</tspan></text>
+<text class="t-s" x="696" y="77">일정라인범주 ETTYP (CP: MRP·출고)</text>
+<text class="t-xs" x="696" y="93">납기일 · 확정수량</text>
+<path class="ln-key" d="M320 80 L348 80" marker-end="url(#g3-k)"/>
+<path class="ln-key" d="M650 80 L678 80" marker-end="url(#g3-k)"/>
+<rect class="b-hl" x="20" y="160" width="960" height="60" rx="6"/>
+<text class="t-h" x="36" y="184">품목범주는 어떻게 정해지나</text>
+<text class="t-s" x="36" y="201">오더유형의 품목범주그룹 + 자재의 품목범주그룹(MVKE-MTPOS) + 용도 → VOV4 설정에서 자동 결정</text>
+<rect class="b-ghost" x="20" y="236" width="960" height="50" rx="6"/>
+<text class="t-s" x="36" y="266">가격 결과: ECC <tspan class="m">KONV</tspan> / S/4 <tspan class="m">PRCD_ELEMENTS</tspan>  ·  파트너(판매처·납품처·청구처·지급인): <tspan class="m">VBPA</tspan></text>
+</svg>
+<figcaption><span class="fno">그림 3</span> 판매오더 3층 구조. 출하가 되는지는 <b>일정라인범주</b>가, 청구 방식은 <b>품목범주</b>가 결정합니다.</figcaption>
+</figure>
+<div class="tbl-wrap">
+<table>
+<tr><th style="width:120px">T-Code</th><th style="width:160px">용도</th><th class="wrap">메모</th></tr>
+<tr><td><code>VA01/02/03</code></td><td>판매오더</td><td class="wrap">참조 생성: 견적·계약에서 끌어오기 가능</td></tr>
+<tr><td><code>VA05</code></td><td>판매오더 리스트</td><td class="wrap">고객·자재·기간 조건. 미결 오더 확인</td></tr>
+<tr><td><code>VA21/22/23</code></td><td>견적</td><td class="wrap">견적 → 오더 전환 시 참조</td></tr>
+<tr><td><code>VA41/42/43</code></td><td>계약</td><td class="wrap">기간 계약 · 릴리즈 오더</td></tr>
+<tr><td><code>V.02</code></td><td>미완료 판매문서</td><td class="wrap">필수 데이터 누락(Incompletion) 목록</td></tr>
+<tr><td><code>VKM1</code></td><td>여신 보류 문서</td><td class="wrap">여신 한도 초과로 막힌 오더 해제</td></tr>
+<tr><td><code>CO09</code></td><td>가용성 개요</td><td class="wrap">이 자재 언제 몇 개 쓸 수 있나 (ATP)</td></tr>
+</table>
+</div>
+<div class="tbl-wrap">
+<table>
+<tr><th style="width:100px">오더유형</th><th style="width:160px">의미</th><th class="wrap">기본 품목범주</th></tr>
+<tr><td><code>OR</code></td><td>표준 오더</td><td class="wrap"><code>TAN</code></td></tr>
+<tr><td><code>RE</code></td><td>반품</td><td class="wrap"><code>REN</code></td></tr>
+<tr><td><code>CR</code></td><td>크레딧메모 요청</td><td class="wrap"><code>G2N</code></td></tr>
+<tr><td><code>DR</code></td><td>데빗메모 요청</td><td class="wrap"><code>L2N</code></td></tr>
+<tr><td><code>FD</code></td><td>무상 출하</td><td class="wrap"><code>KLN</code></td></tr>
+</table>
+</div>
+</div>
+
+<!-- ═════ LESSON 4 ═════ -->
+<div class="lesson" id="l4">
+<h2><span class="no">LESSON 4</span>가격결정 — 조건기법</h2>
+<p><b>언제 보나.</b> "왜 이 가격이 들어왔지?" 문의가 오면 가격결정 로직을 따라가야 합니다. SD 개발자가 가장 자주 파고드는 곳입니다.</p>
+<p><b>핵심.</b> SAP은 가격을 <span class="key">"절차 → 조건유형 → 액세스 시퀀스 → 조건테이블 → 조건레코드"</span> 순서로 찾아갑니다. 이 구조를 <b>조건기법(Condition Technique)</b>이라고 하고, 출력·배치결정·품목범주 결정 등에서도 같은 방식이 쓰입니다.</p>
+<figure class="figwrap">
+<svg class="dgm" viewBox="0 0 1000 330" role="img" aria-label="가격결정절차가 판매영역과 고객·문서 가격절차로 정해지고, 절차 안의 조건유형마다 액세스 시퀀스가 조건테이블을 순서대로 뒤져 조건레코드를 찾아 가격을 채운다는 도해">
+<defs><marker id="g4-a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><polygon class="arw" points="0,1 10,5 0,9"/></marker><marker id="g4-k" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><polygon class="arw-key" points="0,1 10,5 0,9"/></marker><marker id="g4-b" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><polygon class="arw-bad" points="0,1 10,5 0,9"/></marker><marker id="g4-o" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><polygon class="arw-ok" points="0,1 10,5 0,9"/></marker></defs>
+<rect class="b-mut" x="20" y="40" width="220" height="86" rx="6"/>
+<text class="t-h" x="36" y="64">가격결정절차</text>
+<text class="m-s" x="36" y="80">RVAA01 등 (V/08)</text>
+<text class="t-xs" x="36" y="96">판매영역+고객+문서 → OVKK</text>
+<rect class="b-key" x="270" y="40" width="200" height="86" rx="6"/>
+<text class="t-h" x="286" y="64">조건유형</text>
+<text class="m" x="286" y="83">PR00 · K004</text>
+<text class="t-xs" x="286" y="99">가격·할인 한 줄 (V/06)</text>
+<rect class="b-key" x="500" y="40" width="220" height="86" rx="6"/>
+<text class="t-h" x="516" y="64">액세스 시퀀스</text>
+<text class="m-s" x="516" y="80">PR02 (V/07)</text>
+<text class="t-xs" x="516" y="96">어느 테이블부터 볼까</text>
+<rect class="b" x="750" y="40" width="230" height="86" rx="6"/>
+<text class="t-h" x="766" y="64">조건테이블</text>
+<text class="m-s" x="766" y="80">A004 · A005 …</text>
+<text class="t-xs" x="766" y="96">고객+자재 → 자재 순으로</text>
+<path class="ln-key" d="M240 83 L268 83" marker-end="url(#g4-k)"/>
+<path class="ln-key" d="M470 83 L498 83" marker-end="url(#g4-k)"/>
+<path class="ln-key" d="M720 83 L748 83" marker-end="url(#g4-k)"/>
+<path class="ln-key" d="M865 126 L865 172" marker-end="url(#g4-k)"/>
+<rect class="b-hl" x="660" y="176" width="320" height="70" rx="6"/>
+<text class="t-h" x="676" y="200">조건레코드  <tspan class="m">VK11</tspan></text>
+<text class="m-s" x="676" y="216">KONH 헤더 · KONP 값</text>
+<path class="ln-ok" d="M660 211 L470 211" marker-end="url(#g4-o)"/>
+<rect class="b-ok" x="20" y="176" width="440" height="70" rx="6"/>
+<text class="t-h" x="36" y="200">판매오더 가격 화면에 한 줄 채워짐</text>
+<text class="t-s" x="36" y="217">결과 저장: KONV (ECC) / PRCD_ELEMENTS (S/4)</text>
+<rect class="b-ghost" x="20" y="266" width="960" height="50" rx="6"/>
+<text class="t-s" x="36" y="296">S/4HANA 신규 기본 조건유형은 <tspan class="m">PPR0</tspan>(가격) 계열 — 시스템마다 PR00 복사본을 쓰기도 함 → 실제 절차에서 확인</text>
+</svg>
+<figcaption><span class="fno">그림 4</span> 조건기법 5단계. 화면에 가격이 이상하게 들어오면 오더 품목 가격 화면에서 <b>분석(Analysis)</b> 버튼으로 이 경로를 그대로 추적할 수 있습니다.</figcaption>
+</figure>
+<div class="tbl-wrap">
+<table>
+<tr><th style="width:120px">T-Code</th><th style="width:190px">용도</th><th class="wrap">메모</th></tr>
+<tr><td><code>VK11/12/13</code></td><td>조건레코드 생성·변경·조회</td><td class="wrap">실제 가격·할인 값 입력</td></tr>
+<tr><td><code>VK31/32/33</code></td><td>조건 일괄 관리</td><td class="wrap">여러 레코드 한 화면에서</td></tr>
+<tr><td><code>V/06</code></td><td>조건유형 정의</td><td class="wrap">IMG</td></tr>
+<tr><td><code>V/07</code></td><td>액세스 시퀀스</td><td class="wrap">IMG</td></tr>
+<tr><td><code>V/08</code></td><td>가격결정절차</td><td class="wrap">IMG</td></tr>
+<tr><td><code>OVKK</code></td><td>절차 결정</td><td class="wrap">판매영역 + 고객가격절차 + 문서가격절차</td></tr>
+</table>
+</div>
+<div class="note warn">
+  <div class="t">확인 필요</div>
+  <p>S/4HANA에서 가격 결과 테이블이 <code>KONV</code> → <code>PRCD_ELEMENTS</code>로 바뀐 점, 기본 조건유형 명칭(PR00/PPR0)은 시스템에서 실제 가격결정절차를 열어 확인하세요.</p>
+</div>
+</div>
+
+<!-- ═════ LESSON 5 ═════ -->
+<div class="lesson" id="l5">
+<h2><span class="no">LESSON 5</span>출하 — VL01N · 피킹 · PGI</h2>
+<p><b>언제 쓰나.</b> 물건을 창고에서 꺼내 고객에게 보내는 단계입니다. <b>PGI(출고전기)</b>가 되는 순간 재고가 줄고 매출원가가 잡힙니다.</p>
+<figure class="figwrap">
+<svg class="dgm" viewBox="0 0 1000 330" role="img" aria-label="출하문서가 판매오더를 참조해 생성되고, 피킹에서 배치와 수량을 확정한 뒤 출고전기 PGI 시 이동유형 601 자재문서와 매출원가 회계전표가 생성된다는 도해">
+<defs><marker id="g5-a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><polygon class="arw" points="0,1 10,5 0,9"/></marker><marker id="g5-k" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><polygon class="arw-key" points="0,1 10,5 0,9"/></marker><marker id="g5-b" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><polygon class="arw-bad" points="0,1 10,5 0,9"/></marker><marker id="g5-o" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><polygon class="arw-ok" points="0,1 10,5 0,9"/></marker></defs>
+<rect class="b-mut" x="20" y="40" width="200" height="80" rx="6"/>
+<text class="t-h" x="36" y="64">판매오더</text>
+<text class="m" x="36" y="83">VBAK · VBAP</text>
+<text class="t-xs" x="36" y="99">납기일 도래</text>
+<rect class="b-key" x="260" y="40" width="220" height="80" rx="6"/>
+<text class="t-h" x="276" y="64">출하문서</text>
+<text class="m" x="276" y="83">VL01N / VL10*</text>
+<text class="t-xs" x="276" y="99">LIKP · LIPS</text>
+<rect class="b-key" x="520" y="40" width="210" height="80" rx="6"/>
+<text class="t-h" x="536" y="64">피킹 · 배치결정</text>
+<text class="m-s" x="536" y="80">VL02N 피킹수량</text>
+<text class="t-xs" x="536" y="96">FEFO: 유통기한 빠른 배치부터</text>
+<rect class="b-key" x="770" y="40" width="210" height="80" rx="6"/>
+<text class="t-h" x="786" y="64">출고전기 PGI</text>
+<text class="m" x="786" y="83">601</text>
+<text class="t-xs" x="786" y="99">VL02N "출고 전기"</text>
+<path class="ln-key" d="M220 80 L258 80" marker-end="url(#g5-k)"/>
+<path class="ln-key" d="M480 80 L518 80" marker-end="url(#g5-k)"/>
+<path class="ln-key" d="M730 80 L768 80" marker-end="url(#g5-k)"/>
+<path class="ln-key" d="M875 120 L875 170" marker-end="url(#g5-k)"/>
+<rect class="b-hl" x="560" y="174" width="420" height="86" rx="6"/>
+<text class="t-h" x="576" y="198">PGI 순간 동시에 생기는 것</text>
+<text class="t-s" x="576" y="215">자재문서 601 → 재고 − (MATDOC)</text>
+<text class="t-s" x="576" y="232">회계전표 → 차) 매출원가 GBB-VAX / 대) 재고 BSX</text>
+<rect class="b-ghost" x="20" y="174" width="500" height="86" rx="6"/>
+<text class="t" x="36" y="198">PGI 전까지는 <tspan font-weight="700">재고가 그대로</tspan></text>
+<text class="t-s" x="36" y="215">출하문서를 만들어도 재고는 안 줄어든다.</text>
+<text class="t-xs" x="36" y="231">PGI 취소: VL09 → 602 자재문서</text>
+<rect class="b-ghost" x="20" y="276" width="960" height="42" rx="6"/>
+<text class="t-s" x="36" y="303">WM/EWM을 쓰면 피킹이 이전오더(Transfer Order)로 넘어간다 — 개인 프로젝트는 WM 미사용이라 VL02N 피킹 수량 직접 입력</text>
+</svg>
+<figcaption><span class="fno">그림 5</span> 출하 흐름. 배치관리 자재는 피킹 단계에서 <b>배치결정</b>이 일어나며, 유통기한 순(FEFO)으로 뽑으려면 배치결정 전략의 정렬 규칙을 유통기한 기준으로 잡습니다.</figcaption>
+</figure>
+<div class="tbl-wrap">
+<table>
+<tr><th style="width:120px">T-Code</th><th style="width:170px">용도</th><th class="wrap">메모</th></tr>
+<tr><td><code>VL01N</code></td><td>출하문서 생성(1건)</td><td class="wrap">판매오더 번호 참조</td></tr>
+<tr><td><code>VL10A</code> 등</td><td>출하 일괄 생성</td><td class="wrap">납기 도래 오더를 모아 한 번에 (VL10* 계열)</td></tr>
+<tr><td><code>VL02N</code></td><td>출하 변경 · 피킹 · PGI</td><td class="wrap">피킹 탭에서 수량·배치, 상단 "출고 전기" 버튼</td></tr>
+<tr><td><code>VL06O</code></td><td>출하 모니터</td><td class="wrap">피킹 대기 · PGI 대기 목록</td></tr>
+<tr><td><code>VL06G</code></td><td>PGI 대상 목록</td><td class="wrap">일괄 출고전기</td></tr>
+<tr><td><code>VL09</code></td><td>PGI 취소</td><td class="wrap">602 역분개</td></tr>
+<tr><td><code>VCH1</code></td><td>배치 검색 전략</td><td class="wrap">SD 배치결정 조건레코드 (FEFO 정렬)</td></tr>
+</table>
+</div>
+</div>
+
+<!-- ═════ LESSON 6 ═════ -->
+<div class="lesson" id="l6">
+<h2><span class="no">LESSON 6</span>청구 — VF01 · VF04 · 회계 이전</h2>
+<p><b>언제 쓰나.</b> 출고된 물건에 대해 고객에게 돈을 청구하는 단계입니다. 청구가 저장되면 <b>회계전표가 자동으로</b> 만들어집니다.</p>
+<figure class="figwrap">
+<svg class="dgm" viewBox="0 0 1000 280" role="img" aria-label="청구문서가 출하문서를 참조해 VF01이나 VF04로 생성되고, 회계 이전 시 VKOA 계정결정으로 고객 채권, 매출, 부가세 전표가 만들어진다는 도해">
+<defs><marker id="g6-a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><polygon class="arw" points="0,1 10,5 0,9"/></marker><marker id="g6-k" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><polygon class="arw-key" points="0,1 10,5 0,9"/></marker><marker id="g6-b" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><polygon class="arw-bad" points="0,1 10,5 0,9"/></marker><marker id="g6-o" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><polygon class="arw-ok" points="0,1 10,5 0,9"/></marker></defs>
+<rect class="b-mut" x="20" y="40" width="200" height="80" rx="6"/>
+<text class="t-h" x="36" y="64">출하문서</text>
+<text class="m" x="36" y="83">LIKP · LIPS</text>
+<text class="t-xs" x="36" y="99">PGI 완료</text>
+<rect class="b-key" x="260" y="40" width="240" height="80" rx="6"/>
+<text class="t-h" x="276" y="64">청구문서</text>
+<text class="m" x="276" y="83">VF01 · VF04</text>
+<text class="t-xs" x="276" y="99">VBRK · VBRP · 유형 F2</text>
+<rect class="b-hl" x="540" y="40" width="440" height="80" rx="6"/>
+<text class="t-h" x="556" y="64">회계전표 (자동)</text>
+<text class="t-s" x="556" y="81">차) 고객 채권 1,100 / 대) 매출 1,000 · 부가세 100</text>
+<text class="t-xs" x="556" y="97">매출 계정은 VKOA(계정결정)로 결정</text>
+<path class="ln-key" d="M220 80 L258 80" marker-end="url(#g6-k)"/>
+<path class="ln-key" d="M500 80 L538 80" marker-end="url(#g6-k)"/>
+<rect class="b" x="20" y="150" width="470" height="110" rx="6"/>
+<text class="t-h" x="36" y="174">회계로 안 넘어갈 때</text>
+<text class="t-s" x="36" y="191">청구는 됐는데 회계전표가 없다 → 이전 보류</text>
+<text class="t-s" x="36" y="208">VFX3에서 사유 확인 (계정결정 오류 등)</text>
+<text class="t-xs" x="36" y="224">가장 흔한 원인: VKOA 계정 미설정, 기간 마감(OB52)</text>
+<rect class="b" x="510" y="150" width="470" height="110" rx="6"/>
+<text class="t-h" x="526" y="174">취소는 새 문서</text>
+<text class="t-s" x="526" y="191">VF11 → 취소 청구문서(S1) 생성</text>
+<text class="t-s" x="526" y="208">원래 문서와 반대 회계전표 자동</text>
+<text class="t-xs" x="526" y="224">취소 후 출하 문서는 다시 청구 대상이 된다</text>
+</svg>
+<figcaption><span class="fno">그림 6</span> 청구와 회계 이전. SD 청구 → FI 전표의 연결 고리가 <b>VKOA 계정결정</b>입니다. 이게 비어 있으면 청구는 저장되지만 회계로 넘어가지 않습니다.</figcaption>
+</figure>
+<div class="tbl-wrap">
+<table>
+<tr><th style="width:120px">T-Code</th><th style="width:180px">용도</th><th class="wrap">메모</th></tr>
+<tr><td><code>VF01/02/03</code></td><td>청구문서 생성·변경·조회</td><td class="wrap">출하번호(또는 오더번호) 참조</td></tr>
+<tr><td><code>VF04</code></td><td>청구 대상 리스트</td><td class="wrap">미청구 출하를 모아 일괄 청구</td></tr>
+<tr><td><code>VF11</code></td><td>청구 취소</td><td class="wrap">취소 청구문서(S1) 생성</td></tr>
+<tr><td><code>VF31</code></td><td>출력(인쇄) 재발행</td><td class="wrap">세금계산서·인보이스 출력</td></tr>
+<tr><td><code>VFX3</code></td><td>회계 이전 보류 문서</td><td class="wrap">회계로 안 넘어간 청구 확인·재이전</td></tr>
+<tr><td><code>VF05</code></td><td>청구문서 리스트</td><td class="wrap">고객·기간 조건</td></tr>
+<tr><td><code>VKOA</code></td><td>매출 계정결정</td><td class="wrap">IMG — 계정그룹·조건 → G/L</td></tr>
+</table>
+</div>
+</div>
+
+<!-- ═════ LESSON 7 ═════ -->
+<div class="lesson" id="l7">
+<h2><span class="no">LESSON 7</span>문서흐름 · 추적 — VBFA · 상태</h2>
+<p><b>언제 보나.</b> "이 주문 어디까지 갔어요?" — SD 운영 문의의 기본 질문입니다. 모든 SD 조회 화면에 있는 <b>문서흐름(Document Flow)</b> 버튼이 답입니다.</p>
+<figure class="figwrap">
+<svg class="dgm" viewBox="0 0 1000 300" role="img" aria-label="문서흐름 테이블 VBFA는 선행 문서와 후속 문서 번호를 한 줄씩 저장해 수주, 출하, 자재문서, 청구, 회계전표를 사슬처럼 연결하며, 반품은 별도 가지로 이어진다는 도해">
+<defs><marker id="g7-a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><polygon class="arw" points="0,1 10,5 0,9"/></marker><marker id="g7-k" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><polygon class="arw-key" points="0,1 10,5 0,9"/></marker><marker id="g7-b" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><polygon class="arw-bad" points="0,1 10,5 0,9"/></marker><marker id="g7-o" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><polygon class="arw-ok" points="0,1 10,5 0,9"/></marker></defs>
+<rect class="b-key" x="20" y="40" width="170" height="74" rx="6"/>
+<text class="t-h" x="36" y="64">판매오더</text>
+<text class="m" x="36" y="83">VBAK</text>
+<text class="t-xs" x="36" y="99">VBTYP C</text>
+<rect class="b-key" x="215" y="40" width="170" height="74" rx="6"/>
+<text class="t-h" x="231" y="64">출하</text>
+<text class="m" x="231" y="83">LIKP</text>
+<text class="t-xs" x="231" y="99">VBTYP J</text>
+<rect class="b-key" x="410" y="40" width="170" height="74" rx="6"/>
+<text class="t-h" x="426" y="64">자재문서</text>
+<text class="m" x="426" y="83">MATDOC</text>
+<text class="t-xs" x="426" y="99">VBTYP R</text>
+<rect class="b-key" x="605" y="40" width="170" height="74" rx="6"/>
+<text class="t-h" x="621" y="64">청구</text>
+<text class="m" x="621" y="83">VBRK</text>
+<text class="t-xs" x="621" y="99">VBTYP M</text>
+<rect class="b-hl" x="800" y="40" width="170" height="74" rx="6"/>
+<text class="t-h" x="816" y="64">회계전표</text>
+<text class="m" x="816" y="83">BKPF</text>
+<text class="t-xs" x="816" y="99">AWKEY로 연결</text>
+<path class="ln-key" d="M190 77 L213 77" marker-end="url(#g7-k)"/>
+<path class="ln-key" d="M385 77 L408 77" marker-end="url(#g7-k)"/>
+<path class="ln-key" d="M580 77 L603 77" marker-end="url(#g7-k)"/>
+<path class="ln-key" d="M775 77 L798 77" marker-end="url(#g7-k)"/>
+<rect class="b" x="20" y="150" width="470" height="130" rx="6"/>
+<text class="t-h" x="36" y="174">VBFA 한 줄 = 화살표 하나</text>
+<text class="m-s" x="36" y="190">VBELV/POSNV  선행 문서·품목</text>
+<text class="m-s" x="36" y="206">VBELN/POSNN  후속 문서·품목</text>
+<text class="m-s" x="36" y="222">VBTYP_N      후속 문서 유형</text>
+<text class="t-xs" x="36" y="238">오더 1건을 넣으면 뒤로 이어진 모든 문서가 나온다</text>
+<rect class="b-bad" x="510" y="150" width="470" height="130" rx="6"/>
+<text class="t-h c-bad" x="526" y="174">반품 가지</text>
+<text class="t-s" x="526" y="191">반품오더 RE (H) → 반품출하 (T) → 651 입고</text>
+<text class="t-s" x="526" y="208">→ 크레딧메모 (O)</text>
+<text class="t-xs" x="526" y="224">원래 청구문서를 참조해 만들면 VBFA에 연결이 남는다</text>
+</svg>
+<figcaption><span class="fno">그림 7</span> 문서흐름 사슬. 각 문서의 <b>VBTYP</b>(C 오더, J 출하, M 청구, H 반품, O 크레딧메모)로 어떤 종류의 후속 문서인지 구분합니다.</figcaption>
+</figure>
+<div class="tbl-wrap">
+<table>
+<tr><th style="width:180px">T-Code / 테이블</th><th style="width:150px">용도</th><th class="wrap">메모</th></tr>
+<tr><td>VA03 → 문서흐름</td><td>화면에서 추적</td><td class="wrap"><kbd>F5</kbd> 또는 상단 "문서흐름" 버튼</td></tr>
+<tr><td><code>VBFA</code></td><td>문서흐름 테이블</td><td class="wrap">선행→후속 한 줄씩</td></tr>
+<tr><td>상태 필드</td><td>진행 상태</td><td class="wrap">ECC: <code>VBUK</code>/<code>VBUP</code> · S/4: 상태 필드가 <code>VBAK</code>/<code>VBAP</code>/<code>LIKP</code>/<code>LIPS</code>로 이동</td></tr>
+<tr><td><code>GBSTK</code> · <code>LFSTK</code> · <code>FKSTK</code></td><td>전체·출하·청구 상태</td><td class="wrap">A 미처리 · B 부분 · C 완료</td></tr>
+<tr><td><code>VA05</code> · <code>VL06O</code> · <code>VF05</code></td><td>단계별 리스트</td><td class="wrap">오더 / 출하 / 청구</td></tr>
+</table>
+</div>
+<pre><span class="c">" 판매오더의 후속 청구문서 찾기</span>
+<span class="k">SELECT</span> vbeln, posnn, vbtyp_n
+  <span class="k">FROM</span> vbfa
+  <span class="k">WHERE</span> vbelv   = @lv_vbeln     <span class="c">" 선행: 판매오더</span>
+    <span class="k">AND</span> vbtyp_n = 'M'           <span class="c">" 후속: 청구</span>
+  <span class="k">INTO TABLE</span> @<span class="k">DATA</span>(lt_bill).</pre>
+<div class="note warn">
+  <div class="t">확인 필요</div>
+  <p>VBFA는 직접 후속만이 아니라 여러 단계 뒤 문서까지 기록되는 경우가 있습니다(설정·버전별). 체인 추적 로직을 짤 땐 <code>RV_ORDER_FLOW_INFORMATION</code> 같은 표준 FM 사용을 먼저 검토하세요.</p>
+</div>
+</div>
+
+<!-- ═════ LESSON 8 ═════ -->
+<div class="lesson" id="l8">
+<h2><span class="no">LESSON 8</span>반품 · 크레딧메모</h2>
+<p><b>언제 쓰나.</b> 고객이 물건을 돌려보내거나(반품), 금액을 깎아 줘야 할 때(크레딧메모)입니다.</p>
+<figure class="figwrap">
+<svg class="dgm" viewBox="0 0 1000 250" role="img" aria-label="반품은 반품오더 RE, 반품출하, 이동유형 651 입고, 크레딧메모 청구 순서로 처리되고, 금액만 조정할 때는 크레딧메모 요청 CR에서 바로 크레딧메모로 간다는 도해">
+<defs><marker id="g8-a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><polygon class="arw" points="0,1 10,5 0,9"/></marker><marker id="g8-k" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><polygon class="arw-key" points="0,1 10,5 0,9"/></marker><marker id="g8-b" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><polygon class="arw-bad" points="0,1 10,5 0,9"/></marker><marker id="g8-o" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><polygon class="arw-ok" points="0,1 10,5 0,9"/></marker></defs>
+<rect class="b-key" x="20" y="40" width="170" height="72" rx="6"/>
+<text class="t-h" x="36" y="64">반품오더</text>
+<text class="m" x="36" y="83">RE · VA01</text>
+<rect class="b-key" x="215" y="40" width="170" height="72" rx="6"/>
+<text class="t-h" x="231" y="64">반품출하</text>
+<text class="m" x="231" y="83">VL01N</text>
+<rect class="b-key" x="410" y="40" width="170" height="72" rx="6"/>
+<text class="t-h" x="426" y="64">반품 입고</text>
+<text class="m" x="426" y="83">651 (PGR)</text>
+<rect class="b-hl" x="605" y="40" width="170" height="72" rx="6"/>
+<text class="t-h" x="621" y="64">크레딧메모</text>
+<text class="m" x="621" y="83">G2 · VF01</text>
+<rect class="b-ok" x="800" y="40" width="170" height="72" rx="6"/>
+<text class="t-h" x="816" y="64">고객 채권 −</text>
+<text class="m" x="816" y="83">FI 자동</text>
+<path class="ln-key" d="M190 76 L213 76" marker-end="url(#g8-k)"/>
+<path class="ln-key" d="M385 76 L408 76" marker-end="url(#g8-k)"/>
+<path class="ln-key" d="M580 76 L603 76" marker-end="url(#g8-k)"/>
+<path class="ln-key" d="M775 76 L798 76" marker-end="url(#g8-k)"/>
+<rect class="b-ghost" x="20" y="140" width="560" height="90" rx="6"/>
+<text class="t" x="36" y="164">651은 <tspan font-weight="700">보류 재고</tspan>로 들어온다</text>
+<text class="t-s" x="36" y="181">반품품 검수 후 453으로 가용 재고 전환 또는 폐기(551 등)</text>
+<text class="t-xs" x="36" y="197">바로 팔 수 있는 재고로 섞이지 않게 막는 표준 장치</text>
+<rect class="b" x="600" y="140" width="380" height="90" rx="6"/>
+<text class="t-h" x="616" y="164">금액만 조정</text>
+<text class="t-s" x="616" y="181">크레딧메모 요청 CR → 승인 → G2</text>
+<text class="t-xs" x="616" y="197">물건 이동 없음 (단가 착오 등)</text>
+</svg>
+<figcaption><span class="fno">그림 8</span> 반품 흐름. <b>물건이 돌아오면 RE → 651 → 크레딧메모</b>, 금액만 조정하면 <b>CR → 크레딧메모</b>입니다.</figcaption>
+</figure>
+<div class="tbl-wrap">
+<table>
+<tr><th style="width:100px">이동유형</th><th style="width:190px">의미</th><th class="wrap">메모</th></tr>
+<tr><td><code>601</code></td><td>출하 출고</td><td class="wrap">PGI</td></tr>
+<tr><td><code>602</code></td><td>출고 취소</td><td class="wrap">VL09</td></tr>
+<tr><td><code>651</code></td><td>반품 입고(보류재고)</td><td class="wrap">반품출하 PGR</td></tr>
+<tr><td><code>453</code></td><td>반품 보류 → 가용</td><td class="wrap">검수 후</td></tr>
+<tr><td><code>653</code></td><td>반품 입고(가용재고로 바로)</td><td class="wrap">설정에 따라</td></tr>
+</table>
+</div>
+<div class="note warn">
+  <div class="t">확인 필요</div>
+  <p>반품 입고 이동유형(651/653)은 반품 품목범주·일정라인범주 설정에 따라 달라집니다. 실제 시스템의 반품 일정라인범주를 확인하세요.</p>
+</div>
+</div>
+
+<!-- ═════ APPENDIX ═════ -->
+<div class="lesson" id="ap">
+<h2><span class="no">APPENDIX</span>상황별 치트시트 · 반드시 지킬 것</h2>
+<h3>이럴 땐 이것</h3>
+<div class="tbl-wrap">
+<table>
+<tr><th style="width:240px">상황</th><th style="width:220px">T-Code</th><th class="wrap">테이블</th></tr>
+<tr><td>고객 만들기 / 판매영역 추가</td><td><code>BP</code></td><td class="wrap"><code>KNA1</code> · <code>KNVV</code> · <code>KNB1</code></td></tr>
+<tr><td>주문 넣기</td><td><code>VA01</code></td><td class="wrap"><code>VBAK</code> · <code>VBAP</code> · <code>VBEP</code></td></tr>
+<tr><td>미결 주문 목록</td><td><code>VA05</code></td><td class="wrap"><code>VBAK</code> 상태 필드</td></tr>
+<tr><td>왜 이 가격?</td><td>VA03 → 품목 가격 → 분석</td><td class="wrap"><code>PRCD_ELEMENTS</code> (ECC <code>KONV</code>)</td></tr>
+<tr><td>가격 등록</td><td><code>VK11</code></td><td class="wrap"><code>KONH</code> · <code>KONP</code> · <code>A###</code></td></tr>
+<tr><td>출하 만들기 / 일괄</td><td><code>VL01N</code> / <code>VL10*</code></td><td class="wrap"><code>LIKP</code> · <code>LIPS</code></td></tr>
+<tr><td>피킹 · 출고</td><td><code>VL02N</code></td><td class="wrap"><code>MATDOC</code> 601</td></tr>
+<tr><td>출고 취소</td><td><code>VL09</code></td><td class="wrap">602</td></tr>
+<tr><td>청구 · 일괄 청구</td><td><code>VF01</code> / <code>VF04</code></td><td class="wrap"><code>VBRK</code> · <code>VBRP</code></td></tr>
+<tr><td>회계로 안 넘어간 청구</td><td><code>VFX3</code></td><td class="wrap"><code>VBRK-RFBSK</code></td></tr>
+<tr><td>청구 취소</td><td><code>VF11</code></td><td class="wrap">S1</td></tr>
+<tr><td>이 주문 어디까지 갔나</td><td>문서흐름 / <code>VBFA</code></td><td class="wrap"><code>VBFA</code></td></tr>
+<tr><td>여신 보류 해제</td><td><code>VKM1</code></td><td class="wrap">—</td></tr>
+<tr><td>반품</td><td><code>VA01</code> RE → <code>VL01N</code> → <code>VF01</code></td><td class="wrap">651</td></tr>
+</table>
+</div>
+<h3>반드시 지킬 것</h3>
+<div class="note warn">
+  <div class="t">1. 판매문서 테이블을 직접 UPDATE하지 않는다</div>
+  <p>상태·문서흐름·가격이 전부 연결돼 있습니다. 생성·변경은 <code>BAPI_SALESORDER_CREATEFROMDAT2</code> / <code>BAPI_SALESORDER_CHANGE</code> 같은 BAPI로.</p>
+</div>
+<div class="note warn">
+  <div class="t">2. 되돌리는 순서는 만든 순서의 역순</div>
+  <p>청구 취소(VF11) → PGI 취소(VL09) → 출하 삭제 → 오더 수정. 중간을 건너뛰면 막힙니다.</p>
+</div>
+<div class="note warn">
+  <div class="t">3. 회계 이전 보류는 매일 본다</div>
+  <p>VFX3에 쌓인 건은 매출이 원장에 없는 상태입니다. 월말에 발견하면 늦습니다.</p>
+</div>
+<div class="note warn">
+  <div class="t">4. 가격 문의는 분석 화면부터</div>
+  <p>조건레코드를 바로 고치지 말고, 오더 가격 분석으로 어느 조건테이블에서 값을 가져왔는지 먼저 확인합니다.</p>
+</div>
+</div>
+
+<h3 style="border:0; color:var(--ink-soft); font-size:10pt; margin-top:40px;">참고 자료</h3>
+<ul style="font-size:9.5pt; color:var(--ink-soft);">
+  <li>SAP Help Portal — Sales and Distribution: Sales / Shipping / Billing</li>
+  <li>SAP Help Portal — Condition Technique (Pricing)</li>
+  <li>SAP Help Portal — S/4HANA Simplification: Status tables VBUK/VBUP, Pricing PRCD_ELEMENTS</li>
+</ul>
+
+</div>
+<script src="../assets/site.js" defer></script>
+</body>
+</html>

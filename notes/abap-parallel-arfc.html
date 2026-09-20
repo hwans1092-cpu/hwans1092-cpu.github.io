@@ -2,7 +2,6 @@
 <html lang="ko">
 <head>
 <meta charset="UTF-8">
-<script src="../assets/gate.js"></script>
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>aRFC 병렬처리 — 골격부터 덤프 도감까지</title>
 <meta name="description" content="CALL FUNCTION STARTING NEW TASK DESTINATION IN GROUP 기반 병렬처리를 RZ12 서버그룹, RFC FM 제약, 태스크 풀, WAIT UNTIL, SM50 관찰, AL11 확장까지 실습 순서대로 정리한 노트.">
@@ -710,6 +709,8 @@ FM 안의 대기 시간을 10초쯤으로 늘려두면 잡을 여유가 생긴�
 <!-- ══════════════════ LESSON 10 ══════════════════ -->
 <div class="lesson" id="l10">
 <h2><span class="no">LESSON 10</span>확장 — AL11 파일수신과 서버 함정</h2>
+
+<p class="t-s">AL11 등록과 FILE 논리 경로 세팅은 → <a href="sap-al11-file-setup.html"><b>AL11 · FILE 세팅</b></a></p>
 
 <p><b>먼저 함정부터.</b> AL11 디렉토리는 <span class="bad">그 서버의 로컬 파일시스템</span>이다.
 그런데 <code>DESTINATION IN GROUP</code>은 태스크를 그룹 안의 아무 서버로나 던진다.</p>

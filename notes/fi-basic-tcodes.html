@@ -1,0 +1,438 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>FI 기본 T-Code와 흐름 — 원장·전표·반제·자동전기·결산</title>
+<meta name="description" content="SAP FI 기본 T-Code 지도. G/L·AP·AR 원장 구조와 조정계정, FS00·BP 마스터, FB50·FB60·FB70 전표와 전기키, FBL1N·FBL3N·FBL5N 조회, F-53·F110·F-28 반제, FB08 역분개, OBYC·VKOA·AWKEY 자동전기, OB52 결산을 흐름과 도해로 정리.">
+<link rel="icon" href="../assets/favicon.svg">
+<link rel="stylesheet" href="../assets/notes-paper.css">
+<style>
+/* ── 이 노트 전용: 도해(SVG) 스타일 (sap-luw.html 과 동일 세트) ── */
+.dgm{display:block; width:100%; height:auto;}
+.dgm text{font-family:"Malgun Gothic","맑은 고딕","Apple SD Gothic Neo",sans-serif; fill:#1e1e1e;}
+.dgm .t-h{font-size:15px; font-weight:700;}
+.dgm .t{font-size:13px;}
+.dgm .t-s{font-size:11.5px; fill:#555;}
+.dgm .t-xs{font-size:10.5px; fill:#6B7280;}
+.dgm .m{font-family:"D2Coding","Consolas",monospace; font-size:12px;}
+.dgm .m-s{font-family:"D2Coding","Consolas",monospace; font-size:10.5px;}
+.dgm .c-key{fill:#4338CA;} .dgm .c-bad{fill:#B91C1C;} .dgm .c-ok{fill:#047857;}
+.dgm .b{fill:#FFFFFF; stroke:#C7CBD6; stroke-width:1.2;}
+.dgm .b-key{fill:#EEF0FB; stroke:#4338CA; stroke-width:1.4;}
+.dgm .b-bad{fill:#FEF2F2; stroke:#B91C1C; stroke-width:1.3;}
+.dgm .b-ok{fill:#ECFDF5; stroke:#047857; stroke-width:1.3;}
+.dgm .b-mut{fill:#F3F4F6; stroke:#D1D5DB; stroke-width:1.1;}
+.dgm .b-hl{fill:#FEF08A; stroke:#CA8A04; stroke-width:1.2;}
+.dgm .b-ghost{fill:none; stroke:#9AA3B2; stroke-width:1.1; stroke-dasharray:5 4;}
+.dgm .ln{stroke:#7C8697; stroke-width:1.4; fill:none;}
+.dgm .ln-key{stroke:#4338CA; stroke-width:1.8; fill:none;}
+.dgm .ln-bad{stroke:#B91C1C; stroke-width:1.6; fill:none;}
+.dgm .ln-ok{stroke:#047857; stroke-width:1.6; fill:none;}
+.dgm .ln-d{stroke:#9AA3B2; stroke-width:1.2; stroke-dasharray:4 4; fill:none;}
+.dgm .arw{fill:#7C8697;} .dgm .arw-key{fill:#4338CA;}
+.dgm .arw-bad{fill:#B91C1C;} .dgm .arw-ok{fill:#047857;}
+.figwrap{background:#FAFAFE; border:1px solid var(--rule); border-radius:6px;
+  padding:18px 16px 10px; margin:22px 0;}
+.figwrap figcaption{margin-top:12px; padding-top:10px; border-top:1px solid var(--rule);}
+</style>
+
+</head>
+<body>
+<div class="crumb"><a href="../index.html">← SAP 학습 자료실</a> · SAP 모듈 기초 · FI</div>
+<div class="sheet">
+
+<div class="doc-head">
+  <div class="kicker">MODULE BASICS</div>
+  <h1>FI 기본 T-Code와 흐름 — 원장 · 전표 · 반제 · 자동전기 · 결산</h1>
+  <div class="sub">"모든 돈이 모이는 곳"을 한 장으로<br>대상: <b>S/4HANA 기준</b>(ECC 차이는 따로 표시) · 도해 5장 · 캡처는 추후 추가</div>
+</div>
+
+<div class="lead">
+  <p><b>결론부터.</b> FI는 <span class="hl">"모든 돈의 움직임이 모이는 원장"</span>입니다. MM·SD 거래도 끝은 FI 전표입니다.</p>
+  <p>전표는 <b>차변 = 대변</b>이어야 저장되고, 벤더·고객 거래는 <b>미결 → 반제</b>로 끝납니다. 이 두 가지와 "원천 문서로 거슬러 올라가는 법(AWKEY)"만 잡으면 개발자가 받는 FI 문의의 대부분을 따라갈 수 있습니다.</p>
+</div>
+
+<div class="toc">
+  <h4>목차</h4>
+  <ol>
+    <li><a href="#l1">FI 전체 지도 — 원장과 보조원장</a></li>
+    <li><a href="#l2">마스터 — G/L 계정 · 벤더 · 고객</a></li>
+    <li><a href="#l3">전표 전기 — FB50 · FB60 · FB70 · 전기키</a></li>
+    <li><a href="#l4">조회 — FB03 · 라인아이템 · 잔액</a></li>
+    <li><a href="#l5">지급 · 수금 · 반제</a></li>
+    <li><a href="#l6">역분개 · 임시저장 · 변경</a></li>
+    <li><a href="#l7">MM · SD 자동 전기 — OBYC · VKOA · AWKEY</a></li>
+    <li><a href="#l8">결산 기초 — 기간 · 재평가 · 이월</a></li>
+    <li><a href="#ap">APPENDIX — 상황별 치트시트 · 반드시 지킬 것</a></li>
+  </ol>
+</div>
+
+<!-- ═════ LESSON 1 ═════ -->
+<div class="lesson" id="l1">
+<h2><span class="no">LESSON 1</span>FI 전체 지도 — 원장과 보조원장</h2>
+<p><b>언제 보나.</b> "이 금액이 왜 이 계정에 있지?"를 추적할 때입니다. MM·SD에서 만든 전표도 결국 전부 FI 원장에 모입니다.</p>
+<p><b>핵심.</b> FI는 <span class="key">총계정원장(G/L) 하나와, 그 아래 거래처·자산별로 쪼갠 보조원장</span>으로 이뤄져 있습니다. 보조원장과 G/L은 <b>조정계정(Reconciliation Account)</b>으로 묶입니다.</p>
+<figure class="figwrap">
+<svg class="dgm" viewBox="0 0 1000 360" role="img" aria-label="FI는 총계정원장 G/L을 중심으로 매입채무 AP, 매출채권 AR, 고정자산 AA 보조원장이 조정계정으로 연결되고, MM과 SD의 거래가 자동으로 전표를 만들어 원장에 쌓인다는 도해">
+<defs><marker id="g1-a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><polygon class="arw" points="0,1 10,5 0,9"/></marker><marker id="g1-k" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><polygon class="arw-key" points="0,1 10,5 0,9"/></marker><marker id="g1-b" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><polygon class="arw-bad" points="0,1 10,5 0,9"/></marker><marker id="g1-o" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><polygon class="arw-ok" points="0,1 10,5 0,9"/></marker></defs>
+<rect class="b-hl" x="350" y="120" width="300" height="100" rx="6"/>
+<text class="t-h" x="366" y="144">총계정원장 G/L</text>
+<text class="m" x="366" y="163">ACDOCA (S/4)</text>
+<text class="t-s" x="366" y="180">재무제표의 원천</text>
+<text class="t-xs" x="366" y="196">ECC: BSEG + 총계정 집계 테이블</text>
+<rect class="b-key" x="20" y="40" width="250" height="80" rx="6"/>
+<text class="t-h" x="36" y="64">매입채무 AP</text>
+<text class="m-s" x="36" y="80">벤더별 · FBL1N</text>
+<text class="t-xs" x="36" y="96">조정계정: 외상매입금</text>
+<rect class="b-key" x="20" y="220" width="250" height="80" rx="6"/>
+<text class="t-h" x="36" y="244">매출채권 AR</text>
+<text class="m-s" x="36" y="260">고객별 · FBL5N</text>
+<text class="t-xs" x="36" y="276">조정계정: 외상매출금</text>
+<rect class="b-key" x="730" y="220" width="250" height="80" rx="6"/>
+<text class="t-h" x="746" y="244">고정자산 AA</text>
+<text class="m-s" x="746" y="260">자산별 · AS03</text>
+<text class="t-xs" x="746" y="276">조정계정: 비품 등</text>
+<rect class="b-mut" x="730" y="40" width="250" height="80" rx="6"/>
+<text class="t-h" x="746" y="64">MM · SD 자동 전기</text>
+<text class="t-s" x="746" y="81">입고·송장 / 출고·청구</text>
+<text class="t-xs" x="746" y="97">OBYC · VKOA</text>
+<path class="ln-key" d="M270 80 L348 150" marker-end="url(#g1-k)"/>
+<path class="ln-key" d="M270 260 L348 190" marker-end="url(#g1-k)"/>
+<path class="ln-key" d="M730 260 L652 190" marker-end="url(#g1-k)"/>
+<path class="ln" d="M730 80 L652 150" marker-end="url(#g1-a)"/>
+<rect class="b-ghost" x="20" y="318" width="960" height="34" rx="6"/>
+<text class="t-s" x="36" y="340">보조원장(AP/AR/AA)에 한 줄 전기되면 조정계정을 통해 G/L에도 <tspan font-weight="700">동시에</tspan> 반영된다 — 조정계정에는 직접 전기 불가</text>
+</svg>
+<figcaption><span class="fno">그림 1</span> FI 원장 구조. 벤더·고객·자산 단위 상세는 보조원장에, 합계는 조정계정을 통해 G/L에 동시에 쌓입니다.</figcaption>
+</figure>
+<div class="tbl-wrap">
+<table>
+<tr><th style="width:170px">조직·기준</th><th style="width:190px">의미</th><th class="wrap">메모</th></tr>
+<tr><td>회사코드 <code>BUKRS</code></td><td>재무제표를 만드는 법인 단위</td><td class="wrap">개인 프로젝트: CL04</td></tr>
+<tr><td>계정과목표 <code>KTOPL</code></td><td>G/L 계정 목록</td><td class="wrap">회사코드에 1개 할당</td></tr>
+<tr><td>회계연도 변형</td><td>기간(월) 정의</td><td class="wrap">K4 = 1~12월 + 특별기간 4개</td></tr>
+<tr><td>전기기간 변형</td><td>열린 기간 통제</td><td class="wrap">OB52</td></tr>
+<tr><td>원장 <code>RLDNR</code></td><td>0L 선행원장</td><td class="wrap">S/4: 모든 전기가 ACDOCA 한 테이블</td></tr>
+</table>
+</div>
+</div>
+
+<!-- ═════ LESSON 2 ═════ -->
+<div class="lesson" id="l2">
+<h2><span class="no">LESSON 2</span>마스터 — G/L 계정 · 벤더 · 고객</h2>
+<p><b>언제 쓰나.</b> 새로운 비용·수익을 기록해야 하거나, 새 거래처와 거래를 시작할 때입니다.</p>
+<figure class="figwrap">
+<svg class="dgm" viewBox="0 0 1000 260" role="img" aria-label="G/L 계정마스터는 계정과목표 레벨 SKA1과 회사코드 레벨 SKB1로 나뉘고, 벤더와 고객은 BP로 만들되 회사코드 데이터에 조정계정을 지정한다는 도해">
+<defs><marker id="g2-a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><polygon class="arw" points="0,1 10,5 0,9"/></marker><marker id="g2-k" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><polygon class="arw-key" points="0,1 10,5 0,9"/></marker><marker id="g2-b" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><polygon class="arw-bad" points="0,1 10,5 0,9"/></marker><marker id="g2-o" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><polygon class="arw-ok" points="0,1 10,5 0,9"/></marker></defs>
+<rect class="b-key" x="20" y="40" width="300" height="80" rx="6"/>
+<text class="t-h" x="36" y="64">계정과목표 레벨  <tspan class="m">SKA1</tspan></text>
+<text class="t-s" x="36" y="81">계정번호 · 명칭(SKAT) · 손익/재무상태</text>
+<text class="t-xs" x="36" y="97">FS00 상단 "유형/내역" 탭</text>
+<rect class="b" x="20" y="150" width="300" height="80" rx="6"/>
+<text class="t-h" x="36" y="174">회사코드 레벨  <tspan class="m">SKB1</tspan></text>
+<text class="t-s" x="36" y="191">통화 · 미결관리 · 항목관리 · 필드상태</text>
+<text class="t-xs" x="36" y="207">FS00 "관리 데이터/생성" 탭</text>
+<path class="ln" d="M170 120 L170 148" marker-end="url(#g2-a)"/>
+<rect class="b-mut" x="380" y="40" width="280" height="80" rx="6"/>
+<text class="t-h" x="396" y="64">벤더  <tspan class="m">BP</tspan></text>
+<text class="m-s" x="396" y="80">LFA1 일반 · LFB1 회사코드</text>
+<text class="t-xs" x="396" y="96">LFB1-AKONT 조정계정</text>
+<rect class="b-mut" x="380" y="150" width="280" height="80" rx="6"/>
+<text class="t-h" x="396" y="174">고객  <tspan class="m">BP</tspan></text>
+<text class="m-s" x="396" y="190">KNA1 일반 · KNB1 회사코드</text>
+<text class="t-xs" x="396" y="206">KNB1-AKONT 조정계정</text>
+<rect class="b-hl" x="700" y="40" width="280" height="190" rx="6"/>
+<text class="t-h" x="716" y="64">미결관리(Open Item)</text>
+<text class="t-s" x="716" y="81">체크된 계정만 "반제"가 가능</text>
+<text class="t-s" x="716" y="98">예: 은행 가계정, GR/IR</text>
+<text class="t-xs" x="716" y="114">나중에 켜기 어렵다</text>
+<text class="t-xs" x="716" y="130">→ 계정 생성 시점에 결정</text>
+<text class="t-xs" x="716" y="146">벤더·고객 계정은 항상 미결관리</text>
+</svg>
+<figcaption><span class="fno">그림 2</span> FI 마스터 구조. G/L 계정도 MM 자재처럼 <b>공통 레벨(SKA1)과 회사코드 레벨(SKB1)</b>로 나뉩니다.</figcaption>
+</figure>
+<div class="tbl-wrap">
+<table>
+<tr><th style="width:150px">T-Code</th><th style="width:190px">용도</th><th class="wrap">메모</th></tr>
+<tr><td><code>FS00</code></td><td>G/L 계정 생성·변경·조회</td><td class="wrap">중앙 관리 화면</td></tr>
+<tr><td><code>FSP0</code> / <code>FSS0</code></td><td>계정과목표 / 회사코드 레벨만</td><td class="wrap">부분 관리</td></tr>
+<tr><td><code>BP</code></td><td>벤더·고객</td><td class="wrap">S/4 통합. ECC: <code>FK01</code>/<code>XK01</code>, <code>FD01</code>/<code>XD01</code></td></tr>
+<tr><td><code>FI12</code></td><td>하우스뱅크</td><td class="wrap">지급 프로그램이 쓰는 은행</td></tr>
+<tr><td><code>OB52</code></td><td>전기기간 열기·닫기</td><td class="wrap">월마감 통제</td></tr>
+</table>
+</div>
+</div>
+
+<!-- ═════ LESSON 3 ═════ -->
+<div class="lesson" id="l3">
+<h2><span class="no">LESSON 3</span>전표 전기 — FB50 · FB60 · FB70 · 전기키</h2>
+<p><b>언제 쓰나.</b> MM·SD를 거치지 않는 회계 거래를 직접 입력할 때입니다. 비용 전표, 거래처 송장, 대체 전표 등입니다.</p>
+<p><b>핵심.</b> 전표 한 줄 한 줄에는 <span class="key">전기키(Posting Key)</span>가 붙습니다. 두 자리 숫자가 <b>차변/대변</b>과 <b>계정 종류</b>를 동시에 정합니다.</p>
+<figure class="figwrap">
+<svg class="dgm" viewBox="0 0 1000 300" role="img" aria-label="회계전표는 헤더 BKPF와 품목 라인으로 구성되고, 각 라인의 전기키가 차변 대변과 계정 종류를 결정하며, 차변 합계와 대변 합계가 같아야만 저장된다는 도해">
+<defs><marker id="g3-a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><polygon class="arw" points="0,1 10,5 0,9"/></marker><marker id="g3-k" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><polygon class="arw-key" points="0,1 10,5 0,9"/></marker><marker id="g3-b" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><polygon class="arw-bad" points="0,1 10,5 0,9"/></marker><marker id="g3-o" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><polygon class="arw-ok" points="0,1 10,5 0,9"/></marker></defs>
+<rect class="b-key" x="20" y="40" width="960" height="60" rx="6"/>
+<text class="t-h" x="36" y="64">헤더  <tspan class="m">BKPF</tspan></text>
+<text class="t-s" x="36" y="81">회사코드 BUKRS · 전표번호 BELNR · 회계연도 GJAHR · 전표유형 BLART(SA/KR/DR…) · 전기일 BUDAT</text>
+<rect class="b-ok" x="20" y="120" width="600" height="40" rx="6"/>
+<text class="m" x="36" y="146">40   차변   G/L     비용 1,000</text>
+<rect class="b-ok" x="20" y="168" width="600" height="40" rx="6"/>
+<text class="m" x="36" y="194">40   차변   G/L     부가세 100</text>
+<rect class="b-bad" x="20" y="216" width="600" height="40" rx="6"/>
+<text class="m" x="36" y="242">31   대변   벤더      외상매입금 1,100</text>
+<rect class="b-hl" x="650" y="120" width="330" height="136" rx="6"/>
+<text class="t-h" x="666" y="144">차변 합계 = 대변 합계</text>
+<text class="m" x="666" y="163">1,100 = 1,100</text>
+<text class="t-s" x="666" y="180">안 맞으면 저장 불가</text>
+<text class="t-xs" x="666" y="196">품목: BSEG (S/4는 ACDOCA가 원천)</text>
+</svg>
+<figcaption><span class="fno">그림 3</span> 전표 구조. 벤더 송장 1,100원(비용 1,000 + 부가세 100) 예시입니다. Enjoy 화면(FB50/60/70)은 전기키를 숨기고 차변/대변 선택으로 보여 줍니다.</figcaption>
+</figure>
+<div class="tbl-wrap">
+<table>
+<tr><th style="width:150px">T-Code</th><th style="width:210px">용도</th><th class="wrap">전표유형</th></tr>
+<tr><td><code>FB50</code></td><td>G/L 전표 (Enjoy)</td><td class="wrap">SA</td></tr>
+<tr><td><code>FB60</code></td><td>벤더 송장 (MM 없이)</td><td class="wrap">KR</td></tr>
+<tr><td><code>FB70</code></td><td>고객 송장 (SD 없이)</td><td class="wrap">DR</td></tr>
+<tr><td><code>FB65</code> / <code>FB75</code></td><td>벤더 / 고객 크레딧메모</td><td class="wrap">KG / DG</td></tr>
+<tr><td><code>F-02</code></td><td>일반 전기 (전기키 직접 입력)</td><td class="wrap">자유</td></tr>
+<tr><td><code>FV50</code> / <code>FV60</code></td><td>G/L / 벤더 전표 임시저장</td><td class="wrap">Park</td></tr>
+</table>
+</div>
+<div class="tbl-wrap">
+<table>
+<tr><th style="width:110px">전기키</th><th style="width:80px">차/대</th><th style="width:100px">계정 종류</th><th class="wrap">예</th></tr>
+<tr><td><code>40</code> / <code>50</code></td><td>차 / 대</td><td>G/L</td><td class="wrap">비용·수익·은행</td></tr>
+<tr><td><code>21</code> / <code>31</code></td><td>차 / 대</td><td>벤더</td><td class="wrap">31 = 벤더 송장, 21 = 벤더 크레딧메모·지급</td></tr>
+<tr><td><code>01</code> / <code>11</code></td><td>차 / 대</td><td>고객</td><td class="wrap">01 = 고객 송장, 11 = 크레딧메모·입금</td></tr>
+<tr><td><code>70</code> / <code>75</code></td><td>차 / 대</td><td>자산</td><td class="wrap">자산 취득 / 대변</td></tr>
+</table>
+</div>
+<div class="note">
+  <div class="t">면접 포인트</div>
+  <p>전기키 외우는 요령 — <span class="hl">0x 고객 · 2x/3x 벤더 · 4x/5x G/L · 7x 자산</span>. 앞자리가 계정 종류, 차변·대변 쌍으로 기억합니다.</p>
+</div>
+</div>
+
+<!-- ═════ LESSON 4 ═════ -->
+<div class="lesson" id="l4">
+<h2><span class="no">LESSON 4</span>조회 — FB03 · 라인아이템 · 잔액</h2>
+<p><b>언제 쓰나.</b> "이 벤더에 줄 돈이 얼마 남았나", "이 계정 이번 달 잔액" 같은 확인입니다.</p>
+<div class="tbl-wrap">
+<table>
+<tr><th style="width:150px">T-Code</th><th style="width:170px">용도</th><th class="wrap">이럴 때</th></tr>
+<tr><td><code>FB03</code></td><td>전표 1건 조회</td><td class="wrap">전표번호·회사코드·연도. 상단 "환경 → 원천 문서"로 MM·SD 문서 이동</td></tr>
+<tr><td><code>FBL1N</code></td><td>벤더 라인아이템</td><td class="wrap">미결(안 준 돈) / 반제(준 돈) / 전체</td></tr>
+<tr><td><code>FBL5N</code></td><td>고객 라인아이템</td><td class="wrap">미결(안 받은 돈) / 반제</td></tr>
+<tr><td><code>FBL3N</code></td><td>G/L 라인아이템</td><td class="wrap">GR/IR·은행 가계정 등 미결관리 계정</td></tr>
+<tr><td><code>FAGLL03</code></td><td>G/L 라인아이템(신원장)</td><td class="wrap">S/4에서 FBL3N 대신 쓰는 경우</td></tr>
+<tr><td><code>FAGLB03</code></td><td>G/L 잔액</td><td class="wrap">월별 차변·대변·누계 (ECC: <code>FS10N</code>)</td></tr>
+<tr><td><code>FK10N</code> / <code>FD10N</code></td><td>벤더 / 고객 잔액</td><td class="wrap">월별 잔액</td></tr>
+<tr><td><code>FB02</code></td><td>전표 변경</td><td class="wrap">텍스트·지급보류 등 일부 필드만. 금액·계정은 변경 불가</td></tr>
+</table>
+</div>
+<div class="note warn">
+  <div class="t">확인 필요</div>
+  <p>S/4HANA에서 <code>FBL1N/3N/5N</code>은 Fiori 앱이 권장되지만 GUI 트랜잭션도 대부분 쓸 수 있습니다. <code>FBL3N</code>/<code>FAGLL03</code> 중 어느 쪽을 쓰는지는 시스템에서 확인하세요.</p>
+</div>
+</div>
+
+<!-- ═════ LESSON 5 ═════ -->
+<div class="lesson" id="l5">
+<h2><span class="no">LESSON 5</span>지급 · 수금 · 반제</h2>
+<p><b>언제 쓰나.</b> 벤더에게 돈을 주고, 고객에게 돈을 받고, 그걸 원래 송장과 짝지을 때입니다.</p>
+<p><b>핵심.</b> 반제(Clearing)는 <span class="key">"이 송장은 이 지급으로 끝났다"고 두 항목을 묶는 것</span>입니다. 반제가 안 되면 돈을 줬어도 미결 목록에 계속 남습니다.</p>
+<figure class="figwrap">
+<svg class="dgm" viewBox="0 0 1000 320" role="img" aria-label="벤더 송장이 들어오면 미결 항목이 생기고, 지급 F-53이나 자동지급 F110이 반대 금액을 전기하며 두 항목을 반제 문서로 묶어 미결에서 반제로 상태를 바꾼다는 도해">
+<defs><marker id="g4-a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><polygon class="arw" points="0,1 10,5 0,9"/></marker><marker id="g4-k" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><polygon class="arw-key" points="0,1 10,5 0,9"/></marker><marker id="g4-b" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><polygon class="arw-bad" points="0,1 10,5 0,9"/></marker><marker id="g4-o" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><polygon class="arw-ok" points="0,1 10,5 0,9"/></marker></defs>
+<rect class="b-key" x="20" y="40" width="260" height="90" rx="6"/>
+<text class="t-h" x="36" y="64">① 송장</text>
+<text class="m" x="36" y="83">MIRO · FB60</text>
+<text class="t-s" x="36" y="100">벤더 대변 1,100</text>
+<rect class="b-hl" x="370" y="40" width="260" height="90" rx="6"/>
+<text class="t-h" x="386" y="64">② 미결 항목</text>
+<text class="t-s" x="386" y="81">FBL1N "미결"에 보인다</text>
+<text class="m-s" x="386" y="97">ECC: BSIK</text>
+<rect class="b-key" x="720" y="40" width="260" height="90" rx="6"/>
+<text class="t-h" x="736" y="64">③ 지급</text>
+<text class="m" x="736" y="83">F-53 · F110</text>
+<text class="t-s" x="736" y="100">벤더 차변 1,100 / 은행 대변</text>
+<path class="ln-key" d="M280 85 L368 85" marker-end="url(#g4-k)"/>
+<path class="ln-key" d="M630 85 L718 85" marker-end="url(#g4-k)"/>
+<path class="ln-ok" d="M850 130 C 850 200, 500 200, 500 222" marker-end="url(#g4-o)"/>
+<rect class="b-ok" x="300" y="226" width="400" height="78" rx="6"/>
+<text class="t-h c-ok" x="316" y="250">④ 반제(Clearing)</text>
+<text class="t-s" x="316" y="267">두 항목에 반제 문서번호 AUGBL · 반제일 AUGDT</text>
+<text class="m-s" x="316" y="283">ECC: BSAK로 이동 (S/4: ACDOCA 필드)</text>
+<rect class="b-ghost" x="20" y="226" width="260" height="78" rx="6"/>
+<text class="t" x="36" y="250">지급 없이 상계만</text>
+<text class="m-s" x="36" y="266">F-44 벤더 · F-32 고객</text>
+<text class="t-xs" x="36" y="282">F-03 G/L 계정 반제</text>
+<rect class="b-ghost" x="720" y="226" width="260" height="78" rx="6"/>
+<text class="t" x="736" y="250">고객 입금</text>
+<text class="m-s" x="736" y="266">F-28</text>
+<text class="t-xs" x="736" y="282">고객 미결 → 반제</text>
+</svg>
+<figcaption><span class="fno">그림 4</span> 미결 항목의 일생. 송장으로 생기고, 지급·입금·상계로 반제됩니다. 반제된 항목은 같은 반제 문서번호(AUGBL)를 공유합니다.</figcaption>
+</figure>
+<div class="tbl-wrap">
+<table>
+<tr><th style="width:150px">T-Code</th><th style="width:160px">용도</th><th class="wrap">메모</th></tr>
+<tr><td><code>F-53</code></td><td>벤더 수동 지급</td><td class="wrap">미결 항목 선택 → 은행 계정</td></tr>
+<tr><td><code>F110</code></td><td>자동 지급 프로그램</td><td class="wrap">파라미터 → 제안 실행 → 지급 실행 → 매체 출력</td></tr>
+<tr><td><code>F-28</code></td><td>고객 입금</td><td class="wrap">입금액으로 미결 선택</td></tr>
+<tr><td><code>F-44</code> / <code>F-32</code></td><td>벤더 / 고객 반제</td><td class="wrap">지급 없이 서로 상계</td></tr>
+<tr><td><code>F-03</code></td><td>G/L 계정 반제</td><td class="wrap">GR/IR · 가계정</td></tr>
+<tr><td><code>FBRA</code></td><td>반제 해제</td><td class="wrap">반제만 풀고 전표는 유지 → 이후 역분개 가능</td></tr>
+</table>
+</div>
+</div>
+
+<!-- ═════ LESSON 6 ═════ -->
+<div class="lesson" id="l6">
+<h2><span class="no">LESSON 6</span>역분개 · 임시저장 · 변경</h2>
+<p><b>언제 쓰나.</b> 잘못 넣은 전표를 되돌리거나, 검토 전 전표를 저장해 둘 때입니다.</p>
+<div class="step"><span class="n">1</span><p><b>역분개는 새 전표다.</b> <code>FB08</code>은 원 전표를 지우지 않고 <b>반대 전표</b>를 하나 더 만듭니다. 역분개 사유(01 당기, 02 차기 등)와 전기일을 지정합니다.</p></div>
+<div class="step"><span class="n">2</span><p><b>반제된 전표는 바로 역분개가 안 된다.</b> <code>FBRA</code>로 반제를 먼저 풀고 FB08.</p></div>
+<div class="step"><span class="n">3</span><p><b>MM·SD에서 만든 전표는 FB08로 되돌리지 않는다.</b> 원천 문서에서 취소해야 합니다 — 입고 <code>MBST</code>, 송장 <code>MR8M</code>, 청구 <code>VF11</code>. FI에서만 되돌리면 MM·SD 문서와 어긋납니다.</p></div>
+<div class="step"><span class="n">4</span><p><b>임시저장(Park)은 회계 영향이 없다.</b> <code>FV50</code>/<code>FV60</code>으로 저장 → 검토 → <code>FBV0</code>로 전기. 임시저장 목록은 <code>FBV3</code>.</p></div>
+<div class="tbl-wrap">
+<table>
+<tr><th style="width:130px">T-Code</th><th style="width:170px">용도</th><th class="wrap">메모</th></tr>
+<tr><td><code>FB08</code></td><td>전표 1건 역분개</td><td class="wrap">역분개 사유 필수</td></tr>
+<tr><td><code>F.80</code></td><td>일괄 역분개</td><td class="wrap">여러 전표</td></tr>
+<tr><td><code>FBRA</code></td><td>반제 해제</td><td class="wrap">역분개 전 선행</td></tr>
+<tr><td><code>FBV0</code></td><td>임시저장 전표 전기</td><td class="wrap">Park → Post</td></tr>
+<tr><td><code>FBV3</code></td><td>임시저장 조회</td><td class="wrap"></td></tr>
+<tr><td><code>FB02</code></td><td>전표 변경</td><td class="wrap">텍스트·참조 등 허용 필드만</td></tr>
+</table>
+</div>
+</div>
+
+<!-- ═════ LESSON 7 ═════ -->
+<div class="lesson" id="l7">
+<h2><span class="no">LESSON 7</span>MM · SD 자동 전기 — OBYC · VKOA · AWKEY</h2>
+<p><b>언제 보나.</b> "입고했는데 왜 이 계정으로 갔지?", "청구했는데 회계전표가 없어요" 문의입니다. MM·SD 개발자가 FI를 알아야 하는 이유가 여기 있습니다.</p>
+<figure class="figwrap">
+<svg class="dgm" viewBox="0 0 1000 300" role="img" aria-label="MM 입고와 송장, SD 출고와 청구가 각각 OBYC와 VKOA 자동계정결정을 거쳐 FI 전표를 만들고, 전표 헤더의 AWTYP과 AWKEY가 원천 문서를 가리킨다는 도해">
+<defs><marker id="g5-a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><polygon class="arw" points="0,1 10,5 0,9"/></marker><marker id="g5-k" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><polygon class="arw-key" points="0,1 10,5 0,9"/></marker><marker id="g5-b" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><polygon class="arw-bad" points="0,1 10,5 0,9"/></marker><marker id="g5-o" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><polygon class="arw-ok" points="0,1 10,5 0,9"/></marker></defs>
+<rect class="b-key" x="20" y="40" width="280" height="100" rx="6"/>
+<text class="t-h" x="36" y="64">MM</text>
+<text class="t-s" x="36" y="81">입고 101 → BSX / WRX</text>
+<text class="t-s" x="36" y="98">송장 MIRO → WRX / 벤더</text>
+<text class="m-s" x="36" y="114">OBYC (거래키→계정)</text>
+<rect class="b-key" x="20" y="170" width="280" height="100" rx="6"/>
+<text class="t-h" x="36" y="194">SD</text>
+<text class="t-s" x="36" y="211">출고 601 → GBB / BSX</text>
+<text class="t-s" x="36" y="228">청구 F2 → 고객 / ERL 매출</text>
+<text class="m-s" x="36" y="244">VKOA (계정그룹→계정)</text>
+<rect class="b-hl" x="380" y="100" width="260" height="110" rx="6"/>
+<text class="t-h" x="396" y="124">FI 전표  BKPF</text>
+<text class="m-s" x="396" y="140">AWTYP  원천 유형</text>
+<text class="m-s" x="396" y="156">AWKEY  원천 문서번호</text>
+<text class="t-xs" x="396" y="172">FB03 → 원천 문서 버튼</text>
+<path class="ln-key" d="M300 90 L378 140" marker-end="url(#g5-k)"/>
+<path class="ln-key" d="M300 220 L378 170" marker-end="url(#g5-k)"/>
+<rect class="b" x="700" y="40" width="280" height="230" rx="6"/>
+<text class="t-h" x="716" y="64">AWTYP 값</text>
+<text class="m" x="716" y="83">MKPF   자재문서</text>
+<text class="m" x="716" y="102">RMRP   MIRO 송장</text>
+<text class="m" x="716" y="121">VBRK   SD 청구</text>
+<text class="m" x="716" y="140">BKPF   FI 직접 전기</text>
+<text class="t-xs" x="716" y="156">AWKEY = 원천번호 + 연도 등</text>
+<text class="t-xs" x="716" y="172">(유형마다 조합 다름)</text>
+</svg>
+<figcaption><span class="fno">그림 5</span> 자동 전기 연결. MM은 <b>OBYC</b>(평가클래스 × 거래키), SD는 <b>VKOA</b>(고객·자재 계정그룹 × 계정키)로 G/L 계정을 찾습니다. 전표 쪽에서는 <b>AWTYP/AWKEY</b>로 원천 문서를 거꾸로 찾습니다.</figcaption>
+</figure>
+<div class="tbl-wrap">
+<table>
+<tr><th style="width:150px">설정 / T-Code</th><th style="width:160px">역할</th><th class="wrap">메모</th></tr>
+<tr><td><code>OBYC</code></td><td>MM 자동계정결정</td><td class="wrap">BSX 재고 · WRX GR/IR · PRD 가격차이 · GBB 상대계정</td></tr>
+<tr><td><code>VKOA</code></td><td>SD 매출 계정결정</td><td class="wrap">ERL 매출 · ERS 매출할인</td></tr>
+<tr><td><code>OMWB</code></td><td>OBYC 시뮬레이션</td><td class="wrap">자재·이동유형으로 어느 계정이 나오는지 테스트</td></tr>
+<tr><td><code>FB03</code> 원천 문서</td><td>역추적</td><td class="wrap">전표 → MIGO/MIRO/VF03 화면으로</td></tr>
+</table>
+</div>
+</div>
+
+<!-- ═════ LESSON 8 ═════ -->
+<div class="lesson" id="l8">
+<h2><span class="no">LESSON 8</span>결산 기초 — 기간 · 재평가 · 이월</h2>
+<p><b>언제 쓰나.</b> 월말·연말입니다. 개발자는 결산을 직접 돌리진 않지만, <b>결산 때 터지는 오류 문의</b>를 받습니다.</p>
+<div class="tbl-wrap">
+<table>
+<tr><th style="width:110px">단계</th><th style="width:130px">T-Code</th><th class="wrap">하는 일</th></tr>
+<tr><td>기간 통제</td><td><code>OB52</code></td><td class="wrap">다음 달 열고, 지난 달 닫기. "기간이 닫혀 있음" 오류의 원인</td></tr>
+<tr><td>MM 기간</td><td><code>MMPV</code></td><td class="wrap">자재 기간 이동. MM 전기 가능한 기간(현재·직전)</td></tr>
+<tr><td>감가상각</td><td><code>AFAB</code></td><td class="wrap">고정자산 감가상각 실행</td></tr>
+<tr><td>외화평가</td><td><code>FAGL_FCV</code></td><td class="wrap">외화 미결 항목 재평가 (ECC: F.05)</td></tr>
+<tr><td>GR/IR 재분류</td><td><code>F.19</code> 등</td><td class="wrap">결산 시점 GR/IR 잔액을 재무제표용 계정으로 재분류 (S/4: FAGL_FCV와 통합된 경우 있음)</td></tr>
+<tr><td>잔액 이월</td><td><code>FAGLGVTR</code></td><td class="wrap">연말 G/L 잔액 차기 이월 (ECC: F.16 등)</td></tr>
+<tr><td>재무제표</td><td><code>F.01</code></td><td class="wrap">재무상태표·손익계산서 (Fiori 앱이 권장)</td></tr>
+</table>
+</div>
+<div class="note warn">
+  <div class="t">확인 필요</div>
+  <p>결산 T-Code는 ECC/S/4와 신·구 G/L 여부에 따라 많이 다릅니다(F.05 → FAGL_FCV, F.16 → FAGLGVTR 등). GR/IR 재분류 방식은 실제 시스템 설정을 확인하세요.</p>
+</div>
+<div class="note">
+  <div class="t">자주 오는 오류</div>
+  <p>"전기기간 ○○○ 이 계정 유형 ○에 대해 열려 있지 않음" → <code>OB52</code>. MIGO에서 "전기 가능 기간" 오류 → <code>MMPV</code>(MM 기간)부터 확인합니다.</p>
+</div>
+</div>
+
+<!-- ═════ APPENDIX ═════ -->
+<div class="lesson" id="ap">
+<h2><span class="no">APPENDIX</span>상황별 치트시트 · 반드시 지킬 것</h2>
+<h3>이럴 땐 이것</h3>
+<div class="tbl-wrap">
+<table>
+<tr><th style="width:220px">상황</th><th style="width:230px">T-Code</th><th class="wrap">테이블</th></tr>
+<tr><td>G/L 계정 만들기</td><td><code>FS00</code></td><td class="wrap"><code>SKA1</code> · <code>SKB1</code></td></tr>
+<tr><td>벤더·고객 만들기</td><td><code>BP</code></td><td class="wrap"><code>LFA1/LFB1</code> · <code>KNA1/KNB1</code></td></tr>
+<tr><td>비용 전표 넣기</td><td><code>FB50</code></td><td class="wrap"><code>BKPF</code> · <code>ACDOCA</code></td></tr>
+<tr><td>MM 없이 벤더 송장</td><td><code>FB60</code></td><td class="wrap">KR</td></tr>
+<tr><td>전표 1건 보기</td><td><code>FB03</code></td><td class="wrap"><code>BKPF</code> · <code>BSEG</code></td></tr>
+<tr><td>벤더에 줄 돈</td><td><code>FBL1N</code> 미결</td><td class="wrap">BSIK (호환 뷰)</td></tr>
+<tr><td>고객에게 받을 돈</td><td><code>FBL5N</code> 미결</td><td class="wrap">BSID (호환 뷰)</td></tr>
+<tr><td>계정 잔액</td><td><code>FAGLB03</code></td><td class="wrap"><code>ACDOCA</code></td></tr>
+<tr><td>벤더 지급</td><td><code>F-53</code> / <code>F110</code></td><td class="wrap">반제 AUGBL</td></tr>
+<tr><td>고객 입금</td><td><code>F-28</code></td><td class="wrap">반제 AUGBL</td></tr>
+<tr><td>전표 되돌리기</td><td><code>FB08</code> (반제 시 <code>FBRA</code> 먼저)</td><td class="wrap">역분개 전표</td></tr>
+<tr><td>이 전표 원천은?</td><td><code>FB03</code> → 원천 문서</td><td class="wrap"><code>AWTYP</code> · <code>AWKEY</code></td></tr>
+<tr><td>입고 계정이 이상</td><td><code>OBYC</code> · <code>OMWB</code></td><td class="wrap">—</td></tr>
+<tr><td>청구가 회계로 안 넘어감</td><td><code>VFX3</code> · <code>VKOA</code></td><td class="wrap">—</td></tr>
+<tr><td>기간 닫힘 오류</td><td><code>OB52</code> · <code>MMPV</code></td><td class="wrap">—</td></tr>
+</table>
+</div>
+<h3>반드시 지킬 것</h3>
+<div class="note warn">
+  <div class="t">1. 전표는 BAPI로 만든다</div>
+  <p>직접 INSERT 금지. <code>BAPI_ACC_DOCUMENT_POST</code>(또는 용도별 BAPI) 사용. 원장·보조원장·세금이 한 번에 맞춰집니다.</p>
+</div>
+<div class="note warn">
+  <div class="t">2. 원천 문서가 있는 전표는 원천에서 취소</div>
+  <p>MM·SD 자동 전표를 FB08로 되돌리면 원천 문서와 영원히 어긋납니다.</p>
+</div>
+<div class="note warn">
+  <div class="t">3. 회계 영향 자동화에는 승인 단계</div>
+  <p>자동 전기 CBO는 알림 또는 임시저장(Park)까지만 두고 사람이 전기하는 구조가 안전합니다.</p>
+</div>
+<div class="note warn">
+  <div class="t">4. 전기일과 증빙일을 구분</div>
+  <p>전기일(BUDAT)은 원장 기간을, 증빙일(BLDAT)은 원본 문서 날짜를 뜻합니다. 기간 오류는 전기일 기준입니다.</p>
+</div>
+</div>
+
+<h3 style="border:0; color:var(--ink-soft); font-size:10pt; margin-top:40px;">참고 자료</h3>
+<ul style="font-size:9.5pt; color:var(--ink-soft);">
+  <li>SAP Help Portal — Financial Accounting: General Ledger / Accounts Payable / Accounts Receivable</li>
+  <li>SAP Help Portal — S/4HANA Universal Journal (ACDOCA)</li>
+  <li>SAP Help Portal — Automatic Account Determination (OBYC / VKOA)</li>
+</ul>
+
+</div>
+<script src="../assets/site.js" defer></script>
+</body>
+</html>

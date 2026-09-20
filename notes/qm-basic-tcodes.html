@@ -1,0 +1,371 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>QM 기본 T-Code와 흐름 — 검사로트·결과·사용결정·품질통지</title>
+<meta name="description" content="SAP QM 기본 T-Code 지도. 자재 QM 뷰와 검사유형 01·04·89, QS21·QDV1·QP01 마스터, QA32 검사로트, QE51N 결과 기록, QA11 사용결정과 321·350·553 재고 전기, QM01 품질통지를 흐름과 도해로 정리.">
+<link rel="icon" href="../assets/favicon.svg">
+<link rel="stylesheet" href="../assets/notes-paper.css">
+<style>
+/* ── 이 노트 전용: 도해(SVG) 스타일 (sap-luw.html 과 동일 세트) ── */
+.dgm{display:block; width:100%; height:auto;}
+.dgm text{font-family:"Malgun Gothic","맑은 고딕","Apple SD Gothic Neo",sans-serif; fill:#1e1e1e;}
+.dgm .t-h{font-size:15px; font-weight:700;}
+.dgm .t{font-size:13px;}
+.dgm .t-s{font-size:11.5px; fill:#555;}
+.dgm .t-xs{font-size:10.5px; fill:#6B7280;}
+.dgm .m{font-family:"D2Coding","Consolas",monospace; font-size:12px;}
+.dgm .m-s{font-family:"D2Coding","Consolas",monospace; font-size:10.5px;}
+.dgm .c-key{fill:#4338CA;} .dgm .c-bad{fill:#B91C1C;} .dgm .c-ok{fill:#047857;}
+.dgm .b{fill:#FFFFFF; stroke:#C7CBD6; stroke-width:1.2;}
+.dgm .b-key{fill:#EEF0FB; stroke:#4338CA; stroke-width:1.4;}
+.dgm .b-bad{fill:#FEF2F2; stroke:#B91C1C; stroke-width:1.3;}
+.dgm .b-ok{fill:#ECFDF5; stroke:#047857; stroke-width:1.3;}
+.dgm .b-mut{fill:#F3F4F6; stroke:#D1D5DB; stroke-width:1.1;}
+.dgm .b-hl{fill:#FEF08A; stroke:#CA8A04; stroke-width:1.2;}
+.dgm .b-ghost{fill:none; stroke:#9AA3B2; stroke-width:1.1; stroke-dasharray:5 4;}
+.dgm .ln{stroke:#7C8697; stroke-width:1.4; fill:none;}
+.dgm .ln-key{stroke:#4338CA; stroke-width:1.8; fill:none;}
+.dgm .ln-bad{stroke:#B91C1C; stroke-width:1.6; fill:none;}
+.dgm .ln-ok{stroke:#047857; stroke-width:1.6; fill:none;}
+.dgm .ln-d{stroke:#9AA3B2; stroke-width:1.2; stroke-dasharray:4 4; fill:none;}
+.dgm .arw{fill:#7C8697;} .dgm .arw-key{fill:#4338CA;}
+.dgm .arw-bad{fill:#B91C1C;} .dgm .arw-ok{fill:#047857;}
+.figwrap{background:#FAFAFE; border:1px solid var(--rule); border-radius:6px;
+  padding:18px 16px 10px; margin:22px 0;}
+.figwrap figcaption{margin-top:12px; padding-top:10px; border-top:1px solid var(--rule);}
+</style>
+
+</head>
+<body>
+<div class="crumb"><a href="../index.html">← SAP 학습 자료실</a> · SAP 모듈 기초 · QM</div>
+<div class="sheet">
+
+<div class="doc-head">
+  <div class="kicker">MODULE BASICS</div>
+  <h1>QM 기본 T-Code와 흐름 — 검사로트 · 결과 · 사용결정 · 품질통지</h1>
+  <div class="sub">"입고했는데 왜 못 쓰지?"의 답을 한 장으로<br>대상: <b>S/4HANA 기준</b> · 도해 3장 · 개인 프로젝트 범위 밖(비교·대비용)</div>
+</div>
+
+<div class="lead">
+  <p><b>결론부터.</b> QM은 <span class="hl">"검사로트 → 결과 → 사용결정"</span>이고, 사용결정이 품질검사 재고를 풀어 주는 유일한 문입니다.</p>
+  <p>검사가 켜진 자재는 입고되자마자 <b>품질검사 재고</b>로 묶이고, QA11에서 합격(321)·보류(350)·폐기(553)로 나눠야 비로소 쓸 수 있게 됩니다.</p>
+</div>
+
+<div class="toc">
+  <h4>목차</h4>
+  <ol>
+    <li><a href="#l1">QM 전체 지도 — 검사로트에서 사용결정까지</a></li>
+    <li><a href="#l2">활성화 — 자재 QM 뷰 · 검사유형</a></li>
+    <li><a href="#l3">마스터 — 검사특성 · 샘플링 · 검사계획</a></li>
+    <li><a href="#l4">검사로트 — 생성 · 조회 · 재고 상태</a></li>
+    <li><a href="#l5">결과 기록 · 사용결정 — QE51N · QA11</a></li>
+    <li><a href="#l6">품질통지 — QM01 · 클레임</a></li>
+    <li><a href="#l7">조회 · 로그</a></li>
+    <li><a href="#ap">APPENDIX — 상황별 치트시트 · 반드시 지킬 것</a></li>
+  </ol>
+</div>
+
+<!-- ═════ LESSON 1 ═════ -->
+<div class="lesson" id="l1">
+<h2><span class="no">LESSON 1</span>QM 전체 지도 — 검사로트에서 사용결정까지</h2>
+<p><b>언제 보나.</b> "입고했는데 재고가 안 보여요"라는 문의의 단골 원인이 QM입니다. 검사가 켜진 자재는 입고 즉시 쓸 수 없습니다.</p>
+<p><b>핵심.</b> QM은 <span class="key">검사로트 → 결과 → 사용결정</span> 세 단계이고, 사용결정에서 재고를 어디로 보낼지 정합니다.</p>
+<figure class="figwrap">
+<svg class="dgm" viewBox="0 0 1000 360" role="img" aria-label="QM 흐름은 입고 101이 검사로트를 자동 생성하고 재고가 품질검사 재고로 들어간 뒤, 결과 기록과 사용결정을 거쳐 사용결정의 재고 전기로 가용, 보류, 폐기, 반품 재고로 나뉜다는 도해">
+<defs><marker id="g1-a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><polygon class="arw" points="0,1 10,5 0,9"/></marker><marker id="g1-k" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><polygon class="arw-key" points="0,1 10,5 0,9"/></marker><marker id="g1-b" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><polygon class="arw-bad" points="0,1 10,5 0,9"/></marker><marker id="g1-o" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><polygon class="arw-ok" points="0,1 10,5 0,9"/></marker></defs>
+<rect class="b-mut" x="20" y="36" width="145" height="84" rx="6"/>
+<text class="t-h" x="34" y="60">① 입고</text>
+<text class="m" x="34" y="79">MIGO 101</text>
+<text class="t-xs" x="34" y="95">검사 활성 자재</text>
+<path class="ln" d="M165 78 L181 78" marker-end="url(#g1-a)"/>
+<rect class="b-key" x="183" y="36" width="145" height="84" rx="6"/>
+<text class="t-h" x="197" y="60">② 검사로트</text>
+<text class="m" x="197" y="79">자동 생성</text>
+<text class="t-xs" x="197" y="95">검사유형 01</text>
+<path class="ln" d="M328 78 L344 78" marker-end="url(#g1-a)"/>
+<rect class="b-key" x="346" y="36" width="145" height="84" rx="6"/>
+<text class="t-h" x="360" y="60">③ 결과 기록</text>
+<text class="m" x="360" y="79">QE51N</text>
+<text class="t-xs" x="360" y="95">특성별 측정값</text>
+<path class="ln" d="M491 78 L507 78" marker-end="url(#g1-a)"/>
+<rect class="b-hl" x="509" y="36" width="145" height="84" rx="6"/>
+<text class="t-h" x="523" y="60">④ 사용결정</text>
+<text class="m" x="523" y="79">QA11</text>
+<text class="t-xs" x="523" y="95">합격 / 불합격</text>
+<path class="ln" d="M654 78 L670 78" marker-end="url(#g1-a)"/>
+<rect class="b-key" x="672" y="36" width="145" height="84" rx="6"/>
+<text class="t-h" x="686" y="60">⑤ 재고 전기</text>
+<text class="m" x="686" y="79">UD 안에서</text>
+<text class="t-xs" x="686" y="95">321 · 350 · 553</text>
+<path class="ln" d="M817 78 L833 78" marker-end="url(#g1-a)"/>
+<rect class="b-mut" x="835" y="36" width="145" height="84" rx="6"/>
+<text class="t-h" x="849" y="60">⑥ 품질통지</text>
+<text class="m" x="849" y="79">QM01</text>
+<text class="t-xs" x="849" y="95">불량이면 클레임</text>
+<rect class="b" x="20" y="160" width="145" height="80" rx="6"/>
+<text class="t" x="34" y="182">자재문서</text>
+<text class="m-s" x="34" y="198">MATDOC</text>
+<line class="ln-d" x1="92" y1="120" x2="92" y2="158"/>
+<rect class="b" x="183" y="160" width="145" height="80" rx="6"/>
+<text class="t" x="197" y="182">검사로트</text>
+<text class="m-s" x="197" y="198">QALS</text>
+<line class="ln-d" x1="255" y1="120" x2="255" y2="158"/>
+<rect class="b" x="346" y="160" width="145" height="80" rx="6"/>
+<text class="t" x="360" y="182">결과</text>
+<text class="m-s" x="360" y="198">QAMR · QASR</text>
+<line class="ln-d" x1="418" y1="120" x2="418" y2="158"/>
+<rect class="b" x="509" y="160" width="145" height="80" rx="6"/>
+<text class="t" x="523" y="182">사용결정</text>
+<text class="m-s" x="523" y="198">QAVE</text>
+<line class="ln-d" x1="581" y1="120" x2="581" y2="158"/>
+<rect class="b" x="672" y="160" width="145" height="80" rx="6"/>
+<text class="t" x="686" y="182">자재문서</text>
+<text class="m-s" x="686" y="198">MATDOC</text>
+<line class="ln-d" x1="744" y1="120" x2="744" y2="158"/>
+<rect class="b" x="835" y="160" width="145" height="80" rx="6"/>
+<text class="t" x="849" y="182">통지</text>
+<text class="m-s" x="849" y="198">QMEL</text>
+<line class="ln-d" x1="907" y1="120" x2="907" y2="158"/>
+<rect class="b-hl" x="20" y="262" width="470" height="86" rx="6"/>
+<text class="t-h" x="36" y="286">입고했는데 가용재고가 안 늘었다?</text>
+<text class="t-s" x="36" y="303">정상. 검사 활성 자재는 품질검사 재고(INSME)로 들어간다.</text>
+<text class="t-xs" x="36" y="319">사용결정(④)의 재고 전기가 끝나야 가용재고가 된다</text>
+<rect class="b-ghost" x="510" y="262" width="470" height="86" rx="6"/>
+<text class="t" x="526" y="286">사용결정 재고 전기 선택지</text>
+<text class="m-s" x="526" y="302">321 가용 · 350 보류 · 553 폐기 · 331 샘플</text>
+<text class="t-xs" x="526" y="318">반품이 필요하면 보류 후 122</text>
+</svg>
+<figcaption><span class="fno">그림 1</span> QM 입고 검사 흐름. 사용결정(④)이 <b>품질검사 재고를 해제하는 유일한 관문</b>입니다.</figcaption>
+</figure>
+<div class="note">
+  <div class="t">참고</div>
+  <p>개인 프로젝트(CL04)는 QM을 쓰지 않고 GATE 플랜트 + ZGATE_INSPECT(CBO)로 검수를 대신합니다. 표준 QM을 쓰면 무엇이 달라지는지 비교하는 용도로 읽으세요.</p>
+</div>
+</div>
+
+<!-- ═════ LESSON 2 ═════ -->
+<div class="lesson" id="l2">
+<h2><span class="no">LESSON 2</span>활성화 — 자재 QM 뷰 · 검사유형</h2>
+<p><b>언제 쓰나.</b> 어떤 자재를 어떤 상황에서 검사할지 켜는 단계입니다. 이게 꺼져 있으면 검사로트가 생기지 않습니다.</p>
+<div class="step"><span class="n">1</span><p><b>자재마스터 품질관리 뷰</b>(MM02) → <b>검사 설정(Inspection Setup)</b> 버튼 → 검사유형 추가 · 활성 체크.</p></div>
+<div class="step"><span class="n">2</span><p>검사유형마다 옵션: 검사계획 사용 여부, 특성 기반 결과 기록, 샘플 계산 방식, 100% 검사 등.</p></div>
+<div class="step"><span class="n">3</span><p>플랜트 레벨 설정이라 플랜트마다 따로 켭니다 (<code>QMAT</code>).</p></div>
+<div class="tbl-wrap">
+<table>
+<tr><th style="width:110px">검사유형</th><th style="width:190px">언제 로트가 생기나</th><th class="wrap">이동유형</th></tr>
+<tr><td><code>01</code></td><td>PO 입고</td><td class="wrap">101</td></tr>
+<tr><td><code>04</code></td><td>생산오더 입고</td><td class="wrap">101 (생산)</td></tr>
+<tr><td><code>05</code></td><td>기타 입고</td><td class="wrap">501 · 561 등</td></tr>
+<tr><td><code>03</code></td><td>공정 중 검사</td><td class="wrap">생산오더 릴리즈</td></tr>
+<tr><td><code>08</code></td><td>재고 이전</td><td class="wrap">301 등</td></tr>
+<tr><td><code>89</code></td><td>수동 검사로트</td><td class="wrap">QA01 직접 생성</td></tr>
+</table>
+</div>
+<div class="note warn">
+  <div class="t">확인 필요</div>
+  <p>검사유형 번호·명칭은 표준 기준이며 회사가 복사해서 쓰는 경우가 많습니다. <code>QMAT</code>와 IMG에서 실제 유형을 확인하세요.</p>
+</div>
+</div>
+
+<!-- ═════ LESSON 3 ═════ -->
+<div class="lesson" id="l3">
+<h2><span class="no">LESSON 3</span>마스터 — 검사특성 · 샘플링 · 검사계획</h2>
+<p><b>언제 쓰나.</b> "무엇을 몇 개 어떻게 검사할지"를 미리 정의합니다. 특성 기반 결과 기록을 하려면 필수입니다.</p>
+<figure class="figwrap">
+<svg class="dgm" viewBox="0 0 1000 270" role="img" aria-label="검사계획은 검사특성과 샘플링 절차를 공정에 묶은 것이고, 검사로트가 생성될 때 검사계획을 복사해 무엇을 몇 개 어떻게 검사할지 결정된다는 도해">
+<defs><marker id="g2-a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><polygon class="arw" points="0,1 10,5 0,9"/></marker><marker id="g2-k" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><polygon class="arw-key" points="0,1 10,5 0,9"/></marker><marker id="g2-b" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><polygon class="arw-bad" points="0,1 10,5 0,9"/></marker><marker id="g2-o" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><polygon class="arw-ok" points="0,1 10,5 0,9"/></marker></defs>
+<rect class="b-key" x="20" y="40" width="280" height="80" rx="6"/>
+<text class="t-h" x="36" y="64">검사특성  <tspan class="m">QS21</tspan></text>
+<text class="t-s" x="36" y="81">무엇을 재나 (중량·당도·외관)</text>
+<text class="m-s" x="36" y="97">QPMK · 정량/정성</text>
+<rect class="b-key" x="20" y="150" width="280" height="80" rx="6"/>
+<text class="t-h" x="36" y="174">샘플링 절차  <tspan class="m">QDV1</tspan></text>
+<text class="t-s" x="36" y="191">몇 개를 뽑나</text>
+<text class="m-s" x="36" y="207">고정 n개 · 비율 · AQL</text>
+<rect class="b-hl" x="360" y="80" width="280" height="110" rx="6"/>
+<text class="t-h" x="376" y="104">검사계획  <tspan class="m">QP01</tspan></text>
+<text class="t-s" x="376" y="121">공정 + 특성 + 샘플 + 허용범위</text>
+<text class="m-s" x="376" y="137">PLKO · PLPO · PLMK</text>
+<text class="t-xs" x="376" y="153">task list 유형 Q</text>
+<path class="ln-key" d="M300 80 L358 120" marker-end="url(#g2-k)"/>
+<path class="ln-key" d="M300 190 L358 160" marker-end="url(#g2-k)"/>
+<rect class="b" x="700" y="80" width="280" height="110" rx="6"/>
+<text class="t-h" x="716" y="104">검사로트  <tspan class="m">QALS</tspan></text>
+<text class="t-s" x="716" y="121">계획 복사 → 샘플 수 계산</text>
+<text class="t-xs" x="716" y="137">입고 수량 100 → 샘플 5</text>
+<path class="ln-key" d="M640 135 L698 135" marker-end="url(#g2-k)"/>
+</svg>
+<figcaption><span class="fno">그림 2</span> QM 마스터 구조. 검사계획은 PP 라우팅과 같은 작업계획(Task List) 구조를 공유합니다(유형 Q).</figcaption>
+</figure>
+<div class="tbl-wrap">
+<table>
+<tr><th style="width:140px">T-Code</th><th style="width:160px">용도</th><th class="wrap">메모</th></tr>
+<tr><td><code>QS21/22/23</code></td><td>검사특성(마스터)</td><td class="wrap">정량(상·하한) / 정성(합격·불합격 코드)</td></tr>
+<tr><td><code>QDV1</code></td><td>샘플링 절차</td><td class="wrap">샘플 수 계산 규칙</td></tr>
+<tr><td><code>QP01/02/03</code></td><td>검사계획</td><td class="wrap">자재·플랜트에 할당</td></tr>
+<tr><td><code>QS41</code> 등</td><td>코드 그룹 · 선택 세트</td><td class="wrap">불량 코드, 사용결정 코드</td></tr>
+<tr><td><code>QA08</code></td><td>검사설정 일괄 변경</td><td class="wrap">여러 자재의 QM 뷰 검사유형 한 번에</td></tr>
+</table>
+</div>
+</div>
+
+<!-- ═════ LESSON 4 ═════ -->
+<div class="lesson" id="l4">
+<h2><span class="no">LESSON 4</span>검사로트 — 생성 · 조회 · 재고 상태</h2>
+<p><b>언제 쓰나.</b> 검사 대기 중인 건을 확인하거나, 로트가 왜 안 생겼는지 볼 때입니다.</p>
+<div class="tbl-wrap">
+<table>
+<tr><th style="width:130px">T-Code</th><th style="width:170px">용도</th><th class="wrap">메모</th></tr>
+<tr><td><code>QA32</code></td><td>검사로트 작업 리스트</td><td class="wrap">가장 많이 씀. 상태별(결과 대기·UD 대기) 필터 → 바로 결과·UD 이동</td></tr>
+<tr><td><code>QA33</code></td><td>검사로트 조회 리스트</td><td class="wrap">조회 전용</td></tr>
+<tr><td><code>QA01/02/03</code></td><td>검사로트 생성·변경·조회</td><td class="wrap">89 수동 로트는 QA01</td></tr>
+<tr><td><code>MMBE</code></td><td>재고 확인</td><td class="wrap">품질검사 재고 칸(INSME) 확인</td></tr>
+</table>
+</div>
+<div class="tbl-wrap">
+<table>
+<tr><th style="width:120px">로트 상태</th><th class="wrap">의미</th></tr>
+<tr><td><code>REL</code></td><td>릴리즈 — 결과 기록 가능</td></tr>
+<tr><td><code>RREC</code></td><td>결과 기록됨</td></tr>
+<tr><td><code>UD</code></td><td>사용결정 완료</td></tr>
+<tr><td><code>SPCO</code></td><td>재고 전기 완료 — 품질검사 재고 0</td></tr>
+</table>
+</div>
+<div class="note">
+  <div class="t">자주 오는 문의</div>
+  <p>"입고했는데 검사로트가 안 생겼다" → 자재 QM 뷰에서 <b>그 검사유형이 활성화</b>됐는지, 플랜트가 맞는지부터 봅니다.</p>
+</div>
+</div>
+
+<!-- ═════ LESSON 5 ═════ -->
+<div class="lesson" id="l5">
+<h2><span class="no">LESSON 5</span>결과 기록 · 사용결정 — QE51N · QA11</h2>
+<p><b>언제 쓰나.</b> 검사를 마치고 "이 로트 써도 되나"를 확정할 때입니다.</p>
+<div class="step"><span class="n">1</span><p><b>결과 기록</b> <code>QE51N</code> — 특성별 측정값 입력. 허용범위 밖이면 자동으로 불합격 표시.</p></div>
+<div class="step"><span class="n">2</span><p><b>사용결정</b> <code>QA11</code> — 사용결정 코드(A 합격 / R 불합격) 선택.</p></div>
+<div class="step"><span class="n">3</span><p><b>재고 전기</b> — 같은 QA11 화면 "재고 전기" 탭에서 수량을 나눠 보냄. 저장 시 자재문서 생성.</p></div>
+<figure class="figwrap">
+<svg class="dgm" viewBox="0 0 1000 280" role="img" aria-label="사용결정 화면에서 합격이면 321로 가용재고, 불합격이면 350 보류재고나 553 폐기로 품질검사 재고를 비우고, 샘플로 쓴 수량은 331로 출고한다는 도해">
+<defs><marker id="g3-a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><polygon class="arw" points="0,1 10,5 0,9"/></marker><marker id="g3-k" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><polygon class="arw-key" points="0,1 10,5 0,9"/></marker><marker id="g3-b" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><polygon class="arw-bad" points="0,1 10,5 0,9"/></marker><marker id="g3-o" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><polygon class="arw-ok" points="0,1 10,5 0,9"/></marker></defs>
+<rect class="b-hl" x="20" y="90" width="260" height="100" rx="6"/>
+<text class="t-h" x="36" y="114">품질검사 재고</text>
+<text class="m" x="36" y="133">INSME  100</text>
+<text class="t-xs" x="36" y="149">사용결정 QA11 "재고 전기" 탭</text>
+<rect class="b-ok" x="600" y="10" width="380" height="56" rx="6"/>
+<text class="m" x="616" y="34">321  가용 재고로</text>
+<text class="t-xs" x="616" y="50">합격 95</text>
+<path class="ln-ok" d="M280 140 L598 38" marker-end="url(#g3-o)"/>
+<rect class="b-bad" x="600" y="80" width="380" height="56" rx="6"/>
+<text class="m" x="616" y="104">350  보류 재고로</text>
+<text class="t-xs" x="616" y="120">불합격 · 반품 대기</text>
+<path class="ln-bad" d="M280 140 L598 108" marker-end="url(#g3-b)"/>
+<rect class="b-bad" x="600" y="150" width="380" height="56" rx="6"/>
+<text class="m" x="616" y="174">553  폐기</text>
+<text class="t-xs" x="616" y="190">불합격 · 즉시 폐기</text>
+<path class="ln-bad" d="M280 140 L598 178" marker-end="url(#g3-b)"/>
+<rect class="b-mut" x="600" y="220" width="380" height="56" rx="6"/>
+<text class="m" x="616" y="244">331  샘플 출고</text>
+<text class="t-xs" x="616" y="260">검사에 쓴 5</text>
+<path class="ln" d="M280 140 L598 248" marker-end="url(#g3-a)"/>
+</svg>
+<figcaption><span class="fno">그림 3</span> 사용결정의 재고 전기. 품질검사 재고 100을 <b>합격·불합격·샘플</b>로 나눠 비웁니다. 재고 전기가 끝나야 로트가 완결(SPCO)됩니다.</figcaption>
+</figure>
+<div class="tbl-wrap">
+<table>
+<tr><th style="width:140px">T-Code</th><th class="wrap">용도</th></tr>
+<tr><td><code>QE51N</code></td><td>결과 기록 (작업 리스트형)</td></tr>
+<tr><td><code>QA11/12/13</code></td><td>사용결정 생성·변경·조회</td></tr>
+<tr><td><code>QA16</code></td><td>일괄 사용결정 (자동 UD)</td></tr>
+<tr><td><code>QA10</code></td><td>자동 사용결정 스케줄</td></tr>
+</table>
+</div>
+<div class="note warn">
+  <div class="t">확인 필요</div>
+  <p>사용결정 재고 전기 이동유형(321/350/553/331 등)은 표준 기준입니다. 반품 처리 방식(보류 후 122 vs 사용결정에서 바로 반품)은 설정에 따라 다릅니다.</p>
+</div>
+</div>
+
+<!-- ═════ LESSON 6 ═════ -->
+<div class="lesson" id="l6">
+<h2><span class="no">LESSON 6</span>품질통지 — QM01 · 클레임</h2>
+<p><b>언제 쓰나.</b> 불량이 발생했을 때 원인·조치를 기록하고 벤더·고객과 클레임을 진행합니다.</p>
+<div class="tbl-wrap">
+<table>
+<tr><th style="width:110px">통지유형</th><th style="width:130px">의미</th><th class="wrap">연결 문서</th></tr>
+<tr><td><code>Q1</code></td><td>고객 클레임</td><td class="wrap">판매오더 · 출하</td></tr>
+<tr><td><code>Q2</code></td><td>벤더 클레임</td><td class="wrap">PO · 검사로트</td></tr>
+<tr><td><code>Q3</code></td><td>내부 불량</td><td class="wrap">생산오더</td></tr>
+</table>
+</div>
+<div class="tbl-wrap">
+<table>
+<tr><th style="width:140px">T-Code</th><th style="width:170px">용도</th><th class="wrap">메모</th></tr>
+<tr><td><code>QM01/02/03</code></td><td>품질통지 생성·변경·조회</td><td class="wrap"><code>QMEL</code> 헤더 · <code>QMFE</code> 불량 항목 · <code>QMSM</code> 조치</td></tr>
+<tr><td><code>QM10</code> / <code>QM11</code></td><td>통지 리스트</td><td class="wrap">변경 / 조회</td></tr>
+<tr><td><code>QA11</code> → 통지</td><td>검사 불합격에서 바로 생성</td><td class="wrap">검사로트와 연결</td></tr>
+</table>
+</div>
+</div>
+
+<!-- ═════ LESSON 7 ═════ -->
+<div class="lesson" id="l7">
+<h2><span class="no">LESSON 7</span>조회 · 로그</h2>
+<div class="tbl-wrap">
+<table>
+<tr><th style="width:180px">보고 싶은 것</th><th style="width:220px">T-Code</th><th class="wrap">테이블</th></tr>
+<tr><td>검사 대기 로트</td><td><code>QA32</code></td><td class="wrap"><code>QALS</code></td></tr>
+<tr><td>로트별 결과</td><td><code>QA33</code> → 결과 · <code>QE03</code></td><td class="wrap"><code>QAMR</code> · <code>QASR</code></td></tr>
+<tr><td>사용결정 내역</td><td><code>QA13</code></td><td class="wrap"><code>QAVE</code></td></tr>
+<tr><td>자재 검사 설정</td><td><code>MM03</code> QM 뷰</td><td class="wrap"><code>QMAT</code></td></tr>
+<tr><td>품질검사 재고</td><td><code>MMBE</code> · <code>MB52</code></td><td class="wrap"><code>MARD-INSME</code> · <code>MCHB-CINSM</code></td></tr>
+<tr><td>사용결정 재고 이동</td><td><code>MB51</code> 321·350·553</td><td class="wrap"><code>MATDOC</code></td></tr>
+<tr><td>품질통지</td><td><code>QM11</code></td><td class="wrap"><code>QMEL</code></td></tr>
+<tr><td>벤더 품질 점수</td><td><code>QGA3</code> 등</td><td class="wrap">품질 점수</td></tr>
+</table>
+</div>
+</div>
+
+<!-- ═════ APPENDIX ═════ -->
+<div class="lesson" id="ap">
+<h2><span class="no">APPENDIX</span>상황별 치트시트 · 반드시 지킬 것</h2>
+<h3>이럴 땐 이것</h3>
+<div class="tbl-wrap">
+<table>
+<tr><th style="width:260px">상황</th><th class="wrap">T-Code</th></tr>
+<tr><td>자재 검사 켜기</td><td><code>MM02</code> QM 뷰 → 검사 설정 / <code>QA08</code> 일괄</td></tr>
+<tr><td>검사 항목 정의</td><td><code>QS21</code> → <code>QP01</code></td></tr>
+<tr><td>검사 대기 목록</td><td><code>QA32</code></td></tr>
+<tr><td>결과 입력</td><td><code>QE51N</code></td></tr>
+<tr><td>합격·불합격 확정</td><td><code>QA11</code></td></tr>
+<tr><td>입고했는데 재고가 안 보임</td><td><code>MMBE</code> 품질검사 재고 → <code>QA32</code></td></tr>
+<tr><td>로트가 안 생김</td><td><code>MM03</code> QM 뷰 검사유형 활성 여부</td></tr>
+<tr><td>불량 클레임</td><td><code>QM01</code> (Q1/Q2/Q3)</td></tr>
+</table>
+</div>
+<h3>반드시 지킬 것</h3>
+<div class="note warn">
+  <div class="t">1. 품질검사 재고를 311·344로 우회하지 않는다</div>
+  <p>사용결정 없이 재고를 옮기면 검사로트가 영원히 열린 채 남고 품질 이력이 끊깁니다. 반드시 QA11 재고 전기로.</p>
+</div>
+<div class="note warn">
+  <div class="t">2. 검사 활성화는 재고가 0일 때</div>
+  <p>품질검사 재고가 남은 상태에서 검사유형 설정을 바꾸면 기존 로트와 어긋날 수 있습니다.</p>
+</div>
+<div class="note warn">
+  <div class="t">3. 프로그램에서 사용결정은 BAPI로</div>
+  <p><code>BAPI_INSPLOT_SETUSAGEDECISION</code> 등. QALS·QAVE 직접 수정 금지.</p>
+</div>
+</div>
+
+<h3 style="border:0; color:var(--ink-soft); font-size:10pt; margin-top:40px;">참고 자료</h3>
+<ul style="font-size:9.5pt; color:var(--ink-soft);">
+  <li>SAP Help Portal — Quality Management: Inspection Lot Processing / Usage Decision</li>
+  <li>SAP Help Portal — Quality Notifications</li>
+</ul>
+
+</div>
+<script src="../assets/site.js" defer></script>
+</body>
+</html>

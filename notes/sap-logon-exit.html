@@ -1,0 +1,837 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>SAP 로그온 User Exit — SUSR0001로 접속이력 남기기</title>
+<meta name="description" content="SUSR0001 / EXIT_SAPLSUSF_001 / ZXUSRU01 로그온 User Exit 실무 노트. SMOD·CMOD 찾아 들어가기, CHECK와 IF의 차이, STARTING NEW TASK로 로그온 LUW 분리, EXCEPTIONS가 못 잡는 덤프, sy-uzeit 시간대 함정, RANGES 대상자 한정까지.">
+<link rel="icon" href="../assets/favicon.svg">
+<link rel="stylesheet" href="../assets/notes-paper.css">
+<style>
+/* 이 노트 전용: 도해(SVG) 스타일 */
+.dgm{display:block; width:100%; height:auto;}
+.dgm text{font-family:"Malgun Gothic","맑은 고딕","Apple SD Gothic Neo",sans-serif; fill:#1e1e1e;}
+.dgm .t-h{font-size:15px; font-weight:700;}
+.dgm .t{font-size:13px;}
+.dgm .t-s{font-size:11.5px; fill:#555;}
+.dgm .t-xs{font-size:10.5px; fill:#6B7280;}
+.dgm .m{font-family:"D2Coding","Consolas",monospace; font-size:12px;}
+.dgm .m-s{font-family:"D2Coding","Consolas",monospace; font-size:10.5px;}
+.dgm .c-key{fill:#4338CA;} .dgm .c-bad{fill:#B91C1C;} .dgm .c-ok{fill:#047857;}
+.dgm .b{fill:#FFFFFF; stroke:#C7CBD6; stroke-width:1.2;}
+.dgm .b-key{fill:#EEF0FB; stroke:#4338CA; stroke-width:1.4;}
+.dgm .b-bad{fill:#FEF2F2; stroke:#B91C1C; stroke-width:1.3;}
+.dgm .b-ok{fill:#ECFDF5; stroke:#047857; stroke-width:1.3;}
+.dgm .b-mut{fill:#F3F4F6; stroke:#D1D5DB; stroke-width:1.1;}
+.dgm .b-hl{fill:#FEF08A; stroke:#CA8A04; stroke-width:1.2;}
+.dgm .b-ghost{fill:none; stroke:#9AA3B2; stroke-width:1.1; stroke-dasharray:5 4;}
+.dgm .ln{stroke:#7C8697; stroke-width:1.4; fill:none;}
+.dgm .ln-key{stroke:#4338CA; stroke-width:1.8; fill:none;}
+.dgm .ln-bad{stroke:#B91C1C; stroke-width:1.6; fill:none;}
+.dgm .ln-ok{stroke:#047857; stroke-width:1.6; fill:none;}
+.dgm .ln-d{stroke:#9AA3B2; stroke-width:1.2; stroke-dasharray:4 4; fill:none;}
+.dgm .arw{fill:#7C8697;} .dgm .arw-key{fill:#4338CA;}
+.dgm .arw-bad{fill:#B91C1C;} .dgm .arw-ok{fill:#047857;}
+.figwrap{background:#FAFAFE; border:1px solid var(--rule); border-radius:6px;
+  padding:18px 16px 10px; margin:22px 0;}
+.figwrap figcaption{margin-top:12px; padding-top:10px; border-top:1px solid var(--rule);}
+.cmp{display:grid; grid-template-columns:1fr 1fr; gap:16px; margin:18px 0;}
+.cmp > div{border:1px solid var(--rule); border-radius:6px; padding:14px 18px;}
+.cmp h5{margin:0 0 8px; font-size:10.5pt;}
+.cmp ul{margin:8px 0 0; padding-left:20px;} .cmp li{font-size:10pt; margin-bottom:6px;}
+.cmp .x{border-top:3px solid var(--danger);} .cmp .x h5{color:var(--danger);}
+.cmp .o{border-top:3px solid var(--ok);} .cmp .o h5{color:var(--ok);}
+@media (max-width:720px){ .cmp{grid-template-columns:1fr;} }
+</style>
+</head>
+<body>
+<div class="crumb"><a href="../index.html">← SAP 학습 자료실</a> · SAP 확장 · User Exit / Enhancement</div>
+<div class="sheet">
+
+<div class="doc-head">
+  <div class="kicker">FIELD NOTE</div>
+  <h1>SAP 로그온 User Exit — SUSR0001로 접속이력 남기기</h1>
+  <div class="sub">
+    로그온 직후 한 번 실행되는 자리에 코드를 심는 법, 그리고 거기서 하면 안 되는 것들<br>
+    실습 대상: <b>ECC EHP7 (NW 7.40)</b> · 캡처 8장 · 도해 3장
+  </div>
+</div>
+
+<div class="lead">
+  <p><b>결론부터.</b> 로그온 Exit은 <span class="hl">한 번의 실수로 전 사용자의 로그인을 막을 수 있는 유일한 확장 지점</span>입니다. 다른 Exit과 문법은 같지만 <b>실패했을 때의 대가가 다릅니다.</b></p>
+  <p>SAP에는 "로그온 직후 내 코드를 한 번 태우는" 표준 자리가 있습니다. <code>SUSR0001</code>입니다. 접속이력 기록, 다중 로그온 제한, 시스템 공지 같은 것들이 여기 붙습니다. 그런데 이 자리는 <span class="bad">덤프가 나면 그 사용자가 시스템에 들어오지 못하고</span>, <span class="bad"><code>CHECK</code> 한 줄이 이미 돌고 있던 다른 회사 로직을 조용히 죽입니다.</span></p>
+  <p>이 노트는 <b>접속이력 테이블(ZUSER_LOG)에 로그온 시각을 남기는</b> 실습을 따라가면서, 그 과정에서 실제로 밟은 지뢰 세 개를 같이 정리합니다.</p>
+</div>
+
+<div class="toc">
+  <h4>목차</h4>
+  <ol>
+    <li><a href="#l1">로그온 Exit이란 — 언제 쓰고, 왜 위험한가</a></li>
+    <li><a href="#l2">찾아 들어가기 — SMOD → CMOD → ZXUSRU01</a></li>
+    <li><a href="#l3">CMOD 프로젝트 — 이미 누가 쓰고 있을 때</a></li>
+    <li><a href="#l4">CHECK의 함정 — 처리블록 전체가 끝난다</a></li>
+    <li><a href="#l5">Exit에서 DB를 건드릴 때 — STARTING NEW TASK</a></li>
+    <li><a href="#l6">EXCEPTIONS가 못 잡는 것 — 덤프 실물</a></li>
+    <li><a href="#l7">sy-uzeit는 한국 시간이 아니다 — 시간대 처리</a></li>
+    <li><a href="#l8">대상자 한정 — RANGES와 TVARVC</a></li>
+    <li><a href="#l9">부록 — 체크리스트 · T-Code · 참고</a></li>
+  </ol>
+</div>
+
+
+<!-- ══════════ LESSON 1 ══════════ -->
+<div class="lesson" id="l1">
+<h2><span class="no">LESSON 1</span>로그온 Exit이란 — 언제 쓰고, 왜 위험한가</h2>
+
+<p>SAP GUI에 ID/비밀번호를 넣고 <kbd>Enter</kbd>를 치면, 인증이 통과된 뒤 초기 화면이 뜨기 전에 <b>SAP이 한 번 내 코드를 불러 줍니다.</b> 그 자리가 기능확장 <span class="key">SUSR0001</span>입니다.</p>
+
+<figure class="figwrap">
+<svg class="dgm" viewBox="0 0 1000 330" role="img"
+     aria-label="SAP 로그온 흐름에서 SUSR0001 User Exit은 인증 통과 후 초기 화면 표시 전에 호출되며, 여기서 덤프가 나면 초기 화면에 도달하지 못해 로그인이 실패한다는 도해">
+  <defs>
+    <marker id="le-a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><polygon class="arw" points="0,1 10,5 0,9"/></marker>
+    <marker id="le-ak" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><polygon class="arw-key" points="0,1 10,5 0,9"/></marker>
+    <marker id="le-ab" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><polygon class="arw-bad" points="0,1 10,5 0,9"/></marker>
+  </defs>
+
+  <text class="m-s c-key" x="40" y="26">로그온 처리 흐름</text>
+
+  <rect class="b" x="40" y="40" width="160" height="56" rx="5"/>
+  <text class="t" x="60" y="64">① ID / PW 입력</text>
+  <text class="t-xs" x="60" y="82">SAP GUI</text>
+
+  <line class="ln" x1="205" y1="68" x2="245" y2="68" marker-end="url(#le-a)"/>
+
+  <rect class="b" x="250" y="40" width="170" height="56" rx="5"/>
+  <text class="t" x="270" y="64">② 인증 · 권한 확인</text>
+  <text class="t-xs" x="270" y="82">USR02 · 라이선스 · 락</text>
+
+  <line class="ln-key" x1="425" y1="68" x2="465" y2="68" marker-end="url(#le-ak)"/>
+
+  <rect class="b-key" x="470" y="34" width="250" height="68" rx="5"/>
+  <text class="t-h c-key" x="492" y="58">③ SUSR0001</text>
+  <text class="m-s" x="492" y="78">EXIT_SAPLSUSF_001</text>
+  <text class="t-xs" x="492" y="94">→ INCLUDE ZXUSRU01  ← 내 코드</text>
+
+  <line class="ln-key" x1="725" y1="68" x2="765" y2="68" marker-end="url(#le-ak)"/>
+
+  <rect class="b-ok" x="770" y="40" width="180" height="56" rx="5"/>
+  <text class="t c-ok" x="790" y="64">④ 초기 화면 표시</text>
+  <text class="t-xs" x="790" y="82">로그온 성공</text>
+
+  <path class="ln-bad" d="M595 106 L595 150" marker-end="url(#le-ab)"/>
+  <rect class="b-bad" x="380" y="158" width="430" height="92" rx="6"/>
+  <text class="t-h c-bad" x="402" y="184">③에서 덤프 / CHECK 실패 / 무한대기</text>
+  <text class="t-s" x="402" y="208">④에 도달하지 못한다 → <tspan class="c-bad" font-weight="700">그 사용자는 로그인 불가</tspan></text>
+  <text class="t-s" x="402" y="230">전 사용자 대상이면, 고치러 들어갈 사람조차 못 들어온다</text>
+
+  <rect class="b-mut" x="40" y="158" width="300" height="92" rx="6"/>
+  <text class="t-h" x="62" y="184">여기에 붙는 것들</text>
+  <text class="t-s" x="62" y="206">· 접속이력 기록 (이 노트의 실습)</text>
+  <text class="t-s" x="62" y="224">· 다중 로그온 제한 · GRC 연동</text>
+  <text class="t-s" x="62" y="242">· GUI 버전 수집 · 시스템 공지</text>
+
+  <rect class="b-hl" x="40" y="276" width="910" height="34" rx="5"/>
+  <text class="t" x="60" y="298">핵심 — 다른 Exit은 "기능이 안 돈다"로 끝나지만, 로그온 Exit은 <tspan font-weight="700">"시스템에 못 들어온다"</tspan>로 끝난다.</text>
+</svg>
+<figcaption><span class="fno">그림 1</span> SUSR0001은 인증이 끝난 <b>뒤</b>, 초기 화면이 뜨기 <b>전</b>에 호출됩니다.
+  <ol class="legend">
+    <li><b>③의 위치가 전부</b> — 인증 이후라서 <code>sy-uname</code>이 이미 확정되어 있고, 초기 화면 이전이라서 여기서 멈추면 아무것도 못 합니다.</li>
+    <li><b>복구 경로가 좁다</b> — 전 사용자에게 영향을 주는 코드를 넣었다가 덤프가 나면, CMOD를 비활성화하러 들어갈 계정도 같이 막힙니다.</li>
+  </ol>
+</figcaption>
+</figure>
+
+<div class="note warn">
+  <div class="t">이 노트 전체를 관통하는 원칙</div>
+  <p>로그온 Exit에서는 <b>방어 코드보다 사전 검증이 먼저</b>입니다. <code>EXCEPTIONS</code>나 <code>IF sy-subrc</code>를 아무리 붙여도 못 막는 실패가 있습니다(Lesson 6). 넣기 전에 SE37에서 존재를 확인하고, 대상을 좁히고(Lesson 8), 별도 LUW로 분리하는(Lesson 5) 쪽이 훨씬 안전합니다.</p>
+</div>
+
+<h3>실습 목표</h3>
+<p>이 노트의 실습은 <b>커스텀 테이블 <code>ZUSER_LOG</code>에 로그온 시각을 1건 남기는 것</b>입니다. 로그아웃 시각은 별도 배치가 채우는 구조지만, 이 노트는 <span class="key">로그온 쪽만</span> 다룹니다.</p>
+
+<div class="tbl-wrap">
+<table>
+  <tr><th style="width:160px">오브젝트</th><th style="width:110px">T-Code</th><th>역할</th></tr>
+  <tr><td><code>ZUSER_LOG</code></td><td>SE11</td><td>접속이력 테이블. 서버·사용자·단말·접속시각 + 상태(W/P/H)</td></tr>
+  <tr><td><code>Z_USER_LOG_INSERT</code></td><td>SE37</td><td>1건 INSERT하는 <b>원격활성화</b> 함수모듈</td></tr>
+  <tr><td><code>SUSR0001</code></td><td>SMOD / CMOD</td><td>로그온 기능확장</td></tr>
+  <tr><td><code>ZXUSRU01</code></td><td>CMOD</td><td>실제 코드가 들어가는 인클루드</td></tr>
+</table>
+</div>
+
+<figure>
+  <img src="../assets/img/sap-logon-exit/06-se11-zuser-log.png" alt="SE11 데이터 딕셔너리에서 투명 테이블 ZUSER_LOG의 필드 목록. MANDT SERVER BNAME TERM LOGON_DATE LOGON_TIME 이 키로 지정되고 LAST_SEEN LOGOFF STATUS 필드가 이어지는 상태">
+  <figcaption><span class="fno">그림 2</span> 적재 대상 테이블 <code>ZUSER_LOG</code>.
+    <ol class="legend">
+      <li><b>키 6개</b> — <code>MANDT</code> + 서버 · 사용자 · 단말 · 접속일 · 접속시각. 같은 사람이 같은 단말에서 재접속해도 별개 이력으로 남도록 접속시각까지 키에 넣었다.</li>
+      <li><b><code>LAST_SEEN_DT/TM</code></b> — "마지막으로 살아있음을 확인한 시각". 종료시각을 배치 실행시각으로 찍으면 접속시간이 배치 주기만큼 부풀려지므로, 이 값을 종료시각으로 쓴다.</li>
+      <li><b><code>STATUS</code></b> — W(접속중) · P(정상마감) · H(강제마감). 신뢰할 수 있는 종료시각과 추정치를 구분하기 위해 H를 따로 둔다.</li>
+    </ol>
+  </figcaption>
+</figure>
+
+<div class="note">
+  <div class="t">왜 Exit이 로그온만 담당하나</div>
+  <p>SAP에는 <b>로그오프 Exit이 없습니다.</b> 정상 로그오프뿐 아니라 세션 타임아웃, GUI 강제 종료, 네트워크 단절은 이벤트 자체가 발생하지 않습니다. 그래서 종료 시각은 "아직 살아있나"를 주기적으로 확인하는 배치로 잡을 수밖에 없습니다. <b>접속은 이벤트, 종료는 폴링</b> — 성격이 다르니 담당도 나눕니다.</p>
+</div>
+</div>
+
+
+<!-- ══════════ LESSON 2 ══════════ -->
+<div class="lesson" id="l2">
+<h2><span class="no">LESSON 2</span>찾아 들어가기 — SMOD → CMOD → ZXUSRU01</h2>
+
+<p>User Exit은 <b>이름만 알면 찾아 들어가는 경로가 늘 같습니다.</b> 기능확장 이름(<code>SUSR0001</code>) → 구성요소(Function Exit) → 인클루드. 이 세 단계를 몸에 익히면 다른 Exit도 전부 같은 방식으로 열립니다.</p>
+
+<div class="step">
+  <span class="n">1</span>
+  <p><b>SMOD에서 기능확장을 조회한다.</b> T-Code <code>SMOD</code> → 기능확장 <code>SUSR0001</code> → 부분오브젝트 <b>속성</b> 선택 → <kbd>조회</kbd>.
+  SMOD는 <span class="key">읽기 전용</span>입니다. 여기서 "이 Exit이 무엇인지"만 확인하고, 코드는 CMOD에서 넣습니다.</p>
+</div>
+
+<div class="step">
+  <span class="n">2</span>
+  <p><b>속성으로 정체를 확인한다.</b> 내역에 <b>"SAP 시스템으로 로그온후 User exit"</b>, 개발클래스 <code>SUSR</code>이 보이면 맞게 찾아온 것입니다.</p>
+</div>
+
+<div class="step">
+  <span class="n">3</span>
+  <p><b>구성요소에서 Function Exit을 확인한다.</b> 상단 <kbd>구성요소</kbd> 버튼 → <b>Funktionsexits</b> 영역에 <code>EXIT_SAPLSUSF_001</code> 하나가 들어있습니다.
+  화면영역(Screen Exit)·Function 코드는 비어 있습니다 — 이 Exit은 <span class="key">함수 호출 지점 하나뿐</span>이라는 뜻입니다.</p>
+</div>
+
+<div class="step">
+  <span class="n">4</span>
+  <p><b>함수모듈을 더블클릭해 인클루드로 내려간다.</b> Function Builder가 열리고 <b>소스코드</b> 탭에 딱 한 줄, <code>INCLUDE ZXUSRU01.</code>이 있습니다.
+  <span class="hl">이게 User Exit의 정체입니다</span> — SAP이 미리 <code>INCLUDE Z...</code> 한 줄을 심어 두고, 그 인클루드를 고객이 만들어 채우는 구조입니다.</p>
+</div>
+
+<div class="step">
+  <span class="n">5</span>
+  <p><b><code>ZXUSRU01</code>을 더블클릭해 코드를 넣는다.</b> 최초라면 "인클루드가 없습니다. 생성하시겠습니까?"가 뜹니다. 이미 코드가 있다면 <b>Lesson 3</b>으로.</p>
+</div>
+
+<figure>
+  <img src="../assets/img/sap-logon-exit/01-smod-susr0001.png" alt="SMOD 화면에서 기능확장 SUSR0001을 입력하고 부분오브젝트 속성을 선택한 상태">
+  <figcaption><span class="fno">그림 3</span> SMOD 진입 화면.
+    <ol class="legend">
+      <li><b>기능확장</b> — <code>SUSR0001</code> 입력.</li>
+      <li><b>부분오브젝트</b> — 속성 / 구성요소 / 문서 중 선택. 먼저 <b>속성</b>으로 정체를 확인한다.</li>
+    </ol>
+  </figcaption>
+</figure>
+
+<figure>
+  <img src="../assets/img/sap-logon-exit/02-smod-attributes.png" alt="SUSR0001 속성 화면. 내역에 SAP 시스템으로 로그온후 User exit, 개발클래스 SUSR이 표시된 상태">
+  <figcaption><span class="fno">그림 4</span> 속성 화면 — 내역이 <b>"SAP 시스템으로 로그온후 User exit"</b>이면 맞게 찾아온 것.</figcaption>
+</figure>
+
+<figure>
+  <img src="../assets/img/sap-logon-exit/03-smod-components.png" alt="SUSR0001 구성요소 화면. Funktionsexits 영역에 EXIT_SAPLSUSF_001 하나만 등록되어 있고 화면영역과 Function 코드는 비어있는 상태">
+  <figcaption><span class="fno">그림 5</span> 구성요소 화면.
+    <ol class="legend">
+      <li><b>Funktionsexits</b> — <code>EXIT_SAPLSUSF_001</code> 하나. 이걸 더블클릭한다.</li>
+      <li><b>화면영역 · Function 코드가 비어 있음</b> — 이 Exit은 화면을 바꾸는 종류가 아니라 <b>코드만 끼워 넣는</b> 종류다.</li>
+    </ol>
+  </figcaption>
+</figure>
+
+<figure>
+  <img src="../assets/img/sap-logon-exit/04-function-builder-include.png" alt="Function Builder에서 EXIT_SAPLSUSF_001의 소스코드 탭에 INCLUDE ZXUSRU01 한 줄만 있는 상태">
+  <figcaption><span class="fno">그림 6</span> 함수모듈 본문은 <code>INCLUDE ZXUSRU01.</code> 한 줄이 전부. <b>User Exit = SAP이 미리 심어 둔 빈 인클루드</b>라는 구조가 그대로 보입니다.</figcaption>
+</figure>
+
+<h3>이름 규칙 — 외우지 말고 읽는 법</h3>
+<div class="tbl-wrap">
+<table>
+  <tr><th style="width:190px">이름</th><th>읽는 법</th></tr>
+  <tr><td><code>SUSR0001</code></td><td>기능확장(Enhancement) 이름. <code>SUSR</code> = 사용자/보안 영역, <code>0001</code> = 일련번호.</td></tr>
+  <tr><td><code>EXIT_SAPLSUSF_001</code></td><td><code>EXIT_</code> + 호출하는 <b>프로그램명</b>(<code>SAPLSUSF</code>) + 일련번호. 어느 표준 프로그램이 나를 부르는지가 이름에 들어있다.</td></tr>
+  <tr><td><code>ZXUSRU01</code></td><td><code>ZX</code> + 함수그룹명에서 딴 글자 + 번호. Function Exit의 인클루드는 전부 <code>ZX</code>로 시작한다.</td></tr>
+</table>
+</div>
+
+<div class="note">
+  <div class="t">다른 Exit도 똑같다</div>
+  <p>어떤 표준 프로그램에 끼어들고 싶을 때는 <b>SE38에서 그 프로그램 소스를 열어 <code>CALL CUSTOMER-FUNCTION</code>을 검색</b>하면 됩니다. 걸리는 번호가 곧 Function Exit이고, 거기서 SMOD로 역추적하면 기능확장 이름이 나옵니다.</p>
+</div>
+</div>
+
+
+<!-- ══════════ LESSON 3 ══════════ -->
+<div class="lesson" id="l3">
+<h2><span class="no">LESSON 3</span>CMOD 프로젝트 — 이미 누가 쓰고 있을 때</h2>
+
+<p>코드를 실제로 넣고 <b>활성화</b>하는 건 CMOD입니다. 그런데 운영 시스템에서 <code>SUSR0001</code>은 이미 누군가 쓰고 있을 확률이 높습니다. 여기서 초보가 가장 많이 막힙니다.</p>
+
+<div class="note warn">
+  <div class="t">기능확장 하나는 프로젝트 하나에만 할당된다</div>
+  <p>새 CMOD 프로젝트를 만들고 <code>SUSR0001</code>을 넣으려 하면 <b>"기능확장이 이미 다른 프로젝트에 사용되고 있습니다"</b>로 막힙니다. 이건 버그가 아니라 설계입니다. <span class="bad">기존 프로젝트를 지우고 새로 만들면 안 됩니다</span> — 기존 기능이 같이 죽습니다.</p>
+</div>
+
+<h3>이미 할당된 프로젝트를 찾는 법</h3>
+<pre><code>CMOD → 유틸리티(메뉴) → SAP 기능확장 검색
+  기능확장 : SUSR0001
+  → 실행(F8)
+  → 결과에 표시되는 <span class="k">프로젝트명</span>이 내가 작업해야 할 프로젝트다</code></pre>
+
+<div class="step">
+  <span class="n">1</span>
+  <p><b>찾은 프로젝트를 CMOD에서 연다.</b> <code>CMOD</code> → 프로젝트명 입력 → <kbd>변경</kbd>.</p>
+</div>
+
+<div class="step">
+  <span class="n">2</span>
+  <p><b>구성요소 → <code>EXIT_SAPLSUSF_001</code> → <code>ZXUSRU01</code></b> 순으로 더블클릭해 들어간다.</p>
+</div>
+
+<div class="step">
+  <span class="n">3</span>
+  <p><b>기존 코드를 먼저 읽는다.</b> 남의 코드가 이미 돌고 있습니다. 어떤 조건에서 무엇을 하는지 파악하지 않고 위아래에 끼워 넣으면 Lesson 4의 사고가 납니다.</p>
+</div>
+
+<div class="step">
+  <span class="n">4</span>
+  <p><b>코드를 넣고 프로젝트를 활성화한다.</b> 인클루드만 활성화해서는 안 되고, <b>CMOD 프로젝트 자체가 활성 상태</b>여야 Exit이 호출됩니다.</p>
+</div>
+
+<h3>기존 코드와 공존하는 방법</h3>
+<p>실제 운영 시스템의 <code>ZXUSRU01</code>은 보통 이런 모양입니다.</p>
+
+<pre><code><span class="c">* 다른 인클루드를 또 부르고 있을 수 있다</span>
+INCLUDE zxusru02_02 .
+
+<span class="c">*{   INSERT   ...            ← 수정 어시스턴트가 잡아 준 삽입 구간</span>
+<span class="c">*}   INSERT</span>
+
+ENHANCEMENT 1 ZZZZZZZZ.        <span class="c">"active version</span>
+  CHECK sy-uname = 'ECC00112'. <span class="r">← 이 줄이 뒤의 모든 것을 좌우한다</span>
+  <span class="c">... 특정 사용자용 GuiXT 레지스트리 처리 ...</span>
+ENDENHANCEMENT.</code></pre>
+
+<figure>
+  <img src="../assets/img/sap-logon-exit/05-zxusru01-source.png" alt="ABAP 편집기에서 인클루드 ZXUSRU01을 연 화면. INCLUDE zxusru02_02 아래에 INSERT 구간 마커가 있고 그 다음에 ENHANCEMENT 1 ZZZZZZZZ 블록과 check sy-uname 조건, GuiXT 레지스트리 처리 코드가 이어지는 상태">
+  <figcaption><span class="fno">그림 7</span> 운영 시스템의 <code>ZXUSRU01</code> 실물 — 이미 남의 코드가 돌고 있다.
+    <ol class="legend">
+      <li><b><code>INCLUDE zxusru02_02 .</code></b> — 인클루드가 또 다른 인클루드를 부른다. 실제 로직이 어디 있는지 한 파일만 봐서는 알 수 없다.</li>
+      <li><b><code>*{ INSERT ... *}</code></b> — 수정 어시스턴트가 표시한 삽입 구간. 새 코드는 여기, 아래 <code>ENHANCEMENT</code>보다 <b>위</b>에 들어간다.</li>
+      <li><b><code>check sy-uname = 'ECC00112'.</code></b> — 이 한 줄이 조건 불일치 시 함수모듈 전체를 종료시킨다. 내 코드를 이 아래 넣으면 그 사용자 외에는 아무것도 실행되지 않는다. <b>Lesson 4의 사고가 바로 이 구조에서 난다.</b></li>
+      <li><b>작성자 주석</b> — <code>** Add by ... 21.10.2020 MSP 6394</code>. 여러 사람이 손대는 인클루드에서 추적을 가능하게 하는 최소한의 장치.</li>
+    </ol>
+  </figcaption>
+</figure>
+
+<div class="note warn">
+  <div class="t">삽입 위치가 곧 실행 순서다</div>
+  <p>인클루드는 <b>위에서 아래로</b> 실행됩니다. 내 코드를 기존 <code>ENHANCEMENT</code> <b>아래</b>에 넣으면, 위쪽 <code>CHECK</code>가 실패하는 사용자에게는 내 코드가 아예 실행되지 않습니다. 위 예시라면 <code>ECC00112</code> 외에는 아무도 로그가 안 남습니다. <b>기존 <code>CHECK</code>보다 위에 넣으세요.</b></p>
+</div>
+
+<div class="note ok">
+  <div class="t">작성자 주석은 선택이 아니다</div>
+  <p>운영 오브젝트, 그것도 여러 사람이 손댄 인클루드입니다. 실제로 저 예시에도 <code>** Add by Shimon PAZ 21.10.2020 MSP 6394</code> 같은 주석이 남아 있어서 "누가 왜 넣었는지" 추적이 됩니다. 내 코드에도 <b>작성자 · 일자 · 요청번호 · 호출 대상</b>을 남기세요.</p>
+</div>
+</div>
+
+
+<!-- ══════════ LESSON 4 ══════════ -->
+<div class="lesson" id="l4">
+<h2><span class="no">LESSON 4</span>CHECK의 함정 — 처리블록 전체가 끝난다</h2>
+
+<p>"대상자가 아니면 그냥 넘어가자"는 생각으로 <code>CHECK</code>를 쓰는 건 자연스럽습니다. 그런데 <span class="bad">Exit 인클루드 안에서 <code>CHECK</code>는 "다음 줄로 넘어가기"가 아닙니다.</span></p>
+
+<h3>CHECK가 실제로 하는 일</h3>
+<div class="tbl-wrap">
+<table>
+  <tr><th style="width:200px">CHECK를 쓴 위치</th><th>조건이 거짓일 때</th></tr>
+  <tr><td>LOOP · DO · WHILE <b>안</b></td><td>다음 반복으로 넘어간다 (<code>CONTINUE</code>와 같음)</td></tr>
+  <tr><td>그 밖의 모든 곳<br><span class="t-s">FORM · FUNCTION · METHOD · 이벤트 블록</span></td>
+      <td><span class="bad">그 처리블록 전체를 즉시 종료한다</span></td></tr>
+</table>
+</div>
+
+<p><code>ZXUSRU01</code>은 함수모듈 <code>EXIT_SAPLSUSF_001</code> 안에 인라인으로 펼쳐집니다. 즉 여기서의 <code>CHECK</code>는 <b>함수모듈을 빠져나갑니다.</b> 내 코드 아래에 있던 것들은 전부 실행되지 않습니다.</p>
+
+<figure class="figwrap">
+<svg class="dgm" viewBox="0 0 1000 340" role="img"
+     aria-label="ZXUSRU01 인클루드에서 CHECK를 쓰면 조건 불일치 시 함수모듈 전체가 종료되어 아래에 있던 기존 ENHANCEMENT가 실행되지 않지만, IF ENDIF로 감싸면 내 블록만 건너뛰고 기존 코드는 정상 실행된다는 비교 도해">
+  <defs>
+    <marker id="ck-ab" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><polygon class="arw-bad" points="0,1 10,5 0,9"/></marker>
+    <marker id="ck-ao" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><polygon class="arw-ok" points="0,1 10,5 0,9"/></marker>
+  </defs>
+
+  <text class="m-s c-bad" x="40" y="26">CHECK sy-uname IN lr_uname.   ← 대상자가 아닌 사용자로 로그온</text>
+
+  <rect class="b-ghost" x="40" y="38" width="420" height="250" rx="8"/>
+  <text class="t-xs" x="56" y="58">FUNCTION EXIT_SAPLSUSF_001</text>
+
+  <rect class="b-mut" x="62" y="68" width="376" height="34" rx="4"/>
+  <text class="m-s" x="80" y="90">INCLUDE zxusru02_02.</text>
+
+  <rect class="b-bad" x="62" y="112" width="376" height="52" rx="4"/>
+  <text class="m-s c-bad" x="80" y="134">CHECK sy-uname IN lr_uname.</text>
+  <text class="t-xs c-bad" x="80" y="152">거짓 → 함수모듈 즉시 종료</text>
+
+  <path class="ln-bad" d="M450 138 C 490 138, 490 250, 450 250" marker-end="url(#ck-ab)"/>
+  <text class="t-xs c-bad" x="466" y="196">EXIT</text>
+
+  <rect class="b-mut" x="62" y="176" width="376" height="42" rx="4"/>
+  <text class="m-s" x="80" y="196">  (내 로그 적재 코드)</text>
+  <text class="t-xs c-bad" x="80" y="212">실행 안 됨 — 의도한 결과</text>
+
+  <rect class="b-bad" x="62" y="228" width="376" height="48" rx="4"/>
+  <text class="m-s" x="80" y="248">ENHANCEMENT 1 ZZZZZZZZ.</text>
+  <text class="t-xs c-bad" x="80" y="266">실행 안 됨 — <tspan font-weight="700">의도하지 않은 사고</tspan></text>
+
+  <text class="m-s c-ok" x="540" y="26">IF sy-uname IN lr_uname. ... ENDIF.</text>
+
+  <rect class="b-ghost" x="540" y="38" width="420" height="250" rx="8"/>
+  <text class="t-xs" x="556" y="58">FUNCTION EXIT_SAPLSUSF_001</text>
+
+  <rect class="b-mut" x="562" y="68" width="376" height="34" rx="4"/>
+  <text class="m-s" x="580" y="90">INCLUDE zxusru02_02.</text>
+
+  <rect class="b-ok" x="562" y="112" width="376" height="106" rx="4"/>
+  <text class="m-s c-ok" x="580" y="134">IF sy-uname IN lr_uname.</text>
+  <text class="m-s" x="580" y="158">  (내 로그 적재 코드)</text>
+  <text class="t-xs" x="580" y="176">건너뜀 — 의도한 결과</text>
+  <text class="m-s c-ok" x="580" y="200">ENDIF.</text>
+
+  <path class="ln-ok" d="M750 220 L750 244" marker-end="url(#ck-ao)"/>
+
+  <rect class="b-ok" x="562" y="248" width="376" height="34" rx="4"/>
+  <text class="m-s c-ok" x="580" y="270">ENHANCEMENT 1 ZZZZZZZZ.  ← 정상 실행</text>
+
+  <rect class="b-hl" x="40" y="304" width="920" height="30" rx="5"/>
+  <text class="t" x="60" y="324">Exit 인클루드에서 <tspan font-weight="700">CHECK는 "건너뛰기"가 아니라 "탈출"</tspan>이다. 남의 코드가 같이 죽는다.</text>
+</svg>
+<figcaption><span class="fno">그림 8</span> 같은 의도, 다른 결과.
+  <ol class="legend">
+    <li><b>왼쪽 (CHECK)</b> — 내 코드를 건너뛰는 데는 성공하지만, 그 아래 있던 기존 <code>ENHANCEMENT</code>까지 같이 죽습니다.</li>
+    <li><b>오른쪽 (IF ... ENDIF)</b> — 내 블록만 건너뛰고 제어가 아래로 흘러갑니다. 이게 의도한 동작입니다.</li>
+  </ol>
+</figcaption>
+</figure>
+
+<div class="note warn">
+  <div class="t">이 사고가 무서운 이유</div>
+  <p><b>덤프가 안 납니다.</b> 에러 메시지도, ST22 기록도 없습니다. 그냥 기존 기능이 조용히 안 돌 뿐입니다. 사용자가 "어? 이거 원래 되던 건데" 하고 문의할 때까지 아무도 모릅니다. <span class="hl">조용히 실패하는 로직이 가장 찾기 어렵습니다.</span></p>
+</div>
+
+<div class="cmp">
+  <div class="x">
+    <h5>✗ 쓰지 말 것</h5>
+    <ul>
+      <li><code>CHECK sy-uname IN lr_uname.</code></li>
+      <li>조건 불일치 시 FM 전체 종료</li>
+      <li>아래쪽 기존 코드가 전부 무력화</li>
+      <li>흔적이 안 남아 추적 불가</li>
+    </ul>
+  </div>
+  <div class="o">
+    <h5>✓ 이렇게</h5>
+    <ul>
+      <li><code>IF sy-uname IN lr_uname. ... ENDIF.</code></li>
+      <li>내 블록만 건너뜀</li>
+      <li>제어가 아래로 정상 전달</li>
+      <li>남의 코드에 영향 없음</li>
+    </ul>
+  </div>
+</div>
+
+<div class="note">
+  <div class="t">일반화</div>
+  <p>내 코드 <b>뒤에 다른 코드가 올 수 있는 모든 자리</b>(User Exit 인클루드, BAdI 구현, 공용 FORM)에서는 <code>CHECK</code>·<code>EXIT</code>·<code>RETURN</code>을 조건 분기 용도로 쓰지 마세요. 내가 통제하는 범위가 어디까지인지 불확실할 때는 <code>IF</code>가 정답입니다.</p>
+</div>
+</div>
+
+
+<!-- ══════════ LESSON 5 ══════════ -->
+<div class="lesson" id="l5">
+<h2><span class="no">LESSON 5</span>Exit에서 DB를 건드릴 때 — STARTING NEW TASK</h2>
+
+<p>접속이력을 남기려면 결국 <code>INSERT</code>를 해야 합니다. 그런데 Exit 안에서 직접 <code>INSERT</code> + <code>COMMIT WORK</code>를 하면 <span class="bad">로그온의 LUW에 내 DB 작업이 묶입니다.</span></p>
+
+<figure class="figwrap">
+<svg class="dgm" viewBox="0 0 1000 300" role="img"
+     aria-label="Exit에서 직접 INSERT하면 로그온 LUW에 묶여 테이블 락이나 덤프가 로그온을 막지만, STARTING NEW TASK로 비동기 호출하면 별도 LUW에서 실행되어 실패해도 로그온이 계속 진행된다는 비교 도해">
+  <defs>
+    <marker id="nt-a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><polygon class="arw" points="0,1 10,5 0,9"/></marker>
+    <marker id="nt-ab" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><polygon class="arw-bad" points="0,1 10,5 0,9"/></marker>
+    <marker id="nt-ao" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><polygon class="arw-ok" points="0,1 10,5 0,9"/></marker>
+  </defs>
+
+  <text class="m-s c-bad" x="40" y="24">✗ Exit 안에서 직접 INSERT</text>
+  <rect class="b-ghost" x="40" y="34" width="420" height="106" rx="7"/>
+  <text class="t-xs c-bad" x="56" y="54">로그온 LUW — 하나로 묶임</text>
+  <rect class="b-bad" x="62" y="62" width="120" height="58" rx="4"/>
+  <text class="t-s" x="78" y="86">로그온 처리</text>
+  <line class="ln-bad" x1="188" y1="90" x2="216" y2="90" marker-end="url(#nt-ab)"/>
+  <rect class="b-bad" x="222" y="62" width="120" height="58" rx="4"/>
+  <text class="m-s" x="238" y="86">INSERT</text>
+  <text class="t-xs" x="238" y="104">+ COMMIT</text>
+  <line class="ln-bad" x1="348" y1="90" x2="376" y2="90" marker-end="url(#nt-ab)"/>
+  <rect class="b-bad" x="382" y="62" width="62" height="58" rx="4"/>
+  <text class="t-s c-bad" x="396" y="94">화면</text>
+
+  <rect class="b-bad" x="40" y="152" width="420" height="72" rx="6"/>
+  <text class="t-s c-bad" x="60" y="176">락 대기 · 테이블 없음 · 덤프 →</text>
+  <text class="t-h c-bad" x="60" y="200">로그온이 멈추거나 실패한다</text>
+  <text class="t-xs" x="60" y="218">로그가 안 남는 것보다 훨씬 큰 사고</text>
+
+  <text class="m-s c-ok" x="540" y="24">✓ STARTING NEW TASK 로 분리</text>
+  <rect class="b-ghost" x="540" y="34" width="420" height="106" rx="7"/>
+  <text class="t-xs c-ok" x="556" y="54">로그온 LUW</text>
+  <rect class="b-ok" x="562" y="62" width="150" height="58" rx="4"/>
+  <text class="t-s" x="578" y="86">로그온 처리</text>
+  <text class="t-xs" x="578" y="104">FM 호출만 던지고 진행</text>
+  <line class="ln-ok" x1="718" y1="90" x2="746" y2="90" marker-end="url(#nt-ao)"/>
+  <rect class="b-ok" x="752" y="62" width="186" height="58" rx="4"/>
+  <text class="t-s c-ok" x="768" y="94">화면 — 지연 없음</text>
+
+  <path class="ln-d" d="M640 122 L640 158"/>
+  <rect class="b-key" x="540" y="164" width="420" height="88" rx="6"/>
+  <text class="t-xs c-key" x="560" y="184">별도 세션 · 별도 LUW</text>
+  <text class="m-s" x="560" y="206">Z_USER_LOG_INSERT</text>
+  <text class="t-s" x="560" y="226">INSERT + COMMIT WORK</text>
+  <text class="t-s c-ok" x="560" y="244">여기서 실패해도 로그온은 이미 끝나 있다</text>
+
+  <rect class="b-hl" x="40" y="264" width="920" height="30" rx="5"/>
+  <text class="t" x="60" y="284">로그가 안 남는 건 감수할 수 있다. <tspan font-weight="700">로그 때문에 로그인이 막히는 건 감수할 수 없다.</tspan></text>
+</svg>
+<figcaption><span class="fno">그림 9</span> 같은 INSERT, 다른 리스크.
+  <ol class="legend">
+    <li><b>왼쪽</b> — DB 작업이 로그온 경로 위에 있습니다. 테이블이 잠겨 있으면 로그온이 대기하고, 덤프가 나면 로그온이 실패합니다.</li>
+    <li><b>오른쪽</b> — 호출만 던지고 로그온은 계속 진행합니다. 실제 INSERT는 별도 세션에서 독립적으로 돕니다.</li>
+  </ol>
+</figcaption>
+</figure>
+
+<h3>호출하는 쪽 — ZXUSRU01</h3>
+<pre><code><span class="c">* 비동기 호출 - 로그 적재가 실패해도 로그온은 진행된다</span>
+CALL FUNCTION <span class="k">'Z_USER_LOG_INSERT'</span>
+  <span class="k">STARTING NEW TASK</span> 'ZULOG'
+  EXPORTING
+    iv_server = lv_server
+    iv_bname  = sy-uname
+    iv_term   = lv_term
+  EXCEPTIONS
+    communication_failure = 1
+    system_failure        = 2
+    resource_failure      = 3
+    OTHERS                = 4.
+<span class="c">* sy-subrc 의도적으로 무시 - 여기서 에러를 올려봐야 받을 곳이 없다</span></code></pre>
+
+<h3>불리는 쪽 — 설정 두 가지를 반드시 바꿔야 한다</h3>
+<p><code>STARTING NEW TASK</code>는 <b>원격활성화 모듈만</b> 호출할 수 있습니다. 일반 함수모듈로 만들어 두면 활성화 단계에서 막힙니다.</p>
+
+<div class="tbl-wrap">
+<table>
+  <tr><th style="width:120px">탭</th><th style="width:210px">바꿀 것</th><th>이유</th></tr>
+  <tr><td><b>속성</b></td><td>처리유형 → <span class="key">원격활성화 모듈</span><br><span class="t-s">Remote fähiger Baustein</span></td>
+      <td><code>STARTING NEW TASK</code>는 RFC 호출이다. 일반 FM은 대상이 될 수 없다.</td></tr>
+  <tr><td><b>Import</b></td><td>모든 파라미터 → <span class="key">값에 의한 전달</span><br><span class="t-s">Wertübergabe 체크</span></td>
+      <td>RFC는 프로세스 경계를 넘는다. 참조 전달(<code>REFERENCE</code>)은 성립할 수 없어 활성화 시 에러가 난다.</td></tr>
+</table>
+</div>
+
+<figure class="figpair">
+  <figure>
+    <img src="../assets/img/sap-logon-exit/07-fm-attributes-rfc.png" alt="Function Builder 속성 탭에서 처리유형이 원격활성화 모듈로 선택된 상태">
+    <figcaption><span class="fno">그림 10</span> 속성 탭 — <b>원격활성화 모듈</b> 선택.</figcaption>
+  </figure>
+  <figure>
+    <img src="../assets/img/sap-logon-exit/08-fm-import-byvalue.png" alt="Function Builder Import 탭에서 세 파라미터의 값에 의한 전달 체크박스가 모두 선택된 상태">
+    <figcaption><span class="fno">그림 11</span> Import 탭 — 세 파라미터 모두 <b>값에 의한 전달</b> 체크.</figcaption>
+  </figure>
+</figure>
+
+<div class="note ok">
+  <div class="t">부수 효과 — 디버깅이 쉬워진다</div>
+  <p>로직을 FM으로 빼 두면 <b>SE37에서 <kbd>F8</kbd>로 단독 실행</b>해 볼 수 있습니다. Exit에 붙이기 전에 FM만 먼저 검증하세요. 여기서 안 들어가면 Exit에 붙여도 안 들어갑니다.</p>
+</div>
+</div>
+
+
+<!-- ══════════ LESSON 6 ══════════ -->
+<div class="lesson" id="l6">
+<h2><span class="no">LESSON 6</span>EXCEPTIONS가 못 잡는 것 — 덤프 실물</h2>
+
+<p>아래 코드는 "존재를 확신하지 못하는 FM을 <code>EXCEPTIONS OTHERS</code>로 감쌌으니 안전하다"고 생각하고 쓴 것입니다. <b>실제로는 덤프가 났습니다.</b></p>
+
+<pre><code><span class="c">* 안전하다고 생각했지만 아니었다</span>
+CALL FUNCTION 'TH_GET_OWN_SERVER_NAME'
+  IMPORTING
+    own_name = lv_server
+  EXCEPTIONS
+    OTHERS   = 1.          <span class="r">← 이게 안 막는다</span>
+IF sy-subrc &lt;&gt; 0.
+  lv_server = sy-host.     <span class="c">"여기까지 오지도 못한다</span>
+ENDIF.</code></pre>
+
+<figure>
+  <img src="../assets/img/sap-logon-exit/09-st22-dump.png" alt="ST22 Runtime Error Long Text 화면. 런타임에러 CALL_FUNCTION_NOT_FOUND, 예외 CX_SY_DYN_CALL_ILLEGAL_FUNC, ABAP 프로그램 SAPLXUSR, 함수모듈 TH_GET_OWN_SERVER_NAME이 존재하지 않는다는 메시지가 표시된 상태">
+  <figcaption><span class="fno">그림 12</span> ST22 장문 텍스트.
+    <ol class="legend">
+      <li><b>런타임 에러</b> — <code>CALL_FUNCTION_NOT_FOUND</code> / 예외 클래스 <code>CX_SY_DYN_CALL_ILLEGAL_FUNC</code>.</li>
+      <li><b>ABAP 프로그램</b> — <code>SAPLXUSR</code>. 사용자 Exit 인클루드가 속한 함수그룹이다.</li>
+      <li><b>종료 지점</b> — 프로시저 <code>EXIT_SAPLSUSF_001</code>. 정확히 로그온 Exit이다.</li>
+    </ol>
+  </figcaption>
+</figure>
+
+<h3>왜 안 잡히는가</h3>
+<p><code>EXCEPTIONS</code> 절은 <b>FM이 <code>RAISE</code>로 올린 예외</b>를 받기 위한 장치입니다. <span class="bad">FM 자체가 시스템에 존재하지 않으면 호출 시점에 런타임 에러가 발생</span>하고, 그건 <code>EXCEPTIONS</code>의 사정권 밖입니다.</p>
+
+<div class="tbl-wrap">
+<table>
+  <tr><th style="width:280px">실패 상황</th><th style="width:230px">런타임 에러</th><th style="width:110px">EXCEPTIONS</th><th>TRY/CATCH</th></tr>
+  <tr><td>FM이 <code>RAISE</code>한 예외</td><td>—</td><td class="good">잡힌다</td><td>해당 없음</td></tr>
+  <tr><td>FM이 시스템에 없음</td><td><code>CALL_FUNCTION_NOT_FOUND</code></td><td class="bad">못 잡는다</td><td><code>cx_sy_dyn_call_illegal_func</code></td></tr>
+  <tr><td>파라미터 이름이 다름</td><td><code>CALL_FUNCTION_PARM_UNKNOWN</code></td><td class="bad">못 잡는다</td><td><code>cx_sy_dyn_call_param_not_found</code></td></tr>
+  <tr><td>필수 파라미터 누락</td><td><code>CALL_FUNCTION_PARM_MISSING</code></td><td class="bad">못 잡는다</td><td><code>cx_sy_dyn_call_param_missing</code></td></tr>
+  <tr><td>FM <b>내부</b>에서 덤프</td><td>각종</td><td class="bad">못 잡는다</td><td class="bad">대부분 못 잡는다</td></tr>
+</table>
+</div>
+
+<h3>정말 방어해야 한다면</h3>
+<pre><code>TRY.
+    CALL FUNCTION 'TH_GET_OWN_SERVER_NAME'
+      IMPORTING own_name = lv_server.
+  <span class="k">CATCH</span> cx_sy_dyn_call_illegal_func.
+    lv_server = sy-host.
+ENDTRY.</code></pre>
+
+<div class="note warn">
+  <div class="t">그런데 로그온 Exit에서는 이것도 답이 아니다</div>
+  <p><code>TRY/CATCH</code>로 감싸면 덤프는 막지만, <b>애초에 존재를 모르는 FM을 로그온 경로에 넣은 것 자체가 문제</b>입니다. 방어 코드를 두껍게 하는 대신 <span class="hl">SE37에서 존재를 먼저 확인</span>하세요. 확인이 안 되면 그 FM을 안 쓰는 설계로 바꾸는 게 맞습니다.</p>
+</div>
+
+<h3>실제 조치 — FM을 안 쓰는 쪽으로</h3>
+<pre><code><span class="c">* 인스턴스명 - TH_GET_OWN_SERVER_NAME 은 이 시스템에 없다</span>
+<span class="c">* 시스템 필드는 덤프 가능성이 없다</span>
+lv_server = sy-host.</code></pre>
+
+<div class="note">
+  <div class="t">배운 점 3줄</div>
+  <p>
+  ① 검증하지 않은 FM을 운영 경로에 넣지 않는다 — SE37 존재 확인이 먼저.<br>
+  ② <code>EXCEPTIONS OTHERS</code>는 만능 방어막이 아니다 — 무엇을 잡고 무엇을 못 잡는지 구분한다.<br>
+  ③ 로그온 Exit에서는 방어 코드보다 <b>사전 검증</b>이 답이다.
+  </p>
+</div>
+</div>
+
+
+<!-- ══════════ LESSON 7 ══════════ -->
+<div class="lesson" id="l7">
+<h2><span class="no">LESSON 7</span>sy-uzeit는 한국 시간이 아니다 — 시간대 처리</h2>
+
+<p>로그가 정상 적재된 뒤 데이터를 열어 보니 시각이 맞지 않았습니다. 한국 시각은 13:55인데 테이블에는 <code>102536</code>이 들어 있었습니다.</p>
+
+<figure>
+  <img src="../assets/img/sap-logon-exit/10-se16n-zuser-log.png" alt="SE16N 데이터브라우저에서 ZUSER_LOG 테이블의 레코드 1건. SERVER, BNAME, TERM, LOGON_DATE, LOGON_TIME 102536, STATUS W가 표시된 상태">
+  <figcaption><span class="fno">그림 13</span> 적재 자체는 성공. 다만 <code>LOGON_TIME</code>이 한국 시각이 아니다.</figcaption>
+</figure>
+
+<h3>원인 — sy-uzeit는 애플리케이션 서버의 시스템 시간</h3>
+<div class="tbl-wrap">
+<table>
+  <tr><th style="width:210px">시스템 필드</th><th>기준</th></tr>
+  <tr><td><code>sy-datum</code> / <code>sy-uzeit</code></td><td><b>애플리케이션 서버의 시스템 시간.</b> 서버가 어느 시간대로 돌고 있느냐에 따라 값이 달라진다.</td></tr>
+  <tr><td><code>sy-datlo</code> / <code>sy-timlo</code></td><td>로그인한 <b>사용자의 개인 시간대</b>(SU3 설정) 기준 날짜·시각.</td></tr>
+  <tr><td><code>sy-zonlo</code></td><td>사용자의 개인 시간대 코드.</td></tr>
+  <tr><td><code>GET TIME STAMP FIELD</code></td><td><b>항상 UTC.</b> 서버 시간대와 무관하다.</td></tr>
+</table>
+</div>
+
+<p>이 실습 시스템은 <span class="key">UTC+5:30</span>으로 돌고 있었습니다. 한국(UTC+9)보다 3시간 30분 느립니다.</p>
+
+<h3>수동 가산은 답이 아니다</h3>
+<pre><code><span class="c">* 이렇게 하면 하루 중 3시간 30분이 날짜가 틀린다</span>
+ls_log-logon_time = sy-uzeit + 12600.   <span class="c">" 3:30 = 12600초</span>
+ls_log-logon_date = sy-datum.           <span class="r">← 날짜는 그대로</span>
+
+<span class="c">* 서버 22:00:00 인 경우</span>
+<span class="c">*   22:00:00 + 12600초 = 25:30:00</span>
+<span class="c">*   → TIME 타입은 86400 으로 wrap → 01:30:00   시각은 맞음</span>
+<span class="c">*   → LOGON_DATE 는 그대로            </span><span class="r">날짜가 하루 전</span></code></pre>
+
+<div class="note warn">
+  <div class="t">서버 20:30~24:00 로그온이 전부 전날로 기록된다</div>
+  <p>한국 시각으로는 00:00~03:30입니다. 야근하거나 새벽에 들어오는 사람 로그가 통째로 틀어집니다. 게다가 <code>12600</code>이 소스에 박혀 있어서, BASIS가 서버 시간대를 바꾸는 순간 <b>조용히</b> 전부 어긋납니다.</p>
+</div>
+
+<h3>정답 — CONVERT TIME STAMP</h3>
+<pre><code>CONSTANTS lc_tz <span class="k">TYPE</span> timezone <span class="k">VALUE</span> 'UTC+9'.   <span class="c">" TTZZ 에서 코드 확인</span>
+
+DATA lv_ts <span class="k">TYPE</span> timestamp.
+
+<span class="k">GET TIME STAMP FIELD</span> lv_ts.                   <span class="c">" 항상 UTC</span>
+<span class="k">CONVERT TIME STAMP</span> lv_ts <span class="k">TIME ZONE</span> lc_tz
+        <span class="k">INTO DATE</span> ls_log-logon_date
+             <span class="k">TIME</span> ls_log-logon_time.</code></pre>
+
+<p>자정 넘김, 날짜 증가, 서머타임을 전부 SAP이 처리합니다. 그리고 <b>서버 시간대가 바뀌어도 값이 흔들리지 않습니다</b> — 출발점이 항상 UTC이기 때문입니다.</p>
+
+<div class="note">
+  <div class="t">넣기 전에 확인</div>
+  <p><code>SE16</code> → <code>TTZZ</code> 에서 쓰려는 시간대 코드가 실제로 있는지 보세요. 없는 코드를 넘기면 <code>CONVERT TIME STAMP</code>에서 런타임 에러가 납니다. <code>KOREA</code>가 없고 <code>UTC+9</code>만 있을 수도 있습니다. <b>Lesson 6과 같은 종류의 실수</b>입니다.</p>
+</div>
+
+<h3>기준을 한 곳에 모으기</h3>
+<p>로그온 쪽(Exit)과 로그오프 쪽(배치)이 <b>서로 다른 기준</b>을 쓰면 접속시간 계산이 음수가 나오거나 3시간 30분씩 틀어집니다. 변환 로직은 FM 하나로 빼는 편이 안전합니다.</p>
+
+<pre><code>FUNCTION z_user_log_now.
+*"  EXPORTING  EV_DATE TYPE DATS
+*"             EV_TIME TYPE TIMS
+  DATA lv_ts <span class="k">TYPE</span> timestamp.
+  <span class="k">GET TIME STAMP FIELD</span> lv_ts.
+  <span class="k">CONVERT TIME STAMP</span> lv_ts <span class="k">TIME ZONE</span> 'UTC+9'
+          <span class="k">INTO DATE</span> ev_date <span class="k">TIME</span> ev_time.
+ENDFUNCTION.</code></pre>
+
+<div class="note ok">
+  <div class="t">왜 이게 나은가</div>
+  <p>나중에 "UTC로 저장하자"로 방침이 바뀌어도 <b>이 FM 한 곳만</b> 고치면 됩니다. 호출하는 프로그램이 늘어날수록 차이가 커집니다.</p>
+</div>
+</div>
+
+
+<!-- ══════════ LESSON 8 ══════════ -->
+<div class="lesson" id="l8">
+<h2><span class="no">LESSON 8</span>대상자 한정 — RANGES와 TVARVC</h2>
+
+<p>로그온 Exit을 전 사용자에게 한 번에 여는 건 위험합니다. <b>영향 범위를 좁혀서 시작하세요.</b></p>
+
+<pre><code><span class="c">* 파일럿 대상자 - 검증 후 확대 시 TVARVC 로 전환할 것</span>
+<span class="k">RANGES</span> lr_uname <span class="k">FOR</span> sy-uname.
+
+lr_uname = 'IEQREM0026'. <span class="k">APPEND</span> lr_uname.
+lr_uname = 'IEQREM0041'. <span class="k">APPEND</span> lr_uname.
+lr_uname = 'IEQREM0042'. <span class="k">APPEND</span> lr_uname.
+
+<span class="k">IF</span> sy-uname <span class="k">IN</span> lr_uname.       <span class="c">" CHECK 아님 (Lesson 4)</span>
+  <span class="c">... 로그 적재 ...</span>
+<span class="k">ENDIF</span>.</code></pre>
+
+<div class="note">
+  <div class="t">'IEQREM0026' 이 한 덩어리인 이유</div>
+  <p>RANGES 구조는 <code>SIGN(1) + OPTION(2) + LOW + HIGH</code> 로 이어진 문자형 구조입니다. 문자 리터럴을 통째로 대입하면 각 자리에 그대로 들어갑니다. <code>I</code> = Include, <code>EQ</code> = Equal, 나머지가 <code>LOW</code>. 가독성이 필요하면 필드별로 나눠 쓰는 편이 낫습니다.</p>
+</div>
+
+<h3>확대할 때는 소스에서 빼기</h3>
+<p>사용자 ID가 소스에 박혀 있으면 대상이 바뀔 때마다 이관해야 합니다. 검증이 끝나면 TVARVC로 옮기세요.</p>
+
+<pre><code><span class="c">* STVARV → 선택옵션 탭 → Z_USER_LOG_TARGET</span>
+<span class="c">*   I / EQ / REM0026</span>
+<span class="c">*   I / EQ / REM0041</span>
+
+<span class="k">SELECT</span> sign, opti <span class="k">AS</span> option, low, high
+  <span class="k">FROM</span> tvarvc
+  <span class="k">INTO CORRESPONDING FIELDS OF TABLE</span> @lr_uname
+ <span class="k">WHERE</span> name = 'Z_USER_LOG_TARGET' <span class="k">AND</span> type = 'S'.</code></pre>
+
+<div class="tbl-wrap">
+<table>
+  <tr><th style="width:150px">단계</th><th style="width:170px">대상</th><th>목적</th></tr>
+  <tr><td>1. 파일럿</td><td>소스에 ID 3명 하드코딩</td><td>영향 범위 최소화. 데이터가 적어 SE16N으로 눈 검증이 가능하다.</td></tr>
+  <tr><td>2. 확대</td><td>TVARVC로 이전</td><td>이관 없이 대상 변경. 운영 담당이 직접 조정 가능.</td></tr>
+  <tr><td>3. 전사</td><td>조건 제거 + 사용자유형 필터</td><td>RFC·배치 유저(WF-BATCH, ALEREMOTE 등) 제외 로직 필요.</td></tr>
+</table>
+</div>
+
+<div class="note warn">
+  <div class="t">전사 확대 전에 확인할 것</div>
+  <p><code>SUSR0001</code>이 RFC·배치 로그온에도 호출되는지 확인하세요. 호출된다면 시스템 계정 로그가 대량으로 쌓입니다. 사용자 마스터의 사용자유형(<code>USR02-USTYP</code>)으로 걸러내는 조건이 필요합니다.</p>
+</div>
+</div>
+
+
+<!-- ══════════ LESSON 9 ══════════ -->
+<div class="lesson" id="l9">
+<h2><span class="no">LESSON 9</span>부록 — 체크리스트 · T-Code · 참고</h2>
+
+<h3>로그온 Exit 작업 체크리스트</h3>
+<p>순서를 지키는 것 자체가 방어입니다. 특히 <b>3번을 5번보다 먼저</b> 하세요.</p>
+
+<div class="tbl-wrap">
+<table>
+  <tr><th style="width:44px">#</th><th style="width:110px">T-Code</th><th>할 일</th></tr>
+  <tr><td>1</td><td>SE37</td><td>쓸 예정인 표준 FM이 <b>실제로 존재하는지</b> 전부 확인. 없으면 안 쓰는 설계로 바꾼다.</td></tr>
+  <tr><td>2</td><td>SE16</td><td><code>TTZZ</code>에서 시간대 코드 확인. 저장 기준을 정하고 문서에 명시한다.</td></tr>
+  <tr><td>3</td><td>SE37</td><td>로직을 담을 FM을 <b>원격활성화 모듈</b>로 생성. Import 파라미터는 전부 <b>값에 의한 전달</b>.</td></tr>
+  <tr><td>4</td><td>SE37</td><td>FM을 <kbd>F8</kbd>로 <b>단독 실행</b>해 검증. 여기서 안 되면 Exit에 붙여도 안 된다.</td></tr>
+  <tr><td>5</td><td>CMOD</td><td>유틸리티 → SAP 기능확장 검색 → <code>SUSR0001</code>이 할당된 프로젝트를 찾는다.</td></tr>
+  <tr><td>6</td><td>CMOD</td><td><code>ZXUSRU01</code>의 <b>기존 코드를 먼저 읽는다.</b> <code>CHECK</code>가 있는지 확인.</td></tr>
+  <tr><td>7</td><td>CMOD</td><td>기존 <code>CHECK</code>보다 <b>위에</b> 코드 삽입. <code>IF ... ENDIF</code>로 감싼다. 작성자 주석 필수.</td></tr>
+  <tr><td>8</td><td>CMOD</td><td>프로젝트 활성화. 인클루드만 활성화해서는 호출되지 않는다.</td></tr>
+  <tr><td>9</td><td>—</td><td>대상 외 계정으로 로그온해 <b>기존 기능이 살아있는지</b> 확인.</td></tr>
+  <tr><td>10</td><td>SE14</td><td>대상 테이블을 일시 제거한 상태에서 로그온 → <b>로그온이 정상 진행되는지</b> 확인.</td></tr>
+  <tr><td>11</td><td>ST22</td><td>덤프가 없는지 확인. 있으면 즉시 CMOD 비활성화.</td></tr>
+  <tr><td>12</td><td>SE10</td><td>테이블·FM·Exit을 같은 TR로 묶어 이관. 롤백 TR을 미리 준비.</td></tr>
+</table>
+</div>
+
+<h3>반드시 지킬 것</h3>
+
+<div class="note warn">
+  <div class="t">① 로그온 Exit에서 금지</div>
+  <p><code>MESSAGE</code>(로그온 중단) · <code>CHECK</code>(뒤 코드 전부 죽음) · 동기 DB 갱신(LUW 묶임) · 검증 안 된 FM 호출(덤프) · 반복문/대기 로직(로그온 지연).</p>
+</div>
+
+<div class="note warn">
+  <div class="t">② 복구 경로를 먼저 확보</div>
+  <p>전 사용자 대상 코드를 넣기 전에, <b>Exit의 영향을 받지 않는 계정</b>이 있는지 확인하세요. 대상자 필터(Lesson 8)를 쓰면 필터 밖 계정이 자동으로 복구 경로가 됩니다.</p>
+</div>
+
+<div class="note ok">
+  <div class="t">③ 개발기 → QA에서 며칠 돌린 뒤 이관</div>
+  <p>로그온은 하루에 수백~수천 번 일어납니다. 확률 낮은 조건도 금방 드러납니다. 바로 운영에 올리지 마세요.</p>
+</div>
+
+<h3>이 노트에서 쓴 T-Code</h3>
+<div class="keys">
+  <div class="keycard"><div class="kk">SMOD</div><div class="kn">기능확장 조회</div><div class="kd">Exit 정체·구성요소 확인. 읽기 전용.</div></div>
+  <div class="keycard"><div class="kk">CMOD</div><div class="kn">프로젝트 관리</div><div class="kd">코드 삽입·활성화. 기능확장 검색도 여기.</div></div>
+  <div class="keycard"><div class="kk">SE37</div><div class="kn">Function Builder</div><div class="kd">FM 생성·속성 변경·단독 실행(F8).</div></div>
+  <div class="keycard"><div class="kk">SE11</div><div class="kn">Dictionary</div><div class="kd">테이블·구조·인덱스. TTZZ 구조 확인.</div></div>
+  <div class="keycard"><div class="kk">SE16 / SE16N</div><div class="kn">데이터브라우저</div><div class="kd">적재 결과 확인. TTZZ 시간대 코드 조회.</div></div>
+  <div class="keycard"><div class="kk">ST22</div><div class="kn">덤프 분석</div><div class="kd">단문·장문 확보가 원인 분석의 출발점.</div></div>
+  <div class="keycard"><div class="kk">SU3</div><div class="kn">개인 설정</div><div class="kd">개인 시간대. sy-zonlo의 근거.</div></div>
+  <div class="keycard"><div class="kk">STVARV</div><div class="kn">TVARVC 관리</div><div class="kd">대상자 목록을 소스 밖으로 빼는 자리.</div></div>
+  <div class="keycard"><div class="kk">SM04 / AL08</div><div class="kn">세션 목록</div><div class="kd">현재 접속자. 로컬 / 전 인스턴스.</div></div>
+  <div class="keycard"><div class="kk">SE14</div><div class="kn">DB 유틸리티</div><div class="kd">테이블 제거·재생성. 장애 내성 검증용.</div></div>
+</div>
+
+<h3>확인 필요 — 시스템마다 다른 것들</h3>
+<div class="note">
+  <div class="t">단정하지 말고 직접 볼 것</div>
+  <p>
+  · <code>TH_USER_INFO</code>의 EXPORTING 파라미터명 — SE37에서 확인<br>
+  · <code>TTZZ</code>의 시간대 코드 — <code>KOREA</code>인지 <code>UTC+9</code>인지<br>
+  · <code>SUSR0001</code>이 RFC·배치 로그온에도 호출되는지<br>
+  · 애플리케이션 서버의 시스템 시간대 — <code>sy-uzeit</code>와 실제 현지 시각 비교<br>
+  · 인라인 선언(<code>DATA(...)</code>) 사용 가능 여부 — NW 7.40 이상
+  </p>
+</div>
+
+<h3>참고</h3>
+<ul>
+  <li><a href="https://www.saptechnicalguru.com/sap-logon-user-exit-hack/" target="_blank" rel="noopener">SAP logon user exit hack — saptechnicalguru.com</a>
+      <span class="t-s">— SUSR0001의 정당한 용도와 "여기서 구문 오류가 나면 시스템에 로그인할 수 없다"는 경고.</span></li>
+  <li><a href="https://community.sap.com/t5/application-development-discussions/user-exit-after-logon-gui/td-p/917251" target="_blank" rel="noopener">user exit after logon gui — SAP Community</a>
+      <span class="t-s">— SMOD/CMOD 경유 구현 논의.</span></li>
+</ul>
+
+<div class="note ok">
+  <div class="t">연관 문서</div>
+  <p><b>SAP LUW 완전 정리</b> — Lesson 5의 "별도 LUW로 분리"가 왜 유효한지는 LUW 노트의 번들링·Update Task 부분과 같이 보면 이해가 빠릅니다.<br>
+  <b>ABAP 디버깅 실무 노트</b> — Lesson 6의 ST22 덤프 읽는 법은 디버깅 노트에서 더 자세히 다룹니다.</p>
+</div>
+</div>
+
+</div>
+<script src="../assets/site.js" defer></script>
+</body>
+</html>

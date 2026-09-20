@@ -1,0 +1,1020 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>MM 기본 T-Code와 흐름 — 자재·재고·구매·입고·전표·BOM</title>
+<meta name="description" content="SAP MM 기본 T-Code 지도. 자재마스터 MM01·MM06, 재고 MIGO 561·551, 재고조회 MMBE·MB52·MB5B, 구매 ME51N·ME21N, 입고·이동 MIGO 101·122·311·301, 송장 MIRO·GR/IR, 자재문서 MB51·MATDOC, BOM CS01·CS11·CS15를 흐름과 도해로 정리.">
+<link rel="icon" href="../assets/favicon.svg">
+<link rel="stylesheet" href="../assets/notes-paper.css">
+<style>
+/* ── 이 노트 전용: 도해(SVG) 스타일 (sap-luw.html 과 동일 세트) ── */
+.dgm{display:block; width:100%; height:auto;}
+.dgm text{font-family:"Malgun Gothic","맑은 고딕","Apple SD Gothic Neo",sans-serif; fill:#1e1e1e;}
+.dgm .t-h{font-size:15px; font-weight:700;}
+.dgm .t{font-size:13px;}
+.dgm .t-s{font-size:11.5px; fill:#555;}
+.dgm .t-xs{font-size:10.5px; fill:#6B7280;}
+.dgm .m{font-family:"D2Coding","Consolas",monospace; font-size:12px;}
+.dgm .m-s{font-family:"D2Coding","Consolas",monospace; font-size:10.5px;}
+.dgm .c-key{fill:#4338CA;} .dgm .c-bad{fill:#B91C1C;} .dgm .c-ok{fill:#047857;}
+.dgm .b{fill:#FFFFFF; stroke:#C7CBD6; stroke-width:1.2;}
+.dgm .b-key{fill:#EEF0FB; stroke:#4338CA; stroke-width:1.4;}
+.dgm .b-bad{fill:#FEF2F2; stroke:#B91C1C; stroke-width:1.3;}
+.dgm .b-ok{fill:#ECFDF5; stroke:#047857; stroke-width:1.3;}
+.dgm .b-mut{fill:#F3F4F6; stroke:#D1D5DB; stroke-width:1.1;}
+.dgm .b-hl{fill:#FEF08A; stroke:#CA8A04; stroke-width:1.2;}
+.dgm .b-ghost{fill:none; stroke:#9AA3B2; stroke-width:1.1; stroke-dasharray:5 4;}
+.dgm .ln{stroke:#7C8697; stroke-width:1.4; fill:none;}
+.dgm .ln-key{stroke:#4338CA; stroke-width:1.8; fill:none;}
+.dgm .ln-bad{stroke:#B91C1C; stroke-width:1.6; fill:none;}
+.dgm .ln-ok{stroke:#047857; stroke-width:1.6; fill:none;}
+.dgm .ln-d{stroke:#9AA3B2; stroke-width:1.2; stroke-dasharray:4 4; fill:none;}
+.dgm .arw{fill:#7C8697;} .dgm .arw-key{fill:#4338CA;}
+.dgm .arw-bad{fill:#B91C1C;} .dgm .arw-ok{fill:#047857;}
+.figwrap{background:#FAFAFE; border:1px solid var(--rule); border-radius:6px;
+  padding:18px 16px 10px; margin:22px 0;}
+.figwrap figcaption{margin-top:12px; padding-top:10px; border-top:1px solid var(--rule);}
+</style>
+</head>
+<body>
+<div class="crumb"><a href="../index.html">← SAP 학습 자료실</a> · SAP 모듈 기초 · MM</div>
+<div class="sheet">
+
+<div class="doc-head">
+  <div class="kicker">MODULE BASICS</div>
+  <h1>MM 기본 T-Code와 흐름 — 자재 · 재고 · 구매 · 입고 · 전표 · BOM</h1>
+  <div class="sub">
+    "이 화면은 어디서 여나 / 이 데이터는 어느 테이블에 쌓이나"를 한 장으로<br>
+    대상: <b>S/4HANA 기준</b>(ECC 차이는 따로 표시) · 도해 9장 · 캡처는 추후 추가
+  </div>
+</div>
+
+<div class="lead">
+  <p><b>결론부터.</b> MM의 T-Code는 외울 목록이 아니라 <span class="hl">하나의 흐름 위의 정거장</span>입니다.</p>
+  <p><b>마스터(MM01)</b>를 만들고 → <b>구매요청(ME51N)</b> → <b>구매오더(ME21N)</b> → <b>입고(MIGO 101)</b> → <b>재고이동(MIGO 311)</b> → <b>송장(MIRO)</b>으로 흘러갑니다.</p>
+  <p>정거장마다 <span class="key">문서가 하나씩 생기고</span>, 조회 T-Code는 그 문서를 다시 여는 창입니다. 이 흐름만 잡으면 "어디서 보지?"의 답이 자동으로 나옵니다.</p>
+</div>
+
+<div class="toc">
+  <h4>목차</h4>
+  <ol>
+    <li><a href="#l1">MM 전체 지도 — 정거장과 문서</a></li>
+    <li><a href="#l2">자재마스터 — 생성 · 변경 · 조회 · 삭제</a></li>
+    <li><a href="#l3">재고 넣기 · 빼기 — 561 · 551 · 201</a></li>
+    <li><a href="#l4">재고 조회 — MMBE · MB52 · MB5B</a></li>
+    <li><a href="#l5">구매 — 정보레코드 · PR · PO</a></li>
+    <li><a href="#l6">입고 · 자재이동 — MIGO와 이동유형</a></li>
+    <li><a href="#l7">송장 · 회계전표 — MIRO와 GR/IR</a></li>
+    <li><a href="#l8">자재별 전표 로그 — MB51 · MATDOC · EKBE</a></li>
+    <li><a href="#l9">BOM — 생성 · 전개 · 역전개</a></li>
+    <li><a href="#ap">APPENDIX — 상황별 치트시트 · 반드시 지킬 것</a></li>
+  </ol>
+</div>
+
+<!-- ═══════════════ LESSON 1 ═══════════════ -->
+<div class="lesson" id="l1">
+<h2><span class="no">LESSON 1</span>MM 전체 지도 — 정거장과 문서</h2>
+
+<p><b>언제 보나.</b> "입고 내역 어디서 봐요?", "이 PO 송장 들어갔어요?" 같은 질문을 받았을 때입니다.</p>
+<p>질문을 <b>흐름 위의 어느 정거장인지</b>로 바꾸면 T-Code와 테이블이 같이 떠오릅니다. 반대로 T-Code만 외우면, 비슷한 조회 화면 사이에서 계속 헤맵니다.</p>
+
+<figure class="figwrap">
+<svg class="dgm" viewBox="0 0 1000 380" role="img"
+     aria-label="MM 구매 흐름은 마스터, 구매요청, 구매오더, 입고, 재고이동, 송장검증 여섯 정거장으로 이어지고, 각 정거장마다 고유 문서와 테이블이 생기며, 입고와 송장에서만 회계전표가 함께 생성된다는 도해">
+  <defs>
+    <marker id="m1-a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><polygon class="arw" points="0,1 10,5 0,9"/></marker>
+    <marker id="m1-k" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><polygon class="arw-key" points="0,1 10,5 0,9"/></marker>
+  </defs>
+
+  <text class="m-s c-key" x="20" y="24">STATION — 무엇을 하나 / 어느 T-Code</text>
+
+  <rect class="b-mut" x="20"  y="36" width="148" height="84" rx="6"/>
+  <text class="t-h" x="34" y="62">① 마스터</text>
+  <text class="m" x="34" y="84">MM01 · BP</text>
+  <text class="m" x="34" y="102">ME11</text>
+
+  <rect class="b-key" x="186" y="36" width="148" height="84" rx="6"/>
+  <text class="t-h" x="200" y="62">② 구매요청</text>
+  <text class="m" x="200" y="84">ME51N</text>
+  <text class="t-xs" x="200" y="102">"사 주세요"</text>
+
+  <rect class="b-key" x="352" y="36" width="148" height="84" rx="6"/>
+  <text class="t-h" x="366" y="62">③ 구매오더</text>
+  <text class="m" x="366" y="84">ME21N</text>
+  <text class="t-xs" x="366" y="102">벤더에 보내는 계약</text>
+
+  <rect class="b-key" x="518" y="36" width="148" height="84" rx="6"/>
+  <text class="t-h" x="532" y="62">④ 입고</text>
+  <text class="m" x="532" y="84">MIGO 101</text>
+  <text class="t-xs" x="532" y="102">재고 + 수량·금액</text>
+
+  <rect class="b-key" x="684" y="36" width="148" height="84" rx="6"/>
+  <text class="t-h" x="698" y="62">⑤ 재고이동</text>
+  <text class="m" x="698" y="84">MIGO 311/301</text>
+  <text class="t-xs" x="698" y="102">위치만 바뀜</text>
+
+  <rect class="b-key" x="850" y="36" width="130" height="84" rx="6"/>
+  <text class="t-h" x="864" y="62">⑥ 송장</text>
+  <text class="m" x="864" y="84">MIRO</text>
+  <text class="t-xs" x="864" y="102">벤더 채무 확정</text>
+
+  <line class="ln" x1="168" y1="78" x2="184" y2="78" marker-end="url(#m1-a)"/>
+  <line class="ln" x1="334" y1="78" x2="350" y2="78" marker-end="url(#m1-a)"/>
+  <line class="ln" x1="500" y1="78" x2="516" y2="78" marker-end="url(#m1-a)"/>
+  <line class="ln" x1="666" y1="78" x2="682" y2="78" marker-end="url(#m1-a)"/>
+  <line class="ln" x1="832" y1="78" x2="848" y2="78" marker-end="url(#m1-a)"/>
+
+  <text class="m-s c-key" x="20" y="150">DOCUMENT — 그 결과 남는 것 (테이블)</text>
+
+  <rect class="b" x="20"  y="160" width="148" height="80" rx="5"/>
+  <text class="t" x="34" y="182">자재 · 벤더 · 단가</text>
+  <text class="m-s" x="34" y="202">MARA MARC MARD</text>
+  <text class="m-s" x="34" y="220">MBEW  EINA EINE</text>
+
+  <rect class="b" x="186" y="160" width="148" height="80" rx="5"/>
+  <text class="t" x="200" y="182">구매요청 번호</text>
+  <text class="m-s" x="200" y="202">EBAN</text>
+
+  <rect class="b" x="352" y="160" width="148" height="80" rx="5"/>
+  <text class="t" x="366" y="182">구매오더 번호</text>
+  <text class="m-s" x="366" y="202">EKKO EKPO EKET</text>
+  <text class="m-s" x="366" y="220">이력 → EKBE</text>
+
+  <rect class="b" x="518" y="160" width="148" height="80" rx="5"/>
+  <text class="t" x="532" y="182">자재문서</text>
+  <text class="m-s" x="532" y="202">MATDOC</text>
+  <text class="t-xs" x="532" y="220">(ECC: MKPF·MSEG)</text>
+
+  <rect class="b" x="684" y="160" width="148" height="80" rx="5"/>
+  <text class="t" x="698" y="182">자재문서</text>
+  <text class="m-s" x="698" y="202">MATDOC</text>
+
+  <rect class="b" x="850" y="160" width="130" height="80" rx="5"/>
+  <text class="t" x="864" y="182">송장문서</text>
+  <text class="m-s" x="864" y="202">RBKP RSEG</text>
+
+  <line class="ln-d" x1="94"  y1="120" x2="94"  y2="158"/>
+  <line class="ln-d" x1="260" y1="120" x2="260" y2="158"/>
+  <line class="ln-d" x1="426" y1="120" x2="426" y2="158"/>
+  <line class="ln-d" x1="592" y1="120" x2="592" y2="158"/>
+  <line class="ln-d" x1="758" y1="120" x2="758" y2="158"/>
+  <line class="ln-d" x1="915" y1="120" x2="915" y2="158"/>
+
+  <path class="ln-key" d="M592 240 L592 292" marker-end="url(#m1-k)"/>
+  <path class="ln-key" d="M915 240 L915 292" marker-end="url(#m1-k)"/>
+  <path class="ln-d" d="M758 240 L758 292"/>
+
+  <rect class="b-hl" x="518" y="296" width="462" height="66" rx="6"/>
+  <text class="t-h" x="534" y="320">회계전표 (FI)  BKPF · BSEG  → S/4: ACDOCA</text>
+  <text class="t-s" x="534" y="342">입고(④)와 송장(⑥)은 금액이 움직이므로 회계전표가 <tspan font-weight="700">자동으로 같이</tspan> 생긴다.</text>
+  <text class="t-xs" x="534" y="358">⑤ 311(같은 플랜트 안)은 금액 변화가 없어 회계전표 없음 · 301(플랜트 간)은 생성</text>
+
+  <rect class="b-ghost" x="20" y="296" width="480" height="66" rx="6"/>
+  <text class="t" x="36" y="320">①~③까지는 <tspan font-weight="700">돈이 움직이지 않는다.</tspan></text>
+  <text class="t-s" x="36" y="342">PR·PO는 "약속"일 뿐이라 재고도, 회계도 변하지 않는다.</text>
+  <text class="t-xs" x="36" y="358">→ PO를 아무리 고쳐도 재고 금액은 그대로. 입고 순간부터가 진짜 거래.</text>
+</svg>
+<figcaption><span class="fno">그림 1</span> MM 구매 흐름 여섯 정거장. 위 줄은 "무엇을 하는 T-Code", 아래 줄은 "그 결과 쌓이는 테이블"입니다. <b>노란 박스가 붙은 정거장만 회계에 영향</b>을 줍니다.</figcaption>
+</figure>
+
+<h3>T-Code 이름 짓기 규칙 — 끝자리만 보면 된다</h3>
+<p>MM의 T-Code는 대부분 <b>생성 · 변경 · 조회가 1 · 2 · 3</b>으로 짝지어 있습니다. 하나만 알면 나머지 둘은 따라옵니다.</p>
+<div class="tbl-wrap">
+<table>
+  <tr><th style="width:130px">대상</th><th>생성</th><th>변경</th><th>조회</th><th class="wrap">비고</th></tr>
+  <tr><td>자재마스터</td><td><code>MM01</code></td><td><code>MM02</code></td><td><code>MM03</code></td><td class="wrap">삭제 플래그 <code>MM06</code></td></tr>
+  <tr><td>정보레코드</td><td><code>ME11</code></td><td><code>ME12</code></td><td><code>ME13</code></td><td class="wrap">벤더×자재 단가</td></tr>
+  <tr><td>구매요청</td><td><code>ME51N</code></td><td><code>ME52N</code></td><td><code>ME53N</code></td><td class="wrap">N = Enjoy 화면(신규 UI)</td></tr>
+  <tr><td>구매오더</td><td><code>ME21N</code></td><td><code>ME22N</code></td><td><code>ME23N</code></td><td class="wrap">승인(릴리즈) <code>ME29N</code></td></tr>
+  <tr><td>자재문서</td><td colspan="2"><code>MIGO</code> (생성·취소 모두)</td><td><code>MB03</code></td><td class="wrap">취소 전용 <code>MBST</code></td></tr>
+  <tr><td>송장</td><td><code>MIRO</code></td><td>—</td><td><code>MIR4</code></td><td class="wrap">역분개 <code>MR8M</code></td></tr>
+  <tr><td>BOM</td><td><code>CS01</code></td><td><code>CS02</code></td><td><code>CS03</code></td><td class="wrap">전개 <code>CS11</code> · 역전개 <code>CS15</code></td></tr>
+</table>
+</div>
+
+<div class="note">
+  <div class="t">면접 포인트</div>
+  <p>"PO를 만들면 회계전표가 생기나요?" → <span class="hl">아니요. 입고(101)와 송장(MIRO)에서 생깁니다.</span> PO는 약정(commitment)일 뿐 재고·원장을 바꾸지 않습니다.</p>
+</div>
+</div>
+
+<!-- ═══════════════ LESSON 2 ═══════════════ -->
+<div class="lesson" id="l2">
+<h2><span class="no">LESSON 2</span>자재마스터 — 생성 · 변경 · 조회 · 삭제</h2>
+
+<p><b>언제 쓰나.</b> 모든 MM 거래의 출발점입니다. 자재가 해당 <b>플랜트 · 저장위치에 확장</b>돼 있지 않으면 PO도, 입고도 안 됩니다.</p>
+<p><b>안 하면 뭐가 터지나.</b> MIGO에서 <code>M7 001</code>류 "자재 ○○이(가) 플랜트/저장위치에 없음" 오류가 납니다. 초보가 가장 먼저 부딪치는 벽입니다.</p>
+
+<h3>뷰(View)와 조직레벨 — 어느 뷰가 어느 테이블로 가나</h3>
+<p>MM01 화면의 탭(뷰)은 그냥 화면 구분이 아닙니다. <span class="key">뷰마다 저장되는 조직레벨이 다릅니다.</span> 그래서 MM01 첫 화면에서 플랜트 · 저장위치 · 영업조직을 먼저 묻습니다.</p>
+
+<figure class="figwrap">
+<svg class="dgm" viewBox="0 0 1000 360" role="img"
+     aria-label="자재마스터는 클라이언트 레벨 MARA 아래에 플랜트 레벨 MARC와 평가 MBEW, 그 아래 저장위치 레벨 MARD가 달린 트리 구조이며, MM01의 각 뷰가 이 중 어느 테이블에 저장되는지를 보여주는 도해">
+  <defs>
+    <marker id="m2-a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><polygon class="arw" points="0,1 10,5 0,9"/></marker>
+  </defs>
+
+  <text class="m-s c-key" x="20" y="24">ORG LEVEL</text>
+  <text class="m-s c-key" x="640" y="24">MM01 뷰 → 저장 테이블</text>
+
+  <!-- client -->
+  <rect class="b-key" x="170" y="36" width="300" height="56" rx="6"/>
+  <text class="t-h" x="186" y="60">클라이언트  <tspan class="m">MARA</tspan> + <tspan class="m">MAKT</tspan></text>
+  <text class="t-xs" x="186" y="80">자재번호 · 자재유형 · 기본단위 · 자재그룹 · 내역</text>
+  <text class="t-xs" x="20" y="68">회사 전체 1건</text>
+
+  <!-- plant -->
+  <rect class="b" x="60" y="136" width="240" height="56" rx="6"/>
+  <text class="t-h" x="76" y="160">플랜트 GATE  <tspan class="m">MARC</tspan></text>
+  <text class="t-xs" x="76" y="180">구매그룹 · MRP · 배치관리 여부</text>
+
+  <rect class="b" x="340" y="136" width="240" height="56" rx="6"/>
+  <text class="t-h" x="356" y="160">플랜트 STOR  <tspan class="m">MARC</tspan></text>
+  <text class="t-xs" x="356" y="180">플랜트마다 1건씩</text>
+
+  <path class="ln" d="M260 92 L180 134" marker-end="url(#m2-a)"/>
+  <path class="ln" d="M380 92 L460 134" marker-end="url(#m2-a)"/>
+
+  <!-- valuation -->
+  <rect class="b-hl" x="60" y="214" width="240" height="48" rx="6"/>
+  <text class="t-h" x="76" y="236">평가영역  <tspan class="m">MBEW</tspan></text>
+  <text class="t-xs" x="76" y="254">가격관리 V/S · 이동평균가 VERPR</text>
+  <path class="ln-d" d="M180 192 L180 212"/>
+
+  <!-- sloc -->
+  <rect class="b-mut" x="340" y="228" width="115" height="48" rx="5"/>
+  <text class="m" x="354" y="250">MARD 1100</text>
+  <text class="t-xs" x="354" y="268">냉동·정상</text>
+  <rect class="b-mut" x="465" y="228" width="115" height="48" rx="5"/>
+  <text class="m" x="479" y="250">MARD 1900</text>
+  <text class="t-xs" x="479" y="268">냉동·임박</text>
+  <path class="ln" d="M420 192 L400 226" marker-end="url(#m2-a)"/>
+  <path class="ln" d="M500 192 L520 226" marker-end="url(#m2-a)"/>
+  <text class="t-xs" x="340" y="296">저장위치마다 1건 — 재고수량 LABST가 여기 있다</text>
+
+  <rect class="b-ghost" x="60" y="310" width="520" height="38" rx="5"/>
+  <text class="t-s" x="76" y="334">배치: <tspan class="m">MCHA</tspan>(플랜트 레벨) / <tspan class="m">MCH1</tspan>(클라이언트 레벨) · 배치별 재고 <tspan class="m">MCHB</tspan> · 유통기한 <tspan class="m">VFDAT</tspan></text>
+
+  <!-- right: views -->
+  <rect class="b" x="640" y="36" width="340" height="312" rx="6"/>
+  <text class="t" x="656" y="64">기본 데이터 1·2</text>          <text class="m c-key" x="900" y="64">MARA</text>
+  <text class="t" x="656" y="96">분류 (배치 특성)</text>          <text class="m c-key" x="900" y="96">AUSP</text>
+  <text class="t" x="656" y="128">구매</text>                      <text class="m c-key" x="900" y="128">MARC</text>
+  <text class="t" x="656" y="160">MRP 1~4</text>                    <text class="m c-key" x="900" y="160">MARC</text>
+  <text class="t" x="656" y="192">플랜트 데이터 / 저장 1</text>    <text class="m c-key" x="900" y="192">MARC</text>
+  <text class="t" x="656" y="224">저장위치 데이터</text>           <text class="m c-key" x="900" y="224">MARD</text>
+  <text class="t" x="656" y="256">회계 1·2 / 원가 1·2</text>      <text class="m c-key" x="900" y="256">MBEW</text>
+  <text class="t" x="656" y="288">영업: 영업조직 1·2</text>        <text class="m c-key" x="900" y="288">MVKE</text>
+  <text class="t" x="656" y="320">영업: 일반/플랜트</text>         <text class="m c-key" x="900" y="320">MARC</text>
+</svg>
+<figcaption><span class="fno">그림 2</span> 자재마스터의 조직레벨 트리와 MM01 뷰 매핑. <b>재고수량은 MARD(저장위치), 재고금액은 MBEW(평가영역)</b>에 따로 있다는 점이 이후 모든 조회의 기준이 됩니다. 예시의 플랜트·저장위치는 개인 프로젝트(CL04) 구성입니다.</figcaption>
+</figure>
+
+<h3>자재마스터 T-Code</h3>
+<div class="tbl-wrap">
+<table>
+  <tr><th style="width:110px">T-Code</th><th style="width:170px">용도</th><th class="wrap">언제 / 주의</th></tr>
+  <tr><td><code>MM01</code></td><td>생성</td><td class="wrap">자재유형(<code>MTART</code>)·산업부문 선택 → 뷰 선택 → 조직레벨 입력. 이미 있는 자재에 <b>새 플랜트·저장위치를 추가(확장)</b>할 때도 MM01</td></tr>
+  <tr><td><code>MM02</code></td><td>변경</td><td class="wrap">이미 만든 뷰의 값 수정. 없는 뷰는 MM02로 못 만들고 MM01로 확장</td></tr>
+  <tr><td><code>MM03</code></td><td>조회</td><td class="wrap">메뉴 <b>추가 데이터 → 조직레벨</b>로 어느 플랜트에 확장됐는지 확인</td></tr>
+  <tr><td><code>MMSC</code></td><td>저장위치 일괄 확장</td><td class="wrap">한 자재를 여러 저장위치에 한 번에 추가 (MARD 생성)</td></tr>
+  <tr><td><code>MM50</code></td><td>확장 가능 자재 목록</td><td class="wrap">"아직 이 플랜트에 확장 안 된 자재" 찾기</td></tr>
+  <tr><td><code>MM60</code></td><td>자재 목록</td><td class="wrap">플랜트·자재유형·생성일 조건으로 자재 리스트</td></tr>
+  <tr><td><code>MM04</code></td><td>변경 이력</td><td class="wrap">누가 언제 무엇을 바꿨나. 변경문서 <code>CDHDR</code>/<code>CDPOS</code> (오브젝트 클래스 <code>MATERIAL</code>)</td></tr>
+  <tr><td><code>MM06</code></td><td>삭제 플래그</td><td class="wrap">클라이언트·플랜트·저장위치 레벨 중 선택해서 플래그만 세팅</td></tr>
+  <tr><td><code>MM17</code></td><td>대량 변경</td><td class="wrap">여러 자재의 같은 필드를 일괄 수정 — 운영에선 권한 통제 대상</td></tr>
+</table>
+</div>
+
+<h3>"삭제"는 지우는 게 아니다</h3>
+<div class="step"><span class="n">1</span><p><b>MM06 = 삭제 플래그만 세운다.</b> 데이터는 그대로 남고, 조회도 됩니다. 이후 거래에서 경고나 오류로 막힙니다.</p></div>
+<div class="step"><span class="n">2</span><p><b>실제 물리 삭제는 아카이빙(<code>SARA</code>, 오브젝트 <code>MM_MATNR</code>)</b>으로만 합니다. 재고·미결 문서가 남아 있으면 아카이빙 대상에서 빠집니다.</p></div>
+<div class="step"><span class="n">3</span><p><b>"잠깐 쓰지 마"가 목적이면 삭제 대신 자재상태</b>를 씁니다. 크로스플랜트 상태 <code>MARA-MSTAE</code>, 플랜트 상태 <code>MARC-MMSTA</code>에 구매·입고 차단 상태를 넣으면 되돌리기도 쉽습니다.</p></div>
+<div class="step"><span class="n">4</span><p><b>저장위치 단위로 막으려면 BAdI(유저 엑짓)를 쓴다.</b> 자재상태는 플랜트 레벨까지만 있어서, "이 저장위치로는 입고 금지" 같은 규칙은 표준 설정만으로 만들 수 없습니다.</p></div>
+
+<h3>저장위치별 입출고 제한 — 어디에 끼워 넣나</h3>
+<p>자재문서 품목이 만들어질 때 호출되는 체크 지점에서 <b>E 메시지</b>를 내면 전기가 막힙니다. 후보는 세 곳이고, 호출되는 경로가 다릅니다.</p>
+<div class="tbl-wrap">
+<table>
+  <tr><th style="width:190px">확장 지점</th><th style="width:170px">호출 경로</th><th class="wrap">용도 / 주의</th></tr>
+  <tr><td><code>MB_CHECK_LINE_BADI</code><br><span style="font-size:9pt;color:var(--ink-soft);">메서드 <code>CHECK_LINE</code></span></td><td>MIGO + BAPI 등 자재문서 생성 공통</td><td class="wrap"><span class="key">1순위.</span> 품목 1줄마다 호출. 저장위치·이동유형·자재 조합으로 E 메시지</td></tr>
+  <tr><td><code>MB_MIGO_BADI</code><br><span style="font-size:9pt;color:var(--ink-soft);">메서드 <code>CHECK_ITEM</code></span></td><td>MIGO 화면만</td><td class="wrap"><code>BAPI_GOODSMVT_CREATE</code>·배치 프로그램으로 전기하면 <span class="bad">안 탄다</span> — 화면 전용 체크</td></tr>
+  <tr><td><code>MB_DOCUMENT_BADI</code><br><span style="font-size:9pt;color:var(--ink-soft);">메서드 <code>MB_DOCUMENT_BEFORE_UPDATE</code></span></td><td>전기 직전(업데이트 단계)</td><td class="wrap">체크용 아님. 여기서 E 메시지를 내면 업데이트 태스크에서 덤프가 날 수 있음 — Z 테이블 로그 등 후처리용</td></tr>
+</table>
+</div>
+
+<pre><span class="c">" 예: 임박 저장위치(x900)는 311 이동으로만 들어올 수 있게 제한</span>
+<span class="k">METHOD</span> if_ex_mb_check_line_badi~check_line.
+  <span class="k">CHECK</span> is_mseg-werks = 'STOR'.
+
+  <span class="c">" 311은 출발 품목에 도착 저장위치가 UMLGO로 들어온다</span>
+  <span class="k">DATA</span>(lv_to_lgort) = <span class="k">COND</span> lgort_d( <span class="k">WHEN</span> is_mseg-umlgo <span class="k">IS NOT INITIAL</span>
+                                     <span class="k">THEN</span> is_mseg-umlgo
+                                     <span class="k">ELSE</span> is_mseg-lgort ).
+
+  <span class="k">IF</span> lv_to_lgort <span class="k">CP</span> '*900' <span class="k">AND</span> is_mseg-bwart &lt;&gt; '311'.
+    <span class="k">MESSAGE</span> e001(zmm) <span class="k">WITH</span> lv_to_lgort is_mseg-bwart.  <span class="c">" &amp;1 저장위치는 &amp;2 이동 불가</span>
+  <span class="k">ENDIF</span>.
+<span class="k">ENDMETHOD</span>.</pre>
+
+<div class="note warn">
+  <div class="t">확인 필요</div>
+  <p><code>CHECK_LINE</code> 인터페이스 파라미터(<code>IS_MSEG</code> 등)는 <code>SE18</code>에서 실제 시그니처를 확인하세요. 출하 출고(VL02N 601) 경로에서도 호출되는지는 시스템에서 직접 테스트가 필요합니다.</p>
+  <p>규칙(저장위치·이동유형 조합)은 소스에 하드코딩하지 말고 Z 설정 테이블이나 <code>TVARVC</code>로 빼 두세요. 구현은 <code>SE19</code>, 기존 구현 확인은 <code>SE18</code> → 구현 목록.</p>
+</div>
+
+<div class="note warn">
+  <div class="t">확인 필요</div>
+  <p>재고가 남은 자재에 MM06 플래그를 세울 때 <b>경고로 끝나는지, 오류로 막히는지</b>는 시스템 설정·버전에 따라 다릅니다. 실제 시스템에서 재고 있는 자재로 한 번 확인해 두세요.</p>
+</div>
+</div>
+
+<!-- ═══════════════ LESSON 3 ═══════════════ -->
+<div class="lesson" id="l3">
+<h2><span class="no">LESSON 3</span>재고 넣기 · 빼기 — 561 · 551 · 201</h2>
+
+<p><b>언제 쓰나.</b> 테스트용 재고를 만들 때(초기재고 561), 유통기한이 지나 버릴 때(폐기 551), 내부에서 써 버릴 때(소비 201)입니다.</p>
+<p><b>핵심.</b> 재고는 테이블을 직접 고쳐서 넣거나 빼지 않습니다. <span class="hl">반드시 이동유형이 붙은 자재문서로만</span> 움직입니다. 그래야 수량·금액·이력이 같이 맞습니다.</p>
+
+<figure class="figwrap">
+<svg class="dgm" viewBox="0 0 1000 330" role="img"
+     aria-label="재고는 561 초기재고, 501 PO 없는 입고, 101 PO 입고로 들어오고 551 폐기, 201 코스트센터 소비, 601 출하로 나가며, 각각의 취소는 이동유형 번호에 1을 더한 562, 552, 202 등으로 처리된다는 도해">
+  <defs>
+    <marker id="m3-o" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><polygon class="arw-ok" points="0,1 10,5 0,9"/></marker>
+    <marker id="m3-b" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><polygon class="arw-bad" points="0,1 10,5 0,9"/></marker>
+  </defs>
+
+  <text class="m-s c-ok" x="20" y="24">IN — 재고 +</text>
+  <text class="m-s c-bad" x="700" y="24">OUT — 재고 −</text>
+
+  <rect class="b-ok" x="20" y="40" width="250" height="56" rx="5"/>
+  <text class="m c-ok" x="36" y="62">561</text><text class="t" x="80" y="62">초기재고 등록</text>
+  <text class="t-xs" x="36" y="82">시스템 오픈·테스트 재고. 취소 562</text>
+
+  <rect class="b-ok" x="20" y="110" width="250" height="56" rx="5"/>
+  <text class="m c-ok" x="36" y="132">501</text><text class="t" x="80" y="132">PO 없는 입고</text>
+  <text class="t-xs" x="36" y="152">무상 샘플 등. 취소 502</text>
+
+  <rect class="b-ok" x="20" y="180" width="250" height="56" rx="5"/>
+  <text class="m c-ok" x="36" y="202">101</text><text class="t" x="80" y="202">PO 입고 → Lesson 6</text>
+  <text class="t-xs" x="36" y="222">정상 구매 입고. 취소 102</text>
+
+  <rect class="b-key" x="370" y="80" width="260" height="120" rx="8"/>
+  <text class="t-h" x="390" y="110">가용(비제한) 재고</text>
+  <text class="m" x="390" y="134">MARD-LABST</text>
+  <text class="t-s" x="390" y="156">배치관리 자재면 MCHB-CLABS</text>
+  <text class="t-xs" x="390" y="180">수량은 MARD/MCHB, 금액은 MBEW</text>
+
+  <rect class="b-bad" x="730" y="40" width="250" height="56" rx="5"/>
+  <text class="m c-bad" x="746" y="62">551</text><text class="t" x="790" y="62">폐기</text>
+  <text class="t-xs" x="746" y="82">유통기한 경과·파손. 취소 552</text>
+
+  <rect class="b-bad" x="730" y="110" width="250" height="56" rx="5"/>
+  <text class="m c-bad" x="746" y="132">201</text><text class="t" x="790" y="132">코스트센터 소비</text>
+  <text class="t-xs" x="746" y="152">샘플·내부 사용. 취소 202</text>
+
+  <rect class="b-mut" x="730" y="180" width="250" height="56" rx="5"/>
+  <text class="m" x="746" y="202">601</text><text class="t" x="790" y="202">출하(SD 출고)</text>
+  <text class="t-xs" x="746" y="222">VL02N 출고전기가 자동 생성. 취소 602</text>
+
+  <path class="ln-ok" d="M270 68 L368 110" marker-end="url(#m3-o)"/>
+  <path class="ln-ok" d="M270 138 L368 140" marker-end="url(#m3-o)"/>
+  <path class="ln-ok" d="M270 208 L368 170" marker-end="url(#m3-o)"/>
+  <path class="ln-bad" d="M630 110 L728 68" marker-end="url(#m3-b)"/>
+  <path class="ln-bad" d="M630 140 L728 138" marker-end="url(#m3-b)"/>
+  <path class="ln-bad" d="M630 170 L728 208" marker-end="url(#m3-b)"/>
+
+  <rect class="b-hl" x="200" y="262" width="600" height="52" rx="6"/>
+  <text class="t-h" x="220" y="286">규칙: 취소 이동유형 = 원래 번호 + 1</text>
+  <text class="t-s" x="220" y="304">101→102 · 561→562 · 551→552 · 201→202 · 311→312  (MBST로 취소하면 자동으로 들어간다)</text>
+</svg>
+<figcaption><span class="fno">그림 3</span> 재고가 들어오고 나가는 대표 이동유형. 가운데 박스의 수량은 반드시 이 화살표(자재문서)를 통해서만 바뀝니다.</figcaption>
+</figure>
+
+<h3>MIGO에서 어떻게 고르나</h3>
+<p>MIGO는 좌측 상단 <b>액션 + 참조 + 이동유형</b> 세 칸의 조합으로 거의 모든 재고 거래를 처리합니다.</p>
+<div class="tbl-wrap">
+<table>
+  <tr><th style="width:170px">하려는 것</th><th style="width:150px">액션</th><th style="width:120px">참조</th><th style="width:90px">이동유형</th><th class="wrap">회계 영향</th></tr>
+  <tr><td>초기재고 넣기</td><td>A01 입고</td><td>기타(Other)</td><td><code>561</code></td><td class="wrap">재고계정 ↑ / 상대계정(초기재고 전환용)</td></tr>
+  <tr><td>PO 없이 입고</td><td>A01 입고</td><td>기타</td><td><code>501</code></td><td class="wrap">재고 ↑ / 상대계정</td></tr>
+  <tr><td>폐기</td><td>A07 출고</td><td>기타</td><td><code>551</code></td><td class="wrap">폐기비용 ↑ / 재고 ↓ — 코스트센터 필요</td></tr>
+  <tr><td>내부 소비</td><td>A07 출고</td><td>기타</td><td><code>201</code></td><td class="wrap">소비비용 ↑ / 재고 ↓ — 코스트센터 필요</td></tr>
+  <tr><td>잘못 넣은 것 취소</td><td>A03 취소</td><td>자재문서</td><td>자동</td><td class="wrap">원래 전표의 반대 분개</td></tr>
+</table>
+</div>
+
+<h3>실사 차이로 맞추기 — 재고 "조정"의 정석</h3>
+<p>장부 재고와 실물이 다를 때 551로 빼는 건 편법입니다. 정석은 <b>재고실사 문서</b>로 맞추는 것입니다.</p>
+<div class="step"><span class="n">1</span><p><code>MI01</code> 실사문서 생성 — 자재·저장위치·배치 지정</p></div>
+<div class="step"><span class="n">2</span><p><code>MI04</code> 실사 수량 입력</p></div>
+<div class="step"><span class="n">3</span><p><code>MI07</code> 차이 전기 — 이동유형 <code>701</code>(증가) / <code>702</code>(감소)가 자동 생성. 차이 목록은 <code>MI20</code></p></div>
+
+<div class="note warn">
+  <div class="t">S/4HANA에서 막힌 T-Code</div>
+  <p><code>MB1A</code>(출고) · <code>MB1B</code>(이동) · <code>MB1C</code>(기타입고) · <code>MB01</code>(PO입고) · <code>MB31</code> 등 구형 MB 트랜잭션은 <span class="bad">S/4HANA에서 사용 중단</span>되고 MIGO로 통합됐습니다(SAP Note 1804812). 인터넷 자료에 MB1C가 보이면 ECC 기준 자료입니다.</p>
+</div>
+</div>
+
+<!-- ═══════════════ LESSON 4 ═══════════════ -->
+<div class="lesson" id="l4">
+<h2><span class="no">LESSON 4</span>재고 조회 — MMBE · MB52 · MB5B</h2>
+
+<p><b>언제 쓰나.</b> "지금 몇 개 있어?"와 "그날 몇 개 있었어?"는 다른 질문입니다. <span class="key">현재 시점이냐, 과거 날짜냐</span>에 따라 T-Code가 갈립니다.</p>
+
+<h3>재고에는 종류가 있다</h3>
+<p>같은 저장위치 안에서도 재고는 상태별로 따로 집계됩니다. 조회 화면에서 "수량이 안 맞는다"는 대부분 이 칸을 안 봐서 생깁니다.</p>
+<div class="keys">
+  <div class="keycard"><div class="kk">LABST</div><div class="kn">비제한 사용 재고</div><div class="kd">바로 팔고 쓸 수 있는 재고. 출하·출고의 대상</div></div>
+  <div class="keycard"><div class="kk">INSME</div><div class="kn">품질검사 재고</div><div class="kd">검사 대기. 출고 불가 (QM 미사용이면 보통 0)</div></div>
+  <div class="keycard"><div class="kk">SPEME</div><div class="kn">보류(Blocked) 재고</div><div class="kd">문제 있어 묶어 둔 재고. 344로 들어가고 343으로 풀림</div></div>
+  <div class="keycard"><div class="kk">UMLME</div><div class="kn">이전 중 재고</div><div class="kd">2단계 이동(303/313)에서 출발만 하고 도착 안 한 수량</div></div>
+</div>
+<p style="font-size:9.5pt; color:var(--ink-soft);">필드명은 저장위치 레벨 <code>MARD</code> 기준입니다. 배치 레벨 <code>MCHB</code>에서는 <code>CLABS</code> · <code>CINSM</code> · <code>CSPEM</code> 식으로 앞에 C가 붙습니다.</p>
+
+<figure class="figwrap">
+<svg class="dgm" viewBox="0 0 1000 250" role="img"
+     aria-label="MB5B는 조회 시작일의 기초재고에 기간 중 입고를 더하고 출고를 빼서 종료일의 기말재고를 계산하며, 이 계산이 자재문서를 전기일 기준으로 되감아 얻어진다는 도해">
+  <defs>
+    <marker id="m4-a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><polygon class="arw" points="0,1 10,5 0,9"/></marker>
+  </defs>
+  <text class="m-s c-key" x="20" y="24">MB5B — 전기일 기준 재고 (과거 시점 재고를 계산하는 방식)</text>
+
+  <line class="ln" x1="40" y1="120" x2="960" y2="120" marker-end="url(#m4-a)"/>
+  <text class="t-xs" x="930" y="140">전기일</text>
+
+  <line class="ln-key" x1="160" y1="100" x2="160" y2="140"/>
+  <text class="m c-key" x="120" y="92">09-01</text>
+  <line class="ln-key" x1="800" y1="100" x2="800" y2="140"/>
+  <text class="m c-key" x="760" y="92">09-30</text>
+
+  <rect class="b-mut" x="70" y="156" width="180" height="60" rx="5"/>
+  <text class="t-h" x="86" y="180">기초재고</text>
+  <text class="m" x="86" y="202">100</text>
+
+  <rect class="b-ok" x="300" y="46" width="150" height="46" rx="5"/>
+  <text class="t" x="314" y="66">입고 합계 +</text><text class="m c-ok" x="314" y="84">101·561 … +80</text>
+  <rect class="b-bad" x="500" y="46" width="150" height="46" rx="5"/>
+  <text class="t" x="514" y="66">출고 합계 −</text><text class="m c-bad" x="514" y="84">601·551 … −50</text>
+
+  <rect class="b-key" x="710" y="156" width="180" height="60" rx="5"/>
+  <text class="t-h" x="726" y="180">기말재고</text>
+  <text class="m" x="726" y="202">130</text>
+
+  <rect class="b-hl" x="300" y="156" width="350" height="60" rx="5"/>
+  <text class="t" x="316" y="180">100 + 80 − 50 = <tspan font-weight="700">130</tspan></text>
+  <text class="t-xs" x="316" y="202">현재 재고에서 자재문서를 거꾸로 빼 가며 과거를 복원</text>
+</svg>
+<figcaption><span class="fno">그림 4</span> MB5B의 계산 방식. MMBE·MB52는 <b>지금 이 순간</b>의 재고 테이블을 보여 주고, MB5B는 <b>자재문서를 날짜 기준으로 되감아</b> 과거 시점 재고를 계산합니다.</figcaption>
+</figure>
+
+<h3>조회 T-Code 비교</h3>
+<div class="tbl-wrap">
+<table>
+  <tr><th style="width:90px">T-Code</th><th style="width:150px">이름</th><th style="width:90px">시점</th><th class="wrap">이럴 때 쓴다</th></tr>
+  <tr><td><code>MMBE</code></td><td>재고 개요</td><td>현재</td><td class="wrap"><b>자재 1개</b>를 회사 → 플랜트 → 저장위치 → 배치 트리로 한눈에. 재고 유형별 칸이 다 보인다</td></tr>
+  <tr><td><code>MB52</code></td><td>창고 재고 리스트</td><td>현재</td><td class="wrap"><b>여러 자재</b>를 플랜트·저장위치 조건으로 리스트. 금액까지 표시. 엑셀로 뽑기 좋음</td></tr>
+  <tr><td><code>MB5B</code></td><td>전기일 기준 재고</td><td>과거</td><td class="wrap">월말 재고, "9/1에 몇 개 있었나". 기초·입고·출고·기말</td></tr>
+  <tr><td><code>MB53</code></td><td>플랜트 가용성</td><td>현재</td><td class="wrap">여러 플랜트에 걸친 재고 비교</td></tr>
+  <tr><td><code>MB5T</code></td><td>운송 중 재고</td><td>현재</td><td class="wrap">플랜트 간 2단계 이동·STO에서 아직 도착 안 한 수량</td></tr>
+  <tr><td><code>MSC3N</code></td><td>배치 조회</td><td>—</td><td class="wrap">배치 마스터: 유통기한 <code>VFDAT</code>, 제조일, 특성값</td></tr>
+  <tr><td><code>MB56</code></td><td>배치 사용처</td><td>—</td><td class="wrap">이 배치가 어디서 들어와 어디로 나갔나 (추적)</td></tr>
+  <tr><td><code>MD04</code></td><td>재고/소요량 리스트</td><td>현재+미래</td><td class="wrap">현재 재고 + 들어올 PO + 나갈 수주. MRP 관점</td></tr>
+</table>
+</div>
+
+<div class="note">
+  <div class="t">자주 틀리는 것</div>
+  <p>MMBE 수량과 MB5B "오늘 날짜" 기말재고가 다르면 <b>미래 전기일로 들어간 자재문서</b>가 있는지 먼저 의심하세요. MMBE는 전기일과 무관하게 현재 테이블 값을 봅니다.</p>
+</div>
+</div>
+
+<!-- ═══════════════ LESSON 5 ═══════════════ -->
+<div class="lesson" id="l5">
+<h2><span class="no">LESSON 5</span>구매 — 정보레코드 · PR · PO</h2>
+
+<p><b>언제 쓰나.</b> 벤더에게 물건을 주문하는 모든 경우입니다. PO가 있어야 입고(101)와 송장(MIRO)이 PO를 참조해 자동으로 값을 끌어옵니다.</p>
+<p><b>안 하면 뭐가 터지나.</b> 정보레코드가 없으면 PO마다 단가를 손으로 넣어야 합니다. 사람마다 다른 단가가 들어가고, 이후 가격 비교(정보레코드가 vs 이동평균가)가 불가능해집니다.</p>
+
+<figure class="figwrap">
+<svg class="dgm" viewBox="0 0 1000 330" role="img"
+     aria-label="구매요청은 승인 후 구매오더로 전환되며, 이때 벤더와 단가는 소스리스트와 정보레코드에서 자동 제안되고, 구매오더는 출력으로 벤더에 전달되고 이후 입고와 송장 이력이 EKBE에 쌓인다는 도해">
+  <defs>
+    <marker id="m5-a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><polygon class="arw" points="0,1 10,5 0,9"/></marker>
+    <marker id="m5-k" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><polygon class="arw-key" points="0,1 10,5 0,9"/></marker>
+  </defs>
+
+  <text class="m-s c-key" x="20" y="24">SOURCE — PO에 벤더·단가를 공급하는 마스터</text>
+  <rect class="b-mut" x="20" y="36" width="220" height="62" rx="5"/>
+  <text class="t-h" x="36" y="60">벤더(공급업체)</text>
+  <text class="m-s" x="36" y="82">BP (S/4) · LFA1 LFM1</text>
+  <rect class="b-mut" x="260" y="36" width="220" height="62" rx="5"/>
+  <text class="t-h" x="276" y="60">정보레코드  <tspan class="m">ME11</tspan></text>
+  <text class="m-s" x="276" y="82">EINA(일반) EINE(구매조직별 단가)</text>
+  <rect class="b-mut" x="500" y="36" width="220" height="62" rx="5"/>
+  <text class="t-h" x="516" y="60">소스리스트  <tspan class="m">ME01</tspan></text>
+  <text class="m-s" x="516" y="82">EORD — 허용 벤더·기간</text>
+
+  <rect class="b-key" x="20" y="150" width="200" height="74" rx="6"/>
+  <text class="t-h" x="36" y="176">구매요청 PR</text>
+  <text class="m" x="36" y="198">ME51N</text>
+  <text class="m-s" x="36" y="216">EBAN</text>
+
+  <rect class="b-hl" x="260" y="160" width="120" height="54" rx="6"/>
+  <text class="t" x="276" y="184">PR 승인</text>
+  <text class="m-s" x="276" y="202">ME54N·ME55</text>
+
+  <rect class="b-key" x="420" y="150" width="220" height="74" rx="6"/>
+  <text class="t-h" x="436" y="176">구매오더 PO</text>
+  <text class="m" x="436" y="198">ME21N  (PR→PO: ME57)</text>
+  <text class="m-s" x="436" y="216">EKKO 헤더 · EKPO 품목 · EKET 납기</text>
+
+  <rect class="b-hl" x="680" y="160" width="120" height="54" rx="6"/>
+  <text class="t" x="696" y="184">PO 승인</text>
+  <text class="m-s" x="696" y="202">ME29N·ME28</text>
+
+  <rect class="b" x="840" y="150" width="140" height="74" rx="6"/>
+  <text class="t-h" x="856" y="176">벤더 전달</text>
+  <text class="m-s" x="856" y="198">출력 ME9F</text>
+  <text class="t-xs" x="856" y="216">메일·EDI·인쇄</text>
+
+  <path class="ln" d="M220 187 L258 187" marker-end="url(#m5-a)"/>
+  <path class="ln" d="M380 187 L418 187" marker-end="url(#m5-a)"/>
+  <path class="ln" d="M640 187 L678 187" marker-end="url(#m5-a)"/>
+  <path class="ln" d="M800 187 L838 187" marker-end="url(#m5-a)"/>
+
+  <path class="ln-key" d="M130 98 L480 148" marker-end="url(#m5-k)"/>
+  <path class="ln-key" d="M370 98 L520 148" marker-end="url(#m5-k)"/>
+  <path class="ln-key" d="M610 98 L560 148" marker-end="url(#m5-k)"/>
+  <text class="t-xs c-key" x="640" y="124">벤더·단가 자동 제안 (조건 PB00)</text>
+
+  <rect class="b-ghost" x="420" y="250" width="560" height="62" rx="6"/>
+  <text class="t" x="436" y="274">PO 이후 입고·송장이 붙을 때마다 <tspan class="m">EKBE</tspan>(PO 이력)에 한 줄씩 쌓인다</text>
+  <text class="t-xs" x="436" y="296">ME23N 품목 상세의 "구매오더 이력" 탭 = EKBE 화면 → Lesson 8</text>
+  <path class="ln-d" d="M530 224 L530 248"/>
+</svg>
+<figcaption><span class="fno">그림 5</span> 구매 문서 흐름. 위 줄의 마스터가 잘 잡혀 있으면 PO는 자재와 수량만 넣어도 벤더·단가가 채워집니다. <b>노란 박스(승인)</b>는 릴리즈 전략을 설정했을 때만 끼어듭니다.</figcaption>
+</figure>
+
+<h3>구매 T-Code</h3>
+<div class="tbl-wrap">
+<table>
+  <tr><th style="width:110px">T-Code</th><th style="width:180px">용도</th><th class="wrap">메모</th></tr>
+  <tr><td><code>BP</code></td><td>벤더 생성·변경</td><td class="wrap">S/4는 비즈니스 파트너로 통합 — 역할 <code>FLVN00</code>(FI 공급업체) · <code>FLVN01</code>(구매). ECC는 <code>XK01</code>/<code>MK01</code></td></tr>
+  <tr><td><code>ME11/12/13</code></td><td>정보레코드</td><td class="wrap">벤더×자재×구매조직의 단가. 단가는 조건레코드로 저장</td></tr>
+  <tr><td><code>ME01/03</code></td><td>소스리스트</td><td class="wrap">이 자재를 어느 벤더에서만 살 수 있나. 고정 벤더 지정</td></tr>
+  <tr><td><code>ME51N/52N/53N</code></td><td>구매요청</td><td class="wrap">MRP가 자동으로 만들기도 함</td></tr>
+  <tr><td><code>ME57</code></td><td>PR 배정·전환</td><td class="wrap">미결 PR을 모아 PO로 전환. 자동 전환은 <code>ME59N</code></td></tr>
+  <tr><td><code>ME21N/22N/23N</code></td><td>구매오더</td><td class="wrap">PO 생성·변경·조회. 변경 이력은 메뉴 <b>환경 → 헤더 변경</b></td></tr>
+  <tr><td><code>ME29N</code> / <code>ME28</code></td><td>PO 승인(개별/일괄)</td><td class="wrap">릴리즈 전략 설정 시</td></tr>
+  <tr><td><code>ME2M</code></td><td>자재별 PO</td><td class="wrap">"이 자재 누구한테 얼마에 샀나"</td></tr>
+  <tr><td><code>ME2L</code></td><td>벤더별 PO</td><td class="wrap">벤더 기준 미입고 PO 확인 — 선택 파라미터 <code>WE101</code>(미입고)</td></tr>
+  <tr><td><code>ME2N</code></td><td>PO 번호별</td><td class="wrap">PO 번호 범위로 리스트</td></tr>
+  <tr><td><code>ME5A</code></td><td>PR 리스트</td><td class="wrap">미결 PR 확인</td></tr>
+  <tr><td><code>ME80FN</code></td><td>구매 문서 통합 분석</td><td class="wrap">PO + 입고 + 송장 이력을 한 화면에. 실무에서 제일 많이 씀</td></tr>
+</table>
+</div>
+
+<div class="note warn">
+  <div class="t">확인 필요</div>
+  <p>ME2L/ME2M 선택 파라미터 값(<code>WE101</code> 등)은 시스템에 따라 목록이 다를 수 있습니다. F4로 실제 값을 확인하세요.</p>
+</div>
+</div>
+
+<!-- ═══════════════ LESSON 6 ═══════════════ -->
+<div class="lesson" id="l6">
+<h2><span class="no">LESSON 6</span>입고 · 자재이동 — MIGO와 이동유형</h2>
+
+<p><b>언제 쓰나.</b> 벤더에서 물건이 도착했을 때(101), 돌려보낼 때(122), 창고 안에서 옮길 때(311), 다른 플랜트로 보낼 때(301)입니다.</p>
+<p><b>핵심.</b> MIGO 화면은 하나지만 <span class="key">이동유형이 거래의 성격을 결정</span>합니다. 이동유형이 곧 "재고가 어디서 어디로, 회계는 어떻게"의 설정 묶음입니다.</p>
+
+<figure class="figwrap">
+<svg class="dgm" viewBox="0 0 1000 340" role="img"
+     aria-label="벤더에서 GATE 플랜트로 101 입고, 문제가 있으면 122로 벤더에 반품, GATE에서 STOR 플랜트로 301 이전, STOR 안에서 정상 저장위치 1100에서 임박 저장위치 1900으로 311 이동하는 흐름을 보여주는 도해">
+  <defs>
+    <marker id="m6-a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><polygon class="arw" points="0,1 10,5 0,9"/></marker>
+    <marker id="m6-k" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><polygon class="arw-key" points="0,1 10,5 0,9"/></marker>
+    <marker id="m6-b" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><polygon class="arw-bad" points="0,1 10,5 0,9"/></marker>
+  </defs>
+
+  <rect class="b-mut" x="20" y="130" width="140" height="70" rx="6"/>
+  <text class="t-h" x="40" y="160">벤더</text>
+  <text class="t-xs" x="40" y="182">공급업체</text>
+
+  <rect class="b" x="240" y="100" width="200" height="130" rx="8"/>
+  <text class="t-h" x="258" y="126">플랜트 GATE</text>
+  <text class="t-xs" x="258" y="146">입고 게이트 — 검수 대기</text>
+  <rect class="b-mut" x="258" y="160" width="164" height="50" rx="5"/>
+  <text class="t" x="272" y="190">게이트 저장위치</text>
+
+  <rect class="b" x="540" y="60" width="440" height="210" rx="8"/>
+  <text class="t-h" x="558" y="86">플랜트 STOR</text>
+  <rect class="b-key" x="560" y="110" width="170" height="64" rx="5"/>
+  <text class="m" x="576" y="136">1100</text><text class="t-xs" x="576" y="156">냉동 · 정상</text>
+  <rect class="b-hl" x="790" y="110" width="170" height="64" rx="5"/>
+  <text class="m" x="806" y="136">1900</text><text class="t-xs" x="806" y="156">냉동 · 임박</text>
+  <rect class="b-mut" x="560" y="194" width="170" height="54" rx="5"/>
+  <text class="t" x="576" y="218">보류 재고</text><text class="t-xs" x="576" y="236">같은 저장위치, 상태만 다름</text>
+
+  <path class="ln-key" d="M160 150 L238 150" marker-end="url(#m6-k)"/>
+  <text class="m c-key" x="178" y="140">101</text>
+
+  <path class="ln-bad" d="M258 100 C 200 40, 120 60, 90 128" marker-end="url(#m6-b)"/>
+  <text class="m c-bad" x="160" y="52">122 반품</text>
+
+  <path class="ln-key" d="M440 165 L558 142" marker-end="url(#m6-k)"/>
+  <text class="m c-key" x="468" y="140">301</text>
+
+  <path class="ln-key" d="M730 142 L788 142" marker-end="url(#m6-k)"/>
+  <text class="m c-key" x="742" y="132">311</text>
+
+  <path class="ln" d="M620 174 L620 192" marker-end="url(#m6-a)"/>
+  <text class="m" x="628" y="188">344 ↓  343 ↑</text>
+
+  <rect class="b-ghost" x="20" y="286" width="960" height="42" rx="6"/>
+  <text class="t-s" x="36" y="312">회계전표: <tspan font-weight="700">101 · 122 · 301</tspan>은 금액이 움직여 생성 / <tspan font-weight="700">311 · 344 · 343</tspan>은 같은 평가영역 안이라 수량 위치만 바뀌고 회계전표 없음</text>
+</svg>
+<figcaption><span class="fno">그림 6</span> 개인 프로젝트(CL04) 구조로 본 이동유형. GATE에 입고(101) → 이상 있으면 반품(122) → 정상이면 STOR로 이전(301) → 유통기한 임박 시 1900으로 이동(311).</figcaption>
+</figure>
+
+<h3>꼭 알아야 할 이동유형</h3>
+<div class="tbl-wrap">
+<table>
+  <tr><th style="width:80px">유형</th><th style="width:190px">의미</th><th style="width:90px">회계전표</th><th class="wrap">메모</th></tr>
+  <tr><td><code>101</code></td><td>PO 입고</td><td>O</td><td class="wrap">재고 ↑ / GR·IR 계정. 취소 <code>102</code></td></tr>
+  <tr><td><code>103</code> / <code>105</code></td><td>입고보류 → 해제</td><td>105에서 O</td><td class="wrap">103은 재고로 안 잡히는 "받아만 둔" 상태. 검수 후 105로 재고 반영</td></tr>
+  <tr><td><code>122</code></td><td>벤더 반품</td><td>O</td><td class="wrap">원래 101 자재문서를 참조해서 반납. MIGO 액션 <b>A02 반품</b></td></tr>
+  <tr><td><code>161</code></td><td>반품 PO 입고</td><td>O</td><td class="wrap">PO 품목에 반품 체크한 경우 — 122와 구분</td></tr>
+  <tr><td><code>311</code></td><td>저장위치 이동(1단계)</td><td>X</td><td class="wrap">같은 플랜트 안. 즉시 도착</td></tr>
+  <tr><td><code>313</code> / <code>315</code></td><td>저장위치 이동(2단계)</td><td>X</td><td class="wrap">출발(313) → 이전 중 재고 → 도착(315)</td></tr>
+  <tr><td><code>301</code></td><td>플랜트 이전(1단계)</td><td>O</td><td class="wrap">플랜트 간. 평가영역이 바뀌어 금액 이동</td></tr>
+  <tr><td><code>303</code> / <code>305</code></td><td>플랜트 이전(2단계)</td><td>O</td><td class="wrap">운송 중 재고(<code>MB5T</code>)가 생김</td></tr>
+  <tr><td><code>309</code></td><td>자재 → 자재</td><td>상황별</td><td class="wrap">코드 잘못 입고했을 때 다른 자재번호로 전환</td></tr>
+  <tr><td><code>344</code> / <code>343</code></td><td>가용 → 보류 / 보류 → 가용</td><td>X</td><td class="wrap">재고는 그대로, 사용 가능 여부만 바꿈</td></tr>
+  <tr><td><code>321</code></td><td>품질검사 → 가용</td><td>X</td><td class="wrap">QM 쓰는 경우</td></tr>
+</table>
+</div>
+
+<h3>MIGO 액션 (좌측 상단 첫 칸)</h3>
+<div class="tbl-wrap">
+<table>
+  <tr><th style="width:80px">코드</th><th style="width:170px">액션</th><th class="wrap">언제</th></tr>
+  <tr><td>A01</td><td>입고</td><td class="wrap">PO 참조 101, 기타 참조 561/501</td></tr>
+  <tr><td>A02</td><td>반품</td><td class="wrap">자재문서 참조 → 122</td></tr>
+  <tr><td>A03</td><td>취소</td><td class="wrap">자재문서 번호 입력 → 반대 이동유형 자동</td></tr>
+  <tr><td>A04</td><td>조회</td><td class="wrap">자재문서 조회 (MB03과 동일 목적)</td></tr>
+  <tr><td>A05</td><td>입고보류 재고 해제</td><td class="wrap">103 → 105</td></tr>
+  <tr><td>A07</td><td>출고</td><td class="wrap">551 · 201 등</td></tr>
+  <tr><td>A08</td><td>이전전기</td><td class="wrap">311 · 301 · 309 · 344 등</td></tr>
+</table>
+</div>
+
+<div class="note">
+  <div class="t">102 vs 122 — 면접 단골</div>
+  <p><code>102</code>는 <b>"입고를 잘못 친 것" 취소</b>(물건은 원래 안 들어온 것처럼)입니다. <code>122</code>는 <b>"받은 물건을 실제로 돌려보낸 것"</b>이라 반품 사유가 남고, 벤더 평가·출력(반품 납품서)과 연결됩니다.</p>
+  <p>송장(MIRO)이 이미 들어온 101은 102 취소가 막힐 수 있어 <code>MR8M</code>으로 송장부터 역분개합니다.</p>
+</div>
+</div>
+
+<!-- ═══════════════ LESSON 7 ═══════════════ -->
+<div class="lesson" id="l7">
+<h2><span class="no">LESSON 7</span>송장 · 회계전표 — MIRO와 GR/IR</h2>
+
+<p><b>언제 쓰나.</b> 벤더에게서 청구서(세금계산서)를 받았을 때입니다. MIRO가 전기되면 <b>벤더에게 줄 돈(채무)</b>이 확정됩니다.</p>
+<p><b>핵심.</b> 입고와 송장은 시간차가 있습니다. 그 사이를 잇는 <span class="key">임시 계정이 GR/IR(입고/송장 대사) 계정</span>입니다. 입고 때 대변에 넣고, 송장 때 차변에서 빼서 0이 되면 정상입니다.</p>
+
+<figure class="figwrap">
+<svg class="dgm" viewBox="0 0 1000 330" role="img"
+     aria-label="입고 101 시 재고계정 차변과 GR/IR 계정 대변 1000이 기록되고, 송장 MIRO 시 GR/IR 차변 1000과 벤더 대변이 기록되어 GR/IR 잔액이 0이 되며, 금액 차이는 이동평균가 자재면 재고계정, 표준가면 가격차이 계정으로 간다는 도해">
+  <defs>
+    <marker id="m7-k" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><polygon class="arw-key" points="0,1 10,5 0,9"/></marker>
+  </defs>
+
+  <text class="m-s c-key" x="20" y="24">예: 닭가슴살 100개 × 10원 PO → 입고 100개 → 송장 1,050원 (부가세 생략)</text>
+
+  <rect class="b-key" x="20" y="40" width="440" height="120" rx="6"/>
+  <text class="t-h" x="36" y="66">④ 입고  MIGO 101</text>
+  <text class="t" x="36" y="94">차) 재고          <tspan class="m">BSX</tspan>   1,000</text>
+  <text class="t" x="36" y="118">    대) GR/IR      <tspan class="m">WRX</tspan>   1,000</text>
+  <text class="t-xs" x="36" y="144">금액 = PO 단가 × 입고 수량</text>
+
+  <rect class="b-key" x="540" y="40" width="440" height="120" rx="6"/>
+  <text class="t-h" x="556" y="66">⑥ 송장  MIRO</text>
+  <text class="t" x="556" y="94">차) GR/IR  <tspan class="m">WRX</tspan> 1,000  ·  차이 <tspan class="m">BSX/PRD</tspan> 50</text>
+  <text class="t" x="556" y="118">    대) 벤더(채무)          1,050</text>
+  <text class="t-xs" x="556" y="144">금액 = 청구서 금액</text>
+
+  <path class="ln-key" d="M460 100 L538 100" marker-end="url(#m7-k)"/>
+
+  <rect class="b-hl" x="20" y="186" width="440" height="68" rx="6"/>
+  <text class="t-h" x="36" y="210">GR/IR 잔액:  −1,000 + 1,000 = 0</text>
+  <text class="t-s" x="36" y="232">0이 아니면 "입고만 됐다" 또는 "송장만 왔다"</text>
+  <text class="t-xs" x="36" y="248">조회 FBL3N (GR/IR 계정 미결) · 정리 MR11</text>
+
+  <rect class="b" x="540" y="186" width="440" height="68" rx="6"/>
+  <text class="t-h" x="556" y="210">차이 50원은 어디로?</text>
+  <text class="t-s" x="556" y="232">이동평균가(V): 재고계정 BSX로 → 평균단가가 올라감</text>
+  <text class="t-s" x="556" y="248">표준가(S): 가격차이 PRD로 → 단가는 그대로</text>
+
+  <rect class="b-ghost" x="20" y="274" width="960" height="42" rx="6"/>
+  <text class="t-s" x="36" y="300"><tspan class="m">BSX · WRX · PRD</tspan>는 자동계정결정 거래키 — 실제 G/L 계정은 <tspan class="m">OBYC</tspan>에서 평가클래스별로 매핑. 재고가 부족할 때 차이 처리는 달라질 수 있음</text>
+</svg>
+<figcaption><span class="fno">그림 7</span> 입고와 송장의 회계 분개. GR/IR은 "물건은 받았는데 청구는 아직" 같은 시간차를 담아 두는 다리입니다.</figcaption>
+</figure>
+
+<h3>송장 · 회계 T-Code</h3>
+<div class="tbl-wrap">
+<table>
+  <tr><th style="width:110px">T-Code</th><th style="width:170px">용도</th><th class="wrap">메모</th></tr>
+  <tr><td><code>MIRO</code></td><td>송장 입력·전기</td><td class="wrap">PO 번호 참조 → 입고 수량 기준으로 금액 제안</td></tr>
+  <tr><td><code>MIR7</code></td><td>송장 임시저장(Park)</td><td class="wrap">전기 전 검토용. 회계 영향 없음</td></tr>
+  <tr><td><code>MIR4</code></td><td>송장 조회</td><td class="wrap"><code>RBKP</code> 헤더 / <code>RSEG</code> 품목</td></tr>
+  <tr><td><code>MR8M</code></td><td>송장 역분개</td><td class="wrap">입고 취소(102) 전에 먼저 해야 하는 경우가 많음</td></tr>
+  <tr><td><code>MRBR</code></td><td>지급보류 송장 해제</td><td class="wrap">수량·가격 허용오차 초과로 보류된 송장</td></tr>
+  <tr><td><code>FB03</code></td><td>회계전표 조회</td><td class="wrap"><code>BKPF</code>/<code>BSEG</code> (S/4: <code>ACDOCA</code>)</td></tr>
+  <tr><td><code>FBL1N</code></td><td>벤더 미결·반제 항목</td><td class="wrap">지급 전 채무 확인</td></tr>
+  <tr><td><code>FBL3N</code></td><td>G/L 계정 항목</td><td class="wrap">GR/IR 계정 잔액 확인</td></tr>
+  <tr><td><code>MR11</code></td><td>GR/IR 계정 유지</td><td class="wrap">남은 차이를 정리하며 <b>차이 전표 생성</b> — 회계 영향 있음</td></tr>
+  <tr><td><code>OBYC</code></td><td>자동계정결정</td><td class="wrap">거래키(BSX/WRX/PRD/GBB) → G/L 계정 매핑. 설정 T-Code</td></tr>
+</table>
+</div>
+</div>
+
+<!-- ═══════════════ LESSON 8 ═══════════════ -->
+<div class="lesson" id="l8">
+<h2><span class="no">LESSON 8</span>자재별 전표 로그 — MB51 · MATDOC · EKBE</h2>
+
+<p><b>언제 쓰나.</b> "이 자재 언제 누가 몇 개 넣고 뺐나", "이 입고의 회계전표는 뭐냐"를 추적할 때입니다. 운영 문의의 절반이 여기서 시작합니다.</p>
+<p><b>핵심.</b> 문서끼리는 <span class="key">번호로 서로를 가리키고 있습니다.</span> 어느 번호가 어느 필드에 있는지만 알면 화면 어디서든 반대편 문서로 건너갈 수 있습니다.</p>
+
+<figure class="figwrap">
+<svg class="dgm" viewBox="0 0 1000 340" role="img"
+     aria-label="구매오더 이력 EKBE가 입고 자재문서와 송장문서 번호를 각각 가리키고, 자재문서와 송장문서는 BKPF의 참조키 AWKEY로 회계전표와 연결되어 있어 어느 문서에서든 다른 문서로 추적할 수 있다는 도해">
+  <defs>
+    <marker id="m8-k" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><polygon class="arw-key" points="0,1 10,5 0,9"/></marker>
+  </defs>
+
+  <rect class="b-key" x="20" y="120" width="220" height="100" rx="6"/>
+  <text class="t-h" x="36" y="146">구매오더</text>
+  <text class="m" x="36" y="170">EKKO · EKPO</text>
+  <text class="t-xs" x="36" y="192">EBELN + EBELP</text>
+  <text class="t-xs" x="36" y="208">조회 ME23N · ME80FN</text>
+
+  <rect class="b-hl" x="300" y="120" width="210" height="100" rx="6"/>
+  <text class="t-h" x="316" y="146">PO 이력  <tspan class="m">EKBE</tspan></text>
+  <text class="m-s" x="316" y="170">VGABE 1 = 입고</text>
+  <text class="m-s" x="316" y="188">VGABE 2 = 송장</text>
+  <text class="t-xs" x="316" y="208">BELNR에 상대 문서번호</text>
+
+  <rect class="b" x="580" y="30" width="200" height="100" rx="6"/>
+  <text class="t-h" x="596" y="56">자재문서</text>
+  <text class="m" x="596" y="80">MATDOC</text>
+  <text class="t-xs" x="596" y="100">MBLNR + MJAHR</text>
+  <text class="t-xs" x="596" y="116">조회 MB03 · MB51</text>
+
+  <rect class="b" x="580" y="210" width="200" height="100" rx="6"/>
+  <text class="t-h" x="596" y="236">송장문서</text>
+  <text class="m" x="596" y="260">RBKP · RSEG</text>
+  <text class="t-xs" x="596" y="280">BELNR + GJAHR</text>
+  <text class="t-xs" x="596" y="296">조회 MIR4</text>
+
+  <rect class="b-key" x="840" y="120" width="140" height="100" rx="6"/>
+  <text class="t-h" x="856" y="146">회계전표</text>
+  <text class="m" x="856" y="170">BKPF</text>
+  <text class="t-xs" x="856" y="190">조회 FB03</text>
+
+  <path class="ln-key" d="M240 170 L298 170" marker-end="url(#m8-k)"/>
+  <path class="ln-key" d="M510 150 L578 90" marker-end="url(#m8-k)"/>
+  <path class="ln-key" d="M510 190 L578 250" marker-end="url(#m8-k)"/>
+  <path class="ln-key" d="M780 80 L870 118" marker-end="url(#m8-k)"/>
+  <path class="ln-key" d="M780 260 L870 222" marker-end="url(#m8-k)"/>
+
+  <text class="m-s c-key" x="790" y="64">AWTYP 'MKPF'</text>
+  <text class="m-s c-key" x="790" y="78">AWKEY = MBLNR+MJAHR</text>
+  <text class="m-s c-key" x="790" y="284">AWTYP 'RMRP'</text>
+  <text class="m-s c-key" x="790" y="298">AWKEY = BELNR+GJAHR</text>
+
+  <text class="t-xs" x="20" y="250">자재문서 품목에도 EBELN/EBELP가 있어</text>
+  <text class="t-xs" x="20" y="266">PO → 자재문서는 역방향 검색도 가능</text>
+</svg>
+<figcaption><span class="fno">그림 8</span> MM 문서 연결 지도. <b>EKBE가 PO와 입고·송장을 잇는 허브</b>이고, 회계전표는 <code>BKPF-AWKEY</code>(참조키)로 원천 문서를 가리킵니다. MB03 화면의 <b>"회계 문서"</b> 버튼이 바로 이 연결을 따라갑니다.</figcaption>
+</figure>
+
+<h3>추적 T-Code</h3>
+<div class="tbl-wrap">
+<table>
+  <tr><th style="width:100px">T-Code</th><th style="width:180px">용도</th><th class="wrap">이럴 때</th></tr>
+  <tr><td><code>MB51</code></td><td>자재문서 리스트</td><td class="wrap"><b>자재별 입출고 로그의 기본.</b> 자재·플랜트·저장위치·배치·이동유형·전기일 조건</td></tr>
+  <tr><td><code>MB03</code></td><td>자재문서 1건 조회</td><td class="wrap">문서번호를 알 때. 상단 버튼으로 회계전표 이동</td></tr>
+  <tr><td><code>MB5B</code></td><td>기간별 재고 증감</td><td class="wrap">기초 → 입출고 → 기말을 날짜 범위로</td></tr>
+  <tr><td><code>ME80FN</code></td><td>구매 문서 분석</td><td class="wrap">PO 기준으로 입고·송장 이력(EKBE) 한 번에</td></tr>
+  <tr><td><code>ME23N</code></td><td>PO 이력 탭</td><td class="wrap">PO 품목별 입고·송장 건과 금액</td></tr>
+  <tr><td><code>MR51</code></td><td>자재별 회계전표</td><td class="wrap">자재 기준으로 회계전표 목록</td></tr>
+  <tr><td><code>CKM3</code></td><td>자재 가격 분석</td><td class="wrap">S/4는 Material Ledger 필수 — 자재별 수량·금액·가격 변동 이력</td></tr>
+  <tr><td><code>MM04</code></td><td>자재마스터 변경 이력</td><td class="wrap">"단가·설정이 언제 바뀌었나"</td></tr>
+</table>
+</div>
+
+<h3>ABAP로 자재별 입고 이력 뽑기</h3>
+<p>MB51과 같은 데이터를 프로그램에서 읽을 때의 기본형입니다. S/4는 <code>MATDOC</code> 한 테이블, ECC는 <code>MKPF</code>(헤더) + <code>MSEG</code>(품목) 조인입니다.</p>
+<pre><span class="c">" S/4HANA — MATDOC</span>
+<span class="k">SELECT</span> mblnr, mjahr, zeile, budat, bwart,
+       matnr, werks, lgort, charg, menge, meins, ebeln, ebelp
+  <span class="k">FROM</span> matdoc
+  <span class="k">WHERE</span> matnr = @p_matnr
+    <span class="k">AND</span> werks = @p_werks
+    <span class="k">AND</span> bwart <span class="k">IN</span> ( '101', '102', '122' )
+    <span class="k">AND</span> budat <span class="k">IN</span> @s_budat
+  <span class="k">ORDER BY</span> budat <span class="k">DESCENDING</span>
+  <span class="k">INTO TABLE</span> @<span class="k">DATA</span>(lt_gr).
+
+<span class="c">" ECC — MKPF + MSEG</span>
+<span class="k">SELECT</span> k~mblnr, k~mjahr, s~zeile, k~budat, s~bwart,
+       s~matnr, s~werks, s~lgort, s~charg, s~menge, s~meins, s~ebeln, s~ebelp
+  <span class="k">FROM</span> mkpf <span class="k">AS</span> k
+  <span class="k">INNER JOIN</span> mseg <span class="k">AS</span> s <span class="k">ON</span> s~mblnr = k~mblnr <span class="k">AND</span> s~mjahr = k~mjahr
+  <span class="k">WHERE</span> s~matnr = @p_matnr
+    <span class="k">AND</span> s~werks = @p_werks
+    <span class="k">AND</span> s~bwart <span class="k">IN</span> ( '101', '102', '122' )
+    <span class="k">AND</span> k~budat <span class="k">IN</span> @s_budat
+  <span class="k">INTO TABLE</span> @<span class="k">DATA</span>(lt_gr_ecc).
+
+<span class="c">" 자재문서 → 회계전표</span>
+<span class="k">DATA</span>(lv_awkey) = <span class="k">CONV</span> awkey( |{ ls_gr-mblnr }{ ls_gr-mjahr }| ).
+<span class="k">SELECT SINGLE</span> bukrs, belnr, gjahr
+  <span class="k">FROM</span> bkpf
+  <span class="k">WHERE</span> awtyp = 'MKPF'
+    <span class="k">AND</span> awkey = @lv_awkey
+  <span class="k">INTO</span> @<span class="k">DATA</span>(ls_fi).</pre>
+
+<div class="note warn">
+  <div class="t">확인 필요</div>
+  <p><code>MATDOC</code>에는 자재문서 외에 재고 집계용 레코드도 섞여 있을 수 있어, 레코드 구분 필드 조건이 필요한지 실제 시스템에서 확인하세요. 릴리즈된 CDS 뷰(자재문서 품목 뷰)가 있으면 그쪽을 쓰는 게 권장 방향입니다.</p>
+</div>
+</div>
+
+<!-- ═══════════════ LESSON 9 ═══════════════ -->
+<div class="lesson" id="l9">
+<h2><span class="no">LESSON 9</span>BOM — 생성 · 전개 · 역전개</h2>
+
+<p><b>언제 쓰나.</b> 한 자재가 여러 자재로 구성될 때입니다. 제조업에서는 생산용 BOM, 유통업에서는 <b>세트 상품(판매 BOM)</b>이 대표적입니다.</p>
+<p><b>핵심.</b> BOM은 <span class="key">자재 ↔ BOM 연결(MAST) · 헤더(STKO) · 구성품(STPO)</span> 세 층입니다. 용도(<code>STLAN</code>)에 따라 같은 자재에 BOM이 여러 개 달릴 수 있습니다.</p>
+
+<figure class="figwrap">
+<svg class="dgm" viewBox="0 0 1000 300" role="img"
+     aria-label="모자재 선물세트는 MAST에서 플랜트와 BOM 용도로 BOM 번호에 연결되고, STKO 헤더의 기준수량 아래 STPO 품목으로 닭가슴살 2개와 쉐이크 1개 구성품이 달리는 3층 구조라는 도해">
+  <defs>
+    <marker id="m9-a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><polygon class="arw" points="0,1 10,5 0,9"/></marker>
+    <marker id="m9-k" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><polygon class="arw-key" points="0,1 10,5 0,9"/></marker>
+  </defs>
+
+  <rect class="b-key" x="20" y="40" width="200" height="80" rx="6"/>
+  <text class="t-h" x="36" y="66">모자재</text>
+  <text class="m" x="36" y="88">GIFTSET01</text>
+  <text class="t-xs" x="36" y="108">선물세트 (예시)</text>
+
+  <rect class="b-hl" x="270" y="40" width="210" height="80" rx="6"/>
+  <text class="t-h" x="286" y="66">연결  <tspan class="m">MAST</tspan></text>
+  <text class="m-s" x="286" y="88">MATNR WERKS STLAN</text>
+  <text class="m-s" x="286" y="106">→ STLNR STLAL</text>
+
+  <rect class="b" x="530" y="40" width="210" height="80" rx="6"/>
+  <text class="t-h" x="546" y="66">헤더  <tspan class="m">STKO</tspan></text>
+  <text class="m-s" x="546" y="88">BMENG 기준수량 = 1</text>
+  <text class="m-s" x="546" y="106">STLST 상태</text>
+
+  <path class="ln-key" d="M220 80 L268 80" marker-end="url(#m9-k)"/>
+  <path class="ln-key" d="M480 80 L528 80" marker-end="url(#m9-k)"/>
+
+  <rect class="b" x="530" y="160" width="210" height="56" rx="5"/>
+  <text class="m" x="546" y="184">0010  CHKN-001  × 2</text>
+  <text class="t-xs" x="546" y="204">닭가슴살 · 품목범주 L(재고)</text>
+  <rect class="b" x="770" y="160" width="210" height="56" rx="5"/>
+  <text class="m" x="786" y="184">0020  SHAK-001  × 1</text>
+  <text class="t-xs" x="786" y="204">쉐이크 · 품목범주 L</text>
+  <text class="t-h" x="420" y="194">품목  <tspan class="m">STPO</tspan></text>
+
+  <path class="ln" d="M635 120 L635 158" marker-end="url(#m9-a)"/>
+  <path class="ln" d="M700 120 L870 158" marker-end="url(#m9-a)"/>
+
+  <rect class="b-ghost" x="20" y="236" width="960" height="50" rx="6"/>
+  <text class="t-s" x="36" y="258">BOM 용도 <tspan class="m">STLAN</tspan>:  1 생산 · 2 엔지니어링 · 3 범용 · 5 판매</text>
+  <text class="t-xs" x="36" y="276">생산이 없는 유통 모델이면 세트 상품용 판매 BOM(5)을 쓰는 게 자연스럽다</text>
+</svg>
+<figcaption><span class="fno">그림 9</span> BOM 3층 구조. <b>MAST로 "어느 자재·플랜트·용도의 BOM인가"를 찾고</b>, STKO 헤더 밑에 STPO 구성품이 달립니다.</figcaption>
+</figure>
+
+<h3>BOM T-Code</h3>
+<div class="tbl-wrap">
+<table>
+  <tr><th style="width:100px">T-Code</th><th style="width:180px">용도</th><th class="wrap">이럴 때</th></tr>
+  <tr><td><code>CS01/02/03</code></td><td>자재 BOM 생성·변경·조회</td><td class="wrap">자재·플랜트·BOM 용도 입력 → 구성품 입력</td></tr>
+  <tr><td><code>CS11</code></td><td>단계별 전개</td><td class="wrap">한 단계씩 펼쳐 보기</td></tr>
+  <tr><td><code>CS12</code></td><td>다단계 전개</td><td class="wrap">하위의 하위까지 트리로 전부</td></tr>
+  <tr><td><code>CS13</code></td><td>합산 전개</td><td class="wrap">최하위 구성품 기준 총 소요량</td></tr>
+  <tr><td><code>CS15</code></td><td>역전개(사용처)</td><td class="wrap">"이 구성품이 어느 세트에 들어가나" — 단종·단가 변경 영향 파악</td></tr>
+  <tr><td><code>CS14</code></td><td>BOM 비교</td><td class="wrap">두 BOM의 차이</td></tr>
+  <tr><td><code>CS20</code></td><td>대량 변경</td><td class="wrap">여러 BOM의 구성품 일괄 교체</td></tr>
+  <tr><td><code>CS80</code></td><td>BOM 변경 이력</td><td class="wrap">언제 누가 구성을 바꿨나</td></tr>
+</table>
+</div>
+
+<p>프로그램에서 BOM을 펼칠 때는 테이블을 직접 따라가지 말고 전개 FM을 씁니다. 유효일자·대체 BOM·수량 계산을 FM이 처리해 줍니다.</p>
+<pre><span class="k">CALL FUNCTION</span> 'CS_BOM_EXPL_MAT_V2'
+  <span class="k">EXPORTING</span>
+    capid = 'PP01'          <span class="c">" 적용(Application) — 판매 BOM이면 'SD01'</span>
+    datuv = sy-datum        <span class="c">" 유효일자</span>
+    mtnrv = 'GIFTSET01'     <span class="c">" 모자재</span>
+    werks = 'STOR'
+    stlan = '5'             <span class="c">" BOM 용도</span>
+    mehrs = abap_true       <span class="c">" 다단계 전개</span>
+    emeng = 1               <span class="c">" 필요 수량</span>
+  <span class="k">TABLES</span>
+    stb   = lt_stb          <span class="c">" 결과: 구성품 목록 (STPOX)</span>
+  <span class="k">EXCEPTIONS</span>
+    alt_not_found = 1
+    no_bom_found  = 2
+    <span class="k">OTHERS</span>        = 3.
+<span class="k">IF</span> sy-subrc &lt;&gt; 0.
+  <span class="c">" BOM 없음 — 조용히 넘기지 말고 메시지 처리</span>
+<span class="k">ENDIF</span>.</pre>
+
+<div class="note warn">
+  <div class="t">확인 필요</div>
+  <p>적용 ID(<code>CAPID</code>) 값과 판매 BOM의 SD 연동(품목범주 그룹 · 상위/하위 품목범주)은 시스템 설정에 따라 다릅니다. 판매 BOM을 실제로 쓸 거라면 SD 설계 단계에서 따로 확정하세요.</p>
+</div>
+</div>
+
+<!-- ═══════════════ APPENDIX ═══════════════ -->
+<div class="lesson" id="ap">
+<h2><span class="no">APPENDIX</span>상황별 치트시트 · 반드시 지킬 것</h2>
+
+<h3>이럴 땐 이것</h3>
+<div class="tbl-wrap">
+<table>
+  <tr><th style="width:260px">상황</th><th style="width:170px">T-Code</th><th class="wrap">테이블</th></tr>
+  <tr><td>자재 새로 만들기 / 플랜트 추가</td><td><code>MM01</code></td><td class="wrap"><code>MARA</code> · <code>MARC</code> · <code>MARD</code> · <code>MBEW</code></td></tr>
+  <tr><td>자재 설정이 언제 바뀌었나</td><td><code>MM04</code></td><td class="wrap"><code>CDHDR</code> · <code>CDPOS</code></td></tr>
+  <tr><td>자재 안 쓰게 막기</td><td><code>MM02</code> 자재상태 / <code>MM06</code></td><td class="wrap"><code>MARA-MSTAE</code> · <code>MARC-MMSTA</code> · <code>LVORM</code></td></tr>
+  <tr><td>테스트 재고 넣기</td><td><code>MIGO</code> A01 · 561</td><td class="wrap"><code>MATDOC</code></td></tr>
+  <tr><td>유통기한 지난 재고 버리기</td><td><code>MIGO</code> A07 · 551</td><td class="wrap"><code>MATDOC</code> + 회계전표</td></tr>
+  <tr><td>지금 재고 몇 개? (자재 1개)</td><td><code>MMBE</code></td><td class="wrap"><code>MARD</code> · <code>MCHB</code></td></tr>
+  <tr><td>저장위치 전체 재고 리스트</td><td><code>MB52</code></td><td class="wrap"><code>MARD</code> · <code>MBEW</code></td></tr>
+  <tr><td>지난달 말 재고</td><td><code>MB5B</code></td><td class="wrap">자재문서 되감기</td></tr>
+  <tr><td>배치 유통기한 확인</td><td><code>MSC3N</code></td><td class="wrap"><code>MCH1</code>/<code>MCHA-VFDAT</code></td></tr>
+  <tr><td>PO 만들기</td><td><code>ME21N</code></td><td class="wrap"><code>EKKO</code> · <code>EKPO</code> · <code>EKET</code></td></tr>
+  <tr><td>이 자재 어디서 얼마에 샀나</td><td><code>ME2M</code> · <code>ME13</code></td><td class="wrap"><code>EKPO</code> · <code>EINE</code></td></tr>
+  <tr><td>PO 입고·송장 됐나</td><td><code>ME23N</code> 이력 탭 · <code>ME80FN</code></td><td class="wrap"><code>EKBE</code></td></tr>
+  <tr><td>PO 입고</td><td><code>MIGO</code> A01 · 101</td><td class="wrap"><code>MATDOC</code> + 회계전표</td></tr>
+  <tr><td>입고 잘못 친 것 취소</td><td><code>MBST</code> / <code>MIGO</code> A03</td><td class="wrap">102 자동</td></tr>
+  <tr><td>벤더 반품</td><td><code>MIGO</code> A02 · 122</td><td class="wrap"><code>MATDOC</code></td></tr>
+  <tr><td>저장위치 간 이동</td><td><code>MIGO</code> A08 · 311</td><td class="wrap"><code>MATDOC</code> (회계 X)</td></tr>
+  <tr><td>플랜트 간 이동</td><td><code>MIGO</code> A08 · 301</td><td class="wrap"><code>MATDOC</code> + 회계전표</td></tr>
+  <tr><td>자재별 입출고 로그</td><td><code>MB51</code></td><td class="wrap"><code>MATDOC</code> (ECC: <code>MKPF</code>+<code>MSEG</code>)</td></tr>
+  <tr><td>송장 전기 / 취소</td><td><code>MIRO</code> / <code>MR8M</code></td><td class="wrap"><code>RBKP</code> · <code>RSEG</code></td></tr>
+  <tr><td>입고의 회계전표 보기</td><td><code>MB03</code> → 회계 문서 / <code>FB03</code></td><td class="wrap"><code>BKPF-AWKEY</code></td></tr>
+  <tr><td>GR/IR 안 맞는 건</td><td><code>FBL3N</code> → <code>MR11</code></td><td class="wrap">GR/IR 계정</td></tr>
+  <tr><td>세트 구성 보기 / 사용처</td><td><code>CS03</code> · <code>CS12</code> / <code>CS15</code></td><td class="wrap"><code>MAST</code> · <code>STKO</code> · <code>STPO</code></td></tr>
+</table>
+</div>
+
+<h3>반드시 지킬 것</h3>
+<div class="note warn">
+  <div class="t">1. 재고 테이블은 직접 UPDATE하지 않는다</div>
+  <p><code>MARD</code>·<code>MCHB</code>·<code>MBEW</code>를 직접 고치면 수량·금액·자재문서·회계전표가 전부 어긋납니다. 프로그램에서는 <code>BAPI_GOODSMVT_CREATE</code>로 자재문서를 만듭니다.</p>
+</div>
+<div class="note warn">
+  <div class="t">2. 취소는 새 문서다</div>
+  <p>102·562·MR8M 모두 원래 문서를 지우지 않고 <b>반대 문서를 하나 더</b> 만듭니다. 로그에는 원본과 취소가 둘 다 남는 게 정상입니다.</p>
+</div>
+<div class="note warn">
+  <div class="t">3. 송장이 들어간 입고는 송장부터 되돌린다</div>
+  <p>순서: <code>MR8M</code>(송장 역분개) → <code>MBST</code>(입고 취소). 반대로 하면 막히거나 GR/IR 잔액이 꼬입니다.</p>
+</div>
+<div class="note warn">
+  <div class="t">4. 회계 영향이 있는 이동유형은 자동화 전에 승인 단계를 둔다</div>
+  <p>551·122·301·MR11은 재고 금액이나 원장을 바꿉니다. CBO로 자동 전기할 때는 알림 또는 승인 대기까지만 두는 게 원칙입니다.</p>
+</div>
+<div class="note warn">
+  <div class="t">5. S/4HANA에서 MB1A/MB1B/MB1C/MB01은 없다</div>
+  <p>ECC 자료를 보고 따라 하다가 막히면 MIGO + 이동유형으로 바꿔서 찾으세요.</p>
+</div>
+</div>
+
+<h3 style="border:0; color:var(--ink-soft); font-size:10pt; margin-top:40px;">참고 자료</h3>
+<ul style="font-size:9.5pt; color:var(--ink-soft);">
+  <li><a href="https://community.sap.com/t5/enterprise-resource-planning-q-a/transaction-mb1a-is-obsolete-sap-note-1804812/qaq-p/10295457" style="color:var(--key);">SAP Community — Transaction MB1A is obsolete (SAP Note 1804812)</a></li>
+  <li><a href="https://www.erpgreat.com/materials/good-bye-mb1a-mb1b-mb1c.htm" style="color:var(--key);">Goodbye MB1A, MB1B, MB1C: The End of Legacy Inventory Transactions in S/4HANA</a></li>
+  <li><a href="https://userapps.support.sap.com/sap/support/knowledge/en/2304535" style="color:var(--key);">SAP KBA 2304535 — BAPI_GOODSMVT_CREATE GMCODE for MIGO (T158G)</a></li>
+  <li><a href="https://userapps.support.sap.com/sap/support/knowledge/en/2421211" style="color:var(--key);">SAP KBA 2421211 — Stock for a material with a deletion flag can be seen in MMBE</a></li>
+  <li><a href="https://community.sap.com/t5/enterprise-resource-planning-q-a/mm06-flag-for-deletion-materials-in-massive/qaq-p/7149881" style="color:var(--key);">SAP Community — MM06 flag for deletion</a></li>
+  <li><a href="https://www.saponlinetutorials.com/bills-of-material-tables-in-sap/" style="color:var(--key);">SAP Bill of Material Tables (MAST · STKO · STPO)</a></li>
+  <li>SAP Help Portal — Inventory Management: Movement Types / Goods Receipt / Transfer Postings</li>
+</ul>
+
+</div>
+<script src="../assets/site.js" defer></script>
+</body>
+</html>
