@@ -1,0 +1,850 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>S46050 Sales 기본 Customizing — 문서유형 · 품목범주 · 복사제어</title>
+<meta name="description" content="SAP Learning Hub의 Fundamental customizing in SAP S/4HANA Sales(S46050) 노트. Enterprise Structure 배정, 판매문서타입·품목범주·스케줄라인범주 3단 결정구조, Copying Control, 파트너 결정과 Multi-address Handling.">
+<link rel="icon" href="../../assets/favicon.svg">
+<link rel="stylesheet" href="../../assets/notes-paper.css">
+<style>
+/* ── 이 노트 전용: 도해(SVG) 스타일 ─────────────────────────── */
+.dgm{display:block; width:100%; height:auto;}
+.dgm text{font-family:"Malgun Gothic","맑은 고딕","Apple SD Gothic Neo",sans-serif; fill:#1e1e1e;}
+.dgm .t-h{font-size:15px; font-weight:700;}
+.dgm .t{font-size:13px;}
+.dgm .t-s{font-size:11.5px; fill:#555;}
+.dgm .t-xs{font-size:10.5px; fill:#6B7280;}
+.dgm .m{font-family:"D2Coding","Consolas",monospace; font-size:12px;}
+.dgm .m-s{font-family:"D2Coding","Consolas",monospace; font-size:10.5px;}
+.dgm .c-key{fill:#4338CA;} .dgm .c-bad{fill:#B91C1C;} .dgm .c-ok{fill:#047857;}
+.dgm .b{fill:#FFFFFF; stroke:#C7CBD6; stroke-width:1.2;}
+.dgm .b-key{fill:#EEF0FB; stroke:#4338CA; stroke-width:1.4;}
+.dgm .b-bad{fill:#FEF2F2; stroke:#B91C1C; stroke-width:1.3;}
+.dgm .b-ok{fill:#ECFDF5; stroke:#047857; stroke-width:1.3;}
+.dgm .b-mut{fill:#F3F4F6; stroke:#D1D5DB; stroke-width:1.1;}
+.dgm .b-hl{fill:#FEF08A; stroke:#CA8A04; stroke-width:1.2;}
+.dgm .b-ghost{fill:none; stroke:#9AA3B2; stroke-width:1.1; stroke-dasharray:5 4;}
+.dgm .ln{stroke:#7C8697; stroke-width:1.4; fill:none;}
+.dgm .ln-key{stroke:#4338CA; stroke-width:1.8; fill:none;}
+.dgm .ln-bad{stroke:#B91C1C; stroke-width:1.6; fill:none;}
+.dgm .ln-ok{stroke:#047857; stroke-width:1.6; fill:none;}
+.dgm .ln-d{stroke:#9AA3B2; stroke-width:1.2; stroke-dasharray:4 4; fill:none;}
+.dgm .arw{fill:#7C8697;} .dgm .arw-key{fill:#4338CA;}
+.dgm .arw-bad{fill:#B91C1C;} .dgm .arw-ok{fill:#047857;}
+.figwrap{background:#FAFAFE; border:1px solid var(--rule); border-radius:6px;
+  padding:18px 16px 10px; margin:22px 0;}
+.figwrap figcaption{margin-top:12px; padding-top:10px; border-top:1px solid var(--rule);}
+</style>
+</head>
+<body>
+<div class="crumb"><a href="../../index.html">← 자료실 홈</a> · <a href="../../journey.html?j=sd">SD 저니</a> · S46050 Fundamental Customizing</div>
+<div class="sheet">
+
+<div class="doc-head">
+  <div class="kicker">LEARNING HUB · S46050</div>
+  <h1>Sales 기본 Customizing — 문서유형 · 품목범주 · 복사제어</h1>
+  <div class="sub">
+    Learning Journey <b>Implementing Sales in SAP S/4HANA Cloud Private Edition</b> · Course 3 / S46050 · 7 hr · 8 Unit · 20 레슨<br>
+    출처: 노션 <b>SAP Learning Hub</b> 노트 3-1 ~ 3-4 변환
+  </div>
+</div>
+
+<div class="lead">
+  <p><b>결론부터.</b> SD Customizing의 뼈대는 <span class="hl">판매문서타입 → 품목범주 → 스케줄라인범주</span>라는 3단 결정구조 하나입니다. 가격이 잡히는지, 청구가 되는지, 재고가 빠지는지, 실제로 배송이 나가는지 — 운영에서 터지는 거의 모든 SD 문의가 이 3단 중 어느 한 층의 설정으로 환원됩니다.</p>
+  <p>그 위에 얹히는 것이 <b>Copying Control</b>입니다. 문서 하나가 다음 문서를 낳을 때 무엇이 복사되고, 무엇이 검증되고, 선행문서가 언제 닫히는지를 정합니다. 이 코스는 조직단위(Enterprise Structure)와 Business Partner를 깐 뒤 이 3단 구조와 복사제어를 세우고, 마지막으로 파트너 결정과 주소 결정으로 마무리합니다. <b>개인 학습용 정리</b>이며 실무 프로젝트 산출물이 아닙니다.</p>
+</div>
+
+<div class="toc">
+  <h4>목차</h4>
+  <ol>
+    <li><a href="#l1">시작점 — Customizing · 판매문서 구조 · Enterprise Structure · BP</a></li>
+    <li><a href="#l2">3단 결정구조 — 판매문서타입 · 품목범주 · 스케줄라인범주</a></li>
+    <li><a href="#l3">특수기능과 Copying Control — 문서가 문서를 낳는 규칙</a></li>
+    <li><a href="#l4">파트너 결정과 Multi-address Handling</a></li>
+  </ol>
+</div>
+
+
+<!-- ══════════ LESSON 1 ══════════ -->
+<div class="lesson" id="l1">
+<h2><span class="no">LESSON 1</span>시작점 — Customizing · 판매문서 구조 · Enterprise Structure · BP</h2>
+
+<p><span class="tag">Unit 1-2</span><span class="tag">레슨 6개</span>Getting Started as Application Consultant · Executing the SD Process · Setting Up the Enterprise Structure · Identifying the Source of Data · Customizing Customer Master &amp; BP · Setting Up the CVI</p>
+
+<h3>언제 이걸 알아야 하는가</h3>
+
+<p>가장 많이 받는 첫 문의가 <b>"거래처를 만들었는데 판매오더에서 이 고객이 안 잡힙니다"</b>입니다. BP는 분명히 생성됐고 번호도 있습니다. 그런데 오더 화면에서는 없는 고객입니다.</p>
+
+<p>원인은 거의 항상 둘 중 하나입니다 — <span class="key">BP Role "Customer"가 유지되지 않았거나</span>, <span class="key">CVI(Customer-Vendor-Integration) 매핑이 없어 고객마스터 레코드가 만들어지지 않았거나</span>. 판매문서는 BP를 직접 읽는 게 아니라 고객마스터를 읽기 때문입니다. 답은 이 LESSON의 <b>BP 3요소</b>와 <b>번호범위 매핑</b> 절에 있습니다.</p>
+
+<h3>Customizing과 IMG — 무엇을 하는 일인가</h3>
+
+<p>Application Consultant의 주업무는 <span class="key">Customizing</span>입니다. 프로그래밍이 아니라 <b>파라미터 설정(parametrization)</b>에 가깝습니다 — SAP가 이미 만들어 둔 표준 기능을 회사 요구에 맞게 조정하는 일입니다. 그 작업 환경이 <span class="key">IMG</span>(SAP Customizing Implementation Guide)이고, SAP GUI에서 접근합니다.</p>
+
+<p>Customizing이 필요해지는 시점은 셋입니다: <b>시스템 구현(Implementing)</b>, <b>기능 확장(Enhancing)</b>, <b>릴리스·시스템 업그레이드</b>. 통화나 영업그룹처럼 Customizing을 끝내야 비로소 쓸 수 있게 되는 설정이 많습니다. 관리자 작업 인터페이스는 <b>SAP Fiori Launchpad</b>와 <b>SAP GUI</b> 둘 다 가능합니다.</p>
+
+<div class="note">
+  <div class="t">🔰 초보자 설명 — Customizing이 실무에서 뭘 의미하나</div>
+  <p>코드를 새로 짜는 게 아니라, 이미 만들어진 SAP 프로그램의 설정값·옵션을 회사 상황에 맞게 켜고 끄고 고르는 작업입니다. 쓸 통화, 판매문서 종류, 승인 조건 같은 걸 IMG 화면에서 체크박스·드롭다운으로 지정합니다. 프로그래밍 지식보다 <b>SAP가 제공하는 옵션을 정확히 이해하고 고르는 능력</b>이 훨씬 중요합니다.</p>
+</div>
+
+<h3>판매 프로세스와 판매문서 3단 구조</h3>
+
+<p>판매 프로세스는 <b>presales → sales → shipping → billing</b> 순으로 흐르고, 비즈니스 사용자가 하는 모든 판매 활동은 <span class="key">판매문서(sales document)</span>로 기록됩니다. 각 단계는 전용 문서타입으로 표현됩니다 — 판매문서타입(문의·견적·표준오더), 납품문서타입(출고납품·반품납품), 청구문서타입(인보이스·대변전표·차변전표). 모든 문서는 고유 문서번호와 <b>전체 상태(overall status)</b>를 가지며, 이 상태는 처리 단계별 세부 상태값이 모여서 결정됩니다.</p>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>레벨</th><th>담는 것</th></tr></thead>
+<tbody>
+<tr><td>Header</td><td class="wrap">문서 전체에 적용되는 일반 데이터와 기본값</td></tr>
+<tr><td>Item</td><td class="wrap">고객이 주문한 자재번호·설명·가격·납기조건 등 아이템별 데이터</td></tr>
+<tr><td>Schedule Line</td><td class="wrap">출하·구매 관련 데이터(납기일·수량). <b>납품 요건이 있는 아이템은 최소 1개의 스케줄라인을 가져야 한다</b></td></tr>
+</tbody>
+</table>
+</div>
+
+<div class="note">
+  <div class="t">🔰 초보자 설명 — 헤더 / 아이템 / 스케줄라인 관계</div>
+  <p>주문서 한 장을 떠올리면 됩니다. 맨 위 공통 정보(고객명·주문일자)가 <b>헤더</b>, 주문서 안의 각 상품 줄(상품명·수량·가격)이 <b>아이템</b>, 이 상품을 언제 얼마나 출하할지가 <b>스케줄라인</b>입니다. 한 아이템이 분할 납품되면 스케줄라인이 여러 개로 쪼개집니다.</p>
+</div>
+
+<h3>Enterprise Structure — 배정 관계</h3>
+
+<p>SD의 모든 비즈니스 프로세스는 조직단위 위에서 돌아갑니다. 조직구조를 두는 목적은 넷입니다 — 복잡한 기업구조의 유연한 표현, 구조 변경 대응, <b>로지스틱스·원가회계·재무회계 관점의 뷰 분리</b>, 회사코드를 넘나드는 데이터 처리.</p>
+
+<p>재무회계 관점에서 <span class="key">Client</span>는 사실상 "그룹"의 동의어인 자기완결적 기술 단위입니다. 그 아래에 여러 <span class="key">Company Code</span>를 두어 독립 법인들의 재무회계를 동시에 처리합니다(최소 1개 필수). 여러 Company Code가 동일한 <b>계정과목표(chart of accounts)</b>를 공유할 수 있습니다.</p>
+
+<p>로지스틱스 관점의 핵심은 <span class="key">Plant</span>입니다. 각 Plant는 반드시 <span class="bad">하나의</span> Company Code에 배정됩니다. 고객에게 배송할 Plant는 Customizing에서 <b>배송 플랜트(delivery plant)</b>로 지정되어야 하고, 이 배정은 <b>Sales Organization + Distribution Channel</b>(= distribution chain) 단위로 이루어집니다. 그래서 같은 영업조직 안에서도 플랜트별로 유통채널을 다르게 가져갈 수 있습니다 — 예컨대 일부 플랜트만 "직접판매" 채널을 허용하는 식입니다.</p>
+
+<figure class="figwrap">
+<svg class="dgm" viewBox="0 0 1000 430" role="img" aria-label="Enterprise Structure 배정 도해. 플랜트는 반드시 하나의 회사코드에 배정되고, 배송 플랜트는 판매조직과 유통경로 조합(distribution chain)에 배정되며, 영업조직과 배송 플랜트의 회사코드가 다르면 Cross-Company Sales가 된다.">
+  <defs>
+    <marker id="cs-a" markerWidth="9" markerHeight="9" refX="7" refY="4.5" orient="auto">
+      <polygon class="arw" points="0,0 9,4.5 0,9"/></marker>
+    <marker id="cs-k" markerWidth="9" markerHeight="9" refX="7" refY="4.5" orient="auto">
+      <polygon class="arw-key" points="0,0 9,4.5 0,9"/></marker>
+    <marker id="cs-b" markerWidth="9" markerHeight="9" refX="7" refY="4.5" orient="auto">
+      <polygon class="arw-bad" points="0,0 9,4.5 0,9"/></marker>
+  </defs>
+
+  <rect class="b-mut" x="380" y="16" width="240" height="44" rx="6"/>
+  <text class="t-h" x="404" y="38">Client</text>
+  <text class="t-s" x="404" y="53">= 그룹 · 자기완결 기술단위</text>
+
+  <path class="ln" d="M460 60 V82 H190 V106" marker-end="url(#cs-a)"/>
+  <path class="ln" d="M540 60 V82 H810 V106" marker-end="url(#cs-a)"/>
+
+  <rect class="b-ok" x="60" y="108" width="260" height="48" rx="6"/>
+  <text class="t-h c-ok" x="82" y="130">Company Code  <tspan class="m">CL04</tspan></text>
+  <text class="t-s" x="82" y="147">독립 회계단위 · 재무제표</text>
+
+  <rect class="b-ok" x="680" y="108" width="260" height="48" rx="6"/>
+  <text class="t-h c-ok" x="702" y="130">Company Code (타 법인)</text>
+  <text class="t-s" x="702" y="147">별도 재무제표</text>
+
+  <path class="ln-key" d="M130 156 V194" marker-end="url(#cs-k)"/>
+  <path class="ln" d="M250 156 V178 H420 V194" marker-end="url(#cs-a)"/>
+  <path class="ln" d="M810 156 V194" marker-end="url(#cs-a)"/>
+
+  <rect class="b-key" x="30" y="196" width="200" height="48" rx="6"/>
+  <text class="t-h c-key" x="50" y="218">Sales Organization</text>
+  <text class="t-s" x="50" y="235">판매조직 → 회사코드 1:1</text>
+
+  <rect class="b" x="320" y="196" width="200" height="48" rx="6"/>
+  <text class="t-h" x="340" y="218">Plant  <tspan class="m">GATE · STOR</tspan></text>
+  <text class="t-s" x="340" y="235">플랜트 → 회사코드 1:1</text>
+
+  <rect class="b" x="710" y="196" width="230" height="48" rx="6"/>
+  <text class="t-h" x="730" y="218">Plant (타 법인 소속)</text>
+  <text class="t-s" x="730" y="235">출고는 여기서 나감</text>
+
+  <path class="ln-key" d="M130 244 V282" marker-end="url(#cs-k)"/>
+  <rect class="b-key" x="30" y="284" width="200" height="44" rx="6"/>
+  <text class="t-h c-key" x="50" y="312">Distribution Channel</text>
+
+  <path class="ln-key" d="M230 306 H300" marker-end="url(#cs-k)"/>
+  <rect class="b-hl" x="308" y="272" width="300" height="70" rx="6"/>
+  <text class="t-h" x="330" y="298">Distribution Chain</text>
+  <text class="t-s" x="330" y="316">= Sales Org + Dist. Channel</text>
+  <text class="t-s" x="330" y="333">여기에 <tspan class="m-s">배송 플랜트</tspan>를 배정한다</text>
+
+  <path class="ln" d="M420 244 V272" marker-end="url(#cs-a)"/>
+
+  <path class="ln-bad" d="M608 300 H700 V250" marker-end="url(#cs-b)"/>
+  <text class="t-s c-bad" x="614" y="292">Cross-Company Sales</text>
+
+  <rect class="b-ghost" x="30" y="362" width="910" height="52" rx="6"/>
+  <text class="t-s" x="52" y="382">배송 플랜트가 영업조직과 <tspan class="m-s">다른 Company Code</tspan>에 속하면 Cross-Company Sales — 법인 간 내부 정산이 따로 발생한다.</text>
+  <text class="t-s" x="52" y="402">하나의 플랜트가 여러 유통채널 · 여러 영업조직의 배송처가 될 수 있다. 배정은 chain 단위이지 Sales Area 단위가 아니다.</text>
+</svg>
+<figcaption><span class="fno">그림 1</span>Enterprise Structure 배정 관계. 플랜트 → 회사코드는 1:1, 배송 플랜트 배정은 distribution chain(Sales Org + Distribution Channel) 단위.</figcaption>
+</figure>
+
+<div class="note">
+  <div class="t">🔰 초보자 설명 — Cross-Company Sales가 왜 특별한가</div>
+  <p>보통은 영업조직과 실제로 물건을 보내는 플랜트가 같은 법인 소속입니다. 그런데 한국 법인이 영업을 하고 물건은 중국 법인 창고에서 나간다면, 이건 법인 간 거래이므로 내부 매입·매출 정산이 따로 필요합니다. SAP는 이 케이스를 Cross-Company Sales로 별도 처리합니다.</p>
+</div>
+
+<h3>판매문서 데이터는 어디서 오는가 — 4가지 출처</h3>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>출처</th><th>설명 · 예시</th></tr></thead>
+<tbody>
+<tr><td>Master Data</td><td class="wrap">고객·자재·가격조건 마스터에서 읽음 — 고객별 지불조건, 자재마스터 판매정보로 배송플랜트 결정</td></tr>
+<tr><td class="wrap">Existing Document Data</td><td class="wrap">이미 입력·자동결정된 문서 데이터를 재사용 — 배송플랜트 정보로 출하지점(shipping point) 결정</td></tr>
+<tr><td>Customizing</td><td class="wrap">문서 생성 시 기본값 정의 — 납기일 기본값, 판매문서타입의 배송·청구 블록, 여러 기준 조합으로 값을 결정하는 전략(배송플랜트 + 적재그룹 + 배송조건 → 출하지점)</td></tr>
+<tr><td class="wrap">Hard-coded control</td><td class="wrap">SAP 프로그램에 고정된 로직 — 플랜트 자동 제안 순서. <span class="bad">Customizing으로 바꿀 수 없다</span></td></tr>
+</tbody>
+</table>
+</div>
+
+<p>가능한 한 많은 데이터를 마스터 레코드에 넣어 두는 것이 원칙입니다. 오더 입력 시간이 줄고 오입력이 막힙니다.</p>
+
+<h3>Business Partner — Category · Grouping · Role</h3>
+
+<p>S/4HANA는 <span class="key">Business Partner(BP)</span> 마스터데이터와 <span class="key">Customer</span> 마스터데이터를 구분합니다. <b>모든 고객은 BP지만, 모든 BP가 고객은 아닙니다.</b> 판매문서에는 4개의 필수 파트너기능(Sold-to · Ship-to · Payer · Bill-to)이 쓰이고, 필요하면 자체 파트너기능을 추가할 수 있습니다. 하나의 BP가 고객이면서 동시에 벤더일 수도 있는데, 이 경우 고객마스터에 벤더번호를, 벤더마스터에 고객번호를 넣어 서로 연결합니다.</p>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>요소</th><th>결정하는 것</th></tr></thead>
+<tbody>
+<tr><td>BP Category</td><td class="wrap">Person / Organization / Group 중 하나. <span class="bad">한 번 정하면 변경 불가</span>, SAP 하드코딩이라 사용자 정의 불가. 카테고리에 따라 입력 필드가 달라진다(조직 = 법적형태, 개인 = 이름·성별)</td></tr>
+<tr><td>BP Grouping</td><td class="wrap">내부·외부 번호부여 방식. 외부면 BP번호를 직접 입력, 내부면 비워 둔다. <b>CVI 번호범위 매핑의 키</b></td></tr>
+<tr><td>BP Role</td><td class="wrap">비즈니스 프로세스 기반 역할(예: Customer). 하나의 BP에 여러 Role 지정 가능하고, 이름·주소·은행정보 같은 중앙 데이터는 한 번만 만들면 된다</td></tr>
+</tbody>
+</table>
+</div>
+
+<p>판매문서에서 BP를 쓰려면 <span class="hl">BP Role "Customer"가 유지되어야</span> 합니다. 이때 시스템이 Customer Account Group과의 연결(CVI)을 통해 4대 필수 파트너기능을 자동 생성합니다.</p>
+
+<div class="note">
+  <div class="t">🔰 초보자 설명 — Category / Grouping / Role, 뭐가 다른가</div>
+  <p>Category는 "개인 고객인지 법인 고객인지"(한 번 정하면 못 바꿈), Grouping은 "고객번호를 직접 매길지 시스템이 자동으로 매길지", Role은 "이 파트너가 우리 비즈니스에서 어떤 역할(구매자·공급자·연락처)을 하는지"입니다. 한 회사가 동시에 우리 고객이면서 공급업체일 수 있는 것처럼 Role은 여러 개 가질 수 있습니다.</p>
+</div>
+
+<h3>CVI — Customer-Vendor-Integration</h3>
+
+<p>BP는 BP·고객·벤더 마스터데이터를 중앙에서 통합 관리하는 단일 진입점입니다. 이를 위해 <b>BP Customizing</b>과 <b>Customer/Vendor Account Group Customizing</b>을 맞춰야 하는데, 특히 <span class="key">필수입력 필드를 일치시키는 것</span>이 중요합니다 — 고객·벤더 계정에서 필수인 필드는 해당 BP 역할의 필드 선택 컨트롤에서도 필수로 설정해야 합니다.</p>
+
+<p>마스터데이터 동기화를 전반적으로 설정한 뒤, BP와 Account Group의 연결은 <span class="key">Number Range Mapping</span>으로 이루어집니다. <b>BP Grouping이 고객·벤더 번호범위와 연결되는 핵심 키</b>입니다.</p>
+
+<div class="step"><span class="n">사전 1</span><p>BP의 번호범위와 Grouping이 정의·배정되어 있을 것</p></div>
+<div class="step"><span class="n">사전 2</span><p>FI Customizing에서 고객 계정 생성용 <b>Account Group</b>과 번호범위가 결정되어 있을 것</p></div>
+<div class="step"><span class="n">설정</span><p><b>Account Group / Number Range Mapping</b>에서 고객마스터의 Account Group을 BP Grouping에 배정 — 내부 · 외부 · 동일번호 방식 중 선택</p></div>
+<div class="step"><span class="n">결과</span><p>BP가 처리될 때 고객마스터도 함께 생성·갱신된다</p></div>
+
+<p>Customizing 경로: <code>Master Data → Synchronization → Business Partner Settings → Settings for Customer Integration → Field Assignment for Customer Integration → Define Number Assignment for Direction BP to Customer</code></p>
+
+<div class="note">
+  <div class="t">🔰 초보자 설명 — CVI를 왜 하는가</div>
+  <p>예전 SAP는 고객마스터와 벤더마스터를 따로 관리했는데, S/4HANA는 이걸 Business Partner 하나로 통합했습니다. 문제는 기존 FI 쪽(Account Group · 번호범위)과 새 BP 쪽 설정이 어긋나면 데이터가 깨진다는 것 — CVI는 이 둘을 번호 매핑 규칙으로 연결해서, BP 하나를 만들면 고객·벤더 레코드도 자동으로 같이 생기고 갱신되게 만드는 설정입니다.</p>
+</div>
+
+<div class="note warn">
+  <div class="t">확인 필요 — 실제 시스템(winerp01 / MEP)에서 확정할 것</div>
+  <p>원문은 IMG 경로만 제시하고 <b>T-Code를 명시하지 않습니다.</b> BP 유지는 <code>BP</code>, CVI 동기화 쿡북·오류 확인은 별도 트랜잭션(<code>MDS_LOAD_COCKPIT</code> 계열)으로 알려져 있으나 릴리스별로 다릅니다. 경로와 T-Code는 실제 시스템의 IMG 트리에서 확인한 뒤 확정합니다.</p>
+</div>
+
+<div class="note ok">
+  <div class="t">📌 개인 E2E 프로젝트와의 연결점</div>
+  <p>회사코드 <b>CL04</b> 아래 플랜트를 <b>GATE</b>(입고 게이트)와 <b>STOR</b>(보관) 둘로 나눠 둔 구조에서, 그림 1의 "배송 플랜트 배정"이 바로 결정 지점입니다. <span class="hl">배송 플랜트로 배정해야 하는 것은 STOR 하나</span>입니다 — GATE는 벤더 입고(101)와 STOR 이관(301)만 담당하는 입고 전용이므로 distribution chain에 배정하면 안 됩니다. GATE를 배송 플랜트로 배정하면 ZGATE_INSPECT가 전제하는 "GATE 재고는 STOR로만 빠진다"는 가정이 깨집니다.</p>
+  <p>거래처는 전부 BP로 만들고 Role Customer를 유지해야 판매오더에서 잡힙니다. CVI 번호범위 매핑은 <b>가상 거래처를 만들기 전에</b> 끝내 두는 편이 낫습니다 — 나중에 매핑을 바꾸면 이미 만든 BP는 소급 적용되지 않습니다.</p>
+</div>
+
+</div>
+
+
+<!-- ══════════ LESSON 2 ══════════ -->
+<div class="lesson" id="l2">
+<h2><span class="no">LESSON 2</span>3단 결정구조 — 판매문서타입 · 품목범주 · 스케줄라인범주</h2>
+
+<p><span class="tag">Unit 3-5</span><span class="tag">레슨 6개</span>Configuring a Sales Document Type · Configuring an Item Category · Assigning an Item Category · Configuring a BOM · Configuring / Assigning Schedule Line Categories</p>
+
+<h3>언제 이걸 알아야 하는가</h3>
+
+<p><b>"이 아이템만 가격이 안 잡힙니다"</b> 또는 <b>"납기일 입력칸이 없습니다"</b> — 이 두 문의는 같은 뿌리입니다. 자재도 정상이고 가격조건도 있는데 특정 줄만 이상하게 동작합니다.</p>
+
+<p>확인할 곳은 그 아이템의 <span class="key">품목범주</span>와 그 아래 <span class="key">스케줄라인범주</span>입니다. 가격책정 대상인지는 품목범주가 정하고, 납기일·수량 칸이 존재하는지(= 스케줄라인이 허용되는지)도 품목범주가 정합니다. 실제로 재고가 빠지고 물건이 나가는지는 스케줄라인범주가 정합니다. <b>자재나 가격을 아무리 봐도 답이 안 나오는 이유</b>가 여기 있습니다.</p>
+
+<h3>3단 결정구조 전체</h3>
+
+<figure class="figwrap">
+<svg class="dgm" viewBox="0 0 1000 500" role="img" aria-label="판매문서 3단 결정구조 도해. 판매문서타입이 품목범주를, 품목범주가 스케줄라인범주를 결정한다. 품목범주는 판매문서타입·품목범주그룹·용도·상위품목범주 네 가지 조합으로, 스케줄라인범주는 품목범주와 MRP 유형 조합으로 2단계 탐색된다.">
+  <defs>
+    <marker id="dt-k" markerWidth="10" markerHeight="10" refX="8" refY="5" orient="auto">
+      <polygon class="arw-key" points="0,0 10,5 0,10"/></marker>
+    <marker id="dt-a" markerWidth="9" markerHeight="9" refX="7" refY="4.5" orient="auto">
+      <polygon class="arw" points="0,0 9,4.5 0,9"/></marker>
+    <marker id="dt-b" markerWidth="9" markerHeight="9" refX="7" refY="4.5" orient="auto">
+      <polygon class="arw-bad" points="0,0 9,4.5 0,9"/></marker>
+  </defs>
+
+  <rect class="b-key" x="40" y="30" width="270" height="62" rx="6"/>
+  <text class="t-h c-key" x="62" y="56">Sales Document Type</text>
+  <text class="t-s" x="62" y="75">문서 전체의 성격 · 후속문서</text>
+  <text class="m-s c-key" x="62" y="88">OR  QT  IN  RE</text>
+
+  <path class="ln-key" d="M175 92 V178" marker-end="url(#dt-k)"/>
+
+  <rect class="b-key" x="40" y="180" width="270" height="62" rx="6"/>
+  <text class="t-h c-key" x="62" y="206">Item Category</text>
+  <text class="t-s" x="62" y="225">가격 · 청구 · 스케줄라인 허용</text>
+  <text class="m-s c-key" x="62" y="238">4자리   TAN  TATX</text>
+
+  <path class="ln-key" d="M175 242 V330" marker-end="url(#dt-k)"/>
+
+  <rect class="b-key" x="40" y="332" width="270" height="62" rx="6"/>
+  <text class="t-h c-key" x="62" y="358">Schedule Line Category</text>
+  <text class="t-s" x="62" y="377">납기 · 재고이동 · 소요전달</text>
+  <text class="m-s c-key" x="62" y="390">2자리   CP  CN  CD</text>
+
+  <rect class="b-ghost" x="368" y="112" width="596" height="132" rx="6"/>
+  <text class="t-h" x="388" y="136">품목범주 결정 — 이 4개의 조합</text>
+  <path class="ln" d="M368 178 H182" marker-end="url(#dt-a)"/>
+
+  <rect class="b" x="384" y="148" width="136" height="80" rx="5"/>
+  <text class="t" x="398" y="176">판매문서 타입</text>
+  <text class="t-xs" x="398" y="196">문서 레벨에서 옴</text>
+  <text class="m-s" x="398" y="214">OR</text>
+
+  <rect class="b" x="532" y="148" width="136" height="80" rx="5"/>
+  <text class="t" x="546" y="176">품목범주 그룹</text>
+  <text class="t-xs" x="546" y="196">자재마스터 판매뷰</text>
+  <text class="m-s" x="546" y="214">NORM</text>
+
+  <rect class="b" x="680" y="148" width="136" height="80" rx="5"/>
+  <text class="t" x="694" y="176">용도 Usage</text>
+  <text class="t-xs" x="694" y="196">프로그램이 자동 설정</text>
+  <text class="m-s" x="694" y="214">TEXT · FREE</text>
+
+  <rect class="b" x="828" y="148" width="120" height="80" rx="5"/>
+  <text class="t" x="842" y="176">상위 품목범주</text>
+  <text class="t-xs" x="842" y="196">서브아이템일 때만</text>
+  <text class="t-xs" x="842" y="214">BOM · 무료재화</text>
+
+  <rect class="b-ghost" x="368" y="286" width="596" height="126" rx="6"/>
+  <text class="t-h" x="388" y="310">스케줄라인범주 결정 — 2단계 탐색</text>
+  <path class="ln" d="M368 350 H182" marker-end="url(#dt-a)"/>
+
+  <rect class="b-ok" x="384" y="322" width="560" height="34" rx="5"/>
+  <text class="t c-ok" x="400" y="344">① 품목범주 + 자재마스터 MRP 유형 조합으로 먼저 찾는다</text>
+
+  <path class="ln-bad" d="M420 356 V366" marker-end="url(#dt-b)"/>
+  <text class="t-xs c-bad" x="432" y="366">못 찾으면</text>
+
+  <rect class="b-mut" x="384" y="368" width="560" height="34" rx="5"/>
+  <text class="t" x="400" y="390">② 품목범주 + MRP 유형 공란 조합으로 다시 찾는다</text>
+
+  <rect class="b-hl" x="40" y="434" width="908" height="52" rx="6"/>
+  <text class="t" x="62" y="456">각 단계는 <tspan class="m-s">자동 제안 + 사용자 선택 가능한 대체 범주</tspan>를 함께 정의한다. 운영 문의는 거의 전부 이 3단 중 한 층이다.</text>
+  <text class="t-s" x="62" y="476">가격이 안 잡힌다 → 품목범주 / 납기칸이 없다 → 품목범주의 스케줄라인 허용 / 재고가 안 빠진다 → 스케줄라인범주</text>
+</svg>
+<figcaption><span class="fno">그림 2</span>판매문서 3단 결정구조. 품목범주는 4개 키의 조합으로, 스케줄라인범주는 품목범주 + MRP 유형의 2단계 탐색으로 결정된다.</figcaption>
+</figure>
+
+<h3>Unit 3 — Sales Document Type</h3>
+
+<p>표준시스템은 다양한 사전정의 판매문서타입을 제공하고, 구현 중에 수정하거나 자체 타입을 추가할 수 있습니다. Customizing에서 정하는 것은 판매 프로세스 전체에 영향을 주는 설정입니다 — <b>판매문서 카테고리</b>, <b>배송·청구 블록</b>, <b>후속 납품·청구문서 타입</b>. 문서 생성 시 표시되는 기본값(요청납기일, 계약 기본요건)도 저장할 수 있고, 문서의 다른 레벨에서 덮어쓸 수 있습니다.</p>
+
+<p>미결 견적·일괄계약 메시지나 고객-자재 정보레코드 검색 같은 체크도 활성화할 수 있는데, <span class="bad">성능에 영향을 줄 수 있으므로 필요한 것만 켭니다.</span></p>
+
+<div class="note">
+  <div class="t">🔰 초보자 설명 — 새 판매문서타입, 왜 복사해서 만드는가</div>
+  <p>판매문서타입은 수백 개의 설정값이 서로 얽혀 있는 복잡한 객체라, 백지에서 만들면 빠지는 설정이 반드시 생깁니다. SAP가 "검증된 기존 타입을 복사해서 수정"하라고 권장하는 이유는 복사 시 종속 엔트리까지 함께 복사되기 때문입니다. 코딩의 scaffolding과 같은 이치입니다.</p>
+</div>
+
+<h3>Unit 4 — Item Category</h3>
+
+<p>판매문서타입마다 같은 자재를 다르게 처리해야 할 때 쓰는 것이 <span class="key">Item Category</span>입니다(문의서의 자재와 오더의 자재를 다르게 통제). <b>4자리 키</b>로 정의되며 — 앞 2자리는 원래 설계된 판매문서타입 힌트, 뒷 2자리는 용도(예: <code>TEXT</code>)를 나타냅니다.</p>
+
+<p>품목범주가 결정하는 것:</p>
+
+<ul>
+  <li>아이템 비즈니스데이터가 <b>헤더와 다를 수 있는지</b></li>
+  <li><b>가격책정</b> 적용 여부</li>
+  <li><b>청구</b> 여부와 방식</li>
+  <li>자재참조 아이템인지 <b>텍스트 아이템</b>인지</li>
+  <li>아이템 데이터를 검증하는 <b>incompleteness procedure</b></li>
+</ul>
+
+<p>SAP가 완전히 구성된 품목범주를 제공하므로, <span class="hl">새로 만들 때는 항상 기존 것을 복사</span>합니다.</p>
+
+<h4>Free Goods — 상위레벨 아이템 배정 예시</h4>
+
+<p>M1 자재 100개 주문 시 10개를 무료 증정하는 경우, Item 10(M1 100개 1,000유로)에 Item 20(M1 10개 무료, Higher-level item = 10)을 연결합니다.</p>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>시나리오</th><th>결과</th></tr></thead>
+<tbody>
+<tr><td class="wrap">Free Goods <b>Exclusive</b></td><td class="wrap">100개 유료 + 10개 별도 무료 → 고객은 총 110개를 받고 100개분을 결제</td></tr>
+<tr><td class="wrap">Free Goods <b>Inclusive</b></td><td class="wrap">100개 중 10개만 무료 → 고객은 총 100개를 받고 <b>90개분만</b> 결제</td></tr>
+</tbody>
+</table>
+</div>
+
+<p>같은 "10개 무료"라도 결제 수량이 다릅니다. 이 상위/서브아이템 구조는 BOM 전개와 서비스 아이템에도 동일하게 쓰입니다.</p>
+
+<h4>품목범주 배정 (Determination)</h4>
+
+<p>품목범주는 판매문서타입에 배정됩니다. 목적은 <b>오더 생성 시 자동 제안</b> + <b>사용자가 고를 수 있는 대체 범주 정의</b> 두 가지입니다. 결정에 관여하는 요소는 그림 2에 그린 넷입니다.</p>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>키</th><th>어디서 오나</th></tr></thead>
+<tbody>
+<tr><td class="wrap">Sales Document Type</td><td class="wrap">문서 헤더</td></tr>
+<tr><td class="wrap">Item Category Group</td><td class="wrap">자재마스터. 비슷하게 거동하는 자재들을 묶는 그룹</td></tr>
+<tr><td>Usage</td><td class="wrap">프로그램이 내부적으로 설정 — 자재번호 없이 Description만 입력하면 <code>TEXT</code>, 무료재화 통제에는 <code>FREE</code></td></tr>
+<tr><td class="wrap">상위 Item Category</td><td class="wrap">서브아이템인 경우에만. 상위 아이템의 품목범주</td></tr>
+</tbody>
+</table>
+</div>
+
+<h4>BOM — Bill of Material</h4>
+
+<p>자전거처럼 여러 컴포넌트로 구성되는 제품의 구조를 <span class="key">BOM</span>으로 저장합니다. 판매문서에서 제어하려는 모든 BOM 아이템은 <b>sales relevant</b>로 플래그되어야 하며, <span class="hl">BOM Usage 5(sales and distribution)</span>로 만들면 모든 아이템이 자동으로 sales relevant가 됩니다.</p>
+
+<p>품목범주 Customizing 설정으로 BOM 컴포넌트를 판매오더로 복사할 수 있고, 처리 시에는 <b>BOM 자재번호만 입력</b>하면 시스템이 컴포넌트 서브아이템을 자동 생성합니다(BOM explode). 메인아이템의 자재마스터에 배정된 <b>Item Category Group</b>이 메인아이템의 품목범주를 결정하며, 어떤 아이템이 가격책정 대상인지도 품목범주 Customizing에서 제어합니다.</p>
+
+<div class="note">
+  <div class="t">🔰 초보자 설명 — BOM 사용도(Usage)가 중요한 이유</div>
+  <p>BOM은 생산에서도 쓰고 판매에서도 쓰이는데, 용도가 다르면 필요한 컴포넌트 범위도 다릅니다. "BOM Usage 5(판매)"로 지정해야 판매문서에서 이 BOM이 제대로 전개됩니다.</p>
+</div>
+
+<h3>Unit 5 — Schedule Line Category</h3>
+
+<p><span class="key">Schedule Line Category</span>는 <b>2자리 키</b>이고, 두 글자가 각각 의미를 가집니다.</p>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>자리</th><th>의미</th></tr></thead>
+<tbody>
+<tr><td class="wrap">첫째 글자 — 판매 프로세스</td><td class="wrap"><code>A</code> Inquiry · <code>B</code> Quotation · <code>C</code> Order · <code>D</code> Returns</td></tr>
+<tr><td class="wrap">둘째 글자 — 로지스틱스 처리</td><td class="wrap"><code>D</code> 재고관리 없음 · <code>X</code> 재고관리 없음 + 출고처리 · <code>N</code> MRP 없음 · <code>P</code> MRP · <code>V</code> 소비기반계획</td></tr>
+</tbody>
+</table>
+</div>
+
+<p>스케줄라인은 납기일·수량에 더해 <b>요구사항 이전(requirements transfer)</b>과 <b>재고관리 정보</b>를 담으며, 자재 배송의 전제조건입니다. 품목범주 Customizing에서 아이템에 스케줄라인 허용 여부를 정하고, 각 품목범주에 스케줄라인범주를 배정합니다. <span class="hl">Relevant to Delivery 지시자를 켜야 실제로 물리적인 배송이 일어납니다.</span></p>
+
+<p>스케줄라인범주에서 통제하는 나머지:</p>
+
+<ul>
+  <li><span class="key">Movement Type</span> — 재고회계에 반영되는 수량·가치 변동을 통제. 판매 관련 이동유형은 대부분 <code>601</code>~<code>699</code> 범위</li>
+  <li>스케줄라인 레벨에서 <b>요구사항 이전 · 가용성 체크</b>를 비활성화 가능</li>
+  <li><b>구매요청(purchase requisition)</b> 자동생성 — 구매오더타입 + 아이템/계정지정 카테고리 구성 필요</li>
+  <li><b>배송블록</b>을 켜면 판매문서 스케줄라인 레벨에 자동 설정됨</li>
+</ul>
+
+<h4>스케줄라인범주 배정</h4>
+
+<p>스케줄라인범주는 <b>품목범주</b>에 배정되고, 배정은 자재마스터의 <span class="key">MRP Type</span>에 영향을 받습니다. 시스템은 그림 2 아래쪽처럼 2단계로 찾습니다 — ① 품목범주 + MRP 유형 조합, ② 못 찾으면 품목범주 + MRP 유형 공란 조합.</p>
+
+<div class="note">
+  <div class="t">🔰 초보자 설명 — 3단 계층이 왜 이 순서인가</div>
+  <p>판매문서타입(문서 종류) → 품목범주(아이템을 어떻게 처리할지) → 스케줄라인범주(언제·어떻게 출고할지) 순으로 점점 구체화됩니다. 각 단계는 상위에 배정되면서 자동으로 결정되고, 아래 단계일수록 실물·재고에 가까워집니다.</p>
+</div>
+
+<div class="note warn">
+  <div class="t">확인 필요 — 실제 시스템(winerp01 / MEP)에서 확정할 것</div>
+  <p>원문은 이 Unit들에서 <b>T-Code를 하나도 명시하지 않고 IMG 활동 이름으로만 설명</b>합니다. 판매문서타입 <code>VOV8</code>, 품목범주 <code>VOV7</code>, 품목범주 결정 <code>VOV4</code>, 스케줄라인범주 <code>VOV6</code>, 스케줄라인범주 배정 <code>VOV5</code>로 알려져 있으나 <span class="bad">원문 근거가 아닙니다.</span> 실제 IMG 트리에서 경로를 확인한 뒤 노트를 보강합니다. 판매 이동유형 범위(601~699)도 원문이 "대부분"이라고만 하므로 단정하지 않습니다.</p>
+</div>
+
+<div class="note ok">
+  <div class="t">📌 개인 E2E 프로젝트와의 연결점</div>
+  <p>프로젝트는 <b>벤더 사입 → 재판매</b> 트레이딩 모델이므로 생산·외주가공이 없고, 따라서 <span class="hl">BOM과 무료재화는 이번 범위에서 쓰지 않습니다.</span> 표준 오더타입 OR + 표준 품목범주 TAN + 스케줄라인범주 CP 한 줄만 성립시키면 됩니다 — 이게 "표준 우선" 원칙에 맞는 최소 구성입니다.</p>
+  <p>주의할 지점은 <b>임박 재고를 별도 품목범주로 만들고 싶어지는 유혹</b>입니다. ZBATCH_ZONE이 잔여 유통기한 30% 미달 배치를 311로 정상 SLoc(1100/2100/3100) → 임박 SLoc(1900/2900/3900)으로 옮겨도, 그건 <b>같은 자재 · 같은 품목범주이고 저장위치만 다른 재고</b>입니다. 할인 판매는 품목범주를 새로 파는 게 아니라 <b>가격조건</b>으로 푸는 것이 표준 경로입니다. 품목범주를 늘리면 그림 2의 결정 조합과 뒤에 나올 복사제어 엔트리가 전부 배수로 늘어납니다.</p>
+  <p>스케줄라인범주에서 결정되는 이동유형 <code>601</code>이 PGI 시 자재문서와 FI 전표를 만드는 지점입니다. 배치관리 자재라 이 시점에 FEFO 배치결정이 걸리므로, 스케줄라인의 <b>Relevant to Delivery</b>와 가용성 체크 설정을 끄면 안 됩니다.</p>
+</div>
+
+</div>
+
+
+<!-- ══════════ LESSON 3 ══════════ -->
+<div class="lesson" id="l3">
+<h2><span class="no">LESSON 3</span>특수기능과 Copying Control — 문서가 문서를 낳는 규칙</h2>
+
+<p><span class="tag">Unit 6-7</span><span class="tag">레슨 5개</span>Configuring Business Data · Setting Up Blocks · Configuring Reasons for Rejections · Analyzing the Copying Control · Configuring Copying Control</p>
+
+<h3>언제 이걸 알아야 하는가</h3>
+
+<p>둘 중 하나로 옵니다. <b>"견적에서 오더를 못 만듭니다"</b> — 복사 조합 자체가 정의되지 않았거나 Copying Requirement에 걸린 겁니다. 또는 <b>"오더를 다 만들었는데 견적이 계속 열려 있습니다"</b> — 이건 <span class="key">Completion Rule</span> 문제입니다.</p>
+
+<p>두 증상 다 문서 자체를 뜯어봐야 답이 안 나옵니다. 답은 <b>Copying Control 테이블</b>과 그 안의 <b>루틴·요건·완료규칙</b>에 있습니다.</p>
+
+<h3>Unit 6 — 특수기능 세 가지</h3>
+
+<p>핵심 프로세스는 그대로 두고 <b>예외 상황을 관리하기 위한 설정</b>들입니다.</p>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>기능</th><th>무엇을 설정하나</th></tr></thead>
+<tbody>
+<tr><td>Business Data</td><td class="wrap">지불조건(payment conditions) · 인코텀즈(incoterms) 같은 비즈니스 데이터를 <b>문서 헤더 레벨에서 정의할지, 아이템 레벨에서 정의할지</b></td></tr>
+<tr><td>Blocks</td><td class="wrap">특정 판매문서타입을 특정 고객에 대해 블록. <span class="hl">해당 고객마스터 레코드에 블록이 설정되어 있을 때 발동</span>한다</td></tr>
+<tr><td class="wrap">Reason for Rejection</td><td class="wrap">거절사유 코드. 특정 기간 동안 고객이 자사 제품을 어떻게 평가하는지 확인하는 데 쓰이고, 마케팅이 다음 판매기간 전략 수립의 계획 도구로 활용한다</td></tr>
+</tbody>
+</table>
+</div>
+
+<div class="note">
+  <div class="t">🔰 초보자 설명 — Unit 6 세 레슨이 왜 짧은가</div>
+  <p>Unit 6은 "판매문서에 붙일 수 있는 부가 설정들"을 모아 둔 유니트입니다. 지불조건·인코텀즈 위치 지정, 특정 고객 주문 막기, 거절 사유 코드화 — 셋 다 핵심 프로세스는 건드리지 않고 예외를 다루는 설정이라는 공통점이 있습니다.</p>
+</div>
+
+<h3>Unit 7 — Copying Control</h3>
+
+<p>Customizing에서 <span class="key">어떤 문서타입이 어떤 문서타입으로 복사될 수 있는지</span>를 정하는 것이 Copying Control입니다. 판매 프로세스를 개별 단계로 기록된 문서의 순차(문의 → 견적 → 오더 → 납품 → 청구)로 보면, 그 화살표 하나하나가 복사제어 엔트리입니다.</p>
+
+<p>이 체인은 UI에서 두 이름으로 보입니다 — UI5 기반 앱(Manage Sales Orders 등)에서는 <b>Process Flow</b>, <code>VA02</code> 같은 클래식 앱에서는 <b>Document Flow</b>. 각 문서의 상태 개요(납품상태 · 피킹상태 · 청구상태 · 전표 전기상태)를 여기서 확인합니다.</p>
+
+<figure class="figwrap">
+<svg class="dgm" viewBox="0 0 1000 470" role="img" aria-label="Copying Control 도해. 선행문서에서 후속문서를 만들 때 헤더·아이템·스케줄라인 세 레벨 각각에 데이터전송 루틴·복사요건·스위치가 걸리고, 복사요건은 VOFM에 등록된 ABAP 루틴으로 구현된다.">
+  <defs>
+    <marker id="cc-k" markerWidth="10" markerHeight="10" refX="8" refY="5" orient="auto">
+      <polygon class="arw-key" points="0,0 10,5 0,10"/></marker>
+    <marker id="cc-a" markerWidth="9" markerHeight="9" refX="7" refY="4.5" orient="auto">
+      <polygon class="arw" points="0,0 9,4.5 0,9"/></marker>
+    <marker id="cc-b" markerWidth="9" markerHeight="9" refX="7" refY="4.5" orient="auto">
+      <polygon class="arw-bad" points="0,0 9,4.5 0,9"/></marker>
+  </defs>
+
+  <rect class="b-mut" x="24" y="70" width="180" height="76" rx="6"/>
+  <text class="t-h" x="44" y="98">선행문서 Source</text>
+  <text class="t-s" x="44" y="118">예: 견적 · 판매오더</text>
+  <text class="m-s" x="44" y="136">QT  →  OR</text>
+
+  <rect class="b-key" x="796" y="70" width="180" height="76" rx="6"/>
+  <text class="t-h c-key" x="816" y="98">후속문서 Target</text>
+  <text class="t-s" x="816" y="118">예: 판매오더 · 납품</text>
+  <text class="m-s c-key" x="816" y="136">OR  →  LF</text>
+
+  <path class="ln-key" d="M204 108 H244" marker-end="url(#cc-k)"/>
+  <path class="ln-key" d="M756 108 H788" marker-end="url(#cc-k)"/>
+
+  <rect class="b-ghost" x="248" y="24" width="504" height="196" rx="6"/>
+  <text class="t-h" x="268" y="48">Copying Control — 3개 레벨</text>
+  <text class="t-xs" x="268" y="64">타겟문서 + 소스문서 조합을 먼저 정의한다</text>
+
+  <rect class="b" x="266" y="74" width="470" height="40" rx="5"/>
+  <text class="t" x="284" y="99">헤더 레벨 — 고객 · 통화 · 조건 등 문서 공통</text>
+
+  <rect class="b" x="266" y="120" width="470" height="40" rx="5"/>
+  <text class="t" x="284" y="145">아이템 레벨 — 자재 · 수량 · 플랜트 · 저장위치</text>
+
+  <rect class="b" x="266" y="166" width="470" height="40" rx="5"/>
+  <text class="t" x="284" y="191">스케줄라인 레벨 — 납기일 · 확정수량</text>
+
+  <path class="ln" d="M330 220 V262" marker-end="url(#cc-a)"/>
+  <path class="ln" d="M500 220 V262" marker-end="url(#cc-a)"/>
+  <path class="ln" d="M670 220 V262" marker-end="url(#cc-a)"/>
+  <text class="t-xs" x="268" y="240">각 레벨마다 아래 3종이 걸린다</text>
+
+  <rect class="b-ok" x="232" y="264" width="196" height="76" rx="5"/>
+  <text class="t-h c-ok" x="248" y="288">데이터전송 루틴</text>
+  <text class="t-s" x="248" y="308">선행문서의 필드 전송을</text>
+  <text class="t-s" x="248" y="326">어떻게 할지 통제</text>
+
+  <rect class="b-bad" x="402" y="264" width="196" height="76" rx="5"/>
+  <text class="t-h c-bad" x="418" y="288">복사 요건</text>
+  <text class="t-s" x="418" y="308">참조 생성 시 검증할 조건</text>
+  <text class="t-s" x="418" y="326">미충족 → 경고 · 에러 · 중단</text>
+
+  <rect class="b" x="572" y="264" width="196" height="76" rx="5"/>
+  <text class="t-h" x="588" y="288">스위치</text>
+  <text class="t-s" x="588" y="308">트랜잭션별 제어 —</text>
+  <text class="t-s" x="588" y="326">헤더 아이템번호 전송 등</text>
+
+  <path class="ln-bad" d="M500 340 V376" marker-end="url(#cc-b)"/>
+  <rect class="b-bad" x="232" y="378" width="536" height="72" rx="6"/>
+  <text class="t-h c-bad" x="252" y="402">복사 요건은 ABAP 루틴으로 구현 — <tspan class="m">VOFM</tspan></text>
+  <text class="t-s" x="252" y="422">동일 Sold-to Party인가 · 이미 거절된 아이템인가 · 전량 참조되었는가</text>
+  <text class="t-s" x="252" y="440">선행문서 유효기간이 지났는가 — 수정하려면 ABAP 지식이 필요하다</text>
+
+  <rect class="b-hl" x="796" y="264" width="180" height="76" rx="5"/>
+  <text class="t-h" x="812" y="288">Create with</text>
+  <text class="t-h" x="812" y="306">Reference</text>
+  <text class="t-s" x="812" y="328">여러 견적 → 오더 1건</text>
+</svg>
+<figcaption><span class="fno">그림 3</span>Copying Control의 3레벨 구조. 헤더·아이템·스케줄라인 각각에 데이터전송 루틴 · 복사요건 · 스위치가 걸리고, 복사요건은 VOFM 루틴이다.</figcaption>
+</figure>
+
+<h4>Completion Rule — 선행문서를 언제 닫을 것인가</h4>
+
+<p>선행문서를 참조해 문서를 만들면(Create with Reference) 참조된 수량·금액 정보를 갱신해야 합니다. 그 갱신 방식을 정하는 것이 <span class="key">Completion Rule</span>입니다.</p>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>Completion Rule</th><th>동작</th></tr></thead>
+<tbody>
+<tr><td class="wrap">Rule A (문의 → 견적)</td><td class="wrap">견적에 <b>일부만</b> 참조되어도 문의 아이템은 즉시 <span class="good">Completed</span>로 바뀐다</td></tr>
+<tr><td class="wrap">Rule B (견적 → 오더)</td><td class="wrap">전체 수량이 다 복사되기 전까지는 Completed가 아니라 <span class="hl">Partially referred</span> — 남은 수량으로 계속 오더를 만들 수 있다</td></tr>
+</tbody>
+</table>
+</div>
+
+<p>계약(contract) 아이템을 위한 추가 completion rule도 있습니다. 그리고 <b>거절사유를 입력하면 해당 아이템은 Completed 상태를 받습니다</b> — Unit 6의 거절사유가 여기서 다시 나오는 지점입니다.</p>
+
+<h4>Copy Control 테이블</h4>
+
+<p>테이블은 <b>타겟문서 + 소스문서 조합</b>을 먼저 정의하고, 그 안에 헤더·아이템·스케줄라인 세 레벨의 설정을 둡니다. <b>Create with Reference</b>를 쓰면 여러 견적서를 하나의 오더로 합칠 수도 있습니다.</p>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>설정 요소</th><th>역할</th></tr></thead>
+<tbody>
+<tr><td class="wrap">Routines for data transfer</td><td class="wrap">선행문서의 필드 전송을 통제</td></tr>
+<tr><td class="wrap">Copying Requirements</td><td class="wrap">참조 생성 시 검증할 요건 정의 — 미충족 시 경고·에러 또는 처리 중단</td></tr>
+<tr><td>Switches</td><td class="wrap">특정 트랜잭션별 제어 스위치(예: 헤더레벨 아이템번호 전송 on/off)</td></tr>
+</tbody>
+</table>
+</div>
+
+<p>Copying Requirement의 실제 예시: <b>동일한 Sold-to Party인가 · 복사할 아이템이 이미 거절되었는가 · 이미 전량 참조되었는가 · 선행문서의 유효기간이 지났는가.</b> 이 요건들은 ABAP 루틴으로 구현되어 <code>VOFM</code>(System Adaptations → Routines → Define Copying Requirements)에 배정됩니다. 요건을 직접 수정하려면 ABAP 프로그래밍 지식이 필요하며, 이 코스의 범위를 벗어납니다.</p>
+
+<div class="note">
+  <div class="t">🔰 초보자 설명 — Copying Control이 왜 중요한가</div>
+  <p>Copying Control이 없으면 견적서의 수량·가격·고객을 오더로 옮길 때 매번 사람이 재입력해야 합니다. "이 문서타입에서 저 문서타입으로 넘어갈 때 어떤 데이터를 어떻게 가져갈지, 그리고 이 전환이 허용되는 조건은 무엇인지"를 미리 정해 두는 설정이 Copying Control입니다.</p>
+</div>
+
+<div class="note warn">
+  <div class="t">확인 필요 — 실제 시스템(winerp01 / MEP)에서 확정할 것</div>
+  <p>원문이 명시한 T-Code는 <code>VOFM</code>과 <code>VA02</code> 둘뿐입니다. 복사제어 유지 트랜잭션(판매→판매 <code>VTAA</code>, 판매→납품 <code>VTLA</code>, 납품→청구 <code>VTFL</code>)은 <span class="bad">원문 근거가 없습니다.</span> IMG 경로로 접근해 실제 화면에서 확인한 뒤 확정합니다.</p>
+  <p>또 하나 — <code>VOFM</code> 루틴을 <b>신규 생성·수정하려면 오브젝트 등록(SSCR 키)과 수정 등록이 필요</b>한 것으로 알려져 있으나 시스템 설정에 따라 다릅니다. 실제로 루틴을 만들어야 할 상황이 오면 그때 확인합니다. 어차피 이 프로젝트에서는 <b>표준 루틴만 쓰는 것이 원칙</b>입니다.</p>
+</div>
+
+<div class="note ok">
+  <div class="t">📌 개인 E2E 프로젝트와의 연결점</div>
+  <p>프로젝트의 SD 흐름(판매오더 → 출고납품 → PGI → 청구)이 전부 복사제어로 연결된 문서들입니다. <span class="hl">판매오더의 Plant·Storage Location이 납품문서로 그대로 승계되는 것</span>이 그림 3의 "아이템 레벨 데이터전송 루틴"의 실제 사례인데, 이 프로젝트에서는 이게 특히 중요합니다 — 저장위치가 온도군 × 정상·임박 6개(1100/1900 · 2100/2900 · 3100/3900)로 갈려 있어서, <b>오더에서 잡힌 SLoc이 납품에 그대로 넘어가지 않으면 임박 재고를 팔려다 정상 재고가 빠집니다.</b></p>
+  <p>거절사유(Unit 6)는 이 프로젝트에서 실제로 쓸 자리가 있습니다 — <b>유통기한 초과로 출하 불가가 된 오더 아이템</b>을 그냥 삭제하지 말고 거절사유 코드로 닫아야 나중에 "유통기한 때문에 못 판 물량"을 집계할 수 있습니다. ZBATCH_ZONE이 임박으로 옮긴 재고가 결국 얼마나 팔렸고 얼마나 폐기됐는지를 재는 유일한 근거가 됩니다.</p>
+  <p>복사요건 커스터마이징(VOFM 신규 루틴)은 <b>이번 범위에서 하지 않습니다.</b> "표준 우선, CBO는 표준으로 안 되는 지점만"이라는 원칙에 따라, 표준 복사제어로 안 되는 게 확인되기 전에는 손대지 않습니다.</p>
+</div>
+
+</div>
+
+
+<!-- ══════════ LESSON 4 ══════════ -->
+<div class="lesson" id="l4">
+<h2><span class="no">LESSON 4</span>파트너 결정과 Multi-address Handling</h2>
+
+<p><span class="tag">Unit 8</span><span class="tag">레슨 3개</span>Applying the Partner Function Concept · Configuring Partner Functions and a Partner Determination Procedure · Applying Multi-address Handling</p>
+
+<h3>언제 이걸 알아야 하는가</h3>
+
+<p><b>"납품처 주소가 본사로 찍힙니다"</b> — 거래처는 맞는데 물건이 엉뚱한 데로 갈 뻔한 케이스입니다. 고객마스터를 열어 보면 주소는 정상입니다.</p>
+
+<p>이건 <span class="key">파트너 결정 절차</span>와 <span class="key">주소 결정</span>이 갈리는 지점입니다. 어떤 파트너기능이 문서에 나타날지는 파트너 결정 절차가 정하고, 그 파트너의 어느 주소가 쓰일지는 주소 결정이 정합니다. 둘은 별개 설정입니다.</p>
+
+<h3>Partner Function vs Partner Type</h3>
+
+<p>모든 BP는 BP Category · BP Grouping · BP Role을 가지며, Role이 <b>Customer</b>인 BP에는 하나 이상의 <span class="key">Partner Function</span>을 배정할 수 있습니다. SD에서 쓰는 <b>Partner Type</b>은 넷입니다.</p>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>Partner Type</th><th>의미 · 예시 Function</th></tr></thead>
+<tbody>
+<tr><td><code>AP</code></td><td class="wrap">담당자(Contact person) — Purchaser 등</td></tr>
+<tr><td><code>KU</code></td><td class="wrap">고객(Customer) — Sold-to · Ship-to · Payer · Bill-to</td></tr>
+<tr><td><code>LI</code></td><td class="wrap">벤더(Vendor) — 배송대리인(forwarding agent)</td></tr>
+<tr><td><code>PE</code></td><td class="wrap">사원(Personnel) — <code>ER</code> 담당직원 등. 자사 직원은 사원마스터로 관리</td></tr>
+</tbody>
+</table>
+</div>
+
+<p><b>Partner Type은 포괄적인 BP 구분</b>(고객인지 벤더인지)이고, <b>Partner Function은 실제 비즈니스 트랜잭션 안에서의 구체적 역할</b>입니다. 같은 Type = Customer라도 <span class="hl">주문하는 고객과 물건을 받는 고객이 다를 수 있습니다</span> — 서로 다른 Function입니다. 이외에 <code>O</code>(organizational unit) · <code>S</code>(position) · <code>A</code>(work center) 같은 Function은 서비스 관리 등 다른 앱에서 쓰입니다.</p>
+
+<p>비즈니스 파트너들끼리 맺는 관계도 다룹니다 — 벤더–고객(벤더가 고객의 대리배송업체), 담당자–고객(고객사 소속 또는 외부 컨설턴트), 고객–고객(Sold-to와 Ship-to가 다름), 직원–담당자, 직원–고객(고객 담당 매니저). 가장 단순한 경우는 하나의 BP가 Sold-to · Ship-to · Payer · Bill-to를 전부 겸하는 것입니다.</p>
+
+<h4>Customizing에서 정할 수 있는 것</h4>
+
+<ul>
+  <li>파트너 관계를 문서에서 <b>수동 수정·보완</b> 허용 여부</li>
+  <li>하나의 함수에 <b>여러 파트너</b>가 매핑될 수 있는지 — 여러 개면 사용자가 선택하는 목록이 뜬다. 일괄계약 파트너기능 <code>AA</code>/<code>AW</code>는 예외적으로 복수 허용</li>
+  <li><b>아이템 레벨</b>에서 파트너 지정 가능 여부 — 헤더에만 있는 파트너는 아이템에서 변경 불가</li>
+  <li><b>필수</b> 파트너기능 지정</li>
+  <li>이미 입력된 파트너의 <b>변경 금지</b></li>
+</ul>
+
+<h3>Partner Determination Procedure</h3>
+
+<p>판매 프로세스에서 파트너기능이 <b>어디서 나타나야 하고 어디서 나타나도 되는지</b>를 정하는 절차입니다. 각 Partner Object마다 배정 키(Assignment Key)가 다릅니다.</p>
+
+<figure class="figwrap">
+<svg class="dgm" viewBox="0 0 1000 440" role="img" aria-label="파트너 결정과 주소 결정 도해. Partner Object마다 다른 배정 키로 파트너 결정 절차가 붙고, Account Group은 고객마스터 레코드를 통제하며 Partner Function은 문서 안의 역할을 정한다. 주소는 Address Usage를 먼저 보고 없으면 Address Overview에서 찾는다.">
+  <defs>
+    <marker id="pf-o" markerWidth="9" markerHeight="9" refX="7" refY="4.5" orient="auto">
+      <polygon class="arw-ok" points="0,0 9,4.5 0,9"/></marker>
+  </defs>
+
+  <text class="t-s c-key" x="24" y="22">Partner Object 마다 배정 키가 다르다</text>
+
+  <rect class="b" x="24" y="34" width="290" height="40" rx="5"/>
+  <text class="t" x="42" y="59">Customer master</text>
+  <rect class="b-key" x="330" y="34" width="250" height="40" rx="5"/>
+  <text class="t c-key" x="348" y="59">Account group</text>
+
+  <rect class="b" x="24" y="80" width="290" height="40" rx="5"/>
+  <text class="t" x="42" y="105">Sales document header</text>
+  <rect class="b-key" x="330" y="80" width="250" height="40" rx="5"/>
+  <text class="t c-key" x="348" y="105">Sales document type</text>
+
+  <rect class="b" x="24" y="126" width="290" height="40" rx="5"/>
+  <text class="t" x="42" y="151">Sales document item</text>
+  <rect class="b-key" x="330" y="126" width="250" height="40" rx="5"/>
+  <text class="t c-key" x="348" y="151">Item category in sales</text>
+
+  <rect class="b" x="24" y="172" width="290" height="40" rx="5"/>
+  <text class="t" x="42" y="197">Delivery / Shipment</text>
+  <rect class="b-key" x="330" y="172" width="250" height="40" rx="5"/>
+  <text class="t c-key" x="348" y="197">Delivery type · Shipment type</text>
+
+  <rect class="b" x="24" y="218" width="290" height="40" rx="5"/>
+  <text class="t" x="42" y="243">Billing header / item</text>
+  <rect class="b-key" x="330" y="218" width="250" height="40" rx="5"/>
+  <text class="t c-key" x="348" y="243">Billing type</text>
+
+  <rect class="b-ghost" x="612" y="34" width="364" height="224" rx="6"/>
+  <text class="t-h" x="632" y="58">헷갈리는 두 가지</text>
+
+  <rect class="b-mut" x="630" y="72" width="330" height="80" rx="5"/>
+  <text class="t-h" x="648" y="96">Account Group</text>
+  <text class="t-s" x="648" y="116">고객마스터 레코드 자체를 통제</text>
+  <text class="t-s" x="648" y="134">필드 표시 · 필수 · 번호범위</text>
+
+  <rect class="b-key" x="630" y="162" width="330" height="80" rx="5"/>
+  <text class="t-h c-key" x="648" y="186">Partner Function</text>
+  <text class="t-s" x="648" y="206">판매프로세스 안의 역할을 결정</text>
+  <text class="t-s" x="648" y="224">누가 주문 · 수령 · 결제하는가</text>
+
+  <text class="t-s c-ok" x="24" y="294">주소 결정 — 현재 시스템 날짜 ~ 9999.12.31 사이 유효한 주소를 찾는다</text>
+
+  <rect class="b-ok" x="24" y="306" width="420" height="58" rx="6"/>
+  <text class="t-h c-ok" x="44" y="330">① Address Usage 에서 탐색</text>
+  <text class="t-s" x="44" y="350">용도별로 매핑된 주소 (예: BBP003 Send goods)</text>
+
+  <path class="ln-ok" d="M444 335 H500" marker-end="url(#pf-o)"/>
+  <text class="t-xs c-bad" x="452" y="326">못 찾으면</text>
+
+  <rect class="b-mut" x="508" y="306" width="452" height="58" rx="6"/>
+  <text class="t-h" x="528" y="330">② Address Overview 에서 탐색</text>
+  <text class="t-s" x="528" y="350">일반 주소 목록 — 기간을 다 커버하지 못할 때도 여기로 온다</text>
+
+  <rect class="b-hl" x="24" y="380" width="936" height="46" rx="6"/>
+  <text class="t" x="44" y="402">Config 레벨 2단 — <tspan class="m-s">파트너 결정 절차 레벨</tspan>(특정 Object에만) 과 <tspan class="m-s">Generic partner function 레벨</tspan>(모든 SD 문서타입)</text>
+  <text class="t-s" x="44" y="420">우선순위는 위에서 아래로. Payer 를 제외한 KU 타입 파트너기능에 적용된다.</text>
+</svg>
+<figcaption><span class="fno">그림 4</span>파트너 결정의 배정 키와 주소 결정 2단계. Account Group은 마스터 레코드를, Partner Function은 문서 안의 역할을 통제한다.</figcaption>
+</figure>
+
+<h4>Account Group의 역할</h4>
+
+<p><span class="key">Account Group</span>은 고객마스터 레코드의 데이터 범위와 거동을 제어합니다(<code>0001</code> Sold-to party · <code>0002</code> Ship-to party · <code>0003</code> Payer, 추가 정의 가능). 정의할 때 결정되는 것은 <b>필드별 표시·필수·선택·불가 여부</b>, <b>번호범위</b>, 기타 통제요소입니다. 예를 들어 Ship-to 전용(<code>0002</code>)으로 만든 고객마스터는 배송 정보만 필요하고 청구 정보는 불필요하므로 해당 필드를 숨깁니다.</p>
+
+<div class="note">
+  <div class="t">🔰 초보자 설명 — Account Group vs Partner Function 한 줄 정리</div>
+  <p>Account Group = "이 고객카드에 어떤 정보 칸이 보이고 어떤 게 필수인지"를 정하는 <b>양식 설계도</b>. Partner Function = "이 거래에서 이 회사가 주문자인지 수령자인지 결제자인지"를 정하는 <b>역할 배치표</b>.</p>
+</div>
+
+<h4>간접 파트너 결정</h4>
+
+<p>판매문서를 만들면 BP는 고객마스터에서 자동 복사됩니다. 시스템은 <b>Sold-to Party의 고객마스터를 먼저</b> 보고, 필요하면 다른 출처에서 다른 파트너기능을 복사해 옵니다 — 이 <span class="hl">결정 순서를 Customizing에서 지정</span>할 수 있습니다.</p>
+
+<p>예: 지역별 정기 적재가 다를 때 Ship-to Party에 따라 배송대리인을 결정하고 싶다면 "Sold-to 고객마스터 접근 → Ship-to 고객마스터 접근해 배송대리인 결정" 순서를 지정합니다. Customer Hierarchy(<code>KNVH</code>) · Contact Persons(<code>KNVK</code>) 테이블 같은 다른 출처도 쓸 수 있고, 자동 결정 과정을 추적하는 분석 기능도 제공됩니다.</p>
+
+<h3>Multi-address Handling</h3>
+
+<p>하나의 거래처가 "물건을 받는 지점"과 "청구서를 받는 지점"이 다를 때처럼, 하나의 BP가 여러 주소를 가져야 하는 경우가 있습니다. 전통적인 SD 고객마스터 모델은 <span class="bad">레코드당 주소 1개</span>만 저장할 수 있어서, 주소가 N개면 고객마스터 레코드를 N개 만들어야 했습니다 — 같은 법인이 여러 번 중복 등록되는 문제입니다.</p>
+
+<p>SAP Business Partner 모델은 <b>하나의 BP에 여러 주소</b>를 기간 유효성(time-dependent validity) 및 주소별 종속 데이터와 함께 유지할 수 있습니다. 쓰려면 두 개의 Business Function을 <b>순서대로</b> 활성화해야 합니다.</p>
+
+<div class="step"><span class="n">STEP 1</span><p><code>BPCUSTOMER_MULTIPLE_ADDRESSES</code> — Business Partner의 고객마스터 데이터용 Multi-address</p></div>
+<div class="step"><span class="n">STEP 2</span><p><code>Q2C_MULTIPLE_BP_ADDRESSES</code> — SD의 Business Partner용 Multi-address</p></div>
+
+<p>활성화하면 하나의 고객번호로 법인의 모든 주소(+주소 종속·비종속 데이터)를 쓸 수 있고, 판매문서도 하나의 BP 마스터 레코드에서 주소 종속·비종속 필드를 직접 가져옵니다. 구성 가이드는 <b>SAP Note 3067314</b>를 참조합니다.</p>
+
+<h4>주소 결정 로직과 실제 사용 흐름</h4>
+
+<p>파트너가 SD 문서에 추가·변경되면 시스템은 Customizing 설정 + BP 마스터의 주소 설정을 근거로 주소를 결정합니다. <b>현재 시스템 날짜부터 9999.12.31 사이에 유효한 주소</b>를 찾아 제안하며, 순서는 그림 4 아래쪽과 같이 ① Address Usage → ② Address Overview입니다.</p>
+
+<p>Config 레벨은 2단입니다 — <b>Partner determination procedure 레벨</b>(특정 Partner Object에만 적용, 예: 판매문서 헤더)과 <b>Generic partner function 레벨</b>(모든 SD 문서타입에 적용). 우선순위는 위에서 아래로 적용되고, 모든 필드가 빈칸이면 Address Overview에서 모든 SD 문서 공통 주소를 결정합니다. 이 설정은 <span class="hl">Payer를 제외한 Customer(KU) 타입 파트너기능</span>(Sold-to · Ship-to · Bill-to 등)에 적용됩니다.</p>
+
+<p>실제 흐름은 이렇습니다. 판매문서 파트너 결정 절차에서 Ship-to Party의 <b>Address Determination</b> 필드를 <code>BBP003 Send goods</code>(= BP의 배송주소 매핑)로 설정해 두면, 그 BP가 Ship-to로 쓰이는 판매오더 생성 시 시스템이 유효 주소를 자동 제안합니다. 오더 참조 없이 만든 납품문서에서는 주소가 여러 개일 때 사용자에게 직접 선택을 묻습니다. 헤더·아이템 파트너 탭에는 <b>주소 선택</b> 버튼이 생겨 유효 주소 목록에서 고르거나 제안된 주소를 바꿀 수 있습니다.</p>
+
+<p>수동으로 주소를 수정하면 해당 파트너기능의 <b>문서 전용 주소</b>로 저장되고, <span class="good">원래의 BP 기반 주소는 없어지지 않고 "BP 참조 주소"로 보관</span>됩니다.</p>
+
+<div class="note">
+  <div class="t">🔰 초보자 설명 — Multi-address Handling, 실무에서 왜 쓰는가</div>
+  <p>대형 유통사가 지역별로 5개 물류센터를 운영하면 법인은 하나지만 배송지는 주문마다 다릅니다. 예전에는 이 다섯 지점을 각각 고객으로 등록해야 했지만(같은 회사가 고객리스트에 5번), 지금은 "한 고객번호 + 여러 주소 목록"으로 하나의 고객으로만 관리하면서 주문마다 알맞은 배송지를 골라 쓸 수 있습니다.</p>
+</div>
+
+<div class="note warn">
+  <div class="t">확인 필요 — 실제 시스템(winerp01 / MEP)에서 확정할 것</div>
+  <p>Multi-address Handling은 <b>Business Function 활성화가 전제</b>이고, 활성화 가능 여부와 절차는 S/4HANA 릴리스·배포형태(Private Cloud / On-Premise)에 따라 갈립니다. <span class="bad">Business Function은 한 번 켜면 되돌릴 수 없는 경우가 있으므로</span> 학습 목적으로 임의 활성화하지 않습니다. 필요해지면 <b>SAP Note 3067314</b>를 먼저 읽고, 실제 시스템의 <code>SFW5</code>에서 상태를 확인한 뒤 판단합니다.</p>
+</div>
+
+<div class="note ok">
+  <div class="t">📌 개인 E2E 프로젝트와의 연결점</div>
+  <p>식품 유통 모델이라 <b>본사 청구 / 지점 납품</b> 구조가 자연스럽게 나옵니다 — 거래처 본사가 Sold-to · Payer · Bill-to이고, 실제 물건은 지점 몇 곳으로 나가는 형태. 이때 <span class="hl">지점마다 고객마스터를 새로 만드는 것이 첫 번째 유혹</span>인데, 그렇게 하면 매출 집계가 지점 단위로 흩어져 거래처별 분석이 안 됩니다.</p>
+  <p>다만 이 프로젝트에서는 <b>Ship-to를 별도 고객마스터로 만드는 표준 방식으로 먼저 가는 것을 권합니다.</b> Multi-address는 Business Function 활성화라는 되돌리기 어려운 전제를 요구하는데, 가상 거래처 몇 건을 위해 그 위험을 지는 것은 "표준 우선" 원칙에도, 남은 서버 기간에도 맞지 않습니다. Account Group <code>0002</code>(Ship-to 전용)로 지점을 만들면 청구 관련 필드가 숨겨져 입력도 단순해집니다.</p>
+  <p>파트너 결정 절차 자체는 건드릴 일이 거의 없습니다. 표준 절차가 Sold-to에서 나머지 셋을 자동으로 끌어오므로, 판매오더에서 Ship-to가 자동으로 채워지는 것을 확인하는 것으로 충분합니다.</p>
+</div>
+
+</div>
+
+
+<!-- ══════════ APPENDIX ══════════ -->
+<div class="lesson" id="lx">
+<h2><span class="no">APPENDIX</span>정리 · 반드시 기억할 것</h2>
+
+<h3>한 장 요약</h3>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>질문</th><th>답</th></tr></thead>
+<tbody>
+<tr><td class="wrap">SD Customizing의 뼈대는</td><td class="wrap">판매문서타입 → 품목범주 → 스케줄라인범주 <b>3단 결정구조</b></td></tr>
+<tr><td class="wrap">품목범주는 무엇으로 결정되나</td><td class="wrap">판매문서타입 + 품목범주그룹(자재마스터) + 용도(Usage) + 상위 품목범주 — <b>4개 조합</b></td></tr>
+<tr><td class="wrap">스케줄라인범주는</td><td class="wrap">품목범주 + MRP 유형. 못 찾으면 <b>품목범주 + MRP 유형 공란</b>으로 2차 탐색</td></tr>
+<tr><td class="wrap">가격이 안 잡힌다</td><td class="wrap">품목범주의 가격책정 적용 여부를 본다. 자재·가격조건이 아니다</td></tr>
+<tr><td class="wrap">물건이 실제로 안 나간다</td><td class="wrap">스케줄라인범주의 <b>Relevant to Delivery</b>와 이동유형(대부분 601~699)</td></tr>
+<tr><td class="wrap">새 문서타입·품목범주 만들 때</td><td class="wrap"><b>항상 기존 것을 복사.</b> 백지에서 만들면 종속 엔트리가 빠진다</td></tr>
+<tr><td class="wrap">복사제어는 몇 레벨인가</td><td class="wrap"><b>헤더 · 아이템 · 스케줄라인 3레벨.</b> 각 레벨에 루틴 · 요건 · 스위치</td></tr>
+<tr><td class="wrap">선행문서가 안 닫힌다</td><td class="wrap">Completion Rule. A는 일부 참조로 즉시 Completed, B는 전량 복사 전까지 Partially referred</td></tr>
+<tr><td class="wrap">복사요건은 어디 있나</td><td class="wrap">ABAP 루틴으로 구현되어 <code>VOFM</code>에 배정</td></tr>
+<tr><td class="wrap">플랜트는 회사코드에 몇 개</td><td class="wrap">각 플랜트는 <b>단 하나의</b> 회사코드에. 배송 플랜트 배정은 distribution chain 단위</td></tr>
+<tr><td class="wrap">BP는 있는데 오더에 안 잡힌다</td><td class="wrap">BP Role <b>Customer</b> 유지 여부 + CVI 번호범위 매핑</td></tr>
+<tr><td class="wrap">Account Group과 Partner Function</td><td class="wrap">Account Group은 <b>고객마스터 레코드</b>를, Partner Function은 <b>문서 안의 역할</b>을 통제</td></tr>
+<tr><td class="wrap">주소 결정 순서</td><td class="wrap">① Address Usage → ② Address Overview. Payer 제외 KU 타입에 적용</td></tr>
+</tbody>
+</table>
+</div>
+
+<div class="note warn">
+  <div class="t">반드시 지킬 것</div>
+  <p>· 판매문서타입·품목범주는 <b>백지에서 만들지 않는다.</b> 표준을 복사해서 고친다 — 종속 엔트리가 같이 따라온다.<br>
+     · 품목범주를 늘리기 전에 <b>가격조건으로 풀 수 있는지</b> 먼저 본다. 품목범주가 하나 늘면 결정 조합과 복사제어 엔트리가 배수로 늘어난다.<br>
+     · 판매문서타입 Customizing의 <b>추가 체크(미결 견적 메시지, 고객-자재 정보레코드 검색)는 필요한 것만 켠다.</b> 원문이 성능 영향을 명시하고 있다.<br>
+     · <code>VOFM</code> 복사요건 루틴은 <b>표준을 먼저 쓴다.</b> 신규 루틴은 표준으로 안 되는 게 확인된 뒤에.<br>
+     · Business Function(Multi-address 등)은 <b>학습 목적으로 임의 활성화하지 않는다.</b> 되돌리기 어렵다.<br>
+     · 출하 불가가 된 오더 아이템은 지우지 말고 <b>거절사유 코드로 닫는다.</b> 나중에 집계할 유일한 근거다.</p>
+</div>
+
+<h3>참고</h3>
+
+<ul>
+  <li>원본: 노션 <b>SAP Learning Hub</b> → Implementing Sales in SAP S/4HANA Cloud Private Edition → 3-1 ~ 3-4 (Course 3 / S46050, 8 Unit · 레슨 20개 본문 정리)</li>
+  <li>원문 언급 SAP Note: <b>3067314</b> — Multi-address Handling 구성 가이드</li>
+  <li>원문에는 Further Reading(SAP Help Portal 링크)이 없고, 각 레슨의 Start Demo는 Learning Hub 내장 시뮬레이션이라 첨부 자료가 없습니다</li>
+  <li>앞 노트: <b>S46001</b> 가용성확인(ATP) · 뒤 노트: <b>S46051</b> Outline Agreement</li>
+  <li>이 노트는 <b>개인 학습용 정리</b>입니다. 실무 프로젝트 산출물이 아니며, T-Code와 IMG 경로 중 원문에 없는 것은 전부 "확인 필요"로 표시해 두었습니다</li>
+</ul>
+
+</div>
+
+</div>
+<script src="../../assets/hub.js" defer></script>
+</body>
+</html>

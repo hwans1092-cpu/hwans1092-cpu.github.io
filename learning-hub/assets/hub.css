@@ -1,0 +1,82 @@
+/* SAP Learning Hub 자료실 — 홈 / 저니 인덱스 공용 스타일
+   노트 본문 스타일은 notes-paper.css 담당. 이 파일은 네비게이션 화면 전용. */
+:root{
+  --ink:#1e1e1e; --ink-soft:#555; --ink-mut:#6B7280;
+  --key:#4338CA; --key-soft:#EEF0FB;
+  --hl:#FEF08A; --danger:#B91C1C; --ok:#047857;
+  --rule:#E5E7EB; --code-bg:#F3F4F6; --paper:#fff;
+}
+*{box-sizing:border-box;}
+body{
+  margin:0; background:#E9E9E9; color:var(--ink);
+  font-family:"Malgun Gothic","맑은 고딕","Apple SD Gothic Neo",system-ui,sans-serif;
+  font-size:11pt; line-height:1.7;
+}
+.wrap{max-width:1180px; margin:0 auto; padding:0 36px;}
+@media (max-width:820px){ .wrap{padding:0 18px;} }
+
+/* ── header ─────────────────────────────────────────────── */
+header.top{background:#fff; border-bottom:1px solid var(--rule); padding:34px 0 26px; margin-bottom:30px;}
+header.top .kicker{display:inline-block; background:var(--key); color:#fff; font-size:9pt;
+  padding:3px 11px; border-radius:4px; letter-spacing:1px; font-weight:700; margin-bottom:12px;}
+header.top h1{margin:0 0 8px; font-size:26pt; letter-spacing:-.8px;}
+header.top .sub{color:var(--ink-soft); font-size:10.5pt; max-width:760px;}
+header.top .sub b{color:var(--key);}
+
+.stat-row{display:flex; gap:44px; margin-top:22px; flex-wrap:wrap;}
+.stat-row .st .n{font-size:20pt; font-weight:700; color:var(--key); line-height:1.1;}
+.stat-row .st .l{font-size:9pt; color:var(--ink-mut); letter-spacing:.4px;}
+
+/* ── 검색 ───────────────────────────────────────────────── */
+.search{margin:0 0 28px;}
+.search input{width:100%; padding:13px 16px; font-size:11pt; border:1px solid #CBD0DA;
+  border-radius:6px; background:#fff; font-family:inherit;}
+.search input:focus{outline:none; border-color:var(--key); box-shadow:0 0 0 3px var(--key-soft);}
+.search .hint{font-size:9pt; color:var(--ink-mut); margin-top:6px;}
+
+/* ── 저니 카드 (홈) ─────────────────────────────────────── */
+.jgrid{display:grid; grid-template-columns:repeat(auto-fill,minmax(340px,1fr)); gap:18px; margin-bottom:40px;}
+a.jcard{display:block; background:#fff; border:1px solid var(--rule); border-top:4px solid var(--key);
+  border-radius:7px; padding:22px 24px 20px; text-decoration:none; color:inherit;
+  transition:box-shadow .15s, transform .15s;}
+a.jcard:hover{box-shadow:0 4px 16px rgba(0,0,0,.09); transform:translateY(-2px);}
+a.jcard .badge{display:inline-block; font-size:8.5pt; font-weight:700; letter-spacing:.8px;
+  padding:2px 9px; border-radius:10px; background:var(--key-soft); color:var(--key); margin-bottom:10px;}
+a.jcard h3{margin:0 0 8px; font-size:13pt; line-height:1.4;}
+a.jcard p{margin:0 0 14px; font-size:9.8pt; color:var(--ink-soft); line-height:1.6;}
+a.jcard .meta{font-size:9pt; color:var(--ink-mut); display:flex; gap:14px; flex-wrap:wrap;}
+
+/* 진행 막대 */
+.bar{height:6px; border-radius:3px; background:#EDEFF2; overflow:hidden; margin:12px 0 9px;}
+.bar > i{display:block; height:100%; background:var(--key); border-radius:3px;}
+
+/* ── 코스 목록 (저니 페이지) ────────────────────────────── */
+.clist{background:#fff; border:1px solid var(--rule); border-radius:7px; overflow:hidden; margin-bottom:34px;}
+.crow{display:grid; grid-template-columns:54px 1fr 150px 108px; gap:16px; align-items:center;
+  padding:15px 22px; border-bottom:1px solid var(--rule); text-decoration:none; color:inherit;}
+.crow:last-child{border-bottom:none;}
+a.crow:hover{background:#FAFAFE;}
+.crow .no{font-family:"D2Coding","Consolas",monospace; font-size:9.5pt; color:var(--ink-mut);}
+.crow .ti{font-size:10.5pt; font-weight:700; line-height:1.45;}
+.crow .ti span.code{font-family:"D2Coding","Consolas",monospace; font-size:9pt;
+  color:var(--key); font-weight:700; margin-right:8px;}
+.crow .hr{font-size:9.2pt; color:var(--ink-mut);}
+.crow .stt{font-size:8.5pt; font-weight:700; padding:3px 10px; border-radius:10px; text-align:center;}
+.stt.done{background:#ECFDF5; color:var(--ok);}
+.stt.todo{background:#F3F4F6; color:var(--ink-mut);}
+.stt.ref{background:#FEF3C7; color:#92400E;}
+.crow.is-todo{cursor:default;}
+.crow.is-todo .ti{color:var(--ink-mut); font-weight:400;}
+@media (max-width:820px){
+  .crow{grid-template-columns:40px 1fr 80px; }
+  .crow .hr{display:none;}
+}
+
+h2.sec{font-size:13pt; margin:0 0 14px; padding-bottom:8px; border-bottom:2px solid var(--ink);}
+.crumb2{font-size:9.5pt; color:var(--ink-soft); margin-bottom:18px;}
+.crumb2 a{color:var(--key); text-decoration:none; font-weight:700;}
+.crumb2 a:hover{text-decoration:underline;}
+
+footer.bot{border-top:1px solid var(--rule); margin-top:46px; padding:22px 0 40px;
+  font-size:9pt; color:var(--ink-mut); background:#fff;}
+.empty{padding:34px; text-align:center; color:var(--ink-mut); font-size:10pt;}

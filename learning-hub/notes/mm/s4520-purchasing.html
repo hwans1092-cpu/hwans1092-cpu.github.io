@@ -1,0 +1,1839 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>S4520 Purchasing — 소스결정 · 승인절차 · 문서유형 Customizing</title>
+<meta name="description" content="SAP Learning Hub의 Purchasing in SAP S/4HANA(S4520) 노트. 구매 마스터데이터와 파트너함수, 산정스키마와 정보레코드, 계약·일정계약, 소스결정 우선순위와 차단, 구매요청 처리와 Situation Handling, 승인프로시저, 특수 조달, 문서유형·필드선택키 Customizing, 공급업체평가.">
+<link rel="icon" href="../../assets/favicon.svg">
+<link rel="stylesheet" href="../../assets/notes-paper.css">
+<style>
+/* ── 이 노트 전용: 도해(SVG) 스타일 ─────────────────────────── */
+.dgm{display:block; width:100%; height:auto;}
+.dgm text{font-family:"Malgun Gothic","맑은 고딕","Apple SD Gothic Neo",sans-serif; fill:#1e1e1e;}
+.dgm .t-h{font-size:15px; font-weight:700;}
+.dgm .t{font-size:13px;}
+.dgm .t-s{font-size:11.5px; fill:#555;}
+.dgm .t-xs{font-size:10.5px; fill:#6B7280;}
+.dgm .m{font-family:"D2Coding","Consolas",monospace; font-size:12px;}
+.dgm .m-s{font-family:"D2Coding","Consolas",monospace; font-size:10.5px;}
+.dgm .c-key{fill:#4338CA;} .dgm .c-bad{fill:#B91C1C;} .dgm .c-ok{fill:#047857;}
+.dgm .b{fill:#FFFFFF; stroke:#C7CBD6; stroke-width:1.2;}
+.dgm .b-key{fill:#EEF0FB; stroke:#4338CA; stroke-width:1.4;}
+.dgm .b-bad{fill:#FEF2F2; stroke:#B91C1C; stroke-width:1.3;}
+.dgm .b-ok{fill:#ECFDF5; stroke:#047857; stroke-width:1.3;}
+.dgm .b-mut{fill:#F3F4F6; stroke:#D1D5DB; stroke-width:1.1;}
+.dgm .b-hl{fill:#FEF08A; stroke:#CA8A04; stroke-width:1.2;}
+.dgm .b-ghost{fill:none; stroke:#9AA3B2; stroke-width:1.1; stroke-dasharray:5 4;}
+.dgm .ln{stroke:#7C8697; stroke-width:1.4; fill:none;}
+.dgm .ln-key{stroke:#4338CA; stroke-width:1.8; fill:none;}
+.dgm .ln-bad{stroke:#B91C1C; stroke-width:1.6; fill:none;}
+.dgm .ln-ok{stroke:#047857; stroke-width:1.6; fill:none;}
+.dgm .ln-d{stroke:#9AA3B2; stroke-width:1.2; stroke-dasharray:4 4; fill:none;}
+.dgm .arw{fill:#7C8697;} .dgm .arw-key{fill:#4338CA;}
+.dgm .arw-bad{fill:#B91C1C;} .dgm .arw-ok{fill:#047857;}
+.figwrap{background:#FAFAFE; border:1px solid var(--rule); border-radius:6px;
+  padding:18px 16px 10px; margin:22px 0;}
+.figwrap figcaption{margin-top:12px; padding-top:10px; border-top:1px solid var(--rule);}
+</style>
+</head>
+<body>
+<div class="crumb"><a href="../../index.html">← 자료실 홈</a> · <a href="../../journey.html?j=mm">MM 저니</a> · S4520 Purchasing</div>
+<div class="sheet">
+
+<div class="doc-head">
+  <div class="kicker">LEARNING HUB · S4520</div>
+  <h1>Purchasing — 소스결정 · 승인절차 · 문서유형 Customizing</h1>
+  <div class="sub">
+    Learning Journey <b>Implementing SAP S/4HANA Cloud Private Edition, Sourcing and Procurement</b> · Course 2 / S4520 · 9 Unit · 34 레슨<br>
+    출처: 노션 <b>SAP Learning Hub</b> 노트 2-1 ~ 2-9 변환
+  </div>
+</div>
+
+<div class="lead">
+  <p><b>결론부터.</b> 구매오더 한 줄이 만들어질 때 시스템이 실제로 하는 일은 두 가지입니다 — <span class="hl">"이 자재를 누구에게서 사는가"(소스결정)</span>와 <span class="hl">"이 문서를 지금 내보내도 되는가"(승인절차)</span>. 나머지는 전부 이 둘을 받쳐주는 마스터데이터와 화면 통제입니다.</p>
+  <p>그래서 이 코스의 무게중심도 Unit 3(소스결정)과 Unit 5(승인프로시저)에 있습니다. Unit 1~2는 소스결정이 읽어들일 재료(자재마스터·BP·정보레코드·계약)를 만들고, Unit 4는 결정된 소스를 실제 오더로 바꾸는 일괄처리, Unit 7은 그 문서가 화면에서 어떻게 보이고 어디까지 입력을 강제할지를 Customizing으로 고정합니다. 순서대로 읽되, 막히면 <a href="#l4">LESSON 4</a>와 <a href="#l6">LESSON 6</a>부터 보는 게 빠릅니다.</p>
+</div>
+
+<div class="toc">
+  <h4>목차</h4>
+  <ol>
+    <li><a href="#l1">자재마스터 · BP 구매데이터 · 파트너함수</a></li>
+    <li><a href="#l2">가격결정 — 조건유형과 산정스키마 · 구매정보레코드</a></li>
+    <li><a href="#l3">계약과 일정계약 — 장기계약 두 갈래</a></li>
+    <li><a href="#l4">소스결정 — 우선순위와 차단</a></li>
+    <li><a href="#l5">구매요청 처리 · 구매오더 모니터링 · Situation Handling</a></li>
+    <li><a href="#l6">승인프로시저(Release Procedure)</a></li>
+    <li><a href="#l7">특수 조달 — 인보이싱플랜 · 일괄구매오더 · 위탁가공</a></li>
+    <li><a href="#l8">문서유형 · 필드선택키 · EVO / EFB</a></li>
+    <li><a href="#l9">공급업체평가 — 하드팩트와 소프트팩트</a></li>
+  </ol>
+</div>
+
+
+<!-- ══════════ LESSON 1 ══════════ -->
+<div class="lesson" id="l1">
+<h2><span class="no">LESSON 1</span>자재마스터 · BP 구매데이터 · 파트너함수</h2>
+
+<p><span class="tag">Unit 1</span><span class="tag">레슨 3개</span>Creating Material Master Records for Purchasing · Creating Business Partners · Using Partner Functions in Purchasing</p>
+
+<h3>언제 이걸 알아야 하는가</h3>
+
+<p>MM에서 가장 자주 받는 첫 문의가 <b>"이 자재로 구매오더가 안 잡힙니다"</b>입니다. 자재도 있고 벤더도 있는데 안 됩니다. 원인은 거의 둘 중 하나입니다 — <span class="key">자재마스터에 구매 뷰(유지상태 E)가 확장되지 않았거나</span>, <span class="key">BP에 해당 구매조직 데이터가 없거나</span>.</p>
+
+<p>두 번째로 많은 게 <b>"오더 발송주소가 엉뚱한 데로 나갑니다"</b>인데, 이건 파트너함수 문제입니다. 세 계층(BP 마스터 · 계정그룹 · 문서유형)이 전부 맞아야 자동 반영되므로, 어디가 끊겼는지 순서대로 짚어야 합니다.</p>
+
+<h3>자재마스터 — 뷰와 유지상태</h3>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>뷰</th><th>포함 정보</th><th>예시</th></tr></thead>
+<tbody>
+<tr><td>Basic data</td><td class="wrap">일반 데이터</td><td class="wrap">자재 약칭, 기본단위, 중량, 부피</td></tr>
+<tr><td>Sales</td><td class="wrap">영업 프로세스·가격결정용 정보</td><td class="wrap">판매가격, 최소주문수량, 품목범주그룹</td></tr>
+<tr><td><span class="key">Purchasing</span></td><td class="wrap">조달 프로세스용 정보</td><td class="wrap">플랜트별 담당구매그룹, 과부족 허용오차, 구매오더 단위, 컨트롤 지시자</td></tr>
+<tr><td>MRP</td><td class="wrap">자재소요계획용 정보</td><td class="wrap">안전재고, 계획입고시간, MRP 유형</td></tr>
+<tr><td>Accounting</td><td class="wrap">재고평가 관련 정보</td><td class="wrap">가격관리방식, 과거/미래가격, 현재평가가격</td></tr>
+<tr><td>Storage</td><td class="wrap">보관·저장 관련 정보</td><td class="wrap">출고단위, 저장조건, 포장치수</td></tr>
+<tr><td>Forecasting</td><td class="wrap">소요량 예측용 정보</td><td class="wrap">예측모델, 예측기간, 예측/소비값</td></tr>
+</tbody>
+</table>
+</div>
+
+<p>사용자부서마다 <b>유지상태(Maintenance Status)</b>가 붙습니다. 구매는 <span class="key">E</span>이고, 구매오더를 만들려면 자재가 반드시 유지상태 E를 가지고 있어야 합니다. 자재유형이 <b>가치기반 재고관리</b>를 수반하면 회계데이터(유지상태 <span class="key">B</span>)도 함께 필요합니다.</p>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>작업</th><th>GUI 메뉴 경로</th><th>T-Code</th></tr></thead>
+<tbody>
+<tr><td>자재마스터 생성</td><td class="wrap">Logistics → Materials Management → Material Master → Material → Create (General)</td><td><code>MM01</code></td></tr>
+<tr><td>자재마스터 변경</td><td class="wrap">… → Material → Change</td><td><code>MM02</code></td></tr>
+<tr><td>자재마스터 조회</td><td class="wrap">… → Material → Display → Display Current</td><td><code>MM03</code></td></tr>
+<tr><td>확장 가능 자재 조회/유지</td><td class="wrap">… → Other → Extend Material View(s)</td><td><code>MM50</code></td></tr>
+<tr><td>자재유형 변경</td><td class="wrap">… → Material → Change Material Type</td><td><code>MMAM</code></td></tr>
+</tbody>
+</table>
+</div>
+
+<div class="note warn">
+  <div class="t">자재유형은 재고·미결문서가 하나도 없을 때만 바꿀 수 있다</div>
+  <p><code>MMAM</code>(또는 Fiori <b>Change Material Type</b>)으로 바꾸되, 해당 자재에 재고와 미결문서가 <span class="bad">전혀 없어야</span> 합니다. 운영에서 이 조건을 만족시키기가 사실상 어려우므로, 자재유형은 <b>처음 만들 때 확정</b>한다고 보는 편이 맞습니다.</p>
+</div>
+
+<h4>자재유형이 통제하는 것</h4>
+
+<ul>
+  <li>번호부여 방식 및 번호범위</li>
+  <li>표시되는 데이터 화면과 그 순서</li>
+  <li>유지 가능한 사용자부서</li>
+  <li>조달유형 — 사내생산 / 외부조달 / 둘 다</li>
+  <li>관련 평가영역에서 <b>수량갱신 · 금액갱신</b> 여부</li>
+  <li>가치갱신 자재유형에 가능한 평가클래스</li>
+</ul>
+
+<p>속성 정의는 Customizing <code>Logistics - General → Material Master → Basic Settings → Material Types → Define Attributes of Material Types</code> (<code>OMS2</code>).</p>
+
+<div class="note">
+  <div class="t">🔰 초보자 설명 — 특수 자재유형 NLAG / UNBW / SERV</div>
+  <p><b>NLAG</b>(비재고자재): 정기 조달하되 재고로 잡지 않는 예비부품·사무용품. <span class="bad">수량갱신·금액갱신 모두 불가</span>라 재고계정 전기가 없고, 발주수량이 입고 시점에 곧바로 소비수량으로 전기됩니다. 회계뷰가 있어 구매요청용 평가가격은 유지할 수 있지만 입고·송장수령이 그 값을 갱신하지는 않습니다.</p>
+  <p><b>UNBW</b>(비평가자재): 복사용지처럼 입고 즉시 소비계정으로 비용 처리할 자재. <span class="hl">수량갱신은 되고 금액은 관리되지 않습니다.</span> 회계데이터를 만들 수 없으므로 구매오더 항목에 계정지정이 필수이고, 구매요청 생성 시 평가가격을 수동 입력해야 합니다.</p>
+  <p><b>SERV</b>(서비스): 서비스마스터 대신 쓰는 자재유형. Customizing의 <b>Product Type Group</b> 필드로 자재(공백/1)와 서비스(2)를 구분하며, 불필요한 필드·부서가 숨겨져 화면이 단순해집니다.</p>
+  <p>NLAG·UNBW 모두 소스결정을 위해 정보레코드나 계약을 만들 수 있습니다.</p>
+</div>
+
+<h3>비즈니스파트너(BP) — 공급업체 마스터의 실체</h3>
+
+<p>S/4HANA에서 공급업체·고객 마스터는 전부 <span class="key">Business Partner</span>로 관리합니다. BP 레벨에는 번호·이름·주소·은행데이터·세금번호 같은 기본데이터가 들어가고, 배정된 <b>BP 역할(Role)</b>에 따라 공급업체/고객 마스터레코드가 백그라운드에서 자동 생성됩니다. T-Code는 <code>BP</code>.</p>
+
+<h4>카테고리 · 그룹핑 · 계정그룹</h4>
+
+<ul>
+  <li><b>BP 카테고리</b> — 자연인(Person) / 그룹(Group) / 조직(Organization). 입력 가능 필드를 결정하며 <span class="bad">한 번 생성하면 변경 불가</span></li>
+  <li><b>그룹핑(Grouping)</b> — BP 번호범위를 결정. 클라이언트 레벨에서 생성 시 선택. Customizing <code>Cross-Application Components → SAP Business Partner → Business Partner → Basic Settings → Number Ranges and Groupings → Define Groupings and Assign Number Ranges</code>. BP-그룹핑 배정은 테이블 <code>BUT000</code></li>
+  <li><b>계정그룹(Account Group)</b> — 그룹핑에 따라 자동 결정, 테이블 <code>TBC001</code>에 배정. <b>Same Numbers</b> 체크박스가 BP번호와 공급업체번호를 같게 쓸지 결정</li>
+</ul>
+
+<div class="note warn">
+  <div class="t">BP 역할의 필드선택 우선순위는 표준과 반대다</div>
+  <p>일반 필드선택 로직은 <code>HIDE &gt; DISPLAY &gt; MANDATORY &gt; OPTIONAL</code> 순이지만, <span class="hl">BP 역할에서는 <code>MANDATORY &gt; OPTIONAL &gt; DISPLAY &gt; HIDE</code></span>입니다.</p>
+  <p>예를 들어 E-Mail 필드가 <code>FLVN00</code>(FI Vendor)에서 MANDATORY, <code>FLVN01</code>(Supplier)에서 HIDE로 설정돼 있으면 — 어느 공급업체를 유지하든 이 필드는 <b>필수입력</b>이 됩니다. "숨겼는데 왜 필수로 뜨냐"는 문의가 여기서 나옵니다.</p>
+</div>
+
+<h4>BP 구매데이터의 3계층</h4>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>데이터 범주</th><th>레벨</th><th>내용</th></tr></thead>
+<tbody>
+<tr><td>일반데이터</td><td>클라이언트</td><td class="wrap">주소, 컨트롤데이터, 은행정보, 관계</td></tr>
+<tr><td>회계데이터</td><td>회사코드</td><td class="wrap">조정계정 번호, 서신·원천징수 정보, 자동지불용 지불방법</td></tr>
+<tr><td><span class="key">구매데이터</span></td><td>구매조직</td><td class="wrap">구매오더 통화, 인코텀즈, 파트너함수, 각종 구매 컨트롤. <b>플랜트 · 서브레인지별로 별도 유지 가능</b></td></tr>
+</tbody>
+</table>
+</div>
+
+<p>구매데이터의 통화·지불조건은 구매오더 · 장기계약 · 정보레코드의 <b>기본값</b>으로 쓰입니다. 주요 컨트롤 지시자 셋:</p>
+
+<ul>
+  <li><b>GR-Based Invoice Verif.</b> (입고기준 송장검증) 또는 Eval. Receipt Settlement</li>
+  <li><b>Acknowledgment Requiremt.</b> — 오더승인 요구</li>
+  <li><b>Automatic Purchase Order</b> — 자동구매오더 허용</li>
+</ul>
+
+<p>이 지시자들은 ① 그 공급업체에 어떤 구매기능이 가능한지, ② 정보레코드·구매문서 생성 시 해당 필드의 기본값을 결정합니다.</p>
+
+<h4>서브레인지 · 일회성 공급업체 · 구매카테고리</h4>
+
+<ul>
+  <li><b>공급업체 서브레인지(Sub-range)</b> — 공급업체의 제품군을 최대 6자 키로 세분(예: <code>CAR</code>, <code>TRUCK</code>). 정보레코드·구매문서 항목에 배정 가능. 쓰려면 일반 공급업체 마스터에서 <b>플랜트/서브레인지별 추가데이터</b>를 먼저 허용해야 함</li>
+  <li><b>일회성 공급업체(One-Time Supplier)</b> — 마스터레코드가 없는 BP용. 여러 공급업체가 재사용하므로 주소를 저장할 수 없고, 구매문서 생성 시 주소를 수동 입력. 일회성용 계정그룹이 있는 그룹핑을 선택해야 함</li>
+  <li><b>구매카테고리</b> — 자재그룹을 묶어 지출을 조직화·분석하는 단위. Fiori <b>Manage Purchasing Categories</b>. <span class="hl">공급업체는 여러 카테고리에 배정 가능하지만, 자재그룹은 하나의 카테고리에만</span> 배정됩니다</li>
+</ul>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>기능</th><th>T-Code / Fiori 앱</th></tr></thead>
+<tbody>
+<tr><td>BP/공급업체 마스터 유지</td><td class="wrap"><code>BP</code> · Maintain Business Partner · Manage Business Partner Master Data</td></tr>
+<tr><td>구매조직별 공급업체 개요</td><td class="wrap"><code>MKVZ</code> (Purchasing List) · Display Supplier List</td></tr>
+<tr><td>공급업체 마스터 일괄유지</td><td class="wrap">Mass maintenance, vendor master</td></tr>
+<tr><td>BP 태스크 개요</td><td class="wrap">Master Data Process Overview for Business Partner</td></tr>
+</tbody>
+</table>
+</div>
+
+<h3>파트너함수 — 네 곳이 전부 맞아야 자동으로 붙는다</h3>
+
+<p>파트너역할은 조달 프로세스의 일부 기능을 <b>공급업체가 아닌 다른 BP</b>가 맡게 합니다. 대표적으로 주문처(Ordering Address, <code>OA</code>) · 물품공급처(Goods Supplier, <code>GS</code>) · 송장발행처(Invoicing Party, <code>IP</code>). 유지 레벨은 구매조직 / 구매조직·플랜트 / 구매조직·서브레인지 / 구매조직·플랜트·서브레인지 네 가지입니다.</p>
+
+<figure class="figwrap">
+<svg class="dgm" viewBox="0 0 1000 440" role="img" aria-label="구매 마스터데이터 도해. 자재마스터는 뷰별 유지상태로, BP는 클라이언트·회사코드·구매조직 세 레벨로 나뉘며, 파트너함수가 구매오더에 자동 반영되려면 BP 마스터·계정그룹 허용·공급업체 파트너스키마·문서유형 파트너스키마 네 곳이 모두 맞아야 한다.">
+  <defs>
+    <marker id="m1k" markerWidth="9" markerHeight="9" refX="7" refY="4.5" orient="auto">
+      <polygon class="arw-key" points="0,0 9,4.5 0,9"/></marker>
+  </defs>
+
+  <rect class="b-key" x="20" y="16" width="440" height="36" rx="5"/>
+  <text class="t-h c-key" x="40" y="40">자재마스터  <tspan class="m-s">MM01 / MM02 / MM03</tspan></text>
+
+  <rect class="b-mut" x="20" y="60" width="440" height="28" rx="4"/>
+  <text class="t" x="40" y="79">Basic data</text>
+  <rect class="b-hl" x="20" y="92" width="440" height="28" rx="4"/>
+  <text class="t" x="40" y="111">Purchasing — 유지상태 <tspan class="m">E</tspan>  (구매오더 필수)</text>
+  <rect class="b-hl" x="20" y="124" width="440" height="28" rx="4"/>
+  <text class="t" x="40" y="143">Accounting — 유지상태 <tspan class="m">B</tspan>  (가치갱신 자재유형)</text>
+  <rect class="b-mut" x="20" y="156" width="440" height="28" rx="4"/>
+  <text class="t" x="40" y="175">MRP</text>
+  <rect class="b-mut" x="20" y="188" width="440" height="28" rx="4"/>
+  <text class="t" x="40" y="207">Storage · Forecasting · Sales</text>
+
+  <text class="t-s" x="20" y="240">자재유형이 번호범위 · 화면 · 유지 가능 부서 · 조달유형 · 수량/금액갱신을 전부 통제한다</text>
+
+  <rect class="b-key" x="540" y="16" width="440" height="36" rx="5"/>
+  <text class="t-h c-key" x="560" y="40">비즈니스파트너  <tspan class="m-s">BP</tspan></text>
+
+  <rect class="b" x="540" y="60" width="440" height="38" rx="4"/>
+  <text class="t" x="560" y="84">일반데이터 — <tspan class="t-s">클라이언트 레벨</tspan></text>
+  <rect class="b" x="540" y="102" width="440" height="38" rx="4"/>
+  <text class="t" x="560" y="126">회계데이터 — <tspan class="t-s">회사코드 레벨</tspan></text>
+  <rect class="b-hl" x="540" y="144" width="440" height="52" rx="4"/>
+  <text class="t" x="560" y="166">구매데이터 — <tspan class="t-s">구매조직 레벨</tspan></text>
+  <text class="t-s" x="560" y="186">플랜트 · 서브레인지별로 다르게 유지 가능</text>
+
+  <text class="t-s" x="540" y="224">BP 역할 배정 → 공급업체/고객 마스터가 백그라운드 자동 생성</text>
+  <text class="t-s" x="540" y="242">그룹핑 → 번호범위 · 계정그룹(<tspan class="m-s">TBC001</tspan>) 결정</text>
+
+  <line class="ln-d" x1="20" y1="266" x2="980" y2="266"/>
+  <text class="t-h" x="20" y="292">파트너함수가 구매오더에 자동으로 붙는 경로 — 한 곳만 끊겨도 안 붙는다</text>
+
+  <rect class="b" x="20" y="306" width="176" height="76" rx="5"/>
+  <text class="t" x="36" y="330">① BP 마스터</text>
+  <text class="t-s" x="36" y="350">구매조직 레벨에</text>
+  <text class="t-s" x="36" y="368"><tspan class="m-s">OA / GS / IP</tspan> 입력</text>
+  <path class="ln-key" d="M196 344 H212" marker-end="url(#m1k)"/>
+
+  <rect class="b" x="216" y="306" width="176" height="76" rx="5"/>
+  <text class="t" x="232" y="330">② 계정그룹</text>
+  <text class="t-s" x="232" y="350">이 계정그룹에서</text>
+  <text class="t-s" x="232" y="368">그 역할이 허용되는가</text>
+  <path class="ln-key" d="M392 344 H408" marker-end="url(#m1k)"/>
+
+  <rect class="b" x="412" y="306" width="176" height="76" rx="5"/>
+  <text class="t" x="428" y="330">③ 공급업체</text>
+  <text class="t" x="428" y="348">파트너스키마</text>
+  <text class="t-s" x="428" y="368">계정그룹에 배정</text>
+  <path class="ln-key" d="M588 344 H604" marker-end="url(#m1k)"/>
+
+  <rect class="b" x="608" y="306" width="176" height="76" rx="5"/>
+  <text class="t" x="624" y="330">④ 문서유형</text>
+  <text class="t" x="624" y="348">파트너스키마</text>
+  <text class="t-s" x="624" y="368"><tspan class="m-s">NB</tspan> → 스키마 <tspan class="m-s">0002</tspan></text>
+  <path class="ln-key" d="M784 344 H800" marker-end="url(#m1k)"/>
+
+  <rect class="b-ok" x="804" y="306" width="176" height="76" rx="5"/>
+  <text class="t c-ok" x="820" y="330">구매오더에</text>
+  <text class="t c-ok" x="820" y="348">자동 결정</text>
+  <text class="t-s" x="820" y="368">발송주소 · 송장발행처</text>
+
+  <rect class="b-ghost" x="20" y="396" width="960" height="34" rx="6"/>
+  <text class="t-s" x="42" y="418">문서유형을 복사해도 <tspan class="c-bad">파트너스키마는 함께 복사되지 않는다</tspan> — 신규 문서유형에는 ④를 반드시 다시 배정할 것.</text>
+</svg>
+<figcaption><span class="fno">그림 1</span>구매 마스터데이터 3층과 파트너함수 결정 경로. 파트너가 안 붙으면 ①→④ 순서로 짚는다.</figcaption>
+</figure>
+
+<h4>파트너결정 Customizing</h4>
+
+<p>경로는 <code>Materials Management → Purchasing → Partner Determination</code>.</p>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>설정 단계</th><th>내용</th></tr></thead>
+<tbody>
+<tr><td>Define Partner Roles</td><td class="wrap">파트너역할 정의. <b>Unique</b> 지시자를 켜면 조직레벨당 1개만 사용 가능. 끄면 조직레벨별 복수 지정이 가능하고 문서 생성 시 목록에서 선택(기본값 지정 가능)</td></tr>
+<tr><td>Define Permissible Partner Roles per Account Group</td><td class="wrap">계정그룹별 허용 역할 — 어떤 유형의 공급업체가 어떤 기능을 맡을 수 있는지</td></tr>
+<tr><td>Define/Assign Partner Schemas in Supplier Master Record</td><td class="wrap">공급업체용 파트너스키마 정의 · 계정그룹 배정(선택). 배정하면 BP에 입력한 역할이 스키마에 있는지 검사</td></tr>
+<tr><td>Define/Assign Partner Schemas in Purchasing Documents</td><td class="wrap">구매문서용 파트너스키마 정의 · 문서유형 배정. <b>이게 있어야</b> 공급업체 마스터의 파트너가 문서에 자동 제안됨</td></tr>
+</tbody>
+</table>
+</div>
+
+<h4>구매문서 파트너스키마의 추가 지시자</h4>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>지시자</th><th>의미</th></tr></thead>
+<tbody>
+<tr><td>Higher Lvl</td><td class="wrap">플랜트/서브레인지 레벨에 역할이 없으면 구매조직 레벨에서 검색. <span class="hl"><code>ME21N</code> 이외 경로로 생성된 구매오더의 파트너를 찾으려면 필수</span></td></tr>
+<tr><td>End</td><td class="wrap">켜면 문서 <b>저장/체크 시점</b>에 공급업체마스터(해제오더면 계약)로부터 역할이 반영됨. 끄면 헤더에 공급업체번호를 넣는 즉시 결정</td></tr>
+<tr><td>Mand.</td><td class="wrap">필수 파트너함수 여부</td></tr>
+<tr><td>No Chnge</td><td class="wrap">자동 반영 후 변경·삭제 불가</td></tr>
+</tbody>
+</table>
+</div>
+
+<div class="note warn">
+  <div class="t">End 지시자와 할인/할증은 같이 쓰지 않는다</div>
+  <p>송장발행처(Invoicing Party) 역할에 할인·할증을 거는 경우 <b>End 지시자를 쓰지 마십시오</b> — 구매오더의 저장·체크는 <span class="bad">새 가격결정을 트리거하지 않기 때문에</span> 파트너가 뒤늦게 붙어도 조건이 다시 계산되지 않습니다.</p>
+  <p>또 PO 항목이 서로 다른 플랜트를 포함하면, Higher Lvl 설정과 무관하게 <b>구매조직 레벨</b>에서 파트너가 결정됩니다. 파트너결정 FAQ는 SAP Note 459350.</p>
+</div>
+
+<div class="note">
+  <div class="t">🔰 초보자 설명 — 파트너역할이 실제로 하는 일</div>
+  <p>ABC 그룹에서 물건을 삽니다. 그런데 주문서는 자회사 <b>South ABC</b>가 받아 처리하고, 물건은 <b>XYZ 공장</b>이 보냅니다. 셋을 각각 BP로 만든 뒤, ABC Group의 마스터에 Ordering Address = South ABC, Goods Supplier = XYZ 공장을 입력해 둡니다.</p>
+  <p>그러면 ABC로 발주할 때 시스템이 발송주소를 South ABC로, 반품 시 물품공급처를 XYZ 공장으로 <b>자동</b>으로 잡습니다. 한 BP가 모든 기능을 혼자 한다면 파트너함수를 따로 유지할 필요는 없습니다.</p>
+</div>
+
+<div class="note ok">
+  <div class="t">📌 개인 E2E 프로젝트와의 연결점</div>
+  <p>프로젝트 자재(<code>CHKN</code> · <code>RICE</code> · <code>SHAK</code> · <code>PROT</code> · <code>PBAR</code>)는 전부 <b>배치관리 + 유통기한(<code>MCHA-VFDAT</code>)</b> 대상이므로, 자재마스터에서 배치관리 체크와 <b>Purchasing 뷰 + Accounting 뷰</b> 확장이 선행되어야 입고와 평가가 붙습니다. 회계뷰의 가격관리방식은 <b>이동평균가(V)</b>로 두기로 했고, 그 값이 <code>MBEW-VERPR</code>입니다 — CBO <code>ZPRICE_CHECK</code>가 읽는 바로 그 필드입니다.</p>
+  <p>플랜트는 <b>GATE</b>(입고 게이트)와 <b>STOR</b>(보관) 둘인데, 구매데이터를 <span class="hl">플랜트별로 다르게</span> 유지할 수 있다는 점이 여기서 쓸모가 있습니다 — 발주는 GATE 기준으로만 걸고 STOR에는 구매데이터를 두지 않는 식으로 구분할 수 있습니다.</p>
+</div>
+
+</div>
+
+
+<!-- ══════════ LESSON 2 ══════════ -->
+<div class="lesson" id="l2">
+<h2><span class="no">LESSON 2</span>가격결정 — 조건유형과 산정스키마 · 구매정보레코드</h2>
+
+<p><span class="tag">Unit 2 전반</span><span class="tag">레슨 4개</span>Price Determination Basics · Purchasing Info Records · Special Info Records · Adjusting Prices Collectively</p>
+
+<h3>조건의 시간종속성 — 문서유형이 성격을 결정한다</h3>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>문서</th><th>조건 성격</th></tr></thead>
+<tbody>
+<tr><td>구매오더(PO)</td><td class="wrap">항상 <b>시간독립적</b>(time independent)</td></tr>
+<tr><td>정보레코드 · 계약</td><td class="wrap">항상 <b>시간종속적</b>(time dependent)</td></tr>
+<tr><td>일정계약 · 견적서</td><td class="wrap">문서유형이 결정 — Customizing에서 지시자를 켜야 시간종속</td></tr>
+</tbody>
+</table>
+</div>
+
+<p>시간종속 조건만 <b>유효기간 · 스케일 · 가격범위(상/하한)</b>를 정의할 수 있습니다. 시스템이 이 조건을 PO에 반영한 뒤 PO에서 값을 고쳐 범위를 벗어나면 오류가 납니다. 반대로 <span class="bad">시간종속 조건은 복사(copy)할 수 없습니다.</span></p>
+
+<h3>산정스키마(Calculation Schema)</h3>
+
+<p>산정스키마는 가격을 만드는 <b>모든 조건유형을 묶고, 반영 순서를 정합니다</b>. 조건유형(Condition Type)은 조건이 어떻게 쓰이는지 통제하는 Customizing 키입니다 — 표준의 <code>PB00</code>이 수량기준 총가격입니다.</p>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>조건유형 설정</th><th>의미</th></tr></thead>
+<tbody>
+<tr><td>Group condition</td><td class="wrap">스케일 등을 항목별이 아니라 <b>문서 전체 항목에 걸쳐</b> 판정. 표준 총가격 <code>PB00</code>에 설정되어 있음</td></tr>
+<tr><td>Header / Item condition</td><td class="wrap">헤더조건은 모든 항목에 적용, 항목조건은 그 항목에만. 하나의 조건유형이 둘 다 될 수 있음</td></tr>
+<tr><td>Condition class</td><td class="wrap">가격 / 할증 / 할인 등으로 조건유형의 성격 정의</td></tr>
+<tr><td>Calculation rule</td><td class="wrap">고정금액인지, 구매오더 수량·금액에 종속되는지</td></tr>
+<tr><td>Plus/minus sign</td><td class="wrap">할증(+)인지 할인(−)인지</td></tr>
+</tbody>
+</table>
+</div>
+
+<p>산정스키마는 추가로 <b>소계(subtotal)</b>, 문서·정보레코드에 허용되는 조건유형, 순가격 산정 순서, 공급업체 메시지에 표시할 조건유형을 정의합니다. 표준 구매 스키마는 <code>RM0000</code>이고, 특정 공급업체에 어떤 스키마를 쓸지는 BP 구매조직데이터의 <span class="key">Sch.Grp Supp</span>(Schema Group Supplier) 필드가 결정합니다.</p>
+
+<figure class="figwrap">
+<svg class="dgm" viewBox="0 0 1000 410" role="img" aria-label="구매 가격결정 도해. 공급업체의 스키마그룹이 산정스키마를 결정하고, 산정스키마가 조건유형의 적용 순서를 정해 순가격을 만든다. SD의 가격결정절차와 같은 조건기법이다.">
+  <defs>
+    <marker id="m2k" markerWidth="9" markerHeight="9" refX="7" refY="4.5" orient="auto">
+      <polygon class="arw-key" points="0,0 9,4.5 0,9"/></marker>
+    <marker id="m2o" markerWidth="9" markerHeight="9" refX="8" refY="4.5" orient="auto">
+      <polygon class="arw-ok" points="0,0 9,4.5 0,9"/></marker>
+  </defs>
+
+  <text class="t-s" x="20" y="22">조건이 어디에 저장되어 있는가 — 시간종속 여부가 여기서 갈린다</text>
+
+  <rect class="b" x="20" y="32" width="310" height="58" rx="5"/>
+  <text class="t-h" x="40" y="56">정보레코드 · 계약</text>
+  <text class="t-s" x="40" y="76">시간종속 — 유효기간 · 스케일 · 상하한</text>
+
+  <rect class="b" x="345" y="32" width="310" height="58" rx="5"/>
+  <text class="t-h" x="365" y="56">구매오더</text>
+  <text class="t-s" x="365" y="76">항상 시간독립</text>
+
+  <rect class="b" x="670" y="32" width="310" height="58" rx="5"/>
+  <text class="t-h" x="690" y="56">일정계약 · 견적서</text>
+  <text class="t-s" x="690" y="76">문서유형이 시간종속 여부를 결정</text>
+
+  <path class="ln-key" d="M500 90 V128" marker-end="url(#m2k)"/>
+
+  <rect class="b" x="120" y="132" width="240" height="50" rx="5"/>
+  <text class="t" x="140" y="152">BP 구매조직데이터</text>
+  <text class="m-s" x="140" y="172">Sch.Grp Supp</text>
+  <path class="ln-key" d="M360 157 H416" marker-end="url(#m2k)"/>
+
+  <rect class="b-key" x="420" y="132" width="300" height="50" rx="5"/>
+  <text class="t-h c-key" x="440" y="154">산정스키마</text>
+  <text class="m" x="440" y="174">RM0000  (표준 구매)</text>
+
+  <path class="ln-key" d="M570 182 V212" marker-end="url(#m2k)"/>
+  <text class="t-s" x="20" y="212">산정스키마가 정한 순서대로 조건유형이 쌓인다</text>
+
+  <rect class="b-hl" x="20" y="222" width="230" height="66" rx="5"/>
+  <text class="t-h" x="38" y="246"><tspan class="m">PB00</tspan>  총가격</text>
+  <text class="t-s" x="38" y="266">그룹조건 · 수량기준</text>
+  <text class="t-s" x="38" y="282">정보레코드에서 기본 제안</text>
+  <path class="ln-key" d="M250 255 H258" marker-end="url(#m2k)"/>
+
+  <rect class="b" x="262" y="222" width="230" height="66" rx="5"/>
+  <text class="t-h" x="280" y="246">할인 (−)</text>
+  <text class="t-s" x="280" y="266">Condition class = 할인</text>
+  <text class="t-s" x="280" y="282">스케일 유지 가능</text>
+  <path class="ln-key" d="M492 255 H500" marker-end="url(#m2k)"/>
+
+  <rect class="b" x="504" y="222" width="230" height="66" rx="5"/>
+  <text class="t-h" x="522" y="246">계획입고비용 (+)</text>
+  <text class="t-s" x="522" y="266">조건 상세에 운송업체 직접 입력</text>
+  <text class="t-s" x="522" y="282">→ 송장 시 자동 결정</text>
+  <path class="ln-ok" d="M734 255 H742" marker-end="url(#m2o)"/>
+
+  <rect class="b-ok" x="746" y="222" width="234" height="66" rx="5"/>
+  <text class="t-h c-ok" x="764" y="246">순가격</text>
+  <text class="m" x="764" y="268">EINE-NETPR</text>
+  <text class="t-s" x="764" y="284">구매오더 항목으로 복사</text>
+
+  <rect class="b-ghost" x="20" y="308" width="960" height="86" rx="6"/>
+  <text class="t-h" x="42" y="332">SD의 Pricing Procedure와 같은 조건기법이다</text>
+  <text class="t-s" x="42" y="354">SD: 가격결정절차(Pricing Procedure) + 조건유형 <tspan class="m-s">PR00</tspan> · 접근순서 · 조건테이블</text>
+  <text class="t-s" x="42" y="374">MM: 산정스키마(Calculation Schema) + 조건유형 <tspan class="m-s">PB00</tspan> — 이름만 다르고 구조는 동일하다</text>
+</svg>
+<figcaption><span class="fno">그림 2</span>구매 가격결정의 조건기법. 스키마그룹이 스키마를 고르고, 스키마가 조건유형의 순서를 정해 순가격을 만든다.</figcaption>
+</figure>
+
+<div class="note">
+  <div class="t">🔰 초보자 설명 — SD 쪽 노트와 같이 보면 빨리 이해된다</div>
+  <p>구매의 <b>산정스키마</b>는 판매의 <b>가격결정절차</b>와 동일한 <span class="key">조건기법(Condition Technique)</span>입니다. 조건유형 → 접근순서 → 조건테이블로 내려가며 값을 찾고, 절차가 그 순서를 정한다는 골격이 똑같습니다. 같은 사이트의 <a href="../sd/s46200-pricing.html">S46200 Pricing</a> 노트를 먼저 읽으면 이 레슨은 용어 대응만 하면 됩니다.</p>
+</div>
+
+<h3>공급소스 3종</h3>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>소스 유형</th><th>설명</th></tr></thead>
+<tbody>
+<tr><td>구매정보레코드</td><td class="wrap">자재–공급업체 또는 자재그룹–공급업체 관계 데이터. 구매조직 레벨 또는 구매조직/플랜트 레벨로 조건 유지. 구매문서의 <b>기본값</b>으로 사용</td></tr>
+<tr><td>장기계약 항목</td><td class="wrap">구매조직–공급업체 간 장기 합의. 계약(Contract)과 일정계약(Scheduling Agreement) 두 유형</td></tr>
+<tr><td>플랜트</td><td class="wrap">타 플랜트로부터의 재고이체. 보통 내부결제 처리로 별도 구매데이터 불필요. 플랜트를 공급업체로 등록도 가능</td></tr>
+</tbody>
+</table>
+</div>
+
+<h3>구매정보레코드에 담기는 것</h3>
+
+<ul>
+  <li>특정 구매조직(플랜트 참조 유무 무관)에 대한 가격 및 조건보충(supplement)</li>
+  <li>공급업체측 자재번호 · 공급가능 기간 · 원산지 데이터</li>
+  <li>최종 구매오더 번호 · 견적번호</li>
+  <li>가격결정일자 컨트롤 · 과부족 허용오차 · 계획입고시간</li>
+</ul>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>기능</th><th>T-Code / Fiori 앱</th></tr></thead>
+<tbody>
+<tr><td>정보레코드 생성/변경/조회</td><td class="wrap"><code>ME11</code> / <code>ME12</code> / <code>ME13</code> · Manage Purchasing Info Records</td></tr>
+<tr><td>목록 조회 (공급업체/자재/자재그룹)</td><td class="wrap"><code>ME1L</code> / <code>ME1M</code> / <code>ME1W</code></td></tr>
+<tr><td>발주가격이력 · 견적가격이력</td><td class="wrap"><code>ME1P</code> / <code>ME1E</code></td></tr>
+<tr><td>정보레코드별 가격조건</td><td class="wrap"><code>MEKC</code> · Display Price Conditions by Purchasing Info Record</td></tr>
+<tr><td>가격이력 모니터링</td><td class="wrap">Monitor Purchasing Info Record Price History</td></tr>
+</tbody>
+</table>
+</div>
+
+<div class="note warn">
+  <div class="t">Fiori Manage Purchasing Info Records는 총가격만 입력된다</div>
+  <p>배송조건·할인 같은 <span class="bad">다른 조건유형은 이 앱으로 유지할 수 없고</span>, 텍스트 설정·유지도 지원하지 않습니다. 조건을 제대로 다루려면 <code>ME11</code>/<code>ME12</code>를 씁니다. 플랜트 레벨에서 조건을 저장하려면 Customizing <code>Purchasing → Conditions → Define Condition Control at Plant Level</code>에서 먼저 허용해야 합니다.</p>
+</div>
+
+<h4>구매오더의 기본가격이 어디서 오는가</h4>
+
+<p>기본은 <b>정보레코드의 현재 유효 조건</b>입니다. <b>가격결정일자 카테고리</b>로 다른 시점의 조건(예: 납품일 기준)을 찾게 할 수 있고, <span class="hl"><code>GR Date</code>로 설정하면 입고 시점에 가격을 재결정</span>하므로 발주~입고 사이 가격이 변해도 PO를 고칠 필요가 없습니다.</p>
+
+<p>정보레코드에 조건이 없으면 시스템은 <b>최종 구매오더의 가격</b>을 제안할 수 있고, 이 제안은 EVO 사용자파라미터로 억제할 수 있습니다(<a href="#l8">LESSON 8</a>).</p>
+
+<div class="note warn">
+  <div class="t">InfoUpdate 지시자는 가격을 갱신하지 않는다</div>
+  <p>구매오더의 <b>InfoUpdate</b>를 켜면 구매오더 데이터가 정보레코드에 반영되지만, <span class="bad">이 지시자를 근거로 조건(가격) 자체가 생성·갱신되지는 않습니다.</span> "PO에서 단가를 고쳤는데 정보레코드가 그대로"라는 문의의 답이 이겁니다.</p>
+  <p>참고로 정보레코드에는 독립적인 지불조건을 유지할 수 없습니다. 다만 <b>No Cash Disc.</b> 지시자로 구매오더에서 그 자재의 현금할인 제안을 막을 수는 있습니다.</p>
+</div>
+
+<h3>특수 정보레코드 — 정보카테고리</h3>
+
+<p><b>① 자재마스터가 있는 경우</b>: 생성 시 <b>정보카테고리</b>로 조달유형을 지정합니다.</p>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>정보카테고리</th><th>설명</th></tr></thead>
+<tbody>
+<tr><td>Standard</td><td class="wrap">일반 조달</td></tr>
+<tr><td>Subcontracting</td><td class="wrap">위탁가공</td></tr>
+<tr><td>Pipeline</td><td class="wrap">파이프라인 조달 — 별도 구매오더가 없음. 정보레코드 가격은 인출 시 부채 산정에 사용</td></tr>
+<tr><td>Consignment</td><td class="wrap">위탁재고 — 위탁오더에는 가격이 없음. 조건은 위탁재고 인출 시 부채 산정에 사용</td></tr>
+</tbody>
+</table>
+</div>
+
+<p><b>② 자재마스터가 없는 경우</b>: 자재그룹–공급업체 관계를 지정합니다. 자재마스터 없이 구매요청 항목을 수동 생성하면 그 자재그룹의 정보레코드가 소스로 자동 제안될 수 있습니다. 다만 <span class="bad">구매오더 생성 시에는 자동 제안되지 않고</span>, <code>ME21N</code> 항목개요에서 <b>Info Records per Material Group</b> 서치헬프로 직접 골라야 합니다(검색기준: 구매오더단위·자재그룹). 이 경우 정보카테고리는 Standard 또는 Subcontracting만 가능합니다.</p>
+
+<h3>정보레코드 집단 가격변경</h3>
+
+<div class="step"><span class="n">STEP 1</span><p>Fiori <b>Price Changes: Info Records</b>(GUI <code>MEKP</code>) 실행 → 구매조직·공급업체번호 입력</p></div>
+<div class="step"><span class="n">STEP 2</span><p>대상 자재 입력, 변경률(%) 입력, <b>Gross Price</b> 체크박스 유지</p></div>
+<div class="step"><span class="n">STEP 3</span><p>Sign 필드에 <code>+</code>(인상) 입력, Conditions valid 영역에 유효기간 입력</p></div>
+<div class="step"><span class="n">STEP 4</span><p>표준 리스트 범위에서는 <b>시뮬레이션</b>이 먼저 돕니다 — 실제 반영하려면 <span class="bad">Test Run 체크박스를 해제</span></p></div>
+<div class="step"><span class="n">STEP 5</span><p>Execute → 신·구 가격이 유효기간과 함께 표시됨 → 저장</p></div>
+
+<p>변경 유형은 <b>총가격 직접 변경</b>과 <b>특정 조건유형만 변경</b>(예: 배송비만) 두 가지입니다. 가격스케일이 있고 적용기간이 스케일 유효기간과 겹치면 <span class="hl">첫 스케일라인의 가격만 적용되고 그 값이 다른 스케일라인에도 반영</span>됩니다. 유사 기능으로 <b>Mass Changes to Purchasing Info Records</b> 앱도 있습니다.</p>
+
+<div class="note ok">
+  <div class="t">📌 개인 E2E 프로젝트와의 연결점</div>
+  <p>CBO <code>ZPRICE_CHECK</code>가 비교하는 두 값이 정확히 이 레슨의 양 끝입니다 — <b>정보레코드 순가격 <code>EINE-NETPR</code></b>(그림 2의 오른쪽 끝)과 <b>이동평균가 <code>MBEW-VERPR</code></b>(자재마스터 회계뷰). 즉 "우리가 사기로 합의한 가격"과 "실제 재고에 쌓인 평균 단가"의 괴리를 잡는 프로그램입니다.</p>
+  <p>여기서 중요한 설계 근거 하나 — 표준에도 <b>가격범위(상/하한)</b>와 <b>집단가격변경</b>이 있지만, 둘 다 <span class="hl">정보레코드 안에서만</span> 판정합니다. 이동평균가와 대조하는 표준 기능은 없습니다. <code>ZPRICE_CHECK</code>가 메우는 자리가 바로 거기이고, 프로젝트 원칙대로 <b>알림까지만</b> 하고 가격을 자동으로 고치지는 않습니다.</p>
+</div>
+
+</div>
+
+
+<!-- ══════════ LESSON 3 ══════════ -->
+<div class="lesson" id="l3">
+<h2><span class="no">LESSON 3</span>계약과 일정계약 — 장기계약 두 갈래</h2>
+
+<p><span class="tag">Unit 2 후반</span><span class="tag">레슨 5개</span>Contracts · Contracts for Material Groups · Scheduling Agreements · SA Without/With Release Documentation</p>
+
+<h3>계약 vs 일정계약 — 갈리는 지점은 "문서를 몇 개 만드느냐"</h3>
+
+<p>장기계약(Outline Agreement)은 기간과 <b>목표수량 / 목표금액</b> 조건 아래의 공급 합의입니다. 그 자체에는 구체적인 납품일자·수량이 없습니다. (목표수량·목표금액의 <span class="hl">법적 구속력은 시스템 밖에서 별도 합의</span>해야 합니다.)</p>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>구분</th><th>계약(Contract)</th><th>일정계약(Scheduling Agreement)</th></tr></thead>
+<tbody>
+<tr><td>전달 방식</td><td class="wrap">계약해제오더(Contract Release Order)</td><td class="wrap">납품일정(Delivery Schedule)</td></tr>
+<tr><td>문서량</td><td class="wrap">인출할 때마다 <b>새 구매오더</b> 생성</td><td class="wrap">계약문서 외에, 계속 늘어나는 <b>납품일정라인 1건</b>만</td></tr>
+<tr><td>MRP 연계</td><td class="wrap">MRP가 계약항목을 소스로 배정할 수는 있으나, 구매요청 → 해제오더 전환이 한 번 더 필요</td><td class="wrap">계획실행에서 <span class="hl">바로 납품일정라인 생성</span> — 구매부서 추가 처리 불필요</td></tr>
+<tr><td>T-Code</td><td class="wrap"><code>ME31K</code> / <code>ME32K</code> / <code>ME33K</code> · Manage Purchase Contracts</td><td class="wrap"><code>ME31L</code> / <code>ME32L</code> / <code>ME33L</code> · Manage Purchase Scheduling Agreements</td></tr>
+</tbody>
+</table>
+</div>
+
+<h3>계약 — 참조 · 계정지정 · 릴리스 문서화</h3>
+
+<p>계약은 구매요청 / 장기계약구매요청 / RFQ / 다른 계약을 참조하거나, 참조 없이 만들 수 있습니다. 재고자재 항목이면 자재마스터에 <b>구매·회계데이터가 미리 있어야</b> 하고, 소모성자재 항목이면 계정지정을 미리 넣거나 계정지정범주 <span class="key">U(Unknown)</span>로 두어 해제오더 시점까지 미확정으로 남길 수 있습니다.</p>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>계약유형</th><th>릴리스 문서화 갱신 레벨</th><th>모니터링 기준 필드</th></tr></thead>
+<tbody>
+<tr><td>금액계약(Value Contract)</td><td class="wrap"><b>헤더</b> 레벨 — 목표금액이 갱신됨</td><td class="wrap">Target Value / Total Release Value</td></tr>
+<tr><td>수량계약(Quantity Contract)</td><td class="wrap"><b>항목</b> 레벨 — 목표수량이 갱신됨</td><td class="wrap">Target Quantity / Quantity Released to Date</td></tr>
+</tbody>
+</table>
+</div>
+
+<p>계약해제오더의 <b>과부족납품</b>이 릴리스 문서화에 반영되려면, Customizing <code>OMXX</code>에서 "실제 인도수량 기준 갱신"을 설정해야 합니다.</p>
+
+<h4>중앙계약(Centrally Agreed Contract)</h4>
+
+<p>플랜트별 계약은 그 플랜트에서만 해제할 수 있습니다. <b>중앙계약</b>은 플랜트마다 다른 조건·파트너를 저장할 수 있습니다. 특정 플랜트가 중앙계약을 쓰지 못하게 하려면 <span class="hl">그 플랜트 자재의 소스리스트에서 이 계약을 소스로 차단(Blk)</span>합니다 — 소스리스트가 계약 접근을 통제하는 첫 사례입니다(<a href="#l4">LESSON 4</a>로 이어집니다).</p>
+
+<div class="note warn">
+  <div class="t">구매조직 검사는 계약 생성 시점이 아니라 해제오더 시점에 일어난다</div>
+  <p>계약항목을 만들 때 시스템은 <span class="bad">생성 구매조직이 그 플랜트를 담당하는지 검사하지 않습니다.</span> 검사는 계약해제오더 때만 이루어집니다. 다른 구매조직에서 해제하려면 그 구매조직의 <b>중앙구매조직이 참조구매조직으로 배정</b>되어 있어야 합니다.</p>
+  <p>또 계약항목의 <b>플랜트관련성(plant relevance)은 이후 변경할 수 없습니다.</b> 중앙계약의 플랜트조건은 Create Purchase Contract에서 <code>Edit → Plant Conditions</code> 경로로만 유지됩니다.</p>
+</div>
+
+<h4>계약 모니터링</h4>
+
+<p>목표수량·목표금액·유효기간은 <b>해제오더 시점</b>에 검사됩니다. 초과하거나 기간 밖이면 경고가 뜨고, 이를 <span class="key">오류메시지로 바꿔 해제를 막을 수 있습니다</span>(경고를 더블클릭하면 메시지번호 확인). 시스템메시지 정의는 <code>Purchasing → Environment Data → Define Attributes of System Messages</code>. 같은 장치로 "장기계약이 있는 자재는 계약 참조 없이는 PO를 못 만들게" 강제할 수도 있습니다.</p>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>Fiori 앱</th><th>무엇을 보나</th></tr></thead>
+<tbody>
+<tr><td>Off-Contract Spend</td><td class="wrap">계약참조 없는 구매오더의 총지출(전년~현재) — 계약 없이 산 비율</td></tr>
+<tr><td>Contract Leakage</td><td class="wrap">쓸 수 있는 계약이 있었는데 참조 없이 발생한 지출 — 누락 활용</td></tr>
+<tr><td>Unused Contracts</td><td class="wrap">특정 기간 내 해제가 없던 계약</td></tr>
+<tr><td>Contract Expiry</td><td class="wrap">기본 90일 내 만료 예정 계약</td></tr>
+<tr><td>Value / Quantity Contract Consumption</td><td class="wrap">금액형·수량형 계약의 소진율. <span class="hl">수량계약 소진율도 금액 기준으로</span> 산정됨</td></tr>
+</tbody>
+</table>
+</div>
+
+<p>백엔드 리포팅: 일반 평가 <code>ME80RN</code> / 공급업체별 <code>ME3L</code> / 자재별 <code>ME3M</code> / 자재그룹별 <code>ME3C</code> / 계약별 조건 <code>MEKB</code>. "만료임박"으로 볼 목표금액 대비 비율(%)은 <code>Purchasing → Reporting → Maintain Purchasing Lists → Selection Parameters → Define Selection Parameters</code>에서 정의합니다.</p>
+
+<h3>자재그룹 대상 계약 — 품목범주 M과 W</h3>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>품목범주</th><th>가능 계약유형</th><th>용도</th></tr></thead>
+<tbody>
+<tr><td>M (Material unknown)</td><td class="wrap">수량계약 · 금액계약 <b>둘 다</b></td><td class="wrap">가격이 <b>같은</b> 유사 자재군. 항목에 약칭·자재그룹·목표수량·단위·가격은 넣되 자재번호는 넣지 않음. 해제오더에서 구체적 약칭 입력. 자재그룹·구매오더단위가 맞으면 자재마스터가 있는 자재도 해제 가능</td></tr>
+<tr><td>W (Material group)</td><td class="wrap"><b>금액계약만</b></td><td class="wrap">같은 자재그룹인데 가격이 <b>다른</b> 자재군. 항목 하나로 자재그룹 전체를 커버하고 발주 시점에 품목 지정. 정보레코드가 있으면 그 조건이 제안됨. 자재번호 없는 항목은 유효한 계정지정 필요</td></tr>
+</tbody>
+</table>
+</div>
+
+<p>가격·수량·자재번호가 해제오더 시점까지 미확정입니다. 헤더조건에 할인을 넣으면 <span class="hl">그 계약을 참조하는 모든 구매오더에 자동으로 할인이 계산</span>됩니다. 대상이 전부 저가 소모성자재라면 일괄구매오더(<a href="#l7">LESSON 7</a>)가 더 나은 선택입니다.</p>
+
+<div class="note warn">
+  <div class="t">Fiori Manage Purchase Contracts는 품목범주 W만 지원한다</div>
+  <p>품목범주 <code>M</code> 계약을 쓰려면 <code>ME31K</code>/<code>ME32K</code> 또는 Create Purchase Contract 계열을 써야 합니다. <b>확인 필요 — 실제 시스템(winerp01 / MEP)</b>에서 어느 앱·트랜잭션이 활성인지 먼저 확인하고 결정할 것.</p>
+</div>
+
+<h3>일정계약 — 항상 플랜트별</h3>
+
+<ul>
+  <li>일정계약은 <span class="bad">항상 플랜트별</span>로 생성되며, 품목범주 <code>M</code> · <code>W</code>는 <b>쓸 수 없습니다</b></li>
+  <li>계약과 달리 계정지정범주 <span class="bad"><code>U</code>(Unknown)를 쓸 수 없습니다</span></li>
+  <li>위탁가공 품목범주는 납품일자별로 제공할 구성요소를 개별 입력 가능</li>
+  <li>총납품수량은 개별 납품일자를 가진 부분수량으로 쪼개져 <b>납품일정라인</b>이 됩니다 — 수동 생성도, MRP 자동 생성도 가능</li>
+</ul>
+
+<div class="note warn">
+  <div class="t">중앙계약을 참조한 일정계약의 조건은 건드리지 않는다</div>
+  <p>중앙계약을 참조해 일정계약항목을 만들었다면, 시스템은 <span class="hl">항상 중앙계약의 현재 조건을 참조</span>합니다. 따라서 일정계약 쪽 조건을 고치면 안 됩니다. 가격통제는 입고 시점에 조건이 산정되도록 설정됩니다.</p>
+</div>
+
+<h4>납품일정라인 자동생성</h4>
+
+<p>거래량이 많고 반복성이 높으면 자동 생성이 맞습니다. 다만 경로에 따라 결과가 갈립니다.</p>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>MRP 경로</th><th>결과</th></tr></thead>
+<tbody>
+<tr><td>Classic MRP (<code>MD01</code> / <code>MD03</code>)</td><td class="wrap">납품일정라인 대신 <b>구매요청</b>을 생성하는 옵션이 있음</td></tr>
+<tr><td>MRP Live (<code>MD01N</code>)</td><td class="wrap">유효한 일정계약이 있으면 <span class="bad">항상 납품일정라인</span>을 생성 — 선택권 없음</td></tr>
+</tbody>
+</table>
+</div>
+
+<p>소스리스트는 <b>같은 자재·플랜트에 유효한 일정계약이 2건 이상이고</b> 우선순위를 직접 정하고 싶을 때만 필요합니다.</p>
+
+<h3>릴리스 문서화 — 있는 것과 없는 것</h3>
+
+<p><b>없는 유형</b>: 모든 미결 납품일정라인이 매 메시지에 통째로 실립니다. 일정라인 수가 적을 때 적합합니다.</p>
+
+<p><b>있는 유형</b>(문서유형 <code>LPA</code>): 일정라인이 공급업체에 바로 가지 않습니다. 처음엔 내부 정보로만 저장되고, <span class="key">일정계약 릴리스(SA Release)</span>를 만들어야 메시지가 나갑니다. 그래서 <b>언제 어떤 정보를 보냈는지 정확히 추적</b>할 수 있습니다.</p>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>릴리스 유형</th><th>용도</th></tr></thead>
+<tbody>
+<tr><td>예측(Forecast, FRC) 납품일정</td><td class="wrap">중장기 소요량 개요 제공</td></tr>
+<tr><td>적시(JIT) 납품일정</td><td class="wrap">단기·임박 소요량 통지. 일/시간 단위</td></tr>
+</tbody>
+</table>
+</div>
+
+<div class="note warn">
+  <div class="t">JIT 지시자는 자재마스터에 먼저 있어야 한다</div>
+  <p>예측·JIT 납품일정을 모두 쓰려면 <b>자재마스터(Purchasing 또는 MRP 2 뷰)</b>와 <b>일정계약항목 추가데이터</b> 양쪽에 JIT 납품일정 지시자가 있어야 합니다. 그리고 순서가 있습니다 — <span class="bad">자재마스터에 먼저 설정되어 있지 않으면 일정계약에서 설정할 수 없습니다.</span></p>
+  <p>참고로 계획실행은 <b>일 단위</b> 일정라인만 생성합니다. 시간 단위는 수동이나 외부계획으로만 가능합니다.</p>
+</div>
+
+<h4>릴리스생성프로파일과 집계</h4>
+
+<p>릴리스생성프로파일은 릴리스를 만들 때 공급업체에 보낼 <b>수량과 납품일자/시각</b> 기준을 정합니다. 공급업체마스터의 <b>플랜트별 데이터</b>에 들어 있으면 일정계약항목 추가데이터로 자동 반영되고, 없으면 수동 입력합니다. 생성 경로는 <code>Purchasing → Purchase Scheduling Agreement → Maint. Rel. Creation Profile for Sched. Agmt. w. Rel. Docu.</code></p>
+
+<div class="note">
+  <div class="t">🔰 초보자 설명 — 집계(Aggregation)가 하는 일</div>
+  <p><b>예측일정만 쓰는 경우</b>: 주 단위로 릴리스를 만든다고 할 때, 집계를 이렇게 둘 수 있습니다 — 현재일 기준 <b>최초 10일은 집계 없음</b>(하루씩 그대로), <b>10~30일차는 일단위</b>, <b>30~60일차는 월단위</b>. 먼 미래일수록 뭉뚱그려 보냅니다.</p>
+  <p><b>예측 + JIT 병행</b>: JIT은 최초 14일간 집계 없이 매일 생성. 예측은 1~100일차를 주단위로 집계하되 <span class="hl">직전 릴리스 대비 합계가 2% 초과 증가 또는 5% 초과 감소한 경우에만</span> 생성. 변화가 없으면 안 보내는 겁니다.</p>
+</div>
+
+<p>프로파일에서 <b>릴리스호라이즌</b>도 정의해, 공급업체 계획에 필요한 일자·수량까지만 보낼 수 있습니다.</p>
+
+<h4>확정존 · 변동존</h4>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>존</th><th>정의</th></tr></thead>
+<tbody>
+<tr><td>확정존(Firm Zone)<br>생산확정기간</td><td class="wrap">현재일자부터 시작. 이 기간의 일정라인은 <b>확정오더와 동등</b>하게 취급. 보통 공급업체가 계획수량을 생산하는 데 필요한 시간</td></tr>
+<tr><td>변동존(Trade-off Zone)<br>자재확정기간</td><td class="wrap">확정존 종료 시점부터. 구속력이 약함. 보통 공급업체가 구성요소를 조달·제조하는 데 필요한 시간 기준</td></tr>
+</tbody>
+</table>
+</div>
+
+<p>둘 다 <b>캘린더일</b> 기준이고 일정계약 추가데이터에서 입력합니다. 일정라인에 인쇄되어 함께 전송됩니다. <b>MRP 구속(Binding on MRP)</b>으로 MRP가 어떤 라인을 바꿀 수 있는지도 정합니다 — 변동존 이후만 / 확정존 이후만 / 전체.</p>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>기능</th><th>T-Code / 경로</th></tr></thead>
+<tbody>
+<tr><td>일정계약 릴리스 생성</td><td class="wrap"><code>ME84</code> · Create Scheduling Agreement Releases</td></tr>
+<tr><td>납품일정라인 유지 / 조회</td><td class="wrap"><code>ME38</code> / <code>ME39</code> · Manage SA Delivery Schedule</td></tr>
+<tr><td>예측/JIT 일정 직접 생성</td><td class="wrap"><code>ME38</code> 화면 → Edit → Generate Forc. Schd. / Generate JIT Sched.</td></tr>
+<tr><td>누적수량 설정</td><td class="wrap"><code>ME88</code> (Set Agreed Cumulative Quantity)</td></tr>
+<tr><td>릴리스 아카이빙</td><td class="wrap"><code>ME83</code> — <span class="bad">되돌릴 수 없음.</span> 아카이브분은 <code>EKEKH</code> · <code>EKEKHH</code>에 저장</td></tr>
+<tr><td>재고이체 일정계약 생성</td><td class="wrap"><code>ME37</code></td></tr>
+</tbody>
+</table>
+</div>
+
+<p>일정계약 문서유형은 <code>Purchasing → Purchase Scheduling Agreement → Define Document Types for Purchase Scheduling Agreements</code>에서 정의합니다.</p>
+
+<div class="note ok">
+  <div class="t">📌 개인 E2E 프로젝트와의 연결점</div>
+  <p>식품 유통은 같은 벤더에서 같은 자재를 반복 사입하는 구조라 <b>일정계약이 원래 맞는 모델</b>입니다. 다만 프로젝트는 MRP를 돌리지 않고 수동 발주로 단순화했으므로, 실제로는 <b>수량계약 + 계약해제오더</b>가 구성 난도 대비 얻는 게 큽니다 — 계약 하나로 목표수량을 잡고, 발주마다 해제오더로 소진시키면 "이 벤더에서 얼마나 샀나"가 <code>ME3L</code> 한 번으로 나옵니다.</p>
+  <p>릴리스문서화·확정존·JIT은 프로젝트 범위 밖입니다. 대신 <b>계약 모니터링</b> 쪽 개념은 그대로 씁니다 — Contract Expiry / Unused Contracts가 하는 "기한과 소진을 미리 잡아서 알린다"가 <code>ZBATCH_ZONE</code>의 <b>잔여 유통기한 30%</b> 판정과 발상이 같습니다. 대상이 계약이냐 배치냐만 다릅니다.</p>
+</div>
+
+</div>
+
+
+<!-- ══════════ LESSON 4 ══════════ -->
+<div class="lesson" id="l4">
+<h2><span class="no">LESSON 4</span>소스결정 — 우선순위와 차단</h2>
+
+<p><span class="tag">Unit 3</span><span class="tag">레슨 7개</span><span class="tag warn">이 코스의 핵심</span>Source Lists · Quota Arrangements · Planning Run with Quotas · Additional Aspects · Blocking Sources · Catalogs</p>
+
+<h3>언제 이걸 알아야 하는가</h3>
+
+<p>가장 답하기 까다로운 문의가 <b>"왜 이 벤더가 잡혔습니까"</b>입니다. 그리고 이 질문이 까다로운 결정적 이유가 하나 있습니다 — <span class="bad">소스결정에는 조건기법이 쓰이지 않습니다.</span> 가격결정처럼 "분석(Analysis)" 버튼을 눌러 결정 경로를 되짚어 볼 수 있는 화면이 <b>존재하지 않습니다.</b></p>
+
+<p>그래서 이 우선순위를 외우고 있어야 합니다. 위에서부터 하나씩 "이게 있나?"를 손으로 확인하는 것이 유일한 분석 방법입니다. 게다가 <span class="key">MRP가 도는 경로와 그 밖의 경로는 순위가 다릅니다</span> — 같은 자재인데 계획실행에서는 A벤더, 수동 구매요청에서는 B벤더가 잡히는 일이 정상 동작입니다.</p>
+
+<figure class="figwrap">
+<svg class="dgm" viewBox="0 0 1000 580" role="img" aria-label="소스결정 우선순위 도해. 계획실행(MRP)은 할당버전, 소스리스트 MRP지시자, 일정계약, 계약, Automatic Sourcing 정보레코드 순으로 결정하고, MRP 외부는 할당버전, 소스리스트 고정소스, 장기계약항목, 정보레코드 순으로 결정한다. 소스리스트 Blk와 최대수량이 두 경로 모두에서 후보를 탈락시킨다.">
+  <defs>
+    <marker id="m3k" markerWidth="9" markerHeight="9" refX="7" refY="4.5" orient="auto">
+      <polygon class="arw-key" points="0,0 9,4.5 0,9"/></marker>
+    <marker id="m3b" markerWidth="9" markerHeight="9" refX="7" refY="4.5" orient="auto">
+      <polygon class="arw-bad" points="0,0 9,4.5 0,9"/></marker>
+  </defs>
+
+  <rect class="b-key" x="30" y="14" width="420" height="42" rx="5"/>
+  <text class="t-h c-key" x="50" y="34">A. 계획실행 (MRP)</text>
+  <text class="t-s" x="50" y="50"><tspan class="m-s">MD01 / MD01N / MD02 / MD03</tspan> — 백그라운드</text>
+
+  <rect class="b-key" x="550" y="14" width="420" height="42" rx="5"/>
+  <text class="t-h c-key" x="570" y="34">B. 계획실행 밖</text>
+  <text class="t-s" x="570" y="50">수동 구매요청 · <tspan class="m-s">ME51N</tspan> · <tspan class="m-s">ME25</tspan> 자동소스결정</text>
+
+  <rect class="b-hl" x="30" y="66" width="420" height="52" rx="5"/>
+  <text class="t-h" x="50" y="88">1  할당버전 (Quota Arrangement)</text>
+  <text class="t-s" x="50" y="108">공급업체·플랜트만 가능 · 장기계약항목은 못 넣는다</text>
+  <path class="ln-key" d="M240 118 V138" marker-end="url(#m3k)"/>
+
+  <rect class="b" x="30" y="140" width="420" height="52" rx="5"/>
+  <text class="t-h" x="50" y="162">2  소스리스트 — MRP 지시자 1 / 2</text>
+  <text class="t-s" x="50" y="182">여러 건이면 <tspan class="c-bad">첫 번째 항목</tspan> 채택 · 2는 일정라인 자동생성</text>
+  <path class="ln-key" d="M240 192 V212" marker-end="url(#m3k)"/>
+
+  <rect class="b" x="30" y="214" width="420" height="52" rx="5"/>
+  <text class="t-h" x="50" y="236">3  일정계약</text>
+  <text class="t-s" x="50" y="256">활성 릴리스 있는 것 우선 → 없으면 문서번호 최소</text>
+  <path class="ln-key" d="M240 266 V286" marker-end="url(#m3k)"/>
+
+  <rect class="b" x="30" y="288" width="420" height="52" rx="5"/>
+  <text class="t-h" x="50" y="310">4  계약</text>
+  <text class="t-s" x="50" y="330">플랜트별 &gt; 크로스플랜트 → 동급이면 문서번호 최소</text>
+  <path class="ln-key" d="M240 340 V360" marker-end="url(#m3k)"/>
+
+  <rect class="b" x="30" y="362" width="420" height="52" rx="5"/>
+  <text class="t-h" x="50" y="384">5  정보레코드 — Automatic Sourcing</text>
+  <text class="t-s" x="50" y="404">플랜트별 &gt; 구매조직 → 공급업체 → 구매조직 → 구매그룹 번호순</text>
+
+  <rect class="b-hl" x="550" y="66" width="420" height="52" rx="5"/>
+  <text class="t-h" x="570" y="88">1  할당버전</text>
+  <text class="t-s" x="570" y="108"><tspan class="c-bad">할당순위가 가장 낮은</tspan> 소스 배정 (동률이면 첫 항목)</text>
+  <path class="ln-key" d="M760 118 V138" marker-end="url(#m3k)"/>
+
+  <rect class="b" x="550" y="140" width="420" height="52" rx="5"/>
+  <text class="t-h" x="570" y="162">2  소스리스트 — 고정소스 Fix</text>
+  <text class="t-s" x="570" y="182">1건이면 그대로 · 여럿이면 Fix · <tspan class="c-key">장기계약 &gt; 정보레코드</tspan></text>
+  <path class="ln-key" d="M760 192 V212" marker-end="url(#m3k)"/>
+
+  <rect class="b" x="550" y="214" width="420" height="52" rx="5"/>
+  <text class="t-h" x="570" y="236">3  장기계약항목 (계약 · 일정계약)</text>
+  <text class="t-s" x="570" y="256">헤더에서 트리거 시 유일하면 즉시 배정 · 여럿이면 목록 선택</text>
+  <path class="ln-key" d="M760 266 V286" marker-end="url(#m3k)"/>
+
+  <rect class="b" x="550" y="288" width="420" height="52" rx="5"/>
+  <text class="t-h" x="570" y="310">4  정보레코드</text>
+  <text class="t-s" x="570" y="330">유일하면 즉시 배정 · 여럿이면 목록에서 선택</text>
+
+  <rect class="b-mut" x="550" y="362" width="420" height="52" rx="5"/>
+  <text class="t" x="570" y="384">MRP 전용 단계 없음</text>
+  <text class="t-s" x="570" y="404">단골공급업체(Regular Supplier)는 정보레코드만 있을 때 유일 소스로 제안</text>
+
+  <rect class="b-bad" x="30" y="432" width="940" height="128" rx="6"/>
+  <text class="t-h c-bad" x="52" y="456">어디서 탈락시키는가 — 차단은 순위와 무관하게 후보를 지운다</text>
+  <text class="t-s" x="52" y="480">· 소스리스트 <tspan class="m-s">Blk</tspan> + 공급업체 지정  →  그 소스(정보레코드/장기계약항목)만 차단. 수동 배정도 불가</text>
+  <text class="t-s" x="52" y="500">· 소스리스트 <tspan class="m-s">Blk</tspan> + 공급업체 공란 + 유효기간만  →  그 플랜트에서 그 자재의 외부조달 <tspan class="c-bad">전면 차단</tspan></text>
+  <text class="t-s" x="52" y="520">· 할당버전항목 <tspan class="m-s">최대수량</tspan> 초과  →  순위가 더 낮아도 그 항목은 소스로 제안되지 않음</text>
+  <text class="t-s" x="52" y="540">· 공급업체 차단 <tspan class="m-s">MK05 / XK05</tspan> · 자재상태(Material Status)  →  마스터 레벨에서 조달 자체를 막음</text>
+
+  <path class="ln-bad" d="M240 432 V418" marker-end="url(#m3b)"/>
+  <path class="ln-bad" d="M760 432 V418" marker-end="url(#m3b)"/>
+</svg>
+<figcaption><span class="fno">그림 3</span>소스결정 우선순위 두 갈래와 차단 지점. "왜 이 벤더인가"는 위에서부터 이 순서로 손으로 짚는 수밖에 없다.</figcaption>
+</figure>
+
+<h3>소스리스트 레코드의 구성</h3>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>항목</th><th>설명</th></tr></thead>
+<tbody>
+<tr><td>유효기간</td><td class="wrap">기준일자가 경로마다 다르다 — <b>수동 소스결정은 구매요청의 납품일</b>, <b>MRP는 소요일</b>. (재주문점 자재는 소요일 = 현재일)</td></tr>
+<tr><td>핵심소스데이터</td><td class="wrap">공급업체번호 + 담당구매조직번호. 일정계약·계약 항목도 소스로 지정 가능</td></tr>
+<tr><td>조달플랜트(PPl)</td><td class="wrap">타 플랜트 조달 시 플랜트번호 입력(공급업체·장기계약항목번호는 입력 안 함). 품목유형 <code>U</code>(재고이체) 구매요청 항목에 대해서만 소스로 결정됨</td></tr>
+<tr><td><span class="key">고정소스(Fix)</span></td><td class="wrap">소스결정의 고정소스로 지정 — <b>계획실행을 제외한 모든 경우</b>에 사용. 동일 유형(정보레코드 또는 장기계약항목)은 한 번에 1개만 Fix 가능. 둘 다 Fix면 <span class="hl">장기계약항목이 우선</span></td></tr>
+<tr><td><span class="bad">차단소스(Blk)</span></td><td class="wrap">그 소스를 소스결정에서 제외. 공급업체 없이 Blk + 유효기간만 넣으면 <b>그 플랜트에서 그 자재의 외부조달 자체가 차단</b></td></tr>
+<tr><td>MRP 지시자</td><td class="wrap"><code>1</code> = 계획실행에서 고려. 일정계약항목이면 <code>2</code>로 두면 납품일정라인도 직접 생성. 할당버전과 함께 쓰려면 여러 항목을 MRP 관련으로 표시 가능</td></tr>
+</tbody>
+</table>
+</div>
+
+<div class="note warn">
+  <div class="t">소스리스트는 계약이 소진됐는지 보지 않는다</div>
+  <p>소스리스트는 <span class="bad">장기계약이 이미 완전히 소진되었는지 검사하지 않습니다.</span> 목표수량을 다 썼어도 계속 소스로 제안합니다. 막으려면 소스리스트와 함께 <b>할당버전을 만들어 장기계약의 목표수량을 최대수량으로</b> 넣어야 합니다.</p>
+  <p>또 하나 — 소스리스트 필수요건이나 차단만으로는 <b>입고전기 시 자동생성되는 구매오더</b>를 막을 수 없습니다.</p>
+</div>
+
+<h4>소스리스트 만드는 네 가지 방법</h4>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>방법</th><th>설명</th></tr></thead>
+<tbody>
+<tr><td>수동</td><td class="wrap"><code>ME01</code> · Manage Source Lists (Fiori는 유효기간이 자동 기본값으로 안 채워짐)</td></tr>
+<tr><td>장기계약에서</td><td class="wrap">개요화면에서 항목 선택 → <code>Item → Maintain Source List</code>. 계약항목에 플랜트가 없으면 소스리스트용 플랜트를 추가 입력</td></tr>
+<tr><td>정보레코드에서</td><td class="wrap"><code>Extras → Source List</code>. 정보레코드가 구매조직 전체에 유효하면 그 구매조직의 모든 플랜트에 대해 생성 가능</td></tr>
+<tr><td>자동</td><td class="wrap"><code>ME05</code> · Generate Source List — 여러 자재(집단) 또는 단일 자재</td></tr>
+</tbody>
+</table>
+</div>
+
+<p>자동생성 전에 정할 것: 어떤 플랜트·자재인가 / 장기계약항목만·정보레코드만·둘 다인가 / 유효기간 / 기존 레코드를 지울 것인가 / Fix·Blk·MRP 지시자를 어떻게 둘 것인가.</p>
+
+<p>플랜트 레벨 <b>필수 소스리스트</b>는 <code>Purchasing → Source List → Define Source List Requirement at Plant Level</code>에서 지정합니다. 누락 여부는 <code>ME06</code> · Analyze Source List로 확인하고 즉시 유지작업을 호출할 수 있습니다. 자재별 조회는 <code>ME0M</code>.</p>
+
+<div class="note">
+  <div class="t">🔰 초보자 설명 — 자재그룹 계약의 제외방식 / 포함방식</div>
+  <p><b>제외방식</b>: 자재그룹 <code>ZT99</code>를 커버하는 계약항목 하나만 두고, 별도 계약이 있는 자재 <code>D-01</code>만 빼고 싶다. 그러면 <code>ME32K</code>에서 그 항목의 소스리스트에 <code>D-01</code>을 <b>Exclusion</b> 지시자와 함께 등록합니다 — 시스템이 <code>D-01</code>에 대해 이 계약항목을 차단하는 <span class="hl">Blk 소스리스트 레코드</span>를 만들어 줍니다. (자재마스터가 없는 자재는 소스리스트로 차단할 수 없습니다.)</p>
+  <p><b>포함방식</b>: 반대로 소스리스트에 계약항목이 등록된 자재만 그 계약으로 주문 가능. 나머지는 <code>The source of supply is blocked by the source list</code> 오류가 납니다. 단 자재마스터 없는 자재는 이 제한과 무관하게 항상 주문 가능합니다.</p>
+</div>
+
+<h3>할당버전(Quota Arrangement)</h3>
+
+<p>같은 기간에 여러 소스에서 나눠 사고 싶을 때, 각 소스에 <b>할당량(Quota)</b>을 줍니다. 할당량은 그 기간 소요량 중 각 소스가 맡을 비중입니다. 생성은 <code>MEQ1</code> · Manage Quota Arrangements.</p>
+
+<div class="note warn">
+  <div class="t">할당버전이 단일 구매요청을 쪼개주지는 않는다</div>
+  <p>할당버전이 있어도 <span class="bad">수동 생성한 구매요청 한 건의 수량이 여러 소스로 자동 분배되지 않습니다.</span> 요청 항목의 전체 수량은 <b>하나의 소스에 전량</b> 배정됩니다. 단일 소요를 할당량대로 쪼갤 수 있는 것은 <span class="hl">계획실행(Planning Run)뿐</span>입니다.</p>
+</div>
+
+<h4>할당순위 — 낮은 쪽이 이긴다</h4>
+
+<p><b>할당순위 = (할당배정수량 + 할당기준수량) ÷ 할당량</b></p>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>예시</th><th>공급업체 A</th><th>공급업체 B</th><th>공급업체 C</th></tr></thead>
+<tbody>
+<tr><td>할당량</td><td>3</td><td>2</td><td>1</td></tr>
+<tr><td>할당배정수량</td><td>780</td><td>380</td><td>0</td></tr>
+<tr><td>할당기준수량</td><td>0</td><td>0</td><td>260</td></tr>
+<tr><td><span class="key">할당순위</span></td><td>260</td><td><span class="good">190</span></td><td>260</td></tr>
+</tbody>
+</table>
+</div>
+
+<p>순위가 가장 낮은 <b>B</b>가 다음 구매요청 항목에 배정됩니다. 저장 후 B의 할당배정수량은 480이 되고 순위는 240으로 올라갑니다. 동률이면 <span class="bad">할당량이 큰 쪽이 아니라 첫 번째 항목</span>이 선택됩니다. 현재 할당순위는 화면에 직접 표시되지 않습니다.</p>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>값</th><th>설명</th></tr></thead>
+<tbody>
+<tr><td>할당배정수량</td><td class="wrap">할당버전 시작 이후 그 소스에 배정된 소요량 누계. 자동 갱신되며 배정 후 오브젝트를 삭제·변경해도 갱신됨</td></tr>
+<tr><td>할당기준수량</td><td class="wrap">수동 통제용 — 신규 소스 편입, 할당량과 배정수량의 불균형 보정</td></tr>
+<tr><td>할당량</td><td class="wrap">소스 간 배분 비율을 결정하는 숫자</td></tr>
+</tbody>
+</table>
+</div>
+
+<div class="note">
+  <div class="t">🔰 초보자 설명 — 신규 벤더를 넣을 때 할당기준수량이 필요한 이유</div>
+  <p>A·B가 50:50으로 오래 거래해 배정수량이 많이 쌓인 상태에서 신규 C를 넣는다고 합시다. C는 배정수량이 0이라 할당순위가 계속 최저로 나오고, 결과적으로 <span class="bad">신규 소요가 전부 C에게만 몰립니다.</span></p>
+  <p>이를 막으려고 C에 적절한 <b>할당기준수량</b>을 넣어 출발선을 맞춥니다. <code>MEQ1</code>에서 <code>Edit → Base Quantities → Individual Calculation</code>(선택 항목만) 또는 <code>Collective Calculation</code>(전체 순위를 동일하게)으로 시스템이 계산하게 할 수도 있습니다.</p>
+</div>
+
+<p>소스결정 시뮬레이션도 <code>MEQ1</code>에 있습니다 — <code>Extras → Simulation → Quota Arrangement</code>(할당버전만) 또는 <code>→ Source of Supply</code>(장기계약·정보레코드·소스리스트까지).</p>
+
+<h4>계획실행에서의 분할</h4>
+
+<p>자재마스터 로트사이즈가 <span class="key">ES</span>(로트단위 사이즈계산, 분할 포함)면, 1,000개 소요가 할당량 비율(예: 4:3:2:1)대로 여러 구매요청으로 쪼개집니다. <span class="hl">분할 할당버전에서는 할당배정수량과 할당순위가 모두 무시됩니다.</span></p>
+
+<ul>
+  <li><b>최소분할수량</b>(할당버전 헤더) — 이보다 적으면 분할하지 않고 할당순위 최저 소스에 전량 배정</li>
+  <li><b>최대로트크기</b> — 제안 1건당 한 소스에 배정되는 최대수량. 초과하면 같은 소스에 여러 제안으로 분할. <b>1x 지시자</b>를 켜면 그 소스는 최대로트 1건만 받고 나머지는 다른 소스로</li>
+  <li><b>최소로트크기</b> — 소요가 이보다 적으면 그 소스의 로트는 최소로트크기로 올라감</li>
+  <li><b>최대수량</b>(할당버전항목) — 수동 구매요청과 MRP 모두에 적용되는 배정수량 상한. 넘으면 소스로 제안되지 않음</li>
+  <li><b>우선순위</b> — 예: 사내생산에 월 최대방출 10,000 + 우선순위 1, 초과분은 외부 조달. <span class="bad">우선순위를 쓰면 분할할당 로트사이징은 못 씁니다</span></li>
+</ul>
+
+<div class="note">
+  <div class="t">🔰 초보자 설명 — 최대수량이 순위를 뒤집는 경우</div>
+  <p>자재 M-01에 800개 소요. A(할당량1, 배정수량1500, 최대수량2000) / B(할당량2, 배정수량3800). 순위만 보면 A가 낮아 A가 이겨야 하지만, 800을 더하면 A의 배정수량이 2300으로 <b>최대수량 2000을 넘습니다.</b> 그래서 시스템은 B를 배정합니다. 최대수량이 2500이었다면 A가 됐을 겁니다.</p>
+</div>
+
+<h3>공급업체 차단</h3>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>차단 유형</th><th>영향</th></tr></thead>
+<tbody>
+<tr><td>구매 관점 / 중앙 차단</td><td class="wrap"><code>MK05</code> / <code>XK05</code> — 실제로는 <code>BP</code>로 리다이렉트됨. 역할 <code>FLVN01</code> Supplier + 해당 구매조직 구매뷰에서 추가구매데이터 영역. 미결문서가 있으면 경고가 뜨며, <b>입고전기·변경은 계속 가능</b>하지만 전기차단이 걸려 있으면 송장은 전기 불가</td></tr>
+<tr><td>소스리스트 Blk — 장기계약항목</td><td class="wrap">그 항목에 대해 해제오더·일정라인 생성 불가. 단 <b>장기계약 참조 없이는 그 자재를 주문할 수 있음.</b> 소스결정에서 제안되지 않고 수동 배정도 불가</td></tr>
+<tr><td>소스리스트 Blk — 정보레코드/플랜트</td><td class="wrap">그 공급업체로부터 그 자재를 <span class="bad">장기계약 참조 유무와 무관하게</span> 발주·일정계획 불가. 기존 <b>할당버전항목도 더 이상 고려되지 않음</b></td></tr>
+<tr><td>자재상태(Material Status)</td><td class="wrap">자재마스터에서 조달 차단. 클라이언트 전체(Basic Data 뷰) 또는 플랜트별(Purchasing / MRP 뷰)</td></tr>
+</tbody>
+</table>
+</div>
+
+<p>품질 사유 차단은 자재마스터에서 <b>QM in Procurement</b>가 활성인 자재에만 걸립니다.</p>
+
+<h3>카탈로그 소싱</h3>
+
+<p>본인 몫을 직접 요청하는 셀프서비스는 Fiori <b>My Purchase Requisitions</b>입니다. 항목 생성 방법은 세 가지 — 카탈로그에서 선택 / 자재번호 직접 입력 / 카탈로그에 없으면 텍스트로 설명. 크로스콘텐츠검색이 구현돼 있으면 자재마스터와 카탈로그를 한 번에 검색합니다.</p>
+
+<p>재고자재는 구매요청과 별도로 <b>예약(Reservation)</b>이 함께 생성될 수 있습니다(Customizing 필요). 사용자 기본값(플랜트·저장위치·회사코드·구매조직·계정지정범주·코스트센터·통화)은 <b>Default Settings for Users</b> 앱에서 미리 넣어둡니다.</p>
+
+<p><code>ME51N</code>·<code>ME21N</code>에 카탈로그를 직접 연동하려면 <code>Purchasing → Environment Data → Web Services: ID and Description</code>에서 연결을 설정합니다.</p>
+
+<div class="note warn">
+  <div class="t">EFB로 수동 소스배정 자체를 막을 수 있다</div>
+  <p><b>EFB 사용자파라미터</b>(구매 기능권한)의 수동 소스배정 지시자를 켜지 않으면, 그 사용자는 <span class="hl">자동소스결정 기능만</span> 쓸 수 있습니다 — 벤더를 손으로 지정하지 못합니다. 소스결정을 통제로 쓰려면 소스리스트/할당버전만이 아니라 여기까지 같이 봐야 합니다(<a href="#l8">LESSON 8</a>).</p>
+</div>
+
+<div class="note ok">
+  <div class="t">📌 개인 E2E 프로젝트와의 연결점</div>
+  <p>프로젝트는 자재그룹이 <code>CHKN</code>·<code>RICE</code>·<code>SHAK</code>·<code>PROT</code>·<code>PBAR</code> 다섯이고 벤더 수가 적으므로, 할당버전까지는 과합니다. 실제로 필요한 것은 <b>소스리스트 + 고정소스(Fix)</b> 한 겹입니다 — 자재마다 주거래 벤더 하나를 Fix로 박아두면 <code>ME51N</code>·<code>ME21N</code>에서 매번 같은 소스가 잡히고, 발주 실수가 줄어듭니다.</p>
+  <p>차단 쪽은 <b>Blk + 공급업체 공란 + 유효기간</b> 조합이 유용합니다. 특정 자재를 일시적으로 못 사게 막을 때, 자재마스터를 건드리지 않고 <span class="hl">플랜트(<code>GATE</code>) 단위로만</span> 조달을 끊을 수 있습니다. 다만 앞의 경고대로 <b>입고전기 시 자동생성되는 구매오더는 막지 못하므로</b>, 게이트 입고를 다루는 <code>ZGATE_INSPECT</code> 쪽에서 이 구멍을 전제로 두고 설계해야 합니다.</p>
+</div>
+
+</div>
+
+
+<!-- ══════════ LESSON 5 ══════════ -->
+<div class="lesson" id="l5">
+<h2><span class="no">LESSON 5</span>구매요청 처리 · 구매오더 모니터링 · Situation Handling</h2>
+
+<p><span class="tag">Unit 4</span><span class="tag">레슨 4개</span>Processing Unassigned / Assigned Purchase Requisitions · Monitoring Purchase Orders · Deploying Situation Handling</p>
+
+<h3>언제 이걸 알아야 하는가</h3>
+
+<p><b>"어제 배정해 둔 벤더가 오늘 다른 벤더로 바뀌어 있습니다"</b> — 버그가 아닙니다. <code>ME56</code>/<code>ME57</code>에서 <span class="bad">이미 배정된 구매요청을 다시 선택해 자동소스결정을 돌리면, 사전 경고 없이 기존 소스가 덮어써집니다.</span> 이 동작을 모르면 원인을 못 찾습니다.</p>
+
+<p>두 번째로 많은 게 <b>"발주한 지 한참인데 물건이 안 옵니다"</b>입니다. 답은 오더확인(Confirmation)과 독촉(Reminder) 설정에 있습니다 — 확인을 요구하지도, 독촉 조건을 걸지도 않았으면 시스템은 아무것도 알려주지 않습니다.</p>
+
+<h3>미배정 구매요청 처리</h3>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>기능</th><th>T-Code</th><th>Fiori 앱</th></tr></thead>
+<tbody>
+<tr><td>소스 배정만</td><td><code>ME56</code></td><td class="wrap">Assign Source of Supply to Purchase Requisitions</td></tr>
+<tr><td>배정 + 처리</td><td><code>ME57</code></td><td class="wrap">Assign and Process Purchase Requisitions</td></tr>
+<tr><td>배정목록 경유 PO 생성</td><td><code>ME58</code></td><td class="wrap">Create Purchase Order via Purchase Requisition</td></tr>
+<tr><td>PO 자동생성</td><td><code>ME59N</code></td><td class="wrap">Automatic Creation of Purchase Orders from Requisitions</td></tr>
+<tr><td>공급업체 미지정 PO 생성</td><td><code>ME25</code></td><td class="wrap">Create Purchase Order - With Source Determination</td></tr>
+</tbody>
+</table>
+</div>
+
+<p><code>ME57</code>(Assign and Process)은 <b>소스 배정</b>과 <b>배정된 요청의 발주</b> 두 기능을 합친 것입니다. 소스를 못 찾은 요청은 수동 배정하거나 RFQ용으로 플래그할 수 있습니다.</p>
+
+<div class="note warn">
+  <div class="t">RFQ 플래그는 저장되지 않는다</div>
+  <p><code>Edit → Flag for RFQ</code>로 표시한 구매요청은 <span class="bad">즉시 RFQ로 전환해야 합니다.</span> 그러지 않으면 트랜잭션을 벗어날 때 배정이 사라집니다.</p>
+  <p>그리고 앞서 말한 덮어쓰기 — 이미 배정된 요청을 다시 골라 자동결정을 돌리면 <span class="hl">경고 없이 기존 소스가 교체</span>됩니다. 배정 작업은 미배정 건만 골라서 돌리는 습관이 안전합니다.</p>
+</div>
+
+<div class="note warn">
+  <div class="t">Fiori Process Purchase Requisitions는 GUI와 다르게 동작한다</div>
+  <p>두 가지가 빠집니다 — ① <b>대량선택·일괄배정 불가</b>(소스를 하나씩 배정), ② <b>자동배정 미지원</b>으로 <span class="bad">할당버전·소스리스트가 고려되지 않습니다.</span> 수동배정 후 구매오더·계약·RFQ로 전환은 가능하고, 후속문서 생성 시에는 다중선택이 됩니다.</p>
+  <p>소스리스트를 통제수단으로 깔아 놓고 이 앱만 쓰면 통제가 사실상 무력화되므로, 어느 앱을 표준 경로로 쓸지 먼저 정해야 합니다. <b>확인 필요 — 실제 시스템(winerp01 / MEP)</b>에서 어느 앱이 배포돼 있는지 확인할 것.</p>
+</div>
+
+<h4>배정된 구매요청 → 구매오더</h4>
+
+<p><code>ME58</code>은 <b>이미 소스가 배정된</b> 항목만 전환할 수 있습니다. 효율 팁 세 가지:</p>
+
+<ul>
+  <li>문서개요 레이아웃을 <b>최상위를 공급업체로</b> 분류해 두면, 같은 벤더 항목을 한 PO로 빠르게 묶을 수 있음</li>
+  <li>같은 벤더·자재인데 납품일만 다른 여러 요청은 결합 가능 — 첫 요청을 헤더 장바구니로, 나머지는 항목상세 <b>Schedule Lines</b> 탭 장바구니로 드래그앤드롭. 수량 스케일가격을 합의한 경우 특히 유리</li>
+  <li>문서개요에서 <b>Refresh</b>를 주기적으로 누르면 아직 전환되지 않은 항목만 남음</li>
+</ul>
+
+<p><b>My Purchase Requisitions</b> 선택변형은 본인이 만든 요청만 보여주므로 이 용도에는 맞지 않습니다. MRP 컨트롤러라면 MRP리스트·현재고/소요량리스트에서 구매요청을 더블클릭해 바로 PO를 띄울 수도 있습니다.</p>
+
+<h4>구매오더 자동생성 (ME59N)</h4>
+
+<p>자재마스터가 없는 항목도 자동생성이 됩니다 — 단 BP의 <b>Automatic Purchase Order</b> 지시자가 켜져 있고, 구매요청 항목에 <b>평가가격</b>이 있어야 합니다(그 값이 PO로 복사됨).</p>
+
+<div class="step"><span class="n">STEP 1</span><p>상단에 조직선택기준(구매그룹, 플랜트 등) 입력</p></div>
+<div class="step"><span class="n">STEP 2</span><p>하단에 구매요청 선택기준(번호구간, 자재, 기간) 입력</p></div>
+<div class="step"><span class="n">STEP 3</span><p>중간영역에서 <b>별도 PO로 나눠야 하는 조건</b> 지정 (예: 플랜트가 다르면 같은 PO로 묶지 않음)</p></div>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>파라미터</th><th>설명</th></tr></thead>
+<tbody>
+<tr><td>Omit Faulty Items</td><td class="wrap">켜면 오류항목만 빼고 생성 — 10건 중 1건이 계정지정 미지정이면 나머지 9건으로 PO 생성. <span class="bad">끄면 10건 전체가 전환되지 않고 오류</span></td></tr>
+<tr><td>Detailed Log</td><td class="wrap">백그라운드 실행 시 필수급 — 어떤 PO가 생겼는지, 어떤 항목이 왜 실패했는지 로그로 남김</td></tr>
+<tr><td>Generate Schedule Lines</td><td class="wrap">납품희망일만 다른 여러 요청을 <b>일정라인을 가진 PO 항목 1개</b>로 묶음</td></tr>
+<tr><td>Test Run</td><td class="wrap">시뮬레이션. 테스트 후 온라인 실행하거나 선택변형으로 저장해 배치 스케줄링</td></tr>
+</tbody>
+</table>
+</div>
+
+<p>정기 실행은 <b>Schedule Purchasing Jobs - Advanced</b>의 잡템플릿으로 겁니다. <span class="bad">이 트랜잭션으로 일정계약 납품일정라인은 자동생성할 수 없습니다</span> — 그건 MRP가 직접 만듭니다.</p>
+
+<h3>구매오더 모니터링 — 오더확인</h3>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>방식</th><th>할 수 있는 것 / 없는 것</th></tr></thead>
+<tbody>
+<tr><td>단순 오더확인만</td><td class="wrap">확인이 <b>일반적 성격</b>만 가짐 — 확인일자·수량을 기록할 수 없음. 현재고/소요량리스트에서 확인 여부가 구분되지 않음</td></tr>
+<tr><td>여러 확인유형 사용<br>(오더확인 · 적재확인 · 선적통지)</td><td class="wrap">확인일자·수량을 기록 가능. <span class="hl">어떤 수량이 어떤 일자에 확인됐는지</span> 현재고/소요량리스트에서 확인 가능</td></tr>
+</tbody>
+</table>
+</div>
+
+<p><b>단순 방식</b>은 문서 생성 시 <b>Acknowl.Reqd</b> 체크박스를 켜는 것으로 시작합니다. 이 지시자의 기본값은 다섯 군데에서 올 수 있습니다 — BP 구매데이터 / 구매정보레코드 / 자재마스터의 <b>구매가치키</b> / EVO 사용자파라미터 / <code>ME21N</code> 개인설정. 공급업체 확인이 오면 항목화면에 확인번호를 입력하고, 없으면 독촉장을 만듭니다. 모든 항목에 같은 확인번호를 한 번에 넣으려면 항목개요 하단 <b>Fast Change</b>를 씁니다.</p>
+
+<p><b>여러 확인유형</b>을 쓰면 항목상세에 <span class="key">확인관리키(Confirmation Control Key)</span>를 넣어야 합니다. 이 키가 기대하는 확인의 종류·순서를 정하고, 어떤 확인이 MRP·입고에 관련되는지도 통제합니다. 정보레코드나 BP 구매데이터에 기본값을 둘 수 있습니다.</p>
+
+<p>확인 입력 경로는 셋 — 구매문서에 직접 / 입고예정통지(Inbound Delivery) 별도 문서 / 공급업체 EDI 전송(거절 시 거절·삭제 지시자가 PO 항목에 설정됨).</p>
+
+<h4>확인순서(Confirmation Sequence) 지시자</h4>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>지시자</th><th>의미</th></tr></thead>
+<tbody>
+<tr><td>MRP-Relevant</td><td class="wrap">확인 입력 후 PO가 현재고/소요량리스트에서 미확인 PO(<code>POitem</code>)와 다른 MRP요소(<code>ShpgNt</code>)로 표시됨</td></tr>
+<tr><td>GR-Relevant</td><td class="wrap">입고전기 시 확인수량이 차감됨. <span class="bad">확인순서 안에서 1개만 지정 가능</span></td></tr>
+<tr><td>GR Assignment</td><td class="wrap">입고 시 확인된 수량만 제안 — <span class="hl">사전 확인 없이는 입고전기 자체가 불가.</span> GR-Relevant와 함께 써야 함. <code>VL32N</code>으로 입고를 전기해 자재문서·PO이력을 갱신하려면 필요</td></tr>
+<tr><td>Moni.Per. / Ref.Date</td><td class="wrap">확인을 기대하는 기간(오더일 또는 납품일 기준). 기간 내 확인이 없고 <b>Sbj. to Rem.</b>이 켜져 있으면 자동 독촉 가능. <span class="bad">이 지시자가 없으면 어떤 확인에도 독촉장을 만들 수 없음</span></td></tr>
+</tbody>
+</table>
+</div>
+
+<p>Customizing 순서: ① 외부확인카테고리 정의 → ② SAP 제공 내부카테고리에 배정 → ③ 확인관리키 정의(<code>Purchasing → Confirmations → Set Up Confirmation Control</code>) → ④ 확인순서 정의. <b>Create Inb. Delivery</b> 지시자를 켜면 사전 선적통지 없이도 PO에서 입고예정통지를 자동생성합니다(<code>VL31N</code>).</p>
+
+<h4>독촉장이 나가기 위한 전제조건</h4>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>오더확인 독촉</th><th>납품독촉</th></tr></thead>
+<tbody>
+<tr><td class="wrap">· <b>Acknow.Reqd</b> 체크됨<br>· 확인관리키 없는 항목: 확인번호 미입력<br>· 확인관리키 있는 항목: 부분확인/미확인 (내부확인유형 1만 고려)<br>· 구매문서가 <b>출력</b>됨<br>· 독촉장용 메시지결정 설정 + 메시지레코드 존재</td>
+    <td class="wrap">· 문서항목에 <b>독촉레벨(독촉기간)</b> 1개 이상 입력<br>· 구매문서가 <b>출력</b>됨<br>· 납품독촉용 메시지결정 설정 + 메시지레코드 존재</td></tr>
+</tbody>
+</table>
+</div>
+
+<p>독촉기간은 항목에 수동 입력하거나 <b>구매가치키</b>로 기본값을 줍니다(자재마스터 Purchasing 뷰, 또는 Customizing에서 자재그룹 기준). 정의 경로는 <code>Purchasing → Material Master → Define Purchasing Value Keys</code>, 자재그룹 배정은 <code>… → Entry Aids for Items Without a Material Master</code>.</p>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>기능</th><th>T-Code</th></tr></thead>
+<tbody>
+<tr><td>확인 모니터링(독촉 미생성)</td><td class="wrap"><code>ME2A</code> · Monitor Supplier Confirmations (앱은 독촉 생성 불가)</td></tr>
+<tr><td>PO 독촉</td><td class="wrap"><code>ME91F</code> (클래식 아웃풋) / <code>ME91FF</code> · Dunning Reminder on Purchase Order – Advanced (S/4HANA 아웃풋관리 BRFplus)</td></tr>
+<tr><td>RFQ 독촉</td><td class="wrap"><code>ME91A</code> — 납품일이 아니라 <b>견적마감일</b> 기준</td></tr>
+<tr><td>일정계약 납품일정라인 독촉</td><td class="wrap"><code>ME91E</code></td></tr>
+<tr><td>미결 문서 리스트</td><td class="wrap"><code>ME2M</code>(자재별) / <code>ME2L</code>(공급업체별) — 선택파라미터 <code>WE101</code> + 납품일 제한</td></tr>
+</tbody>
+</table>
+</div>
+
+<div class="note warn">
+  <div class="t">클래식 아웃풋인지 S/4HANA 아웃풋관리인지 먼저 확인할 것</div>
+  <p><code>ME91F</code> 계열은 <b>조건기법 기반 클래식 아웃풋결정</b>을 쓰는 경우에만 동작합니다. 구매오더가 S/4HANA 아웃풋관리(BRFplus)를 쓰면 <code>ME91FF</code> 또는 <b>Dunning Reminder on Purchase Order – Advanced</b>를 써야 합니다.</p>
+  <p><b>확인 필요 — 실제 시스템(winerp01 / MEP)에서 구매오더 출력이 어느 방식인지 확정할 것.</b> 여기를 잘못 잡으면 "독촉이 안 나간다"가 아니라 "트랜잭션 자체가 아무 대상도 못 찾는다"로 나타납니다.</p>
+</div>
+
+<h3>Situation Handling</h3>
+
+<p>마감임박·만료계약·미결확인 같은 반복 이슈는 사람이 찾아보지 않으면 그냥 지나갑니다. <b>Situation Handling</b>은 이런 예외를 <span class="key">자동으로 감지해 정의된 팀·책임에 따라 통지</span>하는 S/4HANA 프레임워크입니다.</p>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>유형</th><th>설명</th></tr></thead>
+<tbody>
+<tr><td>오브젝트기반</td><td class="wrap">계약·구매오더·송장·자재 등 비즈니스 오브젝트 대상. <b>상태변경이나 임계값 초과</b> 같은 조건을 직접 정의</td></tr>
+<tr><td>메시지기반</td><td class="wrap">시스템 실행·리포트에서 나오는 경고·오류메시지를 참조. 조건 대신 <b>어떤 시스템메시지가 시추에이션을 만들지</b>를 선택</td></tr>
+</tbody>
+</table>
+</div>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>구매 시추에이션 템플릿</th><th>내용</th><th>템플릿 ID</th></tr></thead>
+<tbody>
+<tr><td>Predicted Contract Consumption</td><td class="wrap">계약이 곧 소진될 예정임을 구매담당자에게 통지</td><td class="wrap"><code>PROC_CONTRACTCONSUMPTNPREDICTION</code></td></tr>
+<tr><td>Contract is Ready as Source of Supply</td><td class="wrap">미결 구매요청에 신규/갱신 계약이 사용 가능해지면 통지</td><td class="wrap"><code>PROC_CONTRACTREADYTOUSE_V2</code></td></tr>
+<tr><td>Pending Supplier Confirmation</td><td class="wrap">미결 공급업체확인 건 통지</td><td class="wrap"><code>PROC_PENDINGSUPPLIERCONF_V2</code></td></tr>
+<tr><td>Quantity Deficit in Supplier's Delivery</td><td class="wrap">확인 누락, 또는 예정납품일에 일부 수량이 안 올 예정임을 통지</td><td class="wrap"><code>PROC_POITEMCONFQTYDEFICIT</code></td></tr>
+</tbody>
+</table>
+</div>
+
+<p>템플릿은 <b>시추에이션 유형(Situation Type)</b>을 만드는 청사진입니다. 유형은 언제 트리거되는지, 누구에게 통지할지, 어떤 해결조치가 가능한지를 정의합니다. 템플릿 기반으로 만들면 표시 텍스트를 포함해 대부분을 바꿀 수 있지만, <span class="bad">표준템플릿이 기반하는 데이터구조 자체는 변경할 수 없습니다.</span></p>
+
+<div class="step"><span class="n">STEP 1</span><p><b>Manage Situation Types</b> → Situation Templates 탭에서 템플릿 선택 → <b>Copy</b></p></div>
+<div class="step"><span class="n">STEP 2</span><p>Admin Information(ID · Name · Display Sequence) 유지. 같은 오브젝트에 여러 유형이 있으면 표시 순서를 정함</p></div>
+<div class="step"><span class="n">STEP 3</span><p><b>Conditions</b> — 필터값·추가조건 추가 또는 사전정의 조건 삭제. <b>Send Notification</b>을 켜면 런치패드 알림(선택적으로 이메일)까지</p></div>
+<div class="step"><span class="n">STEP 4</span><p><b>Batch Job Scheduling</b> — 필요 시 시간대·시작시각 입력</p></div>
+<div class="step"><span class="n">STEP 5</span><p><b>Situation Display</b> — 인앱 텍스트·알림텍스트 개인화. 인스턴스마다 알릴지 통합 1건으로 알릴지, 갱신 시 재발송할지 결정</p></div>
+<div class="step"><span class="n">STEP 6</span><p><b>Recipients</b> — Responsibility Management의 팀 또는 책임규칙으로 수신자 정의</p></div>
+<div class="step"><span class="n">STEP 7</span><p><b>Situation Monitoring</b>의 Monitor Instances 플래그 → Create → Enable Situation Type에서 Yes</p></div>
+
+<p>통지 채널은 넷 — <b>My Situations</b> / <b>My Situations - Message-Based</b> 앱 목록, 해당 비즈니스 앱 내 메시지, Fiori 런치패드 알림, 이메일. 뒤의 <span class="hl">셋(앱 내 메시지·런치패드 알림·이메일)은 오브젝트기반 시추에이션에만</span> 제공됩니다. 키유저는 <b>Monitor Situations</b>로 인스턴스 발생·상태변경을 봅니다. 설정 권한은 비즈니스롤 <b>Configuration Expert - Business Process Configuration</b>.</p>
+
+<div class="note ok">
+  <div class="t">📌 개인 E2E 프로젝트와의 연결점</div>
+  <p>Situation Handling은 프로젝트 CBO 세 본과 정확히 같은 문제를 푸는 <b>표준 수단</b>입니다. 특히 <b>Predicted Contract Consumption</b>(임계값 넘으면 담당자에게 알림)은 <code>ZPRICE_CHECK</code>의 "괴리가 임계를 넘으면 알린다"와 구조가 같고, <b>Pending Supplier Confirmation</b>은 <code>ZGATE_INSPECT</code>의 "송장 미발생 건을 찾아낸다"와 같은 발상입니다.</p>
+  <p>프로젝트 원칙이 <b>표준 우선</b>이므로, 설계서에는 <span class="hl">"왜 Situation Handling으로 안 하고 CBO인가"를 한 줄 남겨야</span> 면접에서 방어가 됩니다. 현재의 답 — ① 판정 기준이 <code>EINE-NETPR</code> vs <code>MBEW-VERPR</code>처럼 표준 템플릿의 데이터구조에 없는 조합이고, 템플릿의 데이터구조는 <b>변경할 수 없다</b>, ② <code>ZBATCH_ZONE</code>은 통지가 아니라 <b>311 이동 전기</b>까지 해야 한다. <b>확인 필요 — 실제 시스템에 Situation Handling이 활성인지, 어떤 템플릿이 배포돼 있는지 확인한 뒤 이 근거를 확정할 것.</b></p>
+  <p>CBO 테이블의 상태필드 <b>W / P / H</b>도 이 레슨의 인스턴스 상태(발생 → 처리중 → 종료)와 같은 역할입니다.</p>
+</div>
+
+</div>
+
+
+<!-- ══════════ LESSON 6 ══════════ -->
+<div class="lesson" id="l6">
+<h2><span class="no">LESSON 6</span>승인프로시저(Release Procedure)</h2>
+
+<p><span class="tag">Unit 5</span><span class="tag">레슨 4개</span><span class="tag warn">두 번째 핵심</span>Releasing Purchase Requisitions · Releasing Purchasing Documents · Configuring in Customizing · Flexible Workflow</p>
+
+<h3>언제 이걸 알아야 하는가</h3>
+
+<p><b>"결재는 다 났는데 구매오더가 출력이 안 됩니다"</b> 또는 <b>"승인이 왜 이 사람한테 갔습니까"</b>. 둘 다 승인프로시저입니다. 그런데 이 구조는 화면에서 <span class="bad">차단 기준이 보이지 않습니다</span> — 무엇 때문에 이 전략이 걸렸는지는 Customizing에만 있습니다.</p>
+
+<p>그래서 승인 문의는 <b>전략이 어떻게 선택됐는가</b>부터 역산해야 합니다. 문서 필드값 → 통신구조 → 특성 → 클래스 → 전략. 이 경로를 모르면 "승인 화면에 안 뜬다"는 문의에 답할 수 없습니다.</p>
+
+<h3>무엇을 차단하는가</h3>
+
+<p>구매요청이나 외부구매문서(구매오더·계약·일정계약·RFQ)가 조건을 충족하면 승인을 받기 전까지 <b>자동으로 후속처리가 차단</b>됩니다. 차단된 구매요청은 후속문서로 전환할 수 없고, <span class="hl">차단된 구매오더는 출력·전송할 수 없습니다.</span></p>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>구분</th><th>구매요청</th><th>외부구매문서(PO · 계약 · 일정계약 · RFQ)</th></tr></thead>
+<tbody>
+<tr><td>승인 단위</td><td class="wrap"><b>항목별</b> 또는 <b>전체</b> — 승인그룹과 문서유형이 결정</td><td class="wrap"><span class="bad">헤더 레벨만.</span> 항목별 승인·거부 불가</td></tr>
+<tr><td>전략 결정 시점</td><td class="wrap">항목별 = 데이터 입력 시 / 전체 = 저장·체크 시</td><td class="wrap">저장 또는 체크 시</td></tr>
+<tr><td>프로시저 종류</td><td class="wrap">분류 없는 / 분류 있는 — <b>둘 중 하나만</b></td><td class="wrap"><span class="key">분류 있는 프로시저만</span> 가능</td></tr>
+<tr><td>확정지시자 · 필드선택키</td><td class="wrap">있음</td><td class="wrap"><span class="bad">없음</span></td></tr>
+</tbody>
+</table>
+</div>
+
+<div class="note warn">
+  <div class="t">분류 있는 프로시저를 만드는 순간 분류 없는 프로시저는 죽는다</div>
+  <p>두 프로시저는 <b>상호배타적</b>입니다. SAP 표준배포판에는 분류 있는 프로시저가 처음엔 없고, <span class="bad">분류 있는 프로시저를 생성하는 즉시 분류 없는 프로시저는 자동으로 비활성화</span>됩니다. 되돌리는 작업이 아니라 갈아타는 작업입니다.</p>
+  <p><b>확인 필요 — 실제 시스템(winerp01 / MEP)에서 현재 어느 쪽이 활성인지 먼저 확인할 것.</b> 분류 없는 프로시저는 항목레벨만 되고, 승인기준으로 쓸 수 있는 것이 <b>계정지정범주 · 자재그룹 · 플랜트 · 금액</b> 넷뿐입니다.</p>
+</div>
+
+<h3>핵심 용어 4개</h3>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>용어</th><th>설명</th></tr></thead>
+<tbody>
+<tr><td><span class="key">승인그룹</span><br>Release Group</td><td class="wrap">여러 승인전략을 묶은 것. 예: 01 = 항목별승인 구매요청용, 02 = 전체승인 구매요청용. <b>승인그룹 + 문서유형이 항목별/전체를 결정</b></td></tr>
+<tr><td><span class="key">승인전략</span><br>Release Strategy</td><td class="wrap">항목·문서를 차단시킨 <b>기준</b>을 담음. <span class="bad">기준 자체는 화면에 표시되지 않고 Customizing에만 있음</span></td></tr>
+<tr><td><span class="key">승인지시자</span><br>Release Indicator</td><td class="wrap">현재 승인상태를 나타내는 키. 시작 시점은 보통 "Blocked"</td></tr>
+<tr><td><span class="key">승인코드</span><br>Release Code</td><td class="wrap">승인·취소할 수 있는 개인/그룹을 나타내는 <b>2자리 ID</b>. 권한으로 사용을 통제</td></tr>
+</tbody>
+</table>
+</div>
+
+<p>이미 이루어진 승인은 같은 코드로 취소할 수 있고, 시스템은 원래 상태로 되돌립니다. 단 <span class="hl">그 요청(항목)이 아직 후속문서로 전환되지 않은 경우에만</span> 유효합니다.</p>
+
+<figure class="figwrap">
+<svg class="dgm" viewBox="0 0 1000 540" role="img" aria-label="승인프로시저 구조 도해. 문서를 저장하면 통신구조 CEBAN 또는 CEKKO의 필드값이 특성으로 읽히고, 클래스유형 032 클래스가 그 특성들을 묶어 승인전략을 선택하며, 전략 안의 승인코드들이 전제조건 순서대로 승인되면 승인지시자가 Released로 바뀐다.">
+  <defs>
+    <marker id="m4k" markerWidth="9" markerHeight="9" refX="7" refY="4.5" orient="auto">
+      <polygon class="arw-key" points="0,0 9,4.5 0,9"/></marker>
+    <marker id="m4o" markerWidth="9" markerHeight="9" refX="8" refY="4.5" orient="auto">
+      <polygon class="arw-ok" points="0,0 9,4.5 0,9"/></marker>
+  </defs>
+
+  <rect class="b-key" x="340" y="14" width="320" height="48" rx="5"/>
+  <text class="t-h c-key" x="362" y="38">구매요청 · 구매오더 저장 / 체크</text>
+  <text class="t-s" x="362" y="55">이 시점에 승인전략이 결정된다</text>
+  <path class="ln-key" d="M500 62 V92" marker-end="url(#m4k)"/>
+
+  <rect class="b" x="300" y="94" width="400" height="50" rx="5"/>
+  <text class="t-h" x="322" y="116">통신구조  <tspan class="m">CEBAN</tspan> (요청) · <tspan class="m">CEKKO</tspan> (문서)</text>
+  <text class="t-s" x="322" y="134">승인특성으로 쓸 수 있는 필드가 전부 여기 담긴다 · <tspan class="m-s">SE11</tspan>로 필드명 확인</text>
+
+  <path class="ln-key" d="M400 144 V162 H190 V182" marker-end="url(#m4k)"/>
+  <path class="ln-key" d="M500 144 V182" marker-end="url(#m4k)"/>
+  <path class="ln-key" d="M600 144 V162 H810 V182" marker-end="url(#m4k)"/>
+
+  <rect class="b" x="60" y="184" width="260" height="60" rx="5"/>
+  <text class="t-h" x="80" y="208">특성 — 금액</text>
+  <text class="t-s" x="80" y="228">NUM · CURR → <tspan class="c-ok">구간값 가능</tspan></text>
+
+  <rect class="b" x="370" y="184" width="260" height="60" rx="5"/>
+  <text class="t-h" x="390" y="208">특성 — 자재그룹</text>
+  <text class="t-s" x="390" y="228">CHAR → <tspan class="c-bad">구간값 불가</tspan></text>
+
+  <rect class="b" x="680" y="184" width="260" height="60" rx="5"/>
+  <text class="t-h" x="700" y="208">특성 — 플랜트 · 문서유형</text>
+  <text class="t-s" x="700" y="228">Addnl data 탭에서 테이블·필드 연결</text>
+
+  <path class="ln-key" d="M190 244 V264 H400 V284" marker-end="url(#m4k)"/>
+  <path class="ln-key" d="M500 244 V284" marker-end="url(#m4k)"/>
+  <path class="ln-key" d="M810 244 V264 H600 V284" marker-end="url(#m4k)"/>
+
+  <rect class="b-key" x="300" y="286" width="400" height="50" rx="5"/>
+  <text class="t-h c-key" x="322" y="308">클래스 — 클래스유형 <tspan class="m">032</tspan></text>
+  <text class="t-s" x="322" y="326">요청은 최대 2개(전체용·항목별용) · 구매문서는 1개만</text>
+  <path class="ln-key" d="M500 336 V366" marker-end="url(#m4k)"/>
+
+  <rect class="b-hl" x="280" y="368" width="440" height="56" rx="6"/>
+  <text class="t-h" x="302" y="392">승인전략 선택  =  승인그룹 + 전략키</text>
+  <text class="t-s" x="302" y="412">분류(Classification)에 저장된 필드값이 이 전략을 고른다</text>
+
+  <path class="ln-key" d="M380 424 V444" marker-end="url(#m4k)"/>
+
+  <rect class="b" x="60" y="446" width="200" height="56" rx="5"/>
+  <text class="t-h" x="80" y="470">승인코드 <tspan class="m">Z1</tspan></text>
+  <text class="t-s" x="80" y="490">전제조건 없음</text>
+  <path class="ln-key" d="M260 474 H296" marker-end="url(#m4k)"/>
+
+  <rect class="b" x="300" y="446" width="240" height="56" rx="5"/>
+  <text class="t-h" x="320" y="470">전제조건 (Prerequisite)</text>
+  <text class="t-s" x="320" y="490">Z1 승인이 Z2의 전제조건</text>
+  <path class="ln-key" d="M540 474 H576" marker-end="url(#m4k)"/>
+
+  <rect class="b" x="580" y="446" width="200" height="56" rx="5"/>
+  <text class="t-h" x="600" y="470">승인코드 <tspan class="m">Z2</tspan></text>
+  <text class="t-s" x="600" y="490">Z1 이후에만 가능</text>
+  <path class="ln-ok" d="M780 474 H816" marker-end="url(#m4o)"/>
+
+  <rect class="b-ok" x="820" y="446" width="160" height="56" rx="5"/>
+  <text class="t-h c-ok" x="840" y="470">승인지시자</text>
+  <text class="t-s" x="840" y="490">Blocked → Released</text>
+
+  <rect class="b-ghost" x="60" y="512" width="920" height="24" rx="5"/>
+  <text class="t-s" x="80" y="529">코스트센터 · 공급업체는 10자리 — 앞에 0을 채운다 (공급업체 1010 → <tspan class="m-s">0000001010</tspan>). 품목범주는 내부표현을 쓴다.</text>
+</svg>
+<figcaption><span class="fno">그림 4</span>승인전략이 선택되는 경로. 차단 기준은 화면에 없으므로 이 경로를 역산해야 원인이 나온다.</figcaption>
+</figure>
+
+<h3>Customizing — 만드는 순서</h3>
+
+<div class="step"><span class="n">STEP 1</span><p><b>특성(Characteristic) 생성</b> — 전략 기준이 될 필드마다 하나씩. 이름은 자유지만 <b>Addnl data</b> 탭에서 <code>CEBAN</code> 또는 <code>CEKKO</code>와 필드명을 반드시 연결. <b>Multiple Values</b>를 켜면 복수값 입력 가능<br>경로: 요청 <code>Purchase Requisition → Release Procedure → Procedure with Classification → Edit Characteristics</code> / 오더 <code>Purchase Order → Release Procedure for Purchase Orders → Edit Characteristic</code></p></div>
+<div class="step"><span class="n">STEP 2</span><p><b>클래스 생성</b> — 특성을 모으고 <span class="key">클래스유형 032</span>에 배정. 구매문서는 클래스 1개만 쓸 수 있으므로, 문서카테고리를 나누려면 <b>문서유형을 특성으로</b> 쓰는 것이 권장됨</p></div>
+<div class="step"><span class="n">STEP 3</span><p><b>승인그룹 · 승인코드 생성</b> — 그룹으로 클래스와 승인오브젝트를 연결. 구매요청은 <b>전체용인지 항목별용인지</b> 명시. 코드는 담당자·승인포인트명으로 설명을 달고, 워크플로우를 트리거할 코드는 지시자를 설정</p></div>
+<div class="step"><span class="n">STEP 4</span><p><b>승인지시자 생성</b> — 최소 2개. <b>초기상태용</b>(상세화면에서 RFQ/PO 발행 지시자를 <span class="bad">선택하면 안 됨</span>)과 <b>승인완료상태용</b>(발행 지시자를 <span class="hl">최소 1개는 반드시 선택</span>)</p></div>
+<div class="step"><span class="n">STEP 5</span><p><b>승인전략 생성</b> — 승인코드 / 승인전제조건 / 승인상태 / 분류 네 가지를 정의</p></div>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>전략 정의 항목</th><th>설명</th></tr></thead>
+<tbody>
+<tr><td>승인코드</td><td class="wrap">이 프로세스에 참여할 승인포인트들</td></tr>
+<tr><td>승인전제조건</td><td class="wrap">승인 <b>순서</b>. Z1은 전제조건 없음, Z2는 Z1 승인이 전제조건 — 이렇게 표로 표시</td></tr>
+<tr><td>승인상태</td><td class="wrap">각 승인단계 이후 문서 상태. <span class="bad">발생 가능한 모든 조합에 대해</span> 상태를 지정해야 하고 논리적으로 일관돼야 함. 첫 상태는 보통 Blocked, 최종상태는 원하는 후속문서를 전부 포함</td></tr>
+<tr><td>분류</td><td class="wrap">어떤 필드값이 이 전략을 고를지 정의. 다중값 필드는 여러 값 가능하나 <span class="bad">와일드카드 불가</span>. 값이 없는 특성은 문서에서 반드시 비어 있어야 함. 구간값은 숫자·시간·날짜 특성에만</td></tr>
+</tbody>
+</table>
+</div>
+
+<div class="note">
+  <div class="t">🔰 초보자 설명 — 특정 특성을 "아무 값이나 OK"로 두고 싶을 때</div>
+  <p>어떤 특성을 제한하고 싶지 않다면 두 방법이 있습니다 — ① 승인클래스에서 그 특성을 <b>삭제</b>하거나, ② 값이 <b>공백(blank)</b>이고 설명이 "No Entry" 같은 특성을 만들어 전략에 쓰는 것. ②의 경우 분류에 저장된 값이 쓰이거나 필드가 비어 있으면 그 특성은 <b>충족된 것으로 간주</b>됩니다.</p>
+  <p>전략을 만들고 나면 <b>Release Simulation</b> 버튼으로, 특정 승인포인트가 승인했을 때 문서가 어떤 상태가 되는지 미리 볼 수 있습니다 — 승인코드를 더블클릭하면 결과 상태가 뜹니다.</p>
+</div>
+
+<h4>확정지시자 · 변경가능성지시자 (구매요청 전용)</h4>
+
+<ul>
+  <li><b>확정지시자(Fixing Indicator)</b> — 계획실행으로 생성된 구매요청을, 승인이 시작된 뒤 새 계획실행이 바꾸지 못하게 보호</li>
+  <li><b>필드선택키</b> — 특정 필드(예: 수량)를 이후 변경 불가로</li>
+  <li><b>변경가능성지시자(Changeability Indicator)</b> — 승인 시작 후 문서를 바꿨을 때 어떻게 되는지 지정. <span class="hl">금액변경은 허용오차 비율(%)로</span> 정의 가능</li>
+</ul>
+
+<h3>승인 실행 트랜잭션</h3>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>대상</th><th>T-Code</th><th>Fiori 앱</th></tr></thead>
+<tbody>
+<tr><td>구매요청 개별 / 집단</td><td class="wrap"><code>ME54N</code> / <code>ME55</code></td><td class="wrap">Release Purchase Requisition(s)</td></tr>
+<tr><td>구매오더 개별 / 집단</td><td class="wrap"><code>ME29N</code> / <code>ME28</code> (메뉴경로 없음 — 커맨드필드 직접 입력)</td><td class="wrap">Release Purchase Order(s)</td></tr>
+<tr><td>계약 / 일정계약</td><td class="wrap"><code>ME35K</code> / <code>ME35L</code></td><td class="wrap">Release Purchase Contract / Scheduling Agreement</td></tr>
+<tr><td>RFQ</td><td class="wrap"><code>ME45</code></td><td class="wrap">—</td></tr>
+</tbody>
+</table>
+</div>
+
+<p>집단 트랜잭션에서는 차단된 문서를 <b>인쇄 미리보기</b>로 볼 수는 있지만, 실제 메시지 출력은 승인 후에만 됩니다. 개별승인에서는 현재버전을 보고 ① 승인코드로 승인 ② 거부 ③ 이미 한 승인·거부 되돌리기 중 하나를 합니다.</p>
+
+<div class="note warn">
+  <div class="t">일정계약 납품일정라인에는 승인프로시저가 없다</div>
+  <p>일정계약 자체는 승인 대상이지만, <span class="bad">납품일정라인과 예측/JIT 납품일정에는 승인프로시저가 없습니다.</span> 계약 단계에서 통제하지 못하면 이후 일정라인은 그대로 나갑니다 — 일정계약을 도입할 때 반드시 같이 고려해야 하는 지점입니다.</p>
+</div>
+
+<h4>권한</h4>
+
+<p>분류 없는 프로시저를 쓴다면 권한오브젝트 <code>M_BANF_FRG</code>(구매요청 승인코드)에 대한 권한을 만들어야 합니다. 롤 관리는 <code>PFCG</code>, 권한·프로파일 수동편집은 <code>SU03</code>/<code>SU02</code>, 각 트랜잭션에서 쓰는 권한오브젝트 확인은 <code>SU22</code>.</p>
+
+<h3>Flexible Workflow — 분류 방식의 대안</h3>
+
+<p>S/4HANA <b>1709</b>부터 <span class="key">유연한 워크플로우</span>를 쓸 수 있습니다. 분류 있는 승인프로시저를 <b>대체하거나 함께</b> 쓸 수 있고, <span class="hl">문서유형별로 어느 쪽을 쓸지 정합니다.</span></p>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>대상</th><th>활성화 경로 (IMG)</th><th>설정 앱</th><th>워크플로우 템플릿</th></tr></thead>
+<tbody>
+<tr><td>구매오더</td><td class="wrap">Purchasing → Purchase Order → Flexible Workflow for Purchase Orders → Activate…</td><td class="wrap">Manage Workflows for Purchase Orders</td><td class="wrap"><code>00800238</code></td></tr>
+<tr><td>구매요청</td><td class="wrap">Purchasing → Purchase Requisition → Flexible Workflow for Purchase Requisitions → Activate…<br>문서유형에 <b>Scenario based workflow</b> 지시자</td><td class="wrap">Manage Workflows for Purchase Requisitions</td><td class="wrap">항목별 <code>00800173</code><br>전체 <code>00800157</code></td></tr>
+</tbody>
+</table>
+</div>
+
+<p>기준으로 쓸 수 있는 특성 — 계정지정범주 Cost Center / Project · 회사코드 · <b>PO 항목 중 최소 1개의 자재그룹</b> · 통화 · 문서유형 · 구매그룹 · 구매조직 · 총순금액. AND/OR로 조합 가능하고, 승인은 Fiori 인박스나 모바일에서. 1단계 또는 다단계로 구성하고 승인자는 <b>사용자 또는 롤</b>로 지정합니다.</p>
+
+<div class="note ok">
+  <div class="t">📌 개인 E2E 프로젝트와의 연결점</div>
+  <p>프로젝트 개발 원칙 중 <b>"회계 영향이 있는 처리는 자동화하지 않는다 — 알림 또는 승인 대기까지만"</b>이 있는데, 그 <span class="hl">"승인 대기"의 표준 구현이 정확히 이 레슨</span>입니다. CBO로 승인 화면을 따로 만들 필요가 없다는 뜻이기도 합니다.</p>
+  <p>구체적으로 <code>ZPRICE_CHECK</code>가 정보레코드가와 이동평균가의 괴리를 잡았을 때, 후속 조치(단가 조정 발주 등)를 <b>승인프로시저가 걸린 문서유형</b>으로 만들게 하면 CBO는 알림만 하고 통제는 표준이 합니다. 전략 기준 특성은 <b>금액(구간)</b> + <b>자재그룹</b>이면 충분합니다 — 프로젝트 자재그룹이 <code>CHKN</code>·<code>RICE</code>·<code>SHAK</code>·<code>PROT</code>·<code>PBAR</code> 다섯이라 CHAR 특성으로 열거하면 되고, 구간값이 필요 없습니다.</p>
+  <p>반대로 <code>ZBATCH_ZONE</code>(정상→임박 <b>311</b> 자동이동)은 승인 없이 전기합니다. 이유를 문서에 남겨야 합니다 — <span class="key">311은 같은 플랜트 안 저장위치 이동이라 재고 금액이 변하지 않기 때문</span>입니다. 금액이 움직이는 처리(<code>ZGATE_INSPECT</code>의 <b>122 반품</b>)는 자동화 대상에서 빼고 승인/알림까지만 둡니다.</p>
+</div>
+
+</div>
+
+
+<!-- ══════════ LESSON 7 ══════════ -->
+<div class="lesson" id="l7">
+<h2><span class="no">LESSON 7</span>특수 조달 — 인보이싱플랜 · 일괄구매오더 · 위탁가공</h2>
+
+<p><span class="tag">Unit 6</span><span class="tag">레슨 4개</span>Invoicing Plans · Blanket Purchase Orders · Subcontracting · Additional Special Functions</p>
+
+<h3>인보이싱플랜 — 입고와 무관하게 송장 날짜를 미리 잡는다</h3>
+
+<p>인보이싱플랜은 <span class="bad">독립적인 문서유형이 아니라 구매오더의 특수한 형태</span>입니다. 실제 입고나 서비스 이행과 <b>무관하게</b>, 송장을 만들고 지불할 날짜 목록을 관리합니다. 시스템이 그 날짜에 송장을 자동생성해 지불을 트리거할 수도, 수동으로 입력할 수도 있습니다.</p>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>유형</th><th>용도 · 특징</th></tr></thead>
+<tbody>
+<tr><td>기간별(Periodic)</td><td class="wrap">임대료·리스료처럼 정기 반복되는 서비스. 정해진 주기마다 동일하게 송장 생성</td></tr>
+<tr><td>부분별(Partial)</td><td class="wrap">IT프로젝트처럼 단계별 정산. PO 항목 총금액을 날짜들로 분할 — <b>비율기준(청구규칙 1)</b> 또는 <b>금액기준(청구규칙 2)</b>. 특정 날짜를 <span class="key">선급금(청구규칙 4 또는 5)</span>으로 지정 가능 — 이 금액은 송장항목 합계에 포함되지 않고 자동정산도 안 됨</td></tr>
+</tbody>
+</table>
+</div>
+
+<div class="note warn">
+  <div class="t">인보이싱플랜유형은 한 번 정하면 못 바꾼다</div>
+  <p>항목에 인보이싱플랜유형(예: 부분별)을 배정한 뒤에는 <span class="bad">변경할 수 없습니다.</span> 또 인보이싱플랜은 <b>구매요청으로 요청할 수 없고</b>, Fiori <b>Manage Purchase Orders</b>로는 <b>생성·편집이 안 됩니다</b> — <code>ME21N</code> 계열에서 항목상세 <code>Invoice</code> 탭 → Invoicing Plan으로 들어가야 합니다.</p>
+</div>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>기능</th><th>T-Code</th><th>Fiori 앱</th></tr></thead>
+<tbody>
+<tr><td>인보이싱플랜 자동정산</td><td><code>MRIS</code></td><td class="wrap">Create Invoicing Plan Settlement</td></tr>
+<tr><td>대변전표 출력</td><td><code>MR90</code></td><td class="wrap">—</td></tr>
+<tr><td>기간별 플랜 날짜 갱신</td><td><code>MLRP</code></td><td class="wrap">Update Invoicing Plans – Purchase Order</td></tr>
+</tbody>
+</table>
+</div>
+
+<p>Customizing은 <code>Purchasing → Purchase Order → Invoicing Plan</code>. 네트워크(Network)의 청구플랜에서 만기일을 부분별 인보이싱플랜으로 복사할 수도 있습니다 — 이벤트종속 지불만기일에 유용하고, 네트워크에서 만기일이 바뀌면 갱신도 가능합니다.</p>
+
+<h3>일괄구매오더(Blanket PO) — 한도항목</h3>
+
+<p>장점은 <b>오더처리비용 절감</b>입니다. 유효기간이 길고, <span class="hl">입고나 서비스입력이 없고</span>, 거래마다 PO 항목을 만들 필요가 없으며, 보통 월별 집단송장을 씁니다.</p>
+
+<p>한도항목 생성 시 필요한 데이터: 품목범주 <code>E</code>(Enhanced Limit) 또는 <code>B</code>(Blanket Item) · 약칭 · 자재그룹 · 플랜트 · 계정지정범주. <span class="bad">자재번호 · 구매오더수량 · 순가격은 입력할 수 없습니다.</span></p>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>값</th><th>역할</th></tr></thead>
+<tbody>
+<tr><td>전체한도(Overall Limit)</td><td class="wrap">이 PO 항목을 참조해 전기 가능한 <b>송장 최대금액</b>. 초과 시 Customizing 설정에 따라 경고 또는 오류</td></tr>
+<tr><td>예상값(Expected Value)</td><td class="wrap">공급업체와의 오더금액. <b>승인전략의 기준</b>이 되고, 관리회계가 이 값으로 <b>커밋먼트</b>를 생성. <span class="bad">예상값을 넘겨 송장을 전기해도 전체한도만 안 넘으면 시스템은 아무 말도 하지 않음</span></td></tr>
+</tbody>
+</table>
+</div>
+
+<p>한도항목 생성 시 예상값을 넣으면 그 값이 자동으로 순가격이 됩니다. 일반 자재항목과 달리 <b>계정지정범주 <code>U</code>(Unknown)</b>를 쓸 수 있고, 이 경우 송장입력 시점에만 계정지정을 정하면 됩니다 — 단 <span class="bad"><code>U</code>에 대해서는 관리회계에서 커밋먼트가 생성되지 않습니다.</span></p>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>생성 방법</th><th>절차</th></tr></thead>
+<tbody>
+<tr><td>Manage Purchase Orders</td><td class="wrap">문서유형 <code>NB</code>. <b>Limit Items</b> 탭에서 생성 (품목범주 <code>E</code> 자동 결정). 유효기간은 항목상세 Schedule Lines의 Start/End of Performance Period</td></tr>
+<tr><td>Create Purchase Order – Advanced</td><td class="wrap">문서유형 <code>FO</code>(Framework Order). 항목개요에서 품목범주 <code>B</code>. 유효기간은 <b>헤더데이터</b>에 입력. (이 앱에서는 <code>E</code>로도 생성 가능)</td></tr>
+</tbody>
+</table>
+</div>
+
+<h3>위탁가공(Subcontracting)</h3>
+
+<p>수탁업체가 만들 자재를 품목범주 <span class="key">L</span>의 구매오더·일정계약 항목으로 발주하고, <b>서브항목</b>으로 제공할 구성요소를 답니다. 구성요소는 수동 입력하거나 BOM이 있으면 <b>BOM 전개</b>로 자동 생성됩니다. <span class="hl">발주 자재는 자재마스터가 없어도 되지만, 제공할 구성요소는 반드시 자재마스터가 있어야</span> 합니다.</p>
+
+<h4>MRP가 위탁가공 요청을 만들게 하려면</h4>
+
+<ul>
+  <li>자재마스터 <b>MRP 2 뷰</b>에 위탁가공 특수조달유형 설정 — <span class="bad">없으면 Standard 품목범주로 요청이 생성됨</span></li>
+  <li>공급소스 최소 1개 — Automatic Sourcing이 켜진 위탁가공 정보레코드, 또는 위탁가공 품목범주의 장기계약항목. 소스가 여럿이면 특수조달유형 <code>L</code>의 할당버전항목이나 소스리스트로 정리</li>
+</ul>
+
+<p>구성요소까지 자동 결정되게 하려면 추가로 — 구성요소를 담은 <b>BOM</b> 존재 / 그 BOM과 맞는 대안·용도를 가진 <b>생산버전(Production Version)</b> 생성 / 그 <b>생산버전번호를 구매조직·플랜트 레벨의 위탁가공 정보레코드에 저장</b>.</p>
+
+<p>계획실행은 BOM을 전개해 구성요소의 <b>종속소요</b>(<code>SubReq</code> MRP 요소)를 만들고, 이는 순소요량 계산에 포함됩니다. <code>MD01N</code>(MRP Live)은 외부조달 자재에 대해 항상 구매요청을 만들고, <b>계획오더는 Classic MRP(<code>MD01</code>/<code>MD03</code>)에서만</b> 생성됩니다.</p>
+
+<div class="note warn">
+  <div class="t">수량을 바꾸면 구성요소도 따라 바뀐다 — 날짜는 안 바뀐다</div>
+  <p>· PO나 일정라인 <b>수량</b>을 바꾸면 <span class="hl">Fixed Quantity 지시자가 없는 한 제공 구성요소 수량도 비례해서 함께 변경</span>됩니다.<br>
+     · <b>납품일</b>을 바꾸면 구성요소가 필요한 <b>날짜만</b> 재계산되고, <span class="bad">구성요소 자체는 BOM에서 재결정되지 않습니다</span> — 다시 결정하려면 새 BOM 전개를 돌려야 합니다.<br>
+     · 구성요소의 기본 소요일자는 항상 <b>오더일자</b>로 표시됩니다.<br>
+     · 품목범주는 변경·재정의할 수 없습니다.</p>
+</div>
+
+<p><b>MRP 영역(MRP Area)</b>을 수탁업체별로 만들면 제공 구성요소를 목표대로 통제할 수 있습니다 — 공급부족 시 그 MRP 영역의 구성요소에 대해 수탁업체로의 재고이체 <b>예약</b>이 생기고, 이 예약은 플랜트에서 소요로 보입니다. 모니터링은 <b>위탁가공 코크핏</b>(<code>ME2ON</code> · Subcontracting Cockpit · Display Subcontracting Stocks by Supplier). 위탁가공항목 참조 입고를 전기하면 <span class="hl">구성요소 소비가 자동 전기</span>되고, 제안값과 다르면 사후에도 조정할 수 있습니다.</p>
+
+<h3>템플릿 · Park / Hold · 복수계정지정 · 선급금</h3>
+
+<h4>템플릿</h4>
+
+<p><code>ME21N</code>/<code>ME22N</code>/<code>ME51N</code>/<code>ME52N</code>에서 <b>Save As Template</b> · <b>Load from Template</b>. 저장 시 공용템플릿으로 지정 가능하고, 불러올 때 항목만 또는 헤더+항목 전체를 고를 수 있습니다. 공용템플릿을 저장·삭제하려면 권한오브젝트 <code>M_TEMPLATE</code>가 필요합니다. 사용자를 복사하면 사용자별 템플릿도 함께 복사됩니다.</p>
+
+<h4>Park / Hold</h4>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>기능</th><th>특성</th></tr></thead>
+<tbody>
+<tr><td>Park(임시저장)</td><td class="wrap"><b>자재관리 관점에서는 완전한 문서를 요구.</b> 재무 관점(예: 자금) 오류는 허용. 계정커밋먼트 생성 안 함. 후속활동 비활성. 문서완성 요청 워크플로우 트리거 가능</td></tr>
+<tr><td>Hold(보류)</td><td class="wrap">문서 내 <b>모든 종류의 오류 허용.</b> 후속활동 비활성. <span class="bad">일괄구매오더에는 지원되지 않음</span></td></tr>
+</tbody>
+</table>
+</div>
+
+<p>활성화는 <code>Purchasing → Environment Data → Activate 'Park and Hold' in Purchasing Documents</code>(클라이언트 레벨). 워크플로우 템플릿은 구매요청 <code>WS 11000012</code>, 구매오더 <code>WS 11000013</code>. 보류 중인 문서는 문서개요의 선택변형으로 찾습니다.</p>
+
+<div class="note warn">
+  <div class="t">Fiori Manage Purchase Orders에는 Park/Hold가 없다 — 드래프트가 대신한다</div>
+  <p>저장하지 않고 앱을 닫으면 <b>드래프트</b>가 생기고 다음에 재개하거나 버릴 수 있습니다. 단 <span class="bad">드래프트는 MRP에 영향을 주지 않습니다</span> — Park된 문서와 성격이 다릅니다. 업무 규칙을 Park 기준으로 써 놓고 Fiori만 쓰면 어긋납니다.</p>
+</div>
+
+<h4>복수계정지정</h4>
+
+<p>분배 방식은 <b>수량기준 · 비율기준 · 금액기준</b> 셋입니다. <span class="hl">금액기준은 소액을 나눌 때 생기는 반올림 문제를 피하는 데 특히 유용</span>합니다. 배송비용에도 적용되며, 이 경우 물품항목의 분배키를 따릅니다.</p>
+
+<p>계정지정 있는 PO 항목의 입고 옵션은 셋 — 평가된 입고 예상 / 비평가 입고 예상 / 입고 없음 예상. <b>평가된 입고</b>를 쓰면 입고 시점에 이미 커밋먼트가 차감됩니다. <span class="bad">복수계정지정을 가진 위탁가공항목은 평가된 입고가 필수</span>입니다.</p>
+
+<div class="note">
+  <div class="t">🔰 초보자 설명 — 분배를 바꿔야 할 때 쓰는 BAdI</div>
+  <p>입고 시점에 복수계정지정의 분배를 바꿔야 하면 BAdI <code>MB_ACCOUNTING_DISTRIBUTE</code>를 씁니다. 단 <span class="bad">계정지정 오브젝트 사이의 분배 비율만 바꿀 수 있고, 계정지정 오브젝트 자체는 못 바꿉니다.</span> 송장검증 단계에서 개인화된 분배로직을 넣으려면 <code>MRM_DISTRIBUTION_MAA</code>입니다.</p>
+</div>
+
+<h4>선급금과 유보금</h4>
+
+<p>비즈니스기능 <code>LOG_MMFI_P2P</code>를 활성화하면 구매오더에서 선급금·유보금을 계획할 수 있습니다. 헤더 또는 항목 레벨에서 비율 또는 절대금액과 기한일을 입력하고, <b>선급금 모니터</b>(<code>ME2DP</code> · Monitor Purchase Order Down Payments)로 추적합니다. 권한이 있으면 모니터 안에서 선급금요청서·선급금을 직접 전기할 수 있습니다.</p>
+
+<div class="note warn">
+  <div class="t">선급금은 순수 FI 프로세스다 — 자재문서가 생기지 않는다</div>
+  <p>선급금요청서·선급금은 <span class="bad">자재관리 문서를 만들지 않습니다.</span> 구매오더이력에는 별도로 표시되고, 물류송장검증에서 그 PO의 송장을 입력할 때 <b>어떤 선급금을 이 송장으로 청산할지</b> 고릅니다. "선급금을 걸었는데 재고가 왜 안 잡히냐"는 질문의 답이 이겁니다.</p>
+</div>
+
+<div class="note ok">
+  <div class="t">📌 개인 E2E 프로젝트와의 연결점</div>
+  <p>이 레슨은 대부분 <b>프로젝트 범위 밖</b>입니다 — 프로젝트는 벤더 사입 → 재판매 트레이딩 모델이라 <span class="key">생산·외주가공이 없으므로 위탁가공(품목범주 <code>L</code>)은 쓰지 않습니다.</span> 인보이싱플랜·선급금도 마찬가지입니다. 억지로 붙이지 않고 넘어갑니다.</p>
+  <p>하나만 남습니다 — <b>복수계정지정의 금액기준 분배</b>가 반올림 문제를 피한다는 점. 프로젝트가 <b>이동평균가(V)</b>를 쓰므로 같은 종류의 반올림 이슈가 <code>ZPRICE_CHECK</code>의 괴리율 계산에서도 생깁니다. 괴리율 판정은 <span class="hl">비율이 아니라 금액 임계를 같이 두는 편</span>이 소액 자재에서 오탐을 줄입니다.</p>
+</div>
+
+</div>
+
+
+<!-- ══════════ LESSON 8 ══════════ -->
+<div class="lesson" id="l8">
+<h2><span class="no">LESSON 8</span>문서유형 · 필드선택키 · EVO / EFB</h2>
+
+<p><span class="tag">Unit 7</span><span class="tag">레슨 4개</span>Customizing Document Types · Field Selection · Special Aspects in Customizing · Function Authorizations for Buyers</p>
+
+<h3>언제 이걸 알아야 하는가</h3>
+
+<p><b>"이 필드가 왜 필수입력입니까"</b> 또는 <b>"이 필드가 왜 안 보입니까"</b>. MM에서 가장 자주 나오면서 가장 자주 <span class="bad">엉뚱한 곳을 뒤지게 만드는</span> 문의입니다. 답은 하나의 설정이 아니라 <span class="key">최대 6개의 필드선택키가 겹쳐진 결과</span>이기 때문입니다.</p>
+
+<p>그리고 규칙이 직관과 반대입니다 — <b>Hide가 무조건 이깁니다.</b> 어느 한 곳에서만 숨김으로 잡혀 있어도, 다른 다섯 곳이 전부 필수라도 그 필드는 안 보입니다.</p>
+
+<h3>문서유형이 결정하는 것</h3>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>파라미터</th><th>설명</th></tr></thead>
+<tbody>
+<tr><td>항목번호간격</td><td class="wrap">기본 항목번호의 증분</td></tr>
+<tr><td>번호범위구간</td><td class="wrap">내부/외부 채번용. 내부채번만 쓸 거면 외부구간은 입력 불필요</td></tr>
+<tr><td>필드선택키</td><td class="wrap">그 문서유형의 필드 속성. 속성 자체는 <code>Define Screen Layout at Document Level</code>에서 유지</td></tr>
+</tbody>
+</table>
+</div>
+
+<h4>문서별 특수 지시자</h4>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>문서</th><th>지시자</th><th>의미</th></tr></thead>
+<tbody>
+<tr><td>구매요청</td><td>Control = <code>R</code></td><td class="wrap">후속문서로 표준 PO가 아니라 <b>장기계약</b>이 필요함을 지정. <code>RV</code> 문서유형 요청은 <span class="bad">MRP에 관련되지 않고, 계정지정 항목의 커밋먼트도 생성되지 않음</span></td></tr>
+<tr><td>구매요청</td><td>Overall Rel. for Preq.</td><td class="wrap">항목별이 아니라 <b>전체 단위로만</b> 승인 가능</td></tr>
+<tr><td>구매오더</td><td>Control = <code>T</code></td><td class="wrap">재고이체오더(Stock Transport Order)용</td></tr>
+<tr><td>구매오더</td><td>Stock Transfer Vndr</td><td class="wrap">공급플랜트에 공급업체마스터가 있으면 STO 처리에 활용</td></tr>
+<tr><td>일정계약</td><td>Release docu.</td><td class="wrap">일정계약릴리스가 별도 파일에 저장되어 언제든 조회 가능(<a href="#l3">LESSON 3</a>)</td></tr>
+<tr><td>일정계약 · RFQ</td><td>Time-Dep. Conditions</td><td class="wrap">조건의 유효기간·스케일 유지 가능</td></tr>
+<tr><td>RFQ</td><td>Global percentage bid</td><td class="wrap">외부서비스용 — 가격이 이미 RFQ에 있고, 공급업체는 합의가 대비 <b>비율 가산/차감</b>만 제시</td></tr>
+<tr><td>계약</td><td>Shared lock only</td><td class="wrap">해제오더 생성 시 배타적잠금 대신 <b>공유잠금</b>. 여러 사용자가 동시에 해제 가능(장점)하나 <span class="bad">목표수량을 초과할 위험</span>(단점)</td></tr>
+<tr><td>계약</td><td>Distributed Cntrct (ALE)</td><td class="wrap">ALE로 계약 전송 시 변경사항을 포인터로 식별</td></tr>
+<tr><td>전 문서</td><td>Scenario based workflow</td><td class="wrap">승인프로시저를 분류 기반이 아니라 <b>BRF+ 룰셋</b> 기반으로 — 대응 Fiori 앱에서 정의(<a href="#l6">LESSON 6</a>)</td></tr>
+</tbody>
+</table>
+</div>
+
+<div class="note warn">
+  <div class="t">Shared lock은 동시성과 통제를 맞바꾸는 설정이다</div>
+  <p>여러 사용자가 한 계약에 동시에 해제오더를 낼 수 있게 되지만, 그 대가로 <span class="bad">목표수량 초과를 놓칠 수 있습니다.</span> 목표수량 초과 검사는 해제오더 시점에 일어나는데(<a href="#l3">LESSON 3</a>), 동시 진행 건은 서로의 소진을 보지 못하기 때문입니다.</p>
+  <p>운영 관점에서는 "동시 발주가 많은가"와 "목표수량 초과가 회계·계약상 문제인가"를 저울질해 정해야 합니다. 후자가 중요하면 배타적잠금을 유지하고 대기를 감수하는 편이 안전합니다.</p>
+</div>
+
+<h4>품목범주 배정 — 요청과 문서를 잇는 표</h4>
+
+<p>어떤 요청 품목범주를 어떤 문서 품목범주로 전환할 수 있는지 표로 등록해야 합니다.</p>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>구매요청 문서유형</th><th>요청 품목범주</th><th>구매오더 품목범주</th></tr></thead>
+<tbody>
+<tr><td><code>NB</code></td><td>Standard</td><td><code>L</code> (Subcontracting)</td></tr>
+<tr><td><code>NB</code></td><td><code>L</code> (Subcontracting)</td><td><code>L</code> (Subcontracting)</td></tr>
+</tbody>
+</table>
+</div>
+
+<p>각 행에 추가 지시자를 둘 수 있습니다 — <b>NAA</b>(요청에 계정지정이 있든 없든 PO 항목에는 계정지정 금지) / <b>R/S</b>(해제오더·납품일정라인 가능 여부) / <b>Dialog</b>(전환 시 경고메시지 표시 여부).</p>
+
+<div class="note warn">
+  <div class="t">문서유형을 복사해도 파트너스키마는 따라오지 않는다</div>
+  <p>신규 구매문서유형에 파트너함수를 쓰려면 <span class="bad">파트너스키마를 별도로 배정</span>해야 합니다(<a href="#l1">LESSON 1</a> 그림 1의 ④). "표준 NB를 복사해 ZNB를 만들었는데 발송주소가 안 붙는다"는 문의가 정확히 이 케이스입니다.</p>
+</div>
+
+<h3>필드선택키 — 여섯 갈래가 한 필드에서 만난다</h3>
+
+<p>필드선택키가 정하는 필드 상태는 넷입니다 — <b>숨김(hidden)</b> / <b>표시만(display)</b> / <b>필수입력</b> / <b>선택입력</b>.</p>
+
+<figure class="figwrap">
+<svg class="dgm" viewBox="0 0 1000 350" role="img" aria-label="필드선택키 연결 도해. 트랜잭션·활동카테고리·문서유형·품목범주·기능권한·승인상태 여섯 갈래의 필드선택키가 합쳐져 최종 필드상태를 만들며, Hide가 가장 강하고 Required가 Optional을 덮어쓴다.">
+  <defs>
+    <marker id="m5k" markerWidth="9" markerHeight="9" refX="7" refY="4.5" orient="auto">
+      <polygon class="arw-key" points="0,0 9,4.5 0,9"/></marker>
+    <marker id="m5o" markerWidth="9" markerHeight="9" refX="8" refY="4.5" orient="auto">
+      <polygon class="arw-ok" points="0,0 9,4.5 0,9"/></marker>
+  </defs>
+
+  <rect class="b" x="20" y="16" width="300" height="40" rx="4"/>
+  <text class="t" x="38" y="41">트랜잭션 — <tspan class="m-s">ME21N · ME32 · ME33</tspan></text>
+  <rect class="b" x="20" y="62" width="300" height="40" rx="4"/>
+  <text class="t" x="38" y="87">활동카테고리 — <tspan class="m-s">AKTH AKTV AKTA AKTE</tspan></text>
+  <rect class="b" x="20" y="108" width="300" height="40" rx="4"/>
+  <text class="t" x="38" y="133">구매문서유형 — <tspan class="m-s">NBF · UBF</tspan></text>
+  <rect class="b-hl" x="20" y="154" width="300" height="40" rx="4"/>
+  <text class="t" x="38" y="179">품목범주 — <tspan class="m-s">PT</tspan> + 범주 + 문서카테고리</text>
+  <rect class="b" x="20" y="200" width="300" height="40" rx="4"/>
+  <text class="t" x="38" y="225">기능권한 — <tspan class="m-s">EFB</tspan> (가격 표시/입력)</text>
+  <rect class="b" x="20" y="246" width="300" height="40" rx="4"/>
+  <text class="t" x="38" y="271">승인상태 — 구매요청 승인지시자용</text>
+
+  <path class="ln-key" d="M320 36 H360"/>
+  <path class="ln-key" d="M320 82 H360"/>
+  <path class="ln-key" d="M320 128 H360"/>
+  <path class="ln-key" d="M320 174 H360"/>
+  <path class="ln-key" d="M320 220 H360"/>
+  <path class="ln-key" d="M320 266 H360"/>
+  <path class="ln-key" d="M360 36 V266"/>
+  <path class="ln-key" d="M360 151 H392" marker-end="url(#m5k)"/>
+
+  <rect class="b-key" x="396" y="96" width="250" height="110" rx="6"/>
+  <text class="t-h c-key" x="418" y="124">연결규칙</text>
+  <text class="t" x="418" y="150">Hide  &gt;  Display</text>
+  <text class="t" x="418" y="174">&gt;  Required  &gt;  Optional</text>
+  <text class="t-s" x="418" y="196">한 곳만 Hide여도 최종은 Hide</text>
+
+  <path class="ln-ok" d="M646 151 H696" marker-end="url(#m5o)"/>
+
+  <rect class="b-ok" x="700" y="118" width="280" height="66" rx="6"/>
+  <text class="t-h c-ok" x="722" y="146">최종 필드상태</text>
+  <text class="t-s" x="722" y="168">사용자가 실제로 보는 결과</text>
+
+  <rect class="b-ghost" x="20" y="298" width="960" height="44" rx="6"/>
+  <text class="t-s" x="42" y="318">예 — 표준 PO의 Material Group: <tspan class="m-s">ME21N</tspan> 선택입력 · <tspan class="m-s">AKTV</tspan> 선택입력 · <tspan class="m-s">NBF</tspan> 선택입력 · <tspan class="m-s">PT0F</tspan> <tspan class="c-bad">필수입력</tspan></text>
+  <text class="t-s" x="42" y="336">→ Required가 Optional을 덮어쓰므로 <tspan class="t-h">최종은 필수입력</tspan>. 품목범주 키 하나가 나머지 셋을 이긴 것이다.</text>
+</svg>
+<figcaption><span class="fno">그림 5</span>필드선택키 여섯 갈래와 연결규칙. "왜 필수인가"는 가장 강한 키 하나를 찾는 문제다.</figcaption>
+</figure>
+
+<h4>연결 스키마 (행 = 기존 속성, 열 = 새 요인)</h4>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>기존 \ 새 요인</th><th>Hide</th><th>Display</th><th>Required</th><th>Optional</th></tr></thead>
+<tbody>
+<tr><td>Hide</td><td>Hide</td><td>Hide</td><td>Hide</td><td>Hide</td></tr>
+<tr><td>Display</td><td>Hide</td><td>Display</td><td>Display</td><td>Display</td></tr>
+<tr><td>Required Entry</td><td>Hide</td><td>Display</td><td>Required</td><td>Required</td></tr>
+<tr><td>Optional Entry</td><td>Hide</td><td>Display</td><td><span class="bad">Required</span></td><td>Optional</td></tr>
+</tbody>
+</table>
+</div>
+
+<h4>필드선택키의 종류</h4>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>유형</th><th>설명</th></tr></thead>
+<tbody>
+<tr><td>트랜잭션</td><td class="wrap">쓰는 트랜잭션에 고정 연결. 계약변경 <code>ME32</code>, 계약조회 <code>ME33</code>. <b>Enjoy 구매오더는 <code>ME21N</code> 하나뿐</b></td></tr>
+<tr><td>활동카테고리</td><td class="wrap"><code>AKTH</code>(항목생성) · <code>AKTV</code>(항목변경 및 모든 Enjoy 트랜잭션) · <code>AKTA</code>(항목조회) · <code>AKTE</code>(PO 확장). 예: <code>ME32</code>에서 항목을 <b>추가</b>하면 <code>AKTH</code>가 쓰임</td></tr>
+<tr><td>구매문서유형</td><td class="wrap">문서유형마다 배정. 예: <code>UB</code>(회사코드 내 재고이체오더)에는 <code>UBF</code> — <b>Price · Price Unit 필드를 숨김</b></td></tr>
+<tr><td>품목범주</td><td class="wrap">앞 2글자 <code>PT</code> + 3번째 = 품목범주(내부표현) + 4번째 = 문서카테고리 <code>A</code>(RFQ) <code>B</code>(요청) <code>F</code>(PO) <code>K</code>(계약) <code>L</code>(일정계약). 예: PO의 위탁가공항목 = <code>PT3F</code></td></tr>
+<tr><td>기능권한(EFB)</td><td class="wrap">가격 표시/입력 권한 통제. 사용자에게 EFB가 배정돼 있으면 이 키도 함께 적용</td></tr>
+<tr><td>승인상태</td><td class="wrap">구매요청 승인지시자용 — 승인상태에 따라 필드상태를 다르게</td></tr>
+</tbody>
+</table>
+</div>
+
+<p>정의 경로는 문서별로 <code>Purchasing → &lt;문서&gt; → Define Screen Layout at Document Level</code>입니다.</p>
+
+<h3>EVO 사용자파라미터 — 구매담당자 기본값</h3>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>탭</th><th>설정할 수 있는 것</th></tr></thead>
+<tbody>
+<tr><td>Indicators</td><td class="wrap"><b>Info record update</b> 기본값 — EVO 미설정 시 PO에서는 기본 선택, 견적서에서는 선택 해제. <b>Order acknowledgment requirement</b>를 켜면 문서 생성 시 Acknowl.Reqd가 기본으로 잡힘(PO·계약·일정계약별 개별 설정)</td></tr>
+<tr><td>Overview Screens</td><td class="wrap">항목 입력 화면을 2줄(스텝루프) 또는 1줄(테이블컨트롤)로. <span class="bad">스텝루프는 Enjoy 트랜잭션에서 지원되지 않음</span></td></tr>
+<tr><td>Fast Processing</td><td class="wrap"><b>Select All</b> — 템플릿으로 문서 생성 시 모든 항목을 자동 선택. <b>Assign and Edit Purchase Requisition</b> — 배정된 요청항목이 관련 구매문서에 자동 반영(<code>ME57</code>·MRP리스트 전환에 영향). 끄면 요청항목이 문서개요로만 복사되고 다시 PO로 개별 복사해야 함</td></tr>
+<tr><td>Addl Screens</td><td class="wrap"><b>Change doc. type when saving req.</b> — Vendor Unknown 트랜잭션에서 항목을 요청으로 저장할 때 문서유형 전환 허용. <b>Availability check for stock transfers</b>의 Detailed Information — <code>ME27</code>에서 자재가용성 상세 표시 (<code>ME21N</code>은 지시자와 무관하게 Environment → Availability로 접근 가능)</td></tr>
+<tr><td>Price Adoption</td><td class="wrap"><b>최종 구매오더로부터의 가격 기본제안을 차단</b>. <b>Manual price becomes gross price</b> — 수동입력 총가격이 최종 PO 가격으로 덮어써지는 것을 방지(단 <span class="bad">총가격 조건유형에만</span> 적용, 다른 조건유형은 여전히 복사됨)</td></tr>
+<tr><td>Source Determination</td><td class="wrap">자동소스결정 기본값. <b>Check Delivery Date</b>를 켜면 원하는 납기에 납품 가능한 소스만 제안(계획입고시간·구매부서 처리시간 고려)</td></tr>
+</tbody>
+</table>
+</div>
+
+<div class="note warn">
+  <div class="t">EVO 설정은 계획실행에 반영되지 않는다</div>
+  <p>예를 들어 <b>Check Delivery Date</b>를 켜 두어도 <span class="bad">MRP 실행에는 적용되지 않습니다.</span> 사용자 파라미터이기 때문입니다 — "수동으로 만들면 걸러지는데 MRP가 만든 건 안 걸러진다"의 원인입니다.</p>
+  <p>EVO는 <code>Purchasing → Environment Data → Define Default Values for Buyers</code>에서 만듭니다. <span class="hl">값이 공백인 파라미터를 하나 만들어 두면, EVO가 배정되지 않은 모든 사용자에게 그게 적용</span>됩니다 — 전사 기본값을 잡는 방법입니다.</p>
+</div>
+
+<h4>Info Record Update와 조건통제의 조합</h4>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>플랜트별 조건통제 설정</th><th>상태</th><th>동작</th></tr></thead>
+<tbody>
+<tr><td>플랜트 유무 무관 생성 (공백)</td><td><code>C</code></td><td class="wrap">구매조직레벨 정보레코드가 없으면 생성, 있으면(플랜트별이든 구매조직레벨이든) 갱신</td></tr>
+<tr><td>플랜트별로만 생성 (<code>+</code>)</td><td><code>B</code></td><td class="wrap">플랜트별 정보레코드가 없으면 생성, 있으면 갱신</td></tr>
+<tr><td>플랜트별 생성 안 함 (<code>−</code>)</td><td><code>A</code></td><td class="wrap">구매조직레벨 정보레코드가 없으면 생성, 있으면 갱신</td></tr>
+</tbody>
+</table>
+</div>
+
+<p>일반설정 경로는 <code>Purchasing → Conditions → Define Condition Control at Plant Level</code>, 전체 조합 개요는 SAP Note 569885. 자재마스터 없이 견적·PO·장기계약 항목을 만들면 <span class="bad">개인설정과 무관하게 Info record update가 설정되지 않습니다</span>(수동으로 켜면 자재그룹 정보레코드가 생성됨).</p>
+
+<h3>EFB — 구매담당자 기능권한</h3>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>영역</th><th>설정 내용</th></tr></thead>
+<tbody>
+<tr><td>일반파라미터</td><td class="wrap"><b>Display Conditions</b> 미설정 → 구매문서의 조건 관련 필드·탭이 숨겨짐. <b>Enter Conditions</b> 미설정 → 관련 필드의 표시/숨김을 통제할 <span class="hl">필드선택키를 별도로 정의해야 함</span>. <b>W/o Material</b> → 자재마스터 없는 PO 항목 생성 가능 여부. <b>Adopt PO Price</b> → 요청의 내부평가가격을 PO에 순가격/총가격으로 반영할지</td></tr>
+<tr><td>가능한 참조오브젝트</td><td class="wrap">PO 항목 생성 시 <b>선행문서 참조가 필수인지</b>, 어떤 참조오브젝트가 허용되는지</td></tr>
+<tr><td>수동 소스배정</td><td class="wrap">지시자를 켜지 않으면 요청자는 <span class="bad">자동소스결정만</span> 쓸 수 있음(<a href="#l4">LESSON 4</a>)</td></tr>
+</tbody>
+</table>
+</div>
+
+<p>구매요청의 평가가격은 자재마스터가 있으면 <b>회계뷰</b>에서 오고, 없으면 수동 입력해야 합니다. EFB 생성·변경 경로는 <code>Purchasing → Authorization Management → Define Function Authorizations for Buyers</code>.</p>
+
+<div class="note ok">
+  <div class="t">📌 개인 E2E 프로젝트와의 연결점</div>
+  <p>프로젝트에서 이 레슨이 실제로 쓰이는 곳은 두 군데입니다.</p>
+  <p>① <b>재고이체</b> — <code>GATE</code>에서 <code>STOR</code>로 넘길 때 표준은 재고이체오더(문서유형 <code>UB</code>, Control <code>T</code>, 필드선택키 <code>UBF</code>)를 쓰지만, 프로젝트는 <span class="hl">STO 없이 이동유형 <code>301</code> 1-step 이동으로 단순화</span>했습니다. 학습 목적상 STO 구성까지 가지 않은 것이고, 그래서 <code>ZGATE_INSPECT</code>가 비교하는 대상이 "STO 이력"이 아니라 <b>GR <code>101</code> 수량 vs STOR이관 <code>301</code> 수량</b>이 됩니다.</p>
+  <p>② <b>필드 통제</b> — 배치관리 자재라 유통기한 관련 필드를 입력 단계에서 강제하고 싶어집니다. 이때 CBO 검증로직을 짜기 전에 <b>품목범주 필드선택키(<code>PT_F</code>)</b>로 되는지를 먼저 봐야 합니다. 프로젝트 원칙이 <b>표준 우선</b>이고, 그림 5대로 품목범주 키가 가장 강하게 걸리는 자리이기 때문입니다.</p>
+  <p><b>확인 필요 — 실제 시스템에서 유통기한 관련 필드가 어느 필드선택키에 걸려 있는지 확인한 뒤 결정할 것.</b></p>
+</div>
+
+</div>
+
+
+<!-- ══════════ LESSON 9 ══════════ -->
+<div class="lesson" id="l9">
+<h2><span class="no">LESSON 9</span>공급업체평가 — 하드팩트와 소프트팩트</h2>
+
+<p><span class="tag">Unit 8</span><span class="tag">레슨 1개</span>Explaining KPIs in Supplier Evaluation · (Unit 9 Additional Information은 별도 학습 콘텐츠 없음)</p>
+
+<h3>두 축 — 하드팩트 · 소프트팩트</h3>
+
+<p>SAP HANA 기반 공급업체평가는 <b>하드팩트(Hard Facts)</b>와 <b>소프트팩트(Soft Facts)</b>로 구성됩니다. 하드팩트는 <span class="hl">앱을 실행할 때 실시간으로 계산</span>되고, 소프트팩트는 설문 응답을 거쳐야 점수가 나옵니다.</p>
+
+<div class="note warn">
+  <div class="t">쓰려면 먼저 스위치를 켜야 한다</div>
+  <p>IMG <code>Materials Management → Purchasing → Supplier Evaluation → Supplier Evaluation by Purchasing Category → Switch to Supplier evaluation By Purchasing Category</code>에서 <b>Switch Status</b> 체크박스를 켜야 HANA 기반 평가가 동작합니다.</p>
+  <p>그리고 점수를 바꾼 뒤에는 리포트 <code>MM_PUR_SEWS_VAR_SCORE_UPDATE</code>를 <span class="bad">반드시 실행해 점수를 재계산</span>해야 합니다. 안 돌리면 화면 값이 옛날 그대로입니다. <b>확인 필요 — 실제 시스템에서 이 스위치 상태를 먼저 확인할 것.</b></p>
+</div>
+
+<p>하드팩트의 가중치와 점수는 Customizing 또는 Fiori <b>Supplier Evaluation Weighting and Scoring</b>에서 정의합니다.</p>
+
+<h3>KPI 앱</h3>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>KPI 앱</th><th>무엇을 재는가</th></tr></thead>
+<tbody>
+<tr><td>Overall Supplier Evaluation</td><td class="wrap"><b>운영점수 + 설문점수</b>를 합친 종합점수 — 가중 하드팩트와 설문 소프트팩트의 결합</td></tr>
+<tr><td>Operational Supplier Evaluation</td><td class="wrap">수량편차 · 가격편차 · 시간편차의 <b>가중평균</b>. 각 기준의 편차로 종합점수를 만든 뒤 가중치 적용. <b>Adjust Operational Supplier Evaluation Score</b> 앱으로 조정 가능</td></tr>
+<tr><td>Supplier Evaluation by Quantity</td><td class="wrap">발주수량 vs 실제납품수량. <span class="hl">과다납품도 과소납품과 똑같이 편차</span>로 본다</td></tr>
+<tr><td>Supplier Evaluation by Time</td><td class="wrap">발주일 vs 납품일. <span class="hl">조기납품도 지연납품과 똑같이 편차.</span> <b>1일 편차 = 1%</b>로 계산</td></tr>
+<tr><td>Supplier Evaluation by Price</td><td class="wrap">발주가격 vs 송장가격(PO금액과 송장금액의 차). 초과·저가 모두 편차. <span class="bad">LIS 기반 평가(정보레코드가 기준)와는 완전히 다른 방식</span></td></tr>
+<tr><td>Supplier Evaluation by Quality — Inspection lot</td><td class="wrap">검사결과 기준 종합품질점수. 검사로트별로 기록되고 PO·PO항목으로 공급업체를 추적</td></tr>
+<tr><td>Supplier Evaluation by Quality — Quality Notification</td><td class="wrap">수신된 <b>품질클레임</b> 기준. 클레임이 적은 업체에 높은 점수 — 조건이 동일한 업체 중 선정 결정에 활용</td></tr>
+</tbody>
+</table>
+</div>
+
+<h3>설문 기반 평가</h3>
+
+<div class="step"><span class="n">STEP 1</span><p><b>Manage Questions</b> — 질문 정의. 섹션(같은 주제 묶음)과 그룹(섹션 내 구조화, 선택)을 먼저 잡는다. <span class="hl">Single Answer · Yes/No 유형은 답변옵션마다 점수를 배정</span>해야 함</p></div>
+<div class="step"><span class="n">STEP 2</span><p><b>Manage Questionnaires</b> — 질문으로 설문지 구성. 설문지는 <b>구매카테고리에 배정</b> 가능하고, 질문마다 가중치를 줄 수 있음</p></div>
+<div class="step"><span class="n">STEP 3</span><p><b>Manage Templates</b> — 평가템플릿 생성. 같은 속성의 평가요청을 반복 생성하기 위한 틀. 설문지 · 응답기한 일수 · 텍스트를 담는다. 그룹기반 평가는 특정 구매카테고리 내 <b>공급업체 피어그룹</b>과 평가자를 함께 배정. <span class="bad">요청 생성 시 설문지 자체는 변경 불가</span>이고 응답기한·텍스트만 수정 가능</p></div>
+<div class="step"><span class="n">STEP 4</span><p>Manage Templates에서 <b>그룹기반 평가 시작</b></p></div>
+<div class="step"><span class="n">STEP 5</span><p>평가자가 <b>Evaluate Suppliers</b>로 설문 작성. <span class="bad">제출된 응답은 조회만 되고 변경 불가</span></p></div>
+<div class="step"><span class="n">STEP 6</span><p><b>Display Scorecards</b> — 공급업체·평가요청 조합마다 스코어카드 1개(연 단위 평가면 업체별로 연도마다 1개)</p></div>
+<div class="step"><span class="n">STEP 7</span><p><b>Supplier Evaluation by Questionnaire</b> — 전체 업체의 설문 점수를 목표점수와 비교</p></div>
+
+<p>S/4HANA는 지출 · 전략적중요도 · 공급위험 · 컴플라이언스 · 사회적책임 등으로 공급업체를 <b>세분화(segmentation)</b>할 수 있습니다. 분류화면은 공급업체목록 → 공급업체상세에서 열고, 데이터를 넣으려면 <b>Create New Scorecard</b>를 눌러야 합니다. 스코어카드가 소프트팩트 점수를 담고, 구매카테고리별 종합평가에 통합됩니다.</p>
+
+<div class="note ok">
+  <div class="t">📌 개인 E2E 프로젝트와의 연결점</div>
+  <p>프로젝트에서 공급업체평가를 구축하지는 않습니다. 다만 <b>Supplier Evaluation by Time</b>의 판정 방식이 참고가 됩니다 — <span class="hl">조기납품도 편차로 센다</span>는 것. 식품 유통에서는 이게 특히 맞는 기준입니다. 유통기한이 있는 물건이 예정보다 일찍 들어오면 <code>GATE</code>에 머무는 시간이 길어져 <code>ZBATCH_ZONE</code>의 잔여 유통기한 계산에 그대로 불리하게 작용하기 때문입니다.</p>
+  <p><b>Supplier Evaluation by Price</b>가 "발주가격 vs 송장가격"을 본다는 점도 대비가 됩니다 — <code>ZPRICE_CHECK</code>는 "정보레코드가 vs 이동평균가"를 봅니다. 즉 <b>표준은 거래 단건의 가격 이행을, CBO는 재고에 쌓인 결과를</b> 봅니다. 설계서에 이 차이를 한 줄 적어두면 "표준으로 되는데 왜 만들었나"에 답이 됩니다.</p>
+</div>
+
+</div>
+
+
+<!-- ══════════ APPENDIX ══════════ -->
+<div class="lesson" id="lx">
+<h2><span class="no">APPENDIX</span>정리 · 반드시 기억할 것</h2>
+
+<h3>한 장 요약</h3>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>질문</th><th>답</th></tr></thead>
+<tbody>
+<tr><td>구매오더를 만들려면 자재마스터에 뭐가 있어야 하나</td><td class="wrap">유지상태 <b>E</b>(구매). 가치갱신 자재유형이면 <b>B</b>(회계)도 필요</td></tr>
+<tr><td>파트너가 PO에 자동으로 안 붙는다</td><td class="wrap">① BP 마스터 ② 계정그룹 허용 ③ 공급업체 파트너스키마 ④ <b>문서유형 파트너스키마</b> — 순서대로 짚는다. 문서유형 복사 시 ④는 복사되지 않는다</td></tr>
+<tr><td>구매 산정스키마는 어디서 결정되나</td><td class="wrap">BP 구매조직데이터의 <code>Sch.Grp Supp</code>. 표준 스키마는 <code>RM0000</code>. SD의 Pricing Procedure와 같은 조건기법</td></tr>
+<tr><td>정보레코드 조건과 PO 조건의 차이</td><td class="wrap">정보레코드·계약 = <b>시간종속</b>(유효기간·스케일·상하한) / PO = <b>시간독립</b>. 시간종속 조건은 복사 불가</td></tr>
+<tr><td>계약과 일정계약의 결정적 차이</td><td class="wrap">계약은 인출마다 <b>해제오더(PO)</b>를 만들고, 일정계약은 <b>납품일정라인</b>만 늘어난다. 일정계약은 항상 플랜트별이고 품목범주 M·W와 계정지정 U를 못 쓴다</td></tr>
+<tr><td>MRP의 소스결정 순위</td><td class="wrap">할당버전 → 소스리스트(MRP 지시자) → 일정계약 → 계약 → Automatic Sourcing 정보레코드</td></tr>
+<tr><td>MRP 밖의 소스결정 순위</td><td class="wrap">할당버전 → 소스리스트(Fix) → 장기계약항목 → 정보레코드. Fix가 겹치면 <b>장기계약 &gt; 정보레코드</b></td></tr>
+<tr><td>왜 이 벤더가 잡혔는지 분석하는 화면은</td><td class="wrap"><b>없다.</b> 소스결정에는 조건기법이 쓰이지 않아 결정분석 기능이 존재하지 않는다 — 위 순위를 손으로 짚는 수밖에</td></tr>
+<tr><td>할당버전에서 누가 이기나</td><td class="wrap"><b>할당순위가 가장 낮은</b> 소스. 순위 = (할당배정수량 + 할당기준수량) ÷ 할당량. 동률이면 첫 번째 항목</td></tr>
+<tr><td>한 자재의 조달을 통째로 막으려면</td><td class="wrap">소스리스트에 <b>Blk + 공급업체 공란 + 유효기간</b>. 단 입고전기 시 자동생성되는 PO는 못 막는다</td></tr>
+<tr><td>구매오더는 항목별로 승인되나</td><td class="wrap"><b>아니다. 헤더 레벨만.</b> 항목별/전체 구분은 구매요청에만 있다</td></tr>
+<tr><td>승인전략은 무엇으로 선택되나</td><td class="wrap">문서 필드값 → 통신구조 <code>CEBAN</code>/<code>CEKKO</code> → 특성 → 클래스(유형 <b>032</b>) → 전략. 기준은 화면에 안 보이고 Customizing에만 있다</td></tr>
+<tr><td>분류 있는/없는 프로시저</td><td class="wrap"><b>상호배타.</b> 분류 있는 프로시저를 만드는 순간 없는 쪽은 자동 비활성. 외부구매문서는 분류 있는 프로시저만 가능</td></tr>
+<tr><td>필드가 왜 필수인가 / 왜 안 보이나</td><td class="wrap">최대 6개 필드선택키의 결합. <b>Hide가 무조건 이기고</b>, Required가 Optional을 덮어쓴다</td></tr>
+<tr><td>EVO 설정이 MRP에도 먹히나</td><td class="wrap"><b>안 먹힌다.</b> 사용자 파라미터이므로 계획실행에는 반영되지 않는다</td></tr>
+<tr><td>일괄구매오더의 두 금액</td><td class="wrap"><b>전체한도</b> = 송장 최대금액(넘으면 경고/오류) / <b>예상값</b> = 승인전략 기준 + 커밋먼트. 예상값 초과는 조용히 지나간다</td></tr>
+<tr><td>선급금을 걸었는데 재고가 안 잡힌다</td><td class="wrap">선급금은 <b>순수 FI 프로세스</b>라 자재문서를 만들지 않는다. 정상 동작</td></tr>
+</tbody>
+</table>
+</div>
+
+<div class="note warn">
+  <div class="t">반드시 지킬 것</div>
+  <p>· 소스결정 문의는 <b>추측하지 않는다.</b> 결정분석 화면이 없으므로 그림 3의 순위를 위에서부터 손으로 짚는다.<br>
+     · 이미 배정된 구매요청을 <code>ME56</code>/<code>ME57</code>에서 다시 자동배정하지 않는다 — <b>경고 없이 덮어쓴다.</b><br>
+     · <b>분류 있는 승인프로시저는 한 번 만들면 되돌리는 작업이 아니다.</b> 만들기 전에 현재 어느 쪽이 활성인지 확인한다.<br>
+     · 문서유형을 복사했으면 <b>파트너스키마를 반드시 다시 배정</b>한다.<br>
+     · 소스리스트는 계약 소진 여부를 보지 않는다. 소진 통제가 필요하면 <b>할당버전 최대수량</b>을 같이 건다.<br>
+     · 공급업체평가 점수를 고쳤으면 <code>MM_PUR_SEWS_VAR_SCORE_UPDATE</code>를 돌린다.<br>
+     · Fiori 앱과 GUI 트랜잭션은 기능이 다르다(Process Purchase Requisitions의 자동배정 미지원, Manage Purchase Orders의 인보이싱플랜·Park/Hold 부재). <b>업무 규칙을 쓰기 전에 어느 경로가 표준인지 먼저 정한다.</b></p>
+</div>
+
+<h3>참고</h3>
+
+<ul>
+  <li>원본: 노션 <b>SAP Learning Hub</b> → Implementing SAP S/4HANA Cloud Private Edition, Sourcing and Procurement → 2-1 ~ 2-9 (Course 2 / S4520, 9 Unit · 34 레슨 정리)</li>
+  <li>같은 조건기법을 판매 쪽에서 본 노트: <a href="../sd/s46200-pricing.html"><b>S46200</b> Pricing</a> — 산정스키마 ↔ 가격결정절차 대응</li>
+  <li>이 코스에서 미룬 주제: 위탁가공·파이프라인의 재고 처리는 <b>S4510</b>(Inventory Management and Physical Inventory)에서 다룬다</li>
+  <li>참조 SAP Note: 파트너결정 FAQ <b>459350</b> · Info record update와 조건통제 조합 <b>569885</b></li>
+</ul>
+
+</div>
+
+</div>
+<script src="../../assets/hub.js" defer></script>
+</body>
+</html>

@@ -1,0 +1,584 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>S46056 Setting up Text Control in SAP S/4HANA Sales — 텍스트 유형과 자동 전달</title>
+<meta name="description" content="SAP Learning Hub의 Setting up Text Control in SAP S/4HANA Sales(S46056) 노트. Text Object·Text Type·Text Determination Procedure 구조, Access Sequence 자동 전달, 직전 선행문서 원칙, Reference/Duplicate, VOFM 데이터전달루틴.">
+<link rel="icon" href="../../assets/favicon.svg">
+<link rel="stylesheet" href="../../assets/notes-paper.css">
+<style>
+/* ── 이 노트 전용: 도해(SVG) 스타일 ─────────────────────────── */
+.dgm{display:block; width:100%; height:auto;}
+.dgm text{font-family:"Malgun Gothic","맑은 고딕","Apple SD Gothic Neo",sans-serif; fill:#1e1e1e;}
+.dgm .t-h{font-size:15px; font-weight:700;}
+.dgm .t{font-size:13px;}
+.dgm .t-s{font-size:11.5px; fill:#555;}
+.dgm .t-xs{font-size:10.5px; fill:#6B7280;}
+.dgm .m{font-family:"D2Coding","Consolas",monospace; font-size:12px;}
+.dgm .m-s{font-family:"D2Coding","Consolas",monospace; font-size:10.5px;}
+.dgm .c-key{fill:#4338CA;} .dgm .c-bad{fill:#B91C1C;} .dgm .c-ok{fill:#047857;}
+.dgm .b{fill:#FFFFFF; stroke:#C7CBD6; stroke-width:1.2;}
+.dgm .b-key{fill:#EEF0FB; stroke:#4338CA; stroke-width:1.4;}
+.dgm .b-bad{fill:#FEF2F2; stroke:#B91C1C; stroke-width:1.3;}
+.dgm .b-ok{fill:#ECFDF5; stroke:#047857; stroke-width:1.3;}
+.dgm .b-mut{fill:#F3F4F6; stroke:#D1D5DB; stroke-width:1.1;}
+.dgm .b-hl{fill:#FEF08A; stroke:#CA8A04; stroke-width:1.2;}
+.dgm .b-ghost{fill:none; stroke:#9AA3B2; stroke-width:1.1; stroke-dasharray:5 4;}
+.dgm .ln{stroke:#7C8697; stroke-width:1.4; fill:none;}
+.dgm .ln-key{stroke:#4338CA; stroke-width:1.8; fill:none;}
+.dgm .ln-bad{stroke:#B91C1C; stroke-width:1.6; fill:none;}
+.dgm .ln-ok{stroke:#047857; stroke-width:1.6; fill:none;}
+.dgm .ln-d{stroke:#9AA3B2; stroke-width:1.2; stroke-dasharray:4 4; fill:none;}
+.dgm .arw{fill:#7C8697;} .dgm .arw-key{fill:#4338CA;}
+.dgm .arw-bad{fill:#B91C1C;} .dgm .arw-ok{fill:#047857;}
+.figwrap{background:#FAFAFE; border:1px solid var(--rule); border-radius:6px;
+  padding:18px 16px 10px; margin:22px 0;}
+.figwrap figcaption{margin-top:12px; padding-top:10px; border-top:1px solid var(--rule);}
+</style>
+</head>
+<body>
+<div class="crumb"><a href="../../index.html">← 자료실 홈</a> · <a href="../../journey.html?j=sd">SD 저니</a> · S46056 Text Control</div>
+<div class="sheet">
+
+<div class="doc-head">
+  <div class="kicker">LEARNING HUB · S46056</div>
+  <h1>Text Control — 텍스트 유형과 자동 전달</h1>
+  <div class="sub">
+    Learning Journey <b>Implementing Sales in SAP S/4HANA Cloud Private Edition</b> · Course 7 / S46056 · 2 Unit · 5 레슨 · Intermediate · 3h 3m<br>
+    출처: 노션 <b>SAP Learning Hub</b> 노트 7-1 ~ 7-2 변환
+  </div>
+</div>
+
+<div class="lead">
+  <p><b>결론부터.</b> "송장에 찍혀야 할 문구가 안 나옵니다"라는 문의의 원인은 거의 항상 <span class="hl">출력양식(Form)이 아니라 Text Control 설정</span>입니다. 그 문서유형에 <span class="key">Text Determination Procedure</span>가 안 붙었거나, 절차 안에 그 Text Type이 없거나, 있어도 <span class="key">Access Sequence</span>가 텍스트를 못 찾아온 것입니다.</p>
+  <p>이 코스는 텍스트가 <b>어디에 저장되고</b>(Text Object) → <b>어떤 종류로 나뉘고</b>(Text Type) → <b>어느 문서유형에서 쓸 수 있고</b>(Text Determination Procedure) → <b>어디서 자동으로 채워지는지</b>(Access Sequence)를 순서대로 세웁니다. 이 네 단계가 곧 장애 원인을 좁혀 가는 순서이기도 합니다.</p>
+</div>
+
+<div class="toc">
+  <h4>목차</h4>
+  <ol>
+    <li><a href="#l1">Text Control 기본 구조 — Object · Type · Procedure</a></li>
+    <li><a href="#l2">자동 전달 · 소스 분석 · 특수 기능</a></li>
+    <li><a href="#lx">정리 · 반드시 기억할 것</a></li>
+  </ol>
+</div>
+
+
+<!-- ══════════ LESSON 1 ══════════ -->
+<div class="lesson" id="l1">
+<h2><span class="no">LESSON 1</span>Text Control 기본 구조 — Object · Type · Procedure</h2>
+
+<p><span class="tag">Unit 1-2</span><span class="tag">레슨 2개</span>Getting Started with Text Control · Customizing Manual Text Entry</p>
+
+<h3>언제 이걸 알아야 하는가</h3>
+
+<p>운영에서 이렇게 들어옵니다. <b>"오더에는 메모를 분명히 썼는데 송장에 안 찍힙니다"</b>, 혹은 <b>"이 오더에는 특이사항 입력칸이 아예 안 보입니다"</b>.</p>
+
+<p>둘 다 출력양식 문제가 아닙니다. 입력칸 자체가 안 보이는 건 <span class="key">그 문서유형에 배정된 Text Determination Procedure에 해당 Text Type이 없다</span>는 뜻이고, 오더엔 있는데 송장에 없는 건 <span class="key">청구유형 쪽 절차에 그 Text Type이 안 담겼거나 전달 설정이 없다</span>는 뜻입니다. 확인 순서는 항상 <b>Text Object → Text Type → Procedure → 배정처</b>입니다.</p>
+
+<h3>왜 자유서식 텍스트가 필요한가</h3>
+
+<p>판매오더의 정보는 대부분 <b>코드화</b>되어 저장됩니다 — "즉시 순지불" 결제조건은 코드 <code>0001</code>로 들어갑니다. 코드로 못 담는 정보가 남는데, 그게 텍스트입니다.</p>
+
+<ul>
+  <li>고객 특이사항 — "이 고객은 문화적 정체성을 고려해 응대해주세요"</li>
+  <li>견적 아이템의 마케팅 정보 — "이 제품은 월말까지 세트로 특가 판매됩니다"</li>
+  <li>동료용 내부 메모 — "Markus님, Spedition Müller에 집하 요청 전화 부탁드려요"</li>
+</ul>
+
+<h3>Text Object와 Text Type</h3>
+
+<p>텍스트는 여러 위치에 저장될 수 있습니다 — <b>고객마스터 · 자재마스터 · 조건마스터 · SD 문서</b>. 이 "저장될 수 있는 위치"가 <span class="key">Text Object(텍스트객체)</span>입니다.</p>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>Text Object</th><th>무엇의 자리인가</th></tr></thead>
+<tbody>
+<tr><td><code>VBBK</code></td><td class="wrap">판매문서 <b>헤더</b> 텍스트</td></tr>
+<tr><td><code>VBBP</code></td><td class="wrap">판매문서 <b>아이템</b> 텍스트</td></tr>
+<tr><td><code>TEXT</code></td><td class="wrap">표준텍스트(Standard Text). <code>SO10</code>으로 유지하며 Text ID로 다시 나뉜다 — 예: <code>SDVD</code></td></tr>
+</tbody>
+</table>
+</div>
+
+<p>그 위치 안에서 개별 메모를 구분하는 것이 <span class="key">Text Type(텍스트유형 · 텍스트ID)</span>입니다. <b>4자리 영숫자 기술명 + 설명</b>을 가지며, 언어별로 텍스트를 따로 유지할 수 있습니다. 표준 Text Type 예시: <code>0001</code> Form Header, <code>0002</code> Header Note 1, <code>0005</code> Purchase Order Text, <code>0003</code> Packing Note.</p>
+
+<div class="note">
+  <div class="t">🔰 초보자 설명 — Text Object · Text Type을 한 줄로</div>
+  <p>Text Object는 <b>"어느 문서/마스터의 어느 위치에"</b>, Text Type은 <b>"그 위치 안에서 어떤 종류의 메모인지"</b>입니다. 판매오더 헤더(<code>VBBK</code>)에 붙는 "Header Note"라는 메모지 한 장 — 이런 식입니다. Text Type을 새로 만드는 건 <b>백지 한 장을 더 끼워 넣는 것</b>에 가깝습니다.</p>
+</div>
+
+<h3>Text Determination Procedure — 메모지 묶음</h3>
+
+<p>Customizing에는 그 Text Object에 <b>한 번이라도 필요했던 모든</b> Text Type이 모여 있습니다. 출하납품 · 견적서 · 반품오더 · 표준오더용 헤더 Text Type이 전부 <code>VBBK</code> 아래 쌓여 있는 셈입니다. 그런데 실제 표준오더에 필요한 Text Type과 상업송장에 필요한 Text Type은 다릅니다.</p>
+
+<p>그래서 <span class="key">특정 컨텍스트에서 쓸 Text Type만 골라 담은 바구니</span>가 <b>Text Determination Procedure(텍스트결정절차)</b>입니다.</p>
+
+<div class="note">
+  <div class="t">🔰 초보자 설명 — Text Determination Procedure를 한 줄로</div>
+  <p>"이 문서유형에는 이런 메모지들을 쓸 수 있어요"라고 정해두는 <b>메모지 세트</b>입니다. 표준오더에는 A·B·C 메모지가, 청구서에는 D·E 메모지가 필요하다면 서로 다른 세트를 만들어 각 문서유형에 배정하는 식입니다.</p>
+</div>
+
+<p>이론상 Text Object 하나당 Text Type 1개만 있어도 텍스트 입력 자체는 됩니다(한 Text Type 안에 여러 줄을 얼마든지 쓸 수 있으므로). 하지만 그러면 <span class="bad">텍스트별로 제어할 수 없습니다</span> — 어떤 건 출력하고 어떤 건 안 하고, 어떤 건 후속문서로 넘기고 어떤 건 안 넘기고를 구분할 방법이 사라집니다. Text Type을 나누는 이유가 곧 <b>제어 단위를 나누는 것</b>입니다.</p>
+
+<h3>배정 — 절차는 어디에 붙는가</h3>
+
+<figure class="figwrap">
+<svg class="dgm" viewBox="0 0 1000 530" role="img" aria-label="Text Control 4단 구조 도해. Text Object 아래 정의된 Text Type 중 일부만 Text Determination Procedure에 담기고, 그 절차를 헤더는 판매·납품·청구 문서유형에, 아이템은 아이템카테고리에 배정해야 비로소 문서에서 텍스트를 쓸 수 있다.">
+  <defs>
+    <marker id="tca" markerWidth="9" markerHeight="9" refX="7" refY="4.5" orient="auto">
+      <polygon class="arw-key" points="0,0 9,4.5 0,9"/></marker>
+  </defs>
+
+  <text class="t-s c-key" x="16" y="52">① 저장 위치</text>
+  <rect class="b-key" x="140" y="24" width="720" height="58" rx="6"/>
+  <text class="t-h c-key" x="164" y="50">Text Object — 텍스트가 저장되는 "자리"</text>
+  <text class="t-s" x="164" y="70">VBBK 판매문서 헤더 · VBBP 판매문서 아이템 · 고객마스터 · 자재마스터 · 조건마스터</text>
+
+  <path class="ln-key" d="M500 82 V98"/>
+  <path class="ln-key" d="M225 98 H783"/>
+  <path class="ln-key" d="M225 98 V114" marker-end="url(#tca)"/>
+  <path class="ln-key" d="M411 98 V114" marker-end="url(#tca)"/>
+  <path class="ln-key" d="M597 98 V114" marker-end="url(#tca)"/>
+  <path class="ln-key" d="M783 98 V114" marker-end="url(#tca)"/>
+
+  <text class="t-s c-key" x="16" y="146">② 메모지 종류</text>
+  <rect class="b" x="140" y="118" width="170" height="56" rx="5"/>
+  <text class="m" x="158" y="142">0001</text>
+  <text class="t-s" x="158" y="162">Form Header</text>
+  <rect class="b" x="326" y="118" width="170" height="56" rx="5"/>
+  <text class="m" x="344" y="142">0002</text>
+  <text class="t-s" x="344" y="162">Header Note 1</text>
+  <rect class="b-mut" x="512" y="118" width="170" height="56" rx="5"/>
+  <text class="m" x="530" y="142">0005</text>
+  <text class="t-s" x="530" y="162">Purchase Order Text</text>
+  <rect class="b" x="698" y="118" width="170" height="56" rx="5"/>
+  <text class="m" x="716" y="142">0003</text>
+  <text class="t-s" x="716" y="162">Packing Note</text>
+
+  <path class="ln-key" d="M225 174 V222" marker-end="url(#tca)"/>
+  <path class="ln-key" d="M411 174 V222" marker-end="url(#tca)"/>
+  <path class="ln-d"   d="M597 174 V206"/>
+  <text class="t-xs c-bad" x="610" y="198">이 절차에는 안 담김</text>
+  <path class="ln-key" d="M783 174 V222" marker-end="url(#tca)"/>
+
+  <text class="t-s c-key" x="16" y="272">③ 묶음</text>
+  <rect class="b-hl" x="140" y="224" width="720" height="78" rx="6"/>
+  <text class="t-h" x="164" y="250">Text Determination Procedure (텍스트결정절차)</text>
+  <text class="t-s" x="164" y="272">이 컨텍스트에서 쓸 Text Type만 골라 담은 바구니</text>
+  <text class="t-xs" x="164" y="292">절차 안에서 Text Type별로 Access Sequence · 참조/복제 · 필수여부를 지정한다 → 그림 2 · 3</text>
+
+  <path class="ln-key" d="M500 302 V322"/>
+  <path class="ln-key" d="M310 322 H690"/>
+  <path class="ln-key" d="M310 322 V348" marker-end="url(#tca)"/>
+  <path class="ln-key" d="M690 322 V348" marker-end="url(#tca)"/>
+
+  <text class="t-s c-key" x="16" y="404">④ 배정</text>
+  <rect class="b" x="140" y="350" width="340" height="104" rx="6"/>
+  <text class="t-h c-key" x="164" y="376">헤더 텍스트 절차의 배정처</text>
+  <text class="t-s" x="164" y="400">판매문서유형 (예: OR Standard Order)</text>
+  <text class="t-s" x="164" y="420">납품유형 (예: LF Delivery)</text>
+  <text class="t-s" x="164" y="440">청구유형 (예: F2 Invoice)</text>
+
+  <rect class="b" x="520" y="350" width="340" height="104" rx="6"/>
+  <text class="t-h c-key" x="544" y="376">아이템 텍스트 절차의 배정처</text>
+  <text class="t-s" x="544" y="400">판매 아이템카테고리 (예: TAN)</text>
+  <text class="t-s" x="544" y="420">납품 아이템카테고리</text>
+  <text class="t-s c-bad" x="544" y="440">청구 아이템카테고리는 없다 → 청구유형에 배정</text>
+
+  <rect class="b-ghost" x="140" y="468" width="720" height="48" rx="6"/>
+  <text class="t-s" x="164" y="488">"송장에 문구가 안 찍힌다" → ④ 배정이 빠졌는지, ③ 절차에 그 Text Type이 없는지,</text>
+  <text class="t-s" x="164" y="508">순서대로 좁힌다. 입력칸 자체가 안 보이면 거의 항상 ③ 또는 ④ 문제다.</text>
+</svg>
+<figcaption><span class="fno">그림 1</span>Text Control 4단 구조. 헤더는 문서유형에, 아이템은 아이템카테고리에 절차를 배정한다 — 단 청구 아이템만 예외로 청구유형에 붙는다.</figcaption>
+</figure>
+
+<p>SD 문서는 문서유형으로 생성·통제됩니다(청구유형 <code>F2</code> Invoice, 납품유형 <code>LF</code> Delivery, 판매문서유형 <code>OR</code> Standard Order). 그래서 <b>헤더</b> 텍스트 절차는 이 문서유형들에 배정합니다. <b>아이템</b> 텍스트 절차는 (판매) 아이템카테고리, 납품 아이템카테고리에 배정합니다.</p>
+
+<div class="note warn">
+  <div class="t">청구 아이템만 예외다</div>
+  <p><span class="bad">청구 아이템카테고리라는 오브젝트는 존재하지 않습니다.</span> 그래서 청구 아이템용 Text Type을 담은 절차는 <span class="hl">청구유형 자체</span>에 배정합니다 — 청구유형 하나에 헤더용 절차와 아이템용 절차가 함께 붙는 셈입니다. 헤더/아이템 배정 규칙을 기계적으로 외우면 여기서 걸립니다.</p>
+</div>
+
+<h3>Customizing 진입점</h3>
+
+<div class="step"><span class="n">STEP 1</span><p>IMG 경로 <b>Sales and Distribution → Basic Functions → Text Control → Set Up Text Determination</b></p></div>
+<div class="step"><span class="n">STEP 2</span><p>또는 트랜잭션 <code>VOTXN</code>으로 직접 진입</p></div>
+<div class="step"><span class="n">STEP 3</span><p>Text Object 선택 → Text Type 정의 → Text Determination Procedure 정의 → 배정</p></div>
+
+<div class="note warn">
+  <div class="t">확인 필요 — 실제 시스템(winerp01 / MEP)에서 확정할 것</div>
+  <p><code>VOTXN</code> 진입 후 Text Object 선택 UI와 절차 배정 탭 구성은 릴리스에 따라 화면이 다릅니다. 또한 Private Edition에서 Fiori 기반 Customizing 앱(SSCUI)으로만 열리는 항목이 섞일 수 있습니다. <b>실제 시스템에서 <code>VOTXN</code>이 열리는지, IMG 경로가 동일한지 먼저 확인한 뒤 설계서에 반영합니다.</b></p>
+</div>
+
+<h3>수동 텍스트 입력</h3>
+
+<p>절차가 특정 판매문서유형(예: <code>OR</code>)에 배정되면, 그 문서유형으로 만든 판매문서에서 <b>절차에 속한 Text Type만</b> 나타나고 거기에 원하는 언어(예: <code>EN</code>)로 텍스트를 입력할 수 있습니다. 아이템 레벨도 동일합니다 — 아이템카테고리(예: <code>TAN</code>)에 절차가 배정되면 그 아이템카테고리로 통제되는 아이템에 입력할 수 있습니다.</p>
+
+<p>하나의 Text Type 안에 <span class="key">언어키를 지정해 여러 언어 버전</span>을 동시에 유지할 수도 있습니다.</p>
+
+<div class="note ok">
+  <div class="t">📌 개인 E2E 프로젝트와의 연결점</div>
+  <p>프로젝트는 <b>배치관리 + 유통기한(<code>MCHA-VFDAT</code>)</b> 상품을 다루므로, 납품서·송장에 취급 문구가 반드시 따라가야 하는 구조입니다. 구체적으로는 이렇게 매핑됩니다.</p>
+  <p>· <b>아이템 텍스트(<code>VBBP</code>)</b> — 온도군별 취급 문구. 냉동(<code>1100</code>/<code>1900</code>)은 "해동 후 재냉동 금지", 냉장(<code>2100</code>/<code>2900</code>)은 "0~4℃ 유지". 자재그룹 <code>CHKN</code>·<code>RICE</code>에 걸립니다.<br>
+     · <b>헤더 텍스트(<code>VBBK</code>)</b> — 배송 특이사항, 내부 메모.<br>
+     · <b>배정처</b> — 판매문서유형(표준오더) + 아이템카테고리, 그리고 납품유형 · 청구유형까지 같이 배정해야 송장까지 따라갑니다. 오더에만 배정하고 끝내면 그림 1의 ④가 비는 상태가 됩니다.</p>
+  <p>실온 자재그룹(<code>SHAK</code>·<code>PROT</code>·<code>PBAR</code>)은 취급 문구가 필요 없으므로 같은 절차를 쓰되 Text Type만 비워 두면 됩니다 — <b>절차를 온도군별로 쪼갤 필요는 없습니다.</b> 표준 우선 원칙에 맞습니다.</p>
+</div>
+
+</div>
+
+
+<!-- ══════════ LESSON 2 ══════════ -->
+<div class="lesson" id="l2">
+<h2><span class="no">LESSON 2</span>자동 전달 · 소스 분석 · 특수 기능</h2>
+
+<p><span class="tag">Unit 2</span><span class="tag">레슨 3개</span>Customizing Automatic Text Transfer · Analyzing Text Sources · Configuring Special Features</p>
+
+<h3>언제 이걸 알아야 하는가</h3>
+
+<p>1단계를 다 했는데도 <b>"입력칸은 보이는데 항상 비어 있습니다"</b>라는 문의가 남습니다. 이건 <span class="key">Access Sequence가 없거나, 있어도 텍스트를 못 찾은 것</span>입니다.</p>
+
+<p>그리고 가장 헷갈리는 케이스 — <b>"문의서에 쓴 메모가 오더에는 안 넘어옵니다"</b>. 이건 설정 오류가 아니라 <span class="hl">설계</span>입니다. 텍스트는 <b>직전 선행문서에서만</b> 복사되기 때문입니다.</p>
+
+<h3>자동 전달의 조건 — Access Sequence 배정</h3>
+
+<p>판매문서가 생성될 때 특정 Text Type의 텍스트를 다른 Text Object의 Text Type에서 자동으로 가져오게(procure) 만들 수 있습니다. 표준오더의 텍스트가 기반 견적서에서 자동 복사되거나, 판매오더 텍스트가 <b>Sold-to Party의 고객마스터</b> 또는 <b>판매자재의 자재마스터</b>에서 자동 복사되는 식입니다.</p>
+
+<p>자동 전달을 켜는 방법은 하나뿐입니다 — <span class="key">해당 Text Determination Procedure 안에서 그 Text Type에 Access Sequence(접근순서)를 배정</span>합니다. 절차에 Text Type만 담고 Access Sequence를 안 붙이면 입력칸만 생기고 자동으로 채워지지 않습니다.</p>
+
+<h3>Access Sequence — 텍스트 검색전략</h3>
+
+<figure class="figwrap">
+<svg class="dgm" viewBox="0 0 1000 440" role="img" aria-label="Access Sequence 동작 도해. 여러 Access를 순차 실행하다가 텍스트를 찾으면 그 자리에서 멈추는 배타적 구조이며, 수정 후에는 반드시 Access를 Generate해야 반영된다.">
+  <defs>
+    <marker id="axk" markerWidth="9" markerHeight="9" refX="7" refY="4.5" orient="auto">
+      <polygon class="arw-key" points="0,0 9,4.5 0,9"/></marker>
+    <marker id="axb" markerWidth="9" markerHeight="9" refX="7" refY="4.5" orient="auto">
+      <polygon class="arw-bad" points="0,0 9,4.5 0,9"/></marker>
+    <marker id="axo" markerWidth="9" markerHeight="9" refX="7" refY="4.5" orient="auto">
+      <polygon class="arw-ok" points="0,0 9,4.5 0,9"/></marker>
+  </defs>
+
+  <rect class="b-key" x="40" y="24" width="320" height="58" rx="6"/>
+  <text class="t-h c-key" x="62" y="48">Text Type 0002</text>
+  <text class="t-s" x="62" y="68">Header Note 1 — 자동으로 채우고 싶다</text>
+  <text class="t-s" x="390" y="46">Text Determination Procedure 안에서</text>
+  <text class="t-s" x="390" y="66">이 Text Type에 Access Sequence를 배정한다</text>
+
+  <path class="ln-key" d="M200 82 V112" marker-end="url(#axk)"/>
+
+  <rect class="b" x="120" y="114" width="520" height="58" rx="6"/>
+  <text class="t-h" x="142" y="138">Access 10</text>
+  <text class="t-s" x="240" y="138">Text Object VBBK · Text Type 0001 · 언어 EN</text>
+  <text class="t-xs" x="142" y="158">선행문서(견적서) 헤더의 Form Header를 본다</text>
+  <path class="ln-bad" d="M640 143 H718" marker-end="url(#axb)"/>
+  <text class="t-s c-bad" x="726" y="138">텍스트 없음</text>
+  <text class="t-xs" x="726" y="157">→ 다음 Access 실행</text>
+  <path class="ln-bad" d="M380 172 V190" marker-end="url(#axb)"/>
+
+  <rect class="b-ok" x="120" y="192" width="520" height="58" rx="6"/>
+  <text class="t-h c-ok" x="142" y="216">Access 20</text>
+  <text class="t-s" x="240" y="216">고객마스터 (Sold-to Party)의 영업 텍스트</text>
+  <text class="t-xs" x="142" y="236">요건을 만족하는 텍스트를 찾았다</text>
+  <path class="ln-ok" d="M640 221 H718" marker-end="url(#axo)"/>
+  <text class="t-s c-ok" x="726" y="216">발견 → 전달</text>
+  <text class="t-xs" x="726" y="235">0002가 채워지고 여기서 멈춤</text>
+  <path class="ln-d" d="M380 250 V268"/>
+
+  <rect class="b-mut" x="120" y="270" width="520" height="58" rx="6"/>
+  <text class="t-h" x="142" y="294">Access 30</text>
+  <text class="t-s" x="240" y="294">자재마스터 판매 텍스트</text>
+  <text class="t-xs" x="142" y="314">실행되지 않는다 — Access는 배타적(exclusive)</text>
+  <text class="t-s" x="726" y="296">실행 안 함</text>
+
+  <rect class="b-bad" x="40" y="346" width="920" height="76" rx="6"/>
+  <text class="t-h c-bad" x="64" y="372">가장 흔한 누락</text>
+  <text class="t-s" x="64" y="394">Access Sequence를 만들거나 고친 뒤 저장만으로 끝나지 않는다 — Access를 Generate 해야 실제로 동작한다.</text>
+  <text class="m-s" x="64" y="414">VOTXN → 메뉴 Texts → Generate access</text>
+</svg>
+<figcaption><span class="fno">그림 2</span>Access Sequence는 위에서부터 순차 실행되고, 조건을 만족하는 텍스트를 찾는 즉시 멈춘다. 수정 후 Generate를 빠뜨리면 설정은 맞는데 동작하지 않는다.</figcaption>
+</figure>
+
+<p>Access Sequence는 <b>텍스트에 대한 검색전략</b>입니다. 최소 1개, 보통 여러 개의 <b>Access</b>로 구성되어 순차 처리됩니다. 각 Access에서 "어느 Text Object의 어느 Text Type에서 찾을지"를 정의하고, 언어 같은 추가 요건도 지정할 수 있습니다.</p>
+
+<ul>
+  <li>요건을 만족하는 텍스트가 있으면 → <b>호출한 Text Type</b>(이 Access Sequence가 배정된 Text Type)으로 전달</li>
+  <li>없으면 → 다음 Access 실행. 같은 Object·Type의 <b>다른 언어</b>, 같은 Object의 <b>다른 Type</b>, 아예 <b>다른 Object</b> 무엇이든 가능</li>
+  <li><span class="bad">Access는 배타적(exclusive)</span> — 한 번 찾으면 이후 Access는 실행되지 않는다</li>
+</ul>
+
+<div class="note warn">
+  <div class="t">저장했는데 동작하지 않는다면</div>
+  <p>Access Sequence를 신규 생성하거나 수정한 뒤에는 <span class="hl">반드시 Access를 Generate</span>해야 합니다 — <code>VOTXN</code> 메뉴 <b>Texts → Generate access</b>. Customizing 화면상으로는 완벽한데 텍스트가 안 붙는 전형적 원인입니다.</p>
+  <p>또한 Access에서 접근 가능한 Text Object는 <b>Permitted Text Object(허용된 텍스트객체)</b>로 제한되어 있습니다 — 아무 오브젝트나 지정할 수 없습니다.</p>
+</div>
+
+<div class="note">
+  <div class="t">🔰 초보자 설명 — Access Sequence를 한 줄로</div>
+  <p>"이 메모가 비어 있으면 어디 가서 찾아올지"를 순서대로 정해둔 <b>검색 순번표</b>입니다. 첫 번째 후보에서 못 찾으면 두 번째, 세 번째로 넘어가고, <b>찾으면 그 자리에서 멈춥니다.</b></p>
+</div>
+
+<h3>직전 선행문서 원칙 — 건너뛰기는 불가능하다</h3>
+
+<figure class="figwrap">
+<svg class="dgm" viewBox="0 0 1000 560" role="img" aria-label="텍스트 자동 전달 흐름 도해. 텍스트는 항상 직전 선행문서에서만 복사되며 문의에서 오더로 건너뛸 수 없고, 청구문서만 Text Delivery 체크박스로 납품과 판매오더 중 소스를 고를 수 있다.">
+  <defs>
+    <marker id="tfk" markerWidth="9" markerHeight="9" refX="7" refY="4.5" orient="auto">
+      <polygon class="arw-key" points="0,0 9,4.5 0,9"/></marker>
+    <marker id="tfo" markerWidth="9" markerHeight="9" refX="7" refY="4.5" orient="auto">
+      <polygon class="arw-ok" points="0,0 9,4.5 0,9"/></marker>
+  </defs>
+
+  <path class="ln-bad" d="M105 70 C105 14, 485 14, 485 70" stroke-dasharray="6 5"/>
+  <text class="t-h c-bad" x="278" y="36">✕</text>
+  <text class="t-s c-bad" x="306" y="20">문의 → 오더 직접 복사는 불가능 (선행의 선행문서)</text>
+
+  <rect class="b-mut" x="30" y="70" width="150" height="64" rx="6"/>
+  <text class="t-h" x="48" y="96">문의 Inquiry</text>
+  <text class="t-xs" x="48" y="118">선행문서 없음 → 수동 입력</text>
+  <text class="t-xs" x="188" y="94">복사</text>
+  <path class="ln-key" d="M180 102 H214" marker-end="url(#tfk)"/>
+
+  <rect class="b" x="220" y="70" width="150" height="64" rx="6"/>
+  <text class="t-h" x="238" y="96">견적 Quotation</text>
+  <text class="t-xs" x="238" y="118">문의의 0001 → 견적의 0001</text>
+  <text class="t-xs" x="378" y="94">복사</text>
+  <path class="ln-key" d="M370 102 H404" marker-end="url(#tfk)"/>
+
+  <rect class="b-key" x="410" y="70" width="150" height="64" rx="6"/>
+  <text class="t-h c-key" x="428" y="96">판매오더</text>
+  <text class="t-xs" x="428" y="118">견적에서만 가져온다</text>
+  <text class="t-xs" x="568" y="94">복사</text>
+  <path class="ln-key" d="M560 102 H594" marker-end="url(#tfk)"/>
+
+  <rect class="b" x="600" y="70" width="150" height="64" rx="6"/>
+  <text class="t-h" x="618" y="96">출고납품</text>
+  <text class="t-xs" x="618" y="118">납품유형에 절차 배정</text>
+  <text class="t-xs" x="756" y="94">복사 *</text>
+  <path class="ln-key" d="M750 102 H784" marker-end="url(#tfk)"/>
+
+  <rect class="b" x="790" y="70" width="180" height="64" rx="6"/>
+  <text class="t-h" x="808" y="96">청구 F2</text>
+  <text class="t-xs" x="808" y="118">* 소스는 아래에서 갈린다</text>
+
+  <path class="ln-ok" d="M485 150 V142" marker-end="url(#tfo)"/>
+  <rect class="b-ok" x="330" y="150" width="310" height="60" rx="6"/>
+  <text class="t-h c-ok" x="352" y="174">선행문서가 없으면 마스터에서</text>
+  <text class="t-s" x="352" y="194">Sold-to Party 고객마스터 · 판매자재의 자재마스터</text>
+
+  <text class="t-s c-key" x="20" y="244">* 청구문서의 텍스트 소스 — 청구유형 Customizing에서 VBBK · VBBP 별로 선행문서를 고른다</text>
+  <rect class="b-ok" x="20" y="258" width="460" height="90" rx="6"/>
+  <text class="t-h c-ok" x="44" y="284">☑ Text Delivery 선택</text>
+  <text class="t-s" x="44" y="308">출고납품 → 청구</text>
+  <text class="t-xs" x="44" y="330">납품문서에 입력·전달된 텍스트가 청구로 넘어간다</text>
+
+  <rect class="b-key" x="510" y="258" width="460" height="90" rx="6"/>
+  <text class="t-h c-key" x="534" y="284">☐ 선택 안 함</text>
+  <text class="t-s" x="534" y="308">기반 판매오더 → 청구</text>
+  <text class="t-xs" x="534" y="330">청구가 납품을 참조하더라도 판매오더에서 복사한다</text>
+
+  <text class="t-s c-key" x="20" y="384">전달된 텍스트를 어떻게 보관하는가 — Text Determination Procedure에서 Text Type별로 지정</text>
+  <rect class="b" x="20" y="398" width="460" height="140" rx="6"/>
+  <text class="t-h" x="44" y="424">Reference (참조)</text>
+  <rect class="b-mut" x="44" y="438" width="140" height="36" rx="4"/>
+  <text class="t-s" x="62" y="461">원본 텍스트</text>
+  <path class="ln-d" d="M184 456 H272"/>
+  <rect class="b-mut" x="272" y="438" width="140" height="36" rx="4"/>
+  <text class="t-s" x="290" y="461">전달된 텍스트</text>
+  <text class="t-xs" x="196" y="450">같은 레코드</text>
+  <text class="t-s" x="44" y="498">DB에 한 번만 존재 — 원본을 바꾸면 사본도 같이 바뀐다</text>
+  <text class="t-xs" x="44" y="520">문서에서 직접 수정하는 순간 자동으로 Duplicate로 전환된다</text>
+
+  <rect class="b" x="510" y="398" width="460" height="140" rx="6"/>
+  <text class="t-h" x="534" y="424">Duplicate (복제)</text>
+  <rect class="b-mut" x="534" y="438" width="140" height="36" rx="4"/>
+  <text class="t-s" x="552" y="461">원본 텍스트</text>
+  <text class="t-h c-bad" x="700" y="462">✕</text>
+  <rect class="b-mut" x="762" y="438" width="140" height="36" rx="4"/>
+  <text class="t-s" x="780" y="461">별도 레코드</text>
+  <text class="t-xs" x="676" y="430">연결 없음</text>
+  <text class="t-s" x="534" y="498">DB에 별도 레코드로 저장 — 서로 완전히 독립적이다</text>
+  <text class="t-xs" x="534" y="520">메모리를 더 쓰므로 기능적으로 꼭 필요할 때만 사용한다</text>
+</svg>
+<figcaption><span class="fno">그림 3</span>텍스트 자동 전달 흐름. 복사는 언제나 직전 선행문서에서만 일어나며, 청구문서만 Text Delivery 체크박스로 소스를 납품/판매오더 중에서 고를 수 있다.</figcaption>
+</figure>
+
+<p>텍스트는 <span class="hl">항상 직전 선행문서(direct preceding document)</span>에서만 복사됩니다. 문의 → 견적 → 오더 체인에서 오더는 견적에서만 가져올 수 있고, <span class="bad">문의에서 직접 가져올 수는 없습니다.</span></p>
+
+<div class="step"><span class="n">STEP 1</span><p><b>문의 생성</b> — 문의의 판매문서유형에 Text Type <code>0001</code>이 담긴 절차가 배정되어 있고, 첫 Access가 <code>VBBK</code>·<code>0001</code>을 참조한다. 하지만 문의는 선행문서가 없으므로 아무것도 전달되지 않고 처리자가 직접 입력해야 한다.</p></div>
+<div class="step"><span class="n">STEP 2</span><p><b>견적 생성(문의 참조)</b> — 같은 절차가 배정되어 있어 문의의 <code>0001</code> 텍스트가 견적의 <code>0001</code>로 복사된다.</p></div>
+<div class="step"><span class="n">STEP 3</span><p><b>오더 생성(견적 참조)</b> — 오더 문서유형에도 <code>VBBK</code> 접근을 포함한 절차가 배정되어 있으면 견적에서 오더로 복사된다.</p></div>
+
+<div class="note">
+  <div class="t">성능 팁 — 헛된 Access를 막는다</div>
+  <p>STEP 1처럼 선행문서가 없는 문서유형에서는 <code>VBBK</code> 접근이 어차피 빈손으로 끝납니다. 이때 Access Sequence의 해당 Access에 조건 <b><code>1</code> Reference doc. header</b>를 걸어 <span class="key">접근 자체를 막을 수 있습니다.</span> 문서 건수가 많을수록 차이가 납니다.</p>
+</div>
+
+<h4>청구문서의 텍스트 소스</h4>
+
+<p>납품기준 청구(delivery-related billing)에서 청구문서의 직전 선행문서는 <b>납품문서</b>입니다. 그런데도 <span class="key">기반 판매오더에서 텍스트를 가져오는 것이 가능</span>합니다. 청구유형 Customizing에서 <code>VBBK</code>·<code>VBBP</code>별로 선행문서를 고를 수 있기 때문입니다.</p>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>Text Delivery</th><th>텍스트 소스</th></tr></thead>
+<tbody>
+<tr><td>선택함</td><td class="wrap"><b>출고납품문서</b>에서 복사</td></tr>
+<tr><td>선택 안 함</td><td class="wrap">청구가 납품을 참조하더라도 <b>기반 판매오더</b>에서 복사</td></tr>
+</tbody>
+</table>
+</div>
+
+<h3>Text Determination Analysis — 왜 안 왔는지 추적</h3>
+
+<p>"이 텍스트가 어디서 왔는지" 또는 "왜 전달이 실패했는지"를 판매문서 화면에서 바로 분석할 수 있습니다.</p>
+
+<div class="step"><span class="n">STEP 1</span><p>판매문서에서 <b>Goto → Header</b>(또는 <b>Item</b>) <b>→ Texts</b></p></div>
+<div class="step"><span class="n">STEP 2</span><p><b>Display log</b> 버튼 선택 → 분석 화면</p></div>
+<div class="step"><span class="n">STEP 3</span><p>권한이 있으면 이 화면에서 곧바로 Text Control Customizing으로 점프할 수 있다</p></div>
+
+<div class="note">
+  <div class="t">🔰 초보자 설명 — Text Determination Analysis를 한 줄로</div>
+  <p>"이 메모가 왜 안 채워졌지?" 또는 "이 메모는 어디서 복사돼 오는 거지?"를 추적하는 <b>디버깅 로그 화면</b>입니다. 어느 Access까지 갔고 어디서 멈췄는지가 보입니다.</p>
+</div>
+
+<div class="note warn">
+  <div class="t">확인 필요 — 실제 시스템(winerp01 / MEP)에서 확정할 것</div>
+  <p><b>Goto → Header → Texts → Display log</b>는 SAP GUI 판매오더 화면 기준 경로입니다. Fiori 앱(Manage Sales Orders 등)에서 같은 분석 화면이 어떤 이름·위치로 제공되는지는 릴리스마다 다릅니다. <b>운영 매뉴얼에 쓰기 전에 실제 화면에서 경로를 확인합니다.</b></p>
+</div>
+
+<h3>Reference vs Duplicate</h3>
+
+<p>Text Type에 Access Sequence가 배정되어 복사가 가능한 경우, 절차에서 그 텍스트를 <b>복제(duplicate)</b>할지 <b>참조(reference)</b>할지 지정합니다.</p>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>방식</th><th>동작</th></tr></thead>
+<tbody>
+<tr><td>Duplicate(복제)</td><td class="wrap">전달된 텍스트가 DB에 <b>별도 레코드</b>로 저장된다. 원본과 복사본이 완전히 독립적이라 서로 영향 없이 수정 가능. <span class="bad">메모리를 더 사용하므로 기능적으로 꼭 필요할 때만</span> 사용을 권장</td></tr>
+<tr><td>Reference(참조)</td><td class="wrap">텍스트가 DB에 <b>한 번만</b> 존재 — 원본을 바꾸면 전달된 텍스트도 함께 바뀐다(사실상 같은 것). 문서에서 복사된 텍스트를 직접 수정하면 <span class="hl">그 순간 자동으로 복제로 전환</span>되며, 이후 원본 변경은 영향을 주지 않는다</td></tr>
+</tbody>
+</table>
+</div>
+
+<div class="note">
+  <div class="t">🔰 초보자 설명 — Reference vs Duplicate를 한 줄로</div>
+  <p>Reference는 "원본과 링크로 연결된 사본"이라 <b>원본이 바뀌면 같이 바뀌고</b>, Duplicate는 "완전히 따로 떨어진 복사본"이라 <b>원본이 바뀌어도 영향받지 않습니다.</b> 문서에서 직접 손대는 순간 자동으로 Duplicate로 바뀝니다.</p>
+</div>
+
+<h3>Text is mandatory — 표시와 불완전성체크</h3>
+
+<p>절차에서 Text Type별로 <b>Text is mandatory or should be displayed</b> 필드를 설정할 수 있고, 이 한 필드가 두 가지를 통제합니다.</p>
+
+<ul>
+  <li><b>표시 여부</b> — 텍스트가 전달될 때 화면에 띄울지. 띄우도록 설정하면 판매문서 처리 중 개요화면에 대화상자가 뜨고 필요하면 즉시 편집할 수 있다</li>
+  <li><b>필수 여부</b> — <span class="key">Incompleteness Check(불완전성체크)</span> 관점에서 필수인지. 필수로 잡힌 Text Type에 텍스트가 전달·입력되지 않으면 문서가 <b>불완전 상태</b>가 된다</li>
+</ul>
+
+<div class="note warn">
+  <div class="t">확인 필요 — 하드코딩된 불완전 절차 50 · 51</div>
+  <p>불완전 절차 <code>50</code>·<code>51</code>은 하드코딩되어 있어 트랜잭션 <code>SM31</code>의 뷰 유지보수 <code>V_TVUVF</code>로만 처리 가능합니다(SAP Note <code>385982</code>). <b><code>SM31</code> 직접 유지는 권한·변경요청 정책에 걸리는 경우가 많으니, 실제 시스템(winerp01 / MEP)에서 이 뷰가 열리는지와 운영 이관 경로를 먼저 확인합니다.</b> 열리지 않으면 이 방식은 설계에서 뺍니다.</p>
+</div>
+
+<h3>데이터전달루틴(Data Transfer Routine) — VOFM</h3>
+
+<p>Access가 찾는 조건을 ABAP으로 직접 프로그래밍하고 싶을 때 <b>데이터전달루틴</b>을 만듭니다. 트랜잭션은 <code>VOFM</code>(Maintain: Requirements &amp; Forms)입니다. 루틴을 Access Sequence의 특정 Access에 배정하면, 그 Access는 프로그래밍된 로직으로 텍스트를 조달합니다.</p>
+
+<ul>
+  <li>고객 자체 개발 네임스페이스는 <b><code>50</code>~<code>99</code></b> (2자리 키)</li>
+  <li>제공되는 샘플루틴 <code>1</code>(Exit sample) · <code>2</code>(Exit Sample 2)에서 사용 가능한 데이터구조를 확인할 수 있다</li>
+</ul>
+
+<h4>표준 제공 루틴 91 — 자재별 표준텍스트 찾기</h4>
+
+<p>데이터전달루틴 <code>91</code>은 Text Object <code>TEXT</code>(표준텍스트)의 Text ID <code>SDVD</code>에서, 이름이 <code>ZMAT:*</code> 형식인 표준텍스트를 찾습니다. <code>*</code>는 해당 문서아이템의 현재 자재번호로 치환됩니다.</p>
+
+<pre><code>refer-tdname+5 = FTVOM-MATNR</code></pre>
+
+<p>자재 <code>P650-100</code>이 팔리면 시스템은 이름이 <code>ZMAT:P650-100</code>인 표준텍스트를 찾습니다. 전제조건은 세 가지입니다.</p>
+
+<div class="step"><span class="n">STEP 1</span><p>Text Object <code>TEXT</code> · Text ID <code>SDVD</code>에 대한 <b>Access가 존재</b>할 것</p></div>
+<div class="step"><span class="n">STEP 2</span><p>그 Access에 <b>데이터전달루틴 <code>91</code>이 배정</b>되어 있을 것</p></div>
+<div class="step"><span class="n">STEP 3</span><p>해당 이름의 <b>표준텍스트가 실제로 존재</b>할 것 — <code>SO10</code>으로 유지</p></div>
+
+<div class="note ok">
+  <div class="t">📌 개인 E2E 프로젝트와의 연결점</div>
+  <p><b>1) 루틴 91이 프로젝트에 그대로 쓸 수 있는 표준입니다.</b> 자재별 취급 문구를 <code>SO10</code>에 <code>ZMAT:&lt;자재번호&gt;</code>로 등록해 두면, 냉동 <code>CHKN</code>·<code>RICE</code> 자재는 "해동 후 재냉동 금지", 실온 <code>SHAK</code>·<code>PROT</code>·<code>PBAR</code>는 별도 문구가 오더 아이템 텍스트로 자동 전달됩니다. <span class="hl">CBO 없이 표준만으로 끝나는 구간</span>이므로 "표준 우선" 원칙에 맞습니다.</p>
+  <p><b>2) 직전 선행문서 원칙이 제약조건입니다.</b> 오더 → 납품 → 청구 3단 체인에서 문구를 끝까지 보내려면 <span class="key">세 단계 모두에 절차를 배정</span>해야 합니다. 오더와 청구에만 배정하고 납품을 비우면 중간에서 끊깁니다. 청구는 Text Delivery 체크박스로 "납품 경유"와 "오더 직결" 중 하나를 고를 수 있으니, 납품 단계에서 문구를 손댈 일이 없다면 체크를 풀어 오더에서 직접 가져오는 편이 배정 누락에 덜 취약합니다.</p>
+  <p><b>3) Reference/Duplicate는 <code>ZBATCH_ZONE</code>과 엮입니다.</b> 잔여 유통기한 30% 미달로 정상→임박 SLoc(<code>1100</code>→<code>1900</code> 등)으로 <code>311</code> 이동이 일어나도, <b>이미 발행된 납품·송장의 문구는 바뀌면 안 됩니다.</b> 출력물에 찍힌 내용이 사후에 달라지는 것은 증빙 관점에서 사고입니다. 따라서 출력 대상 Text Type은 <span class="key">Duplicate</span>로 잡습니다. 반대로 아직 발행 전인 내부 메모성 Text Type은 Reference로 두어 마스터 수정이 반영되게 해도 무방합니다.</p>
+  <p><b>4) 필수(mandatory) 설정은 신중히.</b> 취급 문구 Text Type을 불완전성체크 필수로 걸면 표준텍스트가 하나만 빠져도 <span class="bad">오더 전체가 불완전 상태가 되어 납품이 막힙니다.</span> 마스터 정비가 끝나기 전에는 "표시만" 설정으로 두고, 데이터가 안정된 뒤 필수로 올리는 편이 안전합니다.</p>
+</div>
+
+</div>
+
+
+<!-- ══════════ APPENDIX ══════════ -->
+<div class="lesson" id="lx">
+<h2><span class="no">APPENDIX</span>정리 · 반드시 기억할 것</h2>
+
+<h3>한 장 요약</h3>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>질문</th><th>답</th></tr></thead>
+<tbody>
+<tr><td>텍스트는 어디에 저장되나</td><td class="wrap">Text Object — 판매문서 헤더 <code>VBBK</code> / 아이템 <code>VBBP</code> / 고객·자재·조건마스터 / 표준텍스트 <code>TEXT</code></td></tr>
+<tr><td>Text Type이란</td><td class="wrap">그 Object 안의 메모 종류. <b>4자리 영숫자</b> + 설명. 언어별로 유지 가능</td></tr>
+<tr><td>왜 Text Type을 여러 개 만드나</td><td class="wrap">출력 여부·복사 출처·후속문서 전달 여부를 <b>텍스트별로 제어</b>하기 위해</td></tr>
+<tr><td>절차는 어디에 배정하나</td><td class="wrap">헤더 = 판매문서유형 · 납품유형 · 청구유형 / 아이템 = 판매·납품 아이템카테고리</td></tr>
+<tr><td>청구 아이템 텍스트는</td><td class="wrap">청구 아이템카테고리가 <b>없으므로 청구유형 자체</b>에 배정</td></tr>
+<tr><td>Customizing T-Code</td><td class="wrap"><code>VOTXN</code> (IMG: SD → Basic Functions → Text Control → Set Up Text Determination)</td></tr>
+<tr><td>자동 전달을 켜려면</td><td class="wrap">절차 안에서 그 Text Type에 <b>Access Sequence 배정</b></td></tr>
+<tr><td>Access는 몇 개나 실행되나</td><td class="wrap">찾을 때까지. <b>찾으면 즉시 멈춘다</b>(배타적)</td></tr>
+<tr><td>어디서 텍스트를 가져오나</td><td class="wrap"><b>직전 선행문서</b>에서만. 문의 → 오더 직접 복사는 불가</td></tr>
+<tr><td>청구가 오더 텍스트를 쓰려면</td><td class="wrap">청구유형에서 <b>Text Delivery 체크 해제</b></td></tr>
+<tr><td>텍스트 출처를 추적하려면</td><td class="wrap">판매문서 → <b>Goto → Header/Item → Texts → Display log</b></td></tr>
+<tr><td>Reference vs Duplicate</td><td class="wrap">Reference = DB 1건 공유(원본 변경 반영) / Duplicate = 별도 레코드(독립). 문서에서 수정하면 자동 Duplicate</td></tr>
+<tr><td>ABAP으로 조달하려면</td><td class="wrap"><code>VOFM</code> 데이터전달루틴, 고객 네임스페이스 <code>50</code>~<code>99</code>. 표준텍스트는 <code>SO10</code></td></tr>
+</tbody>
+</table>
+</div>
+
+<h3>반드시 지킬 것</h3>
+
+<div class="note warn">
+  <div class="t">반드시 지킬 것</div>
+  <p>· Access Sequence를 만들거나 고쳤으면 <b>Generate access</b>를 반드시 실행한다. 저장만으로는 동작하지 않는다.<br>
+     · 문구가 송장까지 가야 한다면 <b>오더 · 납품 · 청구 세 단계 모두</b>에 절차를 배정한다. 한 군데만 비어도 거기서 끊긴다.<br>
+     · 출력물에 찍히는 Text Type은 <b>Duplicate</b>로 잡는다 — 발행된 문서의 문구가 사후에 바뀌면 증빙 사고다.<br>
+     · 불완전성체크 필수 설정은 <b>마스터 정비가 끝난 뒤</b>에 켠다. 먼저 켜면 문구 하나 때문에 납품이 전부 막힌다.<br>
+     · 선행문서가 없는 문서유형에서는 Access에 <b>조건 <code>1</code> Reference doc. header</b>를 걸어 헛된 접근을 막는다.<br>
+     · 텍스트가 안 나오면 출력양식부터 보지 말고 <b>Object → Type → Procedure → 배정</b> 순으로 좁힌다.</p>
+</div>
+
+<h3>확인 필요 — 실제 시스템에서 확정할 항목</h3>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>항목</th><th>확인할 내용</th></tr></thead>
+<tbody>
+<tr><td><code>VOTXN</code> 진입</td><td class="wrap">트랜잭션이 열리는지, IMG 경로가 동일한지. Private Edition에서 Fiori SSCUI로만 열리는 항목이 섞여 있는지</td></tr>
+<tr><td>Display log 위치</td><td class="wrap"><b>Goto → Header → Texts → Display log</b>는 GUI 기준. Fiori 앱에서의 대응 화면 이름·위치</td></tr>
+<tr><td><code>V_TVUVF</code> 뷰</td><td class="wrap">불완전 절차 <code>50</code>·<code>51</code>을 <code>SM31</code>로 유지할 권한이 있는지, 변경요청/운영이관 경로가 있는지</td></tr>
+<tr><td><code>VOFM</code> 루틴 <code>91</code></td><td class="wrap">표준 제공 여부와 <code>VOFM</code> 접근 권한. 고객 루틴 신규 작성 시 등록 절차</td></tr>
+<tr><td>고객·자재마스터 Text Object</td><td class="wrap">원문에 <b>객체명이 명시되지 않음.</b> Permitted Text Object 목록에서 실제 오브젝트명을 확인해 설계서에 반영</td></tr>
+</tbody>
+</table>
+</div>
+
+<h3>참고</h3>
+
+<ul>
+  <li>원본: 노션 <b>SAP Learning Hub</b> → Implementing Sales in SAP S/4HANA Cloud Private Edition → 7-1 ~ 7-2 (Learning Hub 레슨 본문 5개 정리)</li>
+  <li>원본 자료 상태: <b>다운로드 가능한 PDF 없음</b>, Further Reading 없음. 데모 영상은 본문 설명 텍스트로만 반영, 실습은 Learning Hub 내장 Demo/Exercise 시뮬레이션. 본문에 SAP Note <code>385982</code> 언급 있음</li>
+  <li>앞 노트: <b>S46055</b> Output Control — 출력 결정. 텍스트가 <b>무엇을 담는가</b>라면 Output은 <b>어떻게 내보내는가</b>다</li>
+  <li>뒤 노트: <b>S46100</b> 납품 처리 구성 — 이 노트에서 배정한 납품유형·납품 아이템카테고리가 거기서 다시 나온다</li>
+</ul>
+
+</div>
+
+</div>
+<script src="../../assets/hub.js" defer></script>
+</body>
+</html>

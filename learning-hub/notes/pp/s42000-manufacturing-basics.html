@@ -1,0 +1,676 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>S42000 제조 기초 — 공급망계획 · 계획전략 · 생산오더</title>
+<meta name="description" content="SAP Learning Hub의 Discovering the Basics of SAP S/4HANA Manufacturing(S42000) 노트. 공급망계획 3대 단계, 수요관리와 계획전략(MTS·MTO), MRP와 능력소요량계획, 생산유형 3종, 생산오더의 구조와 처리단계.">
+<link rel="icon" href="../../assets/favicon.svg">
+<link rel="stylesheet" href="../../assets/notes-paper.css">
+<style>
+/* ── 이 노트 전용: 도해(SVG) 스타일 ─────────────────────────── */
+.dgm{display:block; width:100%; height:auto;}
+.dgm text{font-family:"Malgun Gothic","맑은 고딕","Apple SD Gothic Neo",sans-serif; fill:#1e1e1e;}
+.dgm .t-h{font-size:15px; font-weight:700;}
+.dgm .t{font-size:13px;}
+.dgm .t-s{font-size:11.5px; fill:#555;}
+.dgm .t-xs{font-size:10.5px; fill:#6B7280;}
+.dgm .m{font-family:"D2Coding","Consolas",monospace; font-size:12px;}
+.dgm .m-s{font-family:"D2Coding","Consolas",monospace; font-size:10.5px;}
+.dgm .c-key{fill:#4338CA;} .dgm .c-bad{fill:#B91C1C;} .dgm .c-ok{fill:#047857;}
+.dgm .b{fill:#FFFFFF; stroke:#C7CBD6; stroke-width:1.2;}
+.dgm .b-key{fill:#EEF0FB; stroke:#4338CA; stroke-width:1.4;}
+.dgm .b-bad{fill:#FEF2F2; stroke:#B91C1C; stroke-width:1.3;}
+.dgm .b-ok{fill:#ECFDF5; stroke:#047857; stroke-width:1.3;}
+.dgm .b-mut{fill:#F3F4F6; stroke:#D1D5DB; stroke-width:1.1;}
+.dgm .b-hl{fill:#FEF08A; stroke:#CA8A04; stroke-width:1.2;}
+.dgm .b-ghost{fill:none; stroke:#9AA3B2; stroke-width:1.1; stroke-dasharray:5 4;}
+.dgm .ln{stroke:#7C8697; stroke-width:1.4; fill:none;}
+.dgm .ln-key{stroke:#4338CA; stroke-width:1.8; fill:none;}
+.dgm .ln-bad{stroke:#B91C1C; stroke-width:1.6; fill:none;}
+.dgm .ln-ok{stroke:#047857; stroke-width:1.6; fill:none;}
+.dgm .ln-d{stroke:#9AA3B2; stroke-width:1.2; stroke-dasharray:4 4; fill:none;}
+.dgm .arw{fill:#7C8697;} .dgm .arw-key{fill:#4338CA;}
+.dgm .arw-bad{fill:#B91C1C;} .dgm .arw-ok{fill:#047857;}
+.figwrap{background:#FAFAFE; border:1px solid var(--rule); border-radius:6px;
+  padding:18px 16px 10px; margin:22px 0;}
+.figwrap figcaption{margin-top:12px; padding-top:10px; border-top:1px solid var(--rule);}
+</style>
+</head>
+<body>
+<div class="crumb"><a href="../../index.html">← 자료실 홈</a> · <a href="../../journey.html?j=pp">PP 저니</a> · S42000 제조 기초</div>
+<div class="sheet">
+
+<div class="doc-head">
+  <div class="kicker">LEARNING HUB · S42000</div>
+  <h1>제조 기초 — 공급망계획 · 계획전략 · 생산오더</h1>
+  <div class="sub">
+    Learning Journey <b>Implementing Manufacturing in SAP S/4HANA Cloud Private Edition</b> · Course 3 / S42000 · 2 hr · 5 Unit · 8 레슨 · Beginner<br>
+    출처: 노션 <b>SAP Learning Hub</b> 노트 3-1 (Unit 1~5 전체) 변환 · 강의 전체가 자전거 제조업체 예시로 이어진다
+  </div>
+</div>
+
+<div class="lead">
+  <p><b>결론부터.</b> 생산계획은 "만들까 말까"를 정하는 일이 아니라 <span class="hl">"주문을 기다렸다 만들 것인가, 예측으로 미리 만들 것인가"</span>를 정하고 그 결정을 시스템에 심는 일입니다. 그 스위치가 <span class="key">계획전략(Planning Strategy)</span>이고, 나머지(MRP·능력계획·생산오더)는 그 결정을 실행으로 옮기는 장치입니다.</p>
+  <p>이 코스는 계획 쪽(Unit 1~3)과 실행 쪽(Unit 4~5)을 한 번에 훑습니다. 예측 → 수요관리 → MRP → 능력평가로 계획을 세우고, 그 결과인 계획오더를 생산오더로 전환해 릴리스 · 출고 · 작업확인 · 입고까지 돌리는 전 구간입니다. 개념 밀도는 높지만 깊이는 얕은 개관 코스이므로, 여기서는 <b>각 단계가 무엇을 입력으로 받아 무엇을 내놓는지</b>만 정확히 잡고 갑니다.</p>
+</div>
+
+<div class="toc">
+  <h4>목차</h4>
+  <ol>
+    <li><a href="#l1">공급망계획 — 예측 · 수요관리 · MRP의 3단</a></li>
+    <li><a href="#l2">수요관리와 계획전략 — PIR과 고객소요의 상계</a></li>
+    <li><a href="#l3">MRP와 능력소요량계획 — 무엇을 얼마나 언제</a></li>
+    <li><a href="#l4">생산유형 3종 — 이산 · 프로세스 · 반복</a></li>
+    <li><a href="#l5">생산오더 — 구조와 처리단계</a></li>
+  </ol>
+</div>
+
+
+<!-- ══════════ LESSON 1 ══════════ -->
+<div class="lesson" id="l1">
+<h2><span class="no">LESSON 1</span>공급망계획 — 예측 · 수요관리 · MRP의 3단</h2>
+
+<p><span class="tag">Unit 1</span><span class="tag">레슨 1개</span>Introducing Supply Chain Planning — 푸시/풀, 계획 3단계, MRP·CRP 개요</p>
+
+<h3>언제 이걸 알아야 하는가</h3>
+
+<p>제조 쪽에서 가장 자주 올라오는 문의가 <b>"주문을 넣었는데 납기가 3주 뒤로 잡힙니다"</b>입니다. 재고가 없어서인데, 재고가 없는 이유는 <span class="key">계획 3단 중 어느 하나가 비어 있기 때문</span>입니다 — 예측을 안 했거나, 예측이 계획독립소요량으로 넘어가지 않았거나, MRP가 아직 안 돌았거나.</p>
+
+<p>그래서 이 세 단계가 각각 무엇을 만들어 다음 단계에 넘기는지를 모르면 "재고가 왜 없느냐"에 답할 수가 없습니다. 이 LESSON이 그 지도입니다.</p>
+
+<h3>왜 계획이 필요한가 — 푸시와 풀</h3>
+
+<p>고객은 몇 주씩 기다리지 않습니다. 자전거회사가 <b>들어오는 주문에 따라서만</b> 생산한다면 이 요구를 충족할 수 없습니다. 그래서 생산계획이 필요합니다.</p>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>방식</th><th>무엇이 생산을 당기는가</th></tr></thead>
+<tbody>
+<tr><td>푸시(Push)</td><td class="wrap">예측이 당긴다. 주문 전에 만들어 둔다 — 납기는 짧아지고 재고 위험은 커진다</td></tr>
+<tr><td>풀(Pull)</td><td class="wrap">실제 주문이 당긴다. 재고 위험은 없고 납기는 길어진다</td></tr>
+<tr><td><span class="key">하이브리드</span></td><td class="wrap">둘을 절충. 실제 기업 대부분이 여기에 선다 — 어디까지 미리 만들고 어디부터 주문을 기다릴지의 문제</td></tr>
+</tbody>
+</table>
+</div>
+
+<h3>공급망계획 3대 단계</h3>
+
+<figure class="figwrap">
+<svg class="dgm" viewBox="0 0 1000 340" role="img" aria-label="공급망계획 전체 흐름 도해. 예측이 계획독립소요량을 만들고, 수요관리가 이를 고객소요와 조율해 수요프로그램으로 넘기면, MRP가 계획오더와 구매요청을 만들고, 능력소요량계획이 실행 가능성을 검증한 뒤 생산오더로 전환된다.">
+  <defs>
+    <marker id="mf1" markerWidth="9" markerHeight="9" refX="7" refY="4.5" orient="auto">
+      <polygon class="arw" points="0,0 9,4.5 0,9"/></marker>
+    <marker id="mf1k" markerWidth="9" markerHeight="9" refX="7" refY="4.5" orient="auto">
+      <polygon class="arw-key" points="0,0 9,4.5 0,9"/></marker>
+  </defs>
+
+  <text class="t-xs" x="12" y="22">장기 · 집계 수준</text>
+  <text class="t-xs" x="864" y="22">단기 · 개별 자재</text>
+  <path class="ln-d" d="M130 18 H850"/>
+
+  <rect class="b-key" x="12" y="46" width="170" height="58" rx="6"/>
+  <text class="t-h c-key" x="30" y="72">예측</text>
+  <text class="t-xs" x="30" y="92">과거 판매 + 시장정보</text>
+  <path class="ln-key" d="M182 75 H208" marker-end="url(#mf1k)"/>
+
+  <rect class="b-key" x="214" y="46" width="170" height="58" rx="6"/>
+  <text class="t-h c-key" x="232" y="72">수요관리</text>
+  <text class="t-xs" x="232" y="92">PIR ↔ 고객소요</text>
+  <path class="ln-key" d="M384 75 H410" marker-end="url(#mf1k)"/>
+
+  <rect class="b-hl" x="416" y="46" width="170" height="58" rx="6"/>
+  <text class="t-h" x="434" y="72">MRP</text>
+  <text class="t-xs" x="434" y="92">소요량 전개 · 부족분</text>
+  <path class="ln-key" d="M586 75 H612" marker-end="url(#mf1k)"/>
+
+  <rect class="b" x="618" y="46" width="170" height="58" rx="6"/>
+  <text class="t-h" x="636" y="72">능력소요량계획</text>
+  <text class="t-xs" x="636" y="92">작업장 능력 평가</text>
+  <path class="ln-key" d="M788 75 H814" marker-end="url(#mf1k)"/>
+
+  <rect class="b-ok" x="820" y="46" width="170" height="58" rx="6"/>
+  <text class="t-h c-ok" x="838" y="72">오더 실행</text>
+  <text class="t-xs" x="838" y="92">생산 · 조달</text>
+
+  <path class="ln" d="M97 104 V136" marker-end="url(#mf1)"/>
+  <path class="ln" d="M299 104 V136" marker-end="url(#mf1)"/>
+  <path class="ln" d="M501 104 V136" marker-end="url(#mf1)"/>
+  <path class="ln" d="M703 104 V136" marker-end="url(#mf1)"/>
+  <path class="ln" d="M905 104 V136" marker-end="url(#mf1)"/>
+
+  <rect class="b-mut" x="12" y="140" width="170" height="86" rx="6"/>
+  <text class="t-s" x="28" y="166">수요계획(Demand Plan)</text>
+  <text class="t-s" x="28" y="186">→ 계획독립소요량</text>
+  <text class="t-s" x="28" y="206">(PIR)으로 도출</text>
+
+  <rect class="b-mut" x="214" y="140" width="170" height="86" rx="6"/>
+  <text class="t-s" x="230" y="166">수요프로그램 =</text>
+  <text class="t-s" x="230" y="186">MRP의 입력값</text>
+  <text class="t-s" x="230" y="206">MTS · MTO 선택</text>
+
+  <rect class="b-mut" x="416" y="140" width="170" height="86" rx="6"/>
+  <text class="t-s" x="432" y="166">계획오더 또는</text>
+  <text class="t-s" x="432" y="186">구매요청 생성</text>
+  <text class="t-s" x="432" y="206">야간 배치 · 부족 시</text>
+
+  <rect class="b-mut" x="618" y="140" width="170" height="86" rx="6"/>
+  <text class="t-s" x="634" y="166">능력은 MRP가</text>
+  <text class="t-s" x="634" y="186">고려하지 않는다</text>
+  <text class="t-s" x="634" y="206">→ 별도 능력평가</text>
+
+  <rect class="b-mut" x="820" y="140" width="170" height="86" rx="6"/>
+  <text class="t-s" x="836" y="166">계획오더 → 생산오더</text>
+  <text class="t-s" x="836" y="186">프로세스오더 전환</text>
+  <text class="t-s" x="836" y="206">완제품 입고(GR)</text>
+
+  <rect class="b-ghost" x="12" y="250" width="976" height="80" rx="6"/>
+  <text class="t-s" x="32" y="276">MRP는 <tspan class="c-bad">무제한 능력</tspan>을 전제로 계산한다. 그래서 "계획대로 실제 가능한가"를 보는 능력평가가 별도 단계로 남는다.</text>
+  <text class="t-s" x="32" y="300">MRP 실행은 보통 <tspan class="c-key">야간 백그라운드 작업</tspan>이고, 부족(Shortage)이 있을 때 조달요소를 만든다.</text>
+  <text class="t-s" x="32" y="324">푸시 = 예측이 당긴다 / 풀 = 오더가 당긴다. 어디서 갈아탈지를 정하는 것이 다음 LESSON의 계획전략.</text>
+</svg>
+<figcaption><span class="fno">그림 1</span>공급망계획 전체 흐름. 각 단계의 산출물이 그대로 다음 단계의 입력이 된다.</figcaption>
+</figure>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>단계</th><th>내용</th></tr></thead>
+<tbody>
+<tr><td>예측<br>(Forecasting)</td><td class="wrap">과거 판매오더수량으로 미래수요를 예측. 시장정보(Market Intelligence)·무역박람회 같은 이벤트도 반영. 수요계획은 <span class="key">계획독립소요량(PIR)</span>으로 도출되어 조달·생산계획을 이끈다</td></tr>
+<tr><td>수요관리<br>(Demand Mgmt)</td><td class="wrap">계획독립소요량과 <b>실제 고객소요량 사이의 상호작용</b>을 관리. 그 결과인 수요프로그램(Demand Program)이 MRP의 입력값이 된다</td></tr>
+<tr><td>MRP</td><td class="wrap">단기 관점에서 생산계획의 첫 단계. 보통 <b>야간 백그라운드 작업</b>으로 수요관리 이후 실행되며, 부족(Shortage)이 있을 때 실행된다</td></tr>
+</tbody>
+</table>
+</div>
+
+<div class="note">
+  <div class="t">🔰 초보자 설명 — PIR이 뭔가</div>
+  <p><b>계획독립소요량(Planned Independent Requirements)</b>은 "고객 주문은 아직 없지만, 이만큼 팔릴 것 같으니 이만큼 준비하자"를 시스템에 숫자로 넣어 둔 것입니다. 판매오더가 <b>실제 수요</b>라면 PIR은 <b>예상 수요</b>입니다. 이 둘이 같이 있을 때 어떻게 처리하느냐가 다음 LESSON의 핵심입니다.</p>
+</div>
+
+<h3>MRP와 CRP — 이름만 먼저</h3>
+
+<ul>
+  <li><b>MRP</b> — 실행 시 시스템이 하드코딩된 계획 알고리즘으로 조달요소(<span class="key">계획오더</span> 또는 <span class="key">구매요청</span>)를 생성한다. SAP S/4HANA에는 전통적 MRP 절차 외에 <b>MRP Live</b>라는 접근방식이 따로 있다</li>
+  <li><b>CRP(능력소요량계획)</b> — 작업장(Work Center)이나 자원(Resource)의 <b>가용 능력</b>을 평가하고 생산소요량과 매칭하는 작업</li>
+</ul>
+
+<div class="note warn">
+  <div class="t">확인 필요 — MRP Live와 클래식 MRP의 차이</div>
+  <p>원문은 "MRP Live라는 또 다른 솔루션 접근방식이 있다"까지만 말하고 차이를 설명하지 않습니다. 실행 트랜잭션·앱 ID, HANA 상에서의 처리 방식 차이는 <span class="bad">여기서 단정하지 않습니다</span> — 실제 시스템(winerp01 / MEP)에서 확인 후 보강하고, 심화 내용은 Course 8(<code>S42220</code>)에서 다룹니다.</p>
+</div>
+
+</div>
+
+
+<!-- ══════════ LESSON 2 ══════════ -->
+<div class="lesson" id="l2">
+<h2><span class="no">LESSON 2</span>수요관리와 계획전략 — PIR과 고객소요의 상계</h2>
+
+<p><span class="tag">Unit 2</span><span class="tag">레슨 2개</span>소요량의 기본 유형 · 계획전략(Planning Strategies)</p>
+
+<h3>언제 이걸 알아야 하는가</h3>
+
+<p><b>"판매오더를 넣었더니 소요량이 두 배로 잡힙니다"</b> — 예측으로 넣어 둔 PIR 100이 그대로 남아 있는데 판매오더 30이 따로 더해져 130이 된 상황입니다. 버그가 아니라 <span class="key">계획전략이 PIR과 고객소요의 관계를 어떻게 정의했는가</span>의 문제입니다.</p>
+
+<p>계획전략의 주요 과제가 정확히 이겁니다 — <b>계획독립소요량과 고객오더 간의 관계를 정의하는 것.</b></p>
+
+<h3>소요량의 기본 유형 3가지</h3>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>소요량 유형</th><th>설명</th></tr></thead>
+<tbody>
+<tr><td>계획독립소요량<br>(PIR)</td><td class="wrap">재고소요량. <b>판매오더를 기다리지 않고</b> 조달·생산을 시작할 수 있다 — 플랜트 종속</td></tr>
+<tr><td>판매오더</td><td class="wrap">영업부서가 <b>납품플랜트</b>를 대상으로 입력하는 고객소요량 — 플랜트 종속</td></tr>
+<tr><td>재고이전소요량</td><td class="wrap">자사 네트워크 내 다른 위치(예: 물류센터)로부터 발생하는 소요량 — <span class="key">플랜트 간(Cross-Plant)</span></td></tr>
+</tbody>
+</table>
+</div>
+
+<h3>계획전략 3계열과 상계</h3>
+
+<figure class="figwrap">
+<svg class="dgm" viewBox="0 0 1000 470" role="img" aria-label="계획전략 도해. 계획생산·조립품계획·수주생산이 푸시에서 풀로 이어지는 스펙트럼을 이루며, 계획생산에서는 접수된 판매오더가 계획독립소요량을 상계해 총소요량이 이중으로 계산되지 않는다.">
+  <defs>
+    <marker id="mf2k" markerWidth="9" markerHeight="9" refX="7" refY="4.5" orient="auto">
+      <polygon class="arw-key" points="0,0 9,4.5 0,9"/></marker>
+  </defs>
+
+  <text class="t-xs" x="12" y="22">푸시 — 예측이 생산을 당긴다</text>
+  <text class="t-xs" x="748" y="22">풀 — 오더가 생산을 당긴다</text>
+  <path class="ln-d" d="M200 18 H736"/>
+
+  <rect class="b-key" x="12" y="42" width="306" height="104" rx="6"/>
+  <text class="t-h c-key" x="32" y="72">계획생산 (Make-to-Stock)</text>
+  <text class="t-s" x="32" y="98">PIR과 기존 판매오더 두 수요를 함께 고려</text>
+  <text class="t-s" x="32" y="120">구체적 판매수요 없이 생산 시작 가능</text>
+  <text class="t-s" x="32" y="140">재고로 받쳐 납기를 짧게 가져간다</text>
+
+  <rect class="b" x="346" y="42" width="306" height="104" rx="6"/>
+  <text class="t-h" x="366" y="72">조립품 계획 (Subassembly)</text>
+  <text class="t-s" x="366" y="98">완제품은 재고생산하지 않는다</text>
+  <text class="t-s" x="366" y="120">필요한 조립품만 미리 조달해 둔다</text>
+  <text class="t-s" x="366" y="140">판매오더가 최종조립을 트리거</text>
+
+  <rect class="b-key" x="680" y="42" width="308" height="104" rx="6"/>
+  <text class="t-h c-key" x="700" y="72">수주생산 (Make-to-Order)</text>
+  <text class="t-s" x="700" y="98">실제 판매오더가 접수됐을 때만</text>
+  <text class="t-s" x="700" y="120">생산 · 조달을 시작한다</text>
+  <text class="t-s" x="700" y="140">각 판매오더품목을 개별 계획</text>
+
+  <text class="t-h" x="12" y="192">계획생산에서 PIR과 판매오더가 만나면 — 상계(Consumption)</text>
+
+  <rect class="b" x="12" y="210" width="220" height="64" rx="6"/>
+  <text class="t-h" x="30" y="236">① 예측 → PIR 100</text>
+  <text class="t-xs" x="30" y="258">판매오더 없이 계획</text>
+  <path class="ln-key" d="M232 242 H262" marker-end="url(#mf2k)"/>
+
+  <rect class="b" x="268" y="210" width="220" height="64" rx="6"/>
+  <text class="t-h" x="286" y="236">② 판매오더 30 접수</text>
+  <text class="t-xs" x="286" y="258">고객소요 확정</text>
+  <path class="ln-key" d="M488 242 H518" marker-end="url(#mf2k)"/>
+
+  <rect class="b-hl" x="524" y="210" width="220" height="64" rx="6"/>
+  <text class="t-h" x="542" y="236">③ 상계 발생</text>
+  <text class="t-xs" x="542" y="258">PIR 30이 소비된다</text>
+  <path class="ln-key" d="M744 242 H774" marker-end="url(#mf2k)"/>
+
+  <rect class="b-ok" x="780" y="210" width="208" height="64" rx="6"/>
+  <text class="t-h c-ok" x="798" y="236">④ 총소요 100</text>
+  <text class="m-s" x="798" y="258">70 + 30 = 100</text>
+
+  <rect class="b-bad" x="12" y="300" width="480" height="86" rx="6"/>
+  <text class="t-h c-bad" x="32" y="326">상계가 없으면</text>
+  <text class="t-s" x="32" y="350">PIR 100 + 판매오더 30 = <tspan class="m-s">130</tspan> 으로 계획</text>
+  <text class="t-s" x="32" y="372">→ 예측한 물량을 두 번 만든다 · 과잉재고</text>
+
+  <rect class="b-ok" x="508" y="300" width="480" height="86" rx="6"/>
+  <text class="t-h c-ok" x="528" y="326">상계가 있으면</text>
+  <text class="t-s" x="528" y="350">잔여 PIR 70 + 확정 판매오더 30 = <tspan class="m-s">100</tspan></text>
+  <text class="t-s" x="528" y="372">→ 예측 범위 안에서 실수요로 대체된다</text>
+
+  <rect class="b-ghost" x="12" y="400" width="976" height="58" rx="6"/>
+  <text class="t-s" x="32" y="426">숫자는 개념 설명용 예시다. 어떤 PIR이 어느 기간의 판매오더와 상계되는지는 <tspan class="c-key">계획전략 설정</tspan>이 결정한다.</text>
+  <text class="t-s" x="32" y="448">수주생산에서는 애초에 완제품 PIR을 두지 않으므로 이 이중계상 문제가 생기지 않는다.</text>
+</svg>
+<figcaption><span class="fno">그림 2</span>계획전략 스펙트럼과 상계(Consumption). 계획전략이 정의하는 것은 "PIR과 고객오더의 관계" 하나다.</figcaption>
+</figure>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>계획전략</th><th>설명</th></tr></thead>
+<tbody>
+<tr><td>계획생산<br>(Make-to-Stock)</td><td class="wrap">PIR과 기존 판매오더 <b>두 종류의 수요를 모두 고려</b>한다</td></tr>
+<tr><td>조립품계획<br>(Subassembly)</td><td class="wrap">어셈블리 레벨에서 계획생산을 수행. 완제품을 재고생산하는 대신 <span class="key">필요한 조립품을 조달</span>해 두고, <b>판매오더가 최종조립(Final Assembly)을 트리거</b>한다</td></tr>
+<tr><td>수주생산<br>(Make-to-Order)</td><td class="wrap">실제 판매오더가 접수되었을 때만 생산·조달을 시작한다</td></tr>
+</tbody>
+</table>
+</div>
+
+<p>전략 선택은 주로 <b>제품의 성격</b>에 따라 갈립니다. 각 전략은 고유한 장점과 제약을 함께 가지며, 하나가 모든 경우에 우월하지 않습니다.</p>
+
+<div class="note warn">
+  <div class="t">확인 필요 — 계획전략 번호와 소비 파라미터</div>
+  <p>원문은 계획전략을 <b>계열 이름으로만</b> 설명하고 전략번호(<code>MARC-STRGR</code>에 들어가는 10 / 40 / 20 같은 값)나 소비모드·소비기간(<code>MARC-VRMOD</code> · <code>VINT1</code> / <code>VINT2</code>)은 다루지 않습니다. 필드명과 값은 <span class="bad">실제 시스템(winerp01 / MEP)에서 확정</span>할 것 — 여기서 외운 번호로 단정하지 않습니다.</p>
+</div>
+
+<div class="note">
+  <div class="t">🔰 초보자 설명 — 수주생산과 계획생산을 한 문장으로</div>
+  <p>수주생산(MTO)은 <b>각 판매오더품목을 개별적으로</b> 계획하는 방식, 계획생산(MTS)은 <b>구체적인 판매수요 없이도</b> 생산을 시작할 수 있는 방식입니다. 조립품계획은 그 중간 — 반제품까지만 미리 만들어 두고 완제품 조립은 주문을 기다립니다.</p>
+</div>
+
+</div>
+
+
+<!-- ══════════ LESSON 3 ══════════ -->
+<div class="lesson" id="l3">
+<h2><span class="no">LESSON 3</span>MRP와 능력소요량계획 — 무엇을 얼마나 언제</h2>
+
+<p><span class="tag">Unit 3</span><span class="tag">레슨 2개</span>MRP 유형(소비기반·확정적) · 재주문점계획 · BOM 전개 · 능력평가</p>
+
+<h3>언제 이걸 알아야 하는가</h3>
+
+<p><b>"MRP를 돌렸는데 계획오더가 하나도 안 생깁니다"</b> — 대부분 정상입니다. MRP는 <span class="hl">부족(순소요량)이 있을 때만</span> 조달요소를 만들기 때문입니다. 재고 + 기존 계획오더 + 기존 생산오더로 소요량이 이미 충족되면 아무것도 생성하지 않습니다.</p>
+
+<p>이 판단 근거를 보는 화면이 <b>자재커버리지(Material Coverage)</b>이고, MRP 실행 전후로 이걸 비교하는 것이 기본 진단 순서입니다.</p>
+
+<h3>MRP 유형 — 두 갈래</h3>
+
+<p>자전거회사는 먼저 제품수요를 어떻게 충족할지 결정해야 하고, 그 결정이 <span class="key">MRP유형(MRP Type)</span>으로 정의됩니다.</p>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>유형</th><th>설명</th><th>적용 대상</th></tr></thead>
+<tbody>
+<tr><td>소비기반계획</td><td class="wrap"><b>과거 소비데이터</b>에 의존하고 사전 정의된 임계값(Threshold)에 따라 보충을 트리거하는, 더 단순하고 자동화된 접근</td><td class="wrap">덜 중요한 저가 부품<br>(나사, 너트)</td></tr>
+<tr><td>확정적계획</td><td class="wrap"><b>수요예측이나 판매오더</b>에 의존해 소요량을 계산. 구성품·하위조립품을 포함해 <span class="key">다단계(Multilevel)</span>로 실행</td><td class="wrap">고가 부품<br>(고급자전거)</td></tr>
+</tbody>
+</table>
+</div>
+
+<h4>재주문점계획 — 소비기반계획의 대표 방식</h4>
+
+<p>자재별로 <b>재주문점(Reorder Point)</b>을 미리 정해 둡니다. 생산 중 재고수준이 재주문점 아래로 떨어지면(예: 나사가 500개 미만) <span class="key">보충오더가 트리거</span>되어 적시에 재고가 채워집니다.</p>
+
+<div class="note ok">
+  <div class="t">📌 개인 E2E 프로젝트와의 연결점 — 소비기반계획은 트레이딩에도 그대로 쓰인다</div>
+  <p>개인 프로젝트는 <b>벤더 사입 → 재판매 트레이딩 모델</b>이라 생산이 없습니다. BOM 전개와 확정적계획은 쓸 일이 없습니다.</p>
+  <p>그런데 <span class="key">소비기반계획(재주문점계획)</span>은 다릅니다. 이건 BOM이 없어도 성립합니다 — 재고가 임계값 아래로 떨어지면 <b>구매요청</b>을 자동 생성하는 구조이고, 정확히 MM 구매 프로세스의 시작점입니다. 프로젝트의 <code>SHAK</code> · <code>PROT</code> · <code>PBAR</code>(실온) 같은 회전 상품은 개념적으로 여기에 해당합니다.</p>
+  <p>다만 프로젝트의 MRP 적용 여부는 아직 확정하지 않았습니다. 적용한다면 자재마스터 MRP 뷰의 <code>MARC-DISMM</code>(MRP 유형) · <code>MARC-MINBE</code>(재주문점) · <code>MARC-DISPO</code>(MRP 관리자)를 세팅하는 자리이고, <b>배치·유통기한 관리와 겹치는 지점</b>(유통기한이 짧은 냉동/냉장 자재에 재주문점을 크게 잡으면 임박재고가 늘어난다)은 별도 판단이 필요합니다 — 실제 시스템에서 확인 후 결정.</p>
+</div>
+
+<h3>확정적계획의 내부 순서</h3>
+
+<p>완제품은 어셈블리 → 하위어셈블리 → 원자재로 이어지고, 이 전부가 <b>자재명세서(BOM)</b>에 정의됩니다. MRP는 각 수요에 대해 이 BOM 구조를 <span class="key">전체 레벨에 걸쳐 전개(Explode)</span>합니다.</p>
+
+<div class="step"><span class="n">STEP 1</span><p><b>BOM 전개</b> — 각 수요에 대해 구성품·하위조립품까지 다단계로 펼친다</p></div>
+<div class="step"><span class="n">STEP 2</span><p><b>일자 계산</b> — 조달리드타임 · 생산리드타임 · 운송시간 등 자재 가용일자에 영향을 주는 요인을 반영</p></div>
+<div class="step"><span class="n">STEP 3</span><p><b>순소요량 계산</b> — 부족이 있으면, 그 부족을 해소할 <b>입고요소(Receipt Element)</b>의 수량을 계산</p></div>
+<div class="step"><span class="n">STEP 4</span><p><b>로트사이징(Lot Sizing)</b> — 실제로 보충할 수량을 결정</p></div>
+<div class="step"><span class="n">STEP 5</span><p><b>조달 방식 결정</b> — 사내생산(In-house Production)인가 외부조달(External Procurement)인가</p></div>
+<div class="step"><span class="n">STEP 6</span><p><b>시작일자 계산</b> — 사내생산의 시작일자를 역산해, 시간 관점에서 이 계획이 실행 가능한지를 드러낸다</p></div>
+
+<h3>능력소요량계획 — MRP가 남긴 구멍</h3>
+
+<p>MRP가 끝나면 필요한 구성품의 계획일자와 수량이 전부 나옵니다. <b>그런데 MRP는 작업장이나 작업자의 능력을 전혀 고려하지 않습니다.</b> 시스템이 <span class="bad">무제한 능력</span>을 전제로 계획하기 때문입니다.</p>
+
+<p>그래서 계획대로 생산이 가능한지를 보는 <span class="key">능력평가(Capacity Evaluation)</span>가 추가 단계로 필요할 수 있습니다. "일정은 맞는데 그날 그 라인이 이미 꽉 찼다"를 잡아내는 자리입니다.</p>
+
+<div class="note">
+  <div class="t">🔰 초보자 설명 — MRP가 무한능력을 전제하는 이유</div>
+  <p>능력까지 같이 풀면 계산이 훨씬 무거워지고, 자재 부족과 능력 부족이 섞여 원인을 가릴 수 없게 됩니다. 그래서 <b>1단계에서는 자재만</b>(무엇을 얼마나 언제), <b>2단계에서 능력만</b>(그게 실제로 돌아가나) 봅니다. 문제를 두 번에 나눠 푸는 설계입니다.</p>
+</div>
+
+</div>
+
+
+<!-- ══════════ LESSON 4 ══════════ -->
+<div class="lesson" id="l4">
+<h2><span class="no">LESSON 4</span>생산유형 3종 — 이산 · 프로세스 · 반복</h2>
+
+<p><span class="tag">Unit 4</span><span class="tag">레슨 2개</span>생산오더유형 · 이산 / 프로세스 / 반복생산 비교</p>
+
+<h3>언제 이걸 알아야 하는가</h3>
+
+<p><b>"이 제품은 생산오더로 만듭니까 프로세스오더로 만듭니까"</b> — 답은 제품이 아니라 <span class="key">산업변형(Industry Variant)과 제조 방식</span>이 정합니다. 같은 자전거회사 안에서도 최종조립은 생산오더, 페인트 배합은 프로세스오더, 타이어 대량생산은 반복생산으로 갈립니다.</p>
+
+<p>제조프로세스 · 제품복잡도 · 생산안정성에 따라 회사마다 <b>작업장제어(Shop Floor Control)</b> 요구가 다르고, S/4HANA는 그래서 세 가지 오더유형을 함께 지원합니다.</p>
+
+<h3>세 유형 비교</h3>
+
+<figure class="figwrap">
+<svg class="dgm" viewBox="0 0 1000 420" role="img" aria-label="생산유형 비교 도해. 이산 생산오더와 프로세스오더는 오더 단위로 추적하며 각각 작업순서와 레시피를 쓰고, 반복생산은 계획오더로 기간과 수량만 관리한다.">
+  <rect class="b-mut" x="12" y="20" width="130" height="52" rx="5"/>
+  <text class="t-s" x="26" y="52">구분</text>
+
+  <rect class="b-key" x="150" y="20" width="272" height="52" rx="5"/>
+  <text class="t-h c-key" x="166" y="44">이산 생산오더</text>
+  <text class="t-xs" x="166" y="62">Discrete — 오더관련생산</text>
+
+  <rect class="b-key" x="430" y="20" width="272" height="52" rx="5"/>
+  <text class="t-h c-key" x="446" y="44">프로세스오더</text>
+  <text class="t-xs" x="446" y="62">Process — 오더관련생산</text>
+
+  <rect class="b-key" x="710" y="20" width="278" height="52" rx="5"/>
+  <text class="t-h c-key" x="726" y="44">반복생산</text>
+  <text class="t-xs" x="726" y="62">Repetitive — 기간 · 수량</text>
+
+  <rect class="b-mut" x="12" y="78" width="130" height="52" rx="5"/>
+  <text class="t-s" x="26" y="109">제어 오브젝트</text>
+  <rect class="b" x="150" y="78" width="272" height="52" rx="5"/>
+  <text class="t" x="166" y="100">생산오더</text>
+  <text class="t-xs" x="166" y="120">Production Order</text>
+  <rect class="b" x="430" y="78" width="272" height="52" rx="5"/>
+  <text class="t" x="446" y="100">프로세스오더</text>
+  <text class="t-xs" x="446" y="120">Process Order</text>
+  <rect class="b-hl" x="710" y="78" width="278" height="52" rx="5"/>
+  <text class="t" x="726" y="100">계획오더</text>
+  <text class="t-xs" x="726" y="120">Planned Order — 생산오더 없음</text>
+
+  <rect class="b-mut" x="12" y="136" width="130" height="52" rx="5"/>
+  <text class="t-s" x="26" y="167">마스터데이터</text>
+  <rect class="b" x="150" y="136" width="272" height="52" rx="5"/>
+  <text class="t" x="166" y="158">작업순서(Routing)</text>
+  <text class="t-xs" x="166" y="178">+ BOM · 다수 작업</text>
+  <rect class="b" x="430" y="136" width="272" height="52" rx="5"/>
+  <text class="t" x="446" y="158">레시피(Recipe)</text>
+  <text class="t-xs" x="446" y="178">+ BOM</text>
+  <rect class="b" x="710" y="136" width="278" height="52" rx="5"/>
+  <text class="t" x="726" y="158">작업순서 + BOM</text>
+  <text class="t-xs" x="726" y="178">보통 단일 작업(예: 조립)만</text>
+
+  <rect class="b-mut" x="12" y="194" width="130" height="52" rx="5"/>
+  <text class="t-s" x="26" y="225">자원</text>
+  <rect class="b" x="150" y="194" width="272" height="52" rx="5"/>
+  <text class="t" x="166" y="216">작업장(Work Center)</text>
+  <text class="t-xs" x="166" y="236">작업당 작업자 1명</text>
+  <rect class="b" x="430" y="194" width="272" height="52" rx="5"/>
+  <text class="t" x="446" y="216">자원(Resource)</text>
+  <text class="t-xs" x="446" y="236">예: 반응용기</text>
+  <rect class="b" x="710" y="194" width="278" height="52" rx="5"/>
+  <text class="t" x="726" y="216">생산라인 = 작업장 1개</text>
+  <text class="t-xs" x="726" y="236">고도로 자동화된 라인</text>
+
+  <rect class="b-mut" x="12" y="252" width="130" height="52" rx="5"/>
+  <text class="t-s" x="26" y="283">관리 관점</text>
+  <rect class="b" x="150" y="252" width="272" height="52" rx="5"/>
+  <text class="t" x="166" y="283">오더 단위 추적 · 분석</text>
+  <rect class="b" x="430" y="252" width="272" height="52" rx="5"/>
+  <text class="t" x="446" y="283">오더 단위 추적 · 분석</text>
+  <rect class="b-hl" x="710" y="252" width="278" height="52" rx="5"/>
+  <text class="t" x="726" y="274">기간(Period) · 수량 단위</text>
+  <text class="t-xs" x="726" y="294">개별 오더는 보지 않는다</text>
+
+  <rect class="b-mut" x="12" y="310" width="130" height="52" rx="5"/>
+  <text class="t-s" x="26" y="341">예시 (자전거)</text>
+  <rect class="b" x="150" y="310" width="272" height="52" rx="5"/>
+  <text class="t" x="166" y="341">자전거 100대 최종조립</text>
+  <rect class="b" x="430" y="310" width="272" height="52" rx="5"/>
+  <text class="t" x="446" y="341">빨간 페인트 1,500 L 배합</text>
+  <rect class="b" x="710" y="310" width="278" height="52" rx="5"/>
+  <text class="t" x="726" y="341">타이어 정기 대량생산</text>
+
+  <rect class="b-ghost" x="12" y="370" width="976" height="44" rx="6"/>
+  <text class="t-s" x="32" y="394">이산 = 자동차 · 전자 · 건설 · 항공우주 / 프로세스 = 화학 · 제약 · 식음료 / 반복 = 표준화 수준이 높은 제품.</text>
+  <text class="t-s" x="32" y="410">같은 자전거 생산도 셋 중 어느 방식으로든 모델링할 수 있다 — 제품이 아니라 <tspan class="c-key">관리하고 싶은 단위</tspan>가 선택을 정한다.</text>
+</svg>
+<figcaption><span class="fno">그림 3</span>생산유형 3종 비교. 반복생산만 오더 단위 추적을 포기하고 계획오더로 기간·수량을 관리한다.</figcaption>
+</figure>
+
+<p>크게는 <b>오더관련생산(Order-Related Production)</b> — 이산·프로세스 — 과 <b>반복생산</b>으로 나뉩니다. 반복생산은 주로 이산산업에서 쓰입니다.</p>
+
+<h4>① 이산산업의 생산오더</h4>
+
+<p>자전거 최종조립이 전형적인 예입니다. 고객오더 또는 계획생산오더로부터 <b>자전거 100대의 생산로트(Production Lot)</b>에 대한 생산오더가 만들어집니다.</p>
+
+<ul>
+  <li>작업자가 여러 단계를 실행 — 예비조립 · 조립 · 품질검사 · 포장</li>
+  <li>각 단계는 <span class="key">작업순서(Routing)의 작업(Operation)</span>으로 모델링</li>
+  <li>필요한 반제품구성품 목록은 <b>BOM</b>으로 모델링</li>
+  <li>각 작업은 그 작업에 배정된 <b>작업장</b>에서 작업자 1명이 실행</li>
+  <li>작업 완료 시 작업자 또는 조립로봇이 <b>생산수율 · 스크랩 · 재작업 · 생산시간 실적</b>을 시스템에 제출</li>
+  <li>생산로트는 다음 작업의 작업장으로 이관 — 마지막 작업까지 반복</li>
+  <li>통상 마지막 단계 후 <span class="key">제조품의 입고(GR)</span>가 전기되어 재고기록이 갱신된다</li>
+</ul>
+
+<h4>② 프로세스산업의 프로세스오더</h4>
+
+<p>자전거를 여러 색상으로 팔려면 프레임 도장이 필요하고, 페인트를 직접 만든다면 그건 <b>배합 공정</b>입니다. 다음 생산로트에 쓸 <b>빨간색 페인트 1,500 L</b>가 필요하고 용제·기본페인트·안료를 직접 혼합한다면, 그 수량에 대한 프로세스오더가 생성됩니다.</p>
+
+<ul>
+  <li>각 단계는 <span class="key">레시피(Recipe)의 작업</span>으로 모델링 — 이산의 Routing 자리에 Recipe가 온다</li>
+  <li>각 <b>반응용기(Reaction Vessel)</b>는 시스템에서 <span class="key">자원(Resource)</span>으로 모델링</li>
+  <li>단계 완료 시 작업자가(자동화됐다면 용기가) 데이터를 제출 → 시점별 오더상태 추적</li>
+  <li>마지막 단계 후 제조품의 입고 전기 — 여기까지는 이산과 동일</li>
+</ul>
+
+<h4>③ 반복생산의 계획오더</h4>
+
+<p>자전거회사는 신규 자전거와 서비스용 <b>타이어</b>를 정기적으로 대량 필요로 합니다. 이런 건 오더 하나하나를 추적할 이유가 없습니다.</p>
+
+<div class="note warn">
+  <div class="t">반복생산에는 생산오더가 없다</div>
+  <p>기술적으로 SAP S/4HANA는 반복생산 프로세스를 실행·모니터링하는 데 <span class="hl">계획오더(Planned Order)</span>를 사용합니다. 계획오더를 생산오더로 전환하는 단계가 없습니다.</p>
+  <p>관리 관점이 다르기 때문입니다 — 개별 오더의 상태·원가가 아니라 <b>"어떤 기간에 어떤 수량이 제조되었는가"</b>만 알면 되는 생산이라서입니다. 생산라인은 마스터데이터상 <b>작업장 1개</b>에 대응하고, 조립이 자동화돼 있으므로 작업순서에 상세 단계를 넣을 필요도 없어 보통 단일 작업만 둡니다.</p>
+</div>
+
+</div>
+
+
+<!-- ══════════ LESSON 5 ══════════ -->
+<div class="lesson" id="l5">
+<h2><span class="no">LESSON 5</span>생산오더 — 구조와 처리단계</h2>
+
+<p><span class="tag">Unit 5</span><span class="tag">레슨 1개</span>계획 → 실행 전환 · 자재커버리지 · 오더 구조 · 릴리스~입고</p>
+
+<h3>언제 이걸 알아야 하는가</h3>
+
+<p><b>"생산오더에서 자재출고가 안 됩니다"</b> — 십중팔구 <span class="key">릴리스(Release)가 안 된 오더</span>입니다. 릴리스는 라이프사이클의 <b>필수</b> 단계이고, 릴리스되지 않으면 출고 · 입고 · 오더확인 등 이후 기능이 아예 실행되지 않습니다.</p>
+
+<p>이건 오류가 아니라 통제 장치입니다. 생산관리자의 승인 없이 자재가 현장으로 빠져나가지 않게 막는 자리입니다.</p>
+
+<h3>계획에서 실행으로 — 계획오더의 전환</h3>
+
+<p>수요프로그램은 구체적인 판매오더 또는 과거 판매주기 기반 예측에서 나옵니다. 이것이 <b>계획독립소요량으로 유지관리</b>되면, MRP 실행이 이를 처리해 <span class="key">계획오더</span>를 만듭니다.</p>
+
+<h4>자재커버리지 — MRP가 계획오더를 만들지 말지 정하는 기준</h4>
+
+<p>시스템은 시간경과에 따른 <b>소요량</b>과 <b>재고평가</b>를 비교해 소요량이 충족되는지 판단합니다.</p>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>상황</th><th>MRP 실행 결과</th></tr></thead>
+<tbody>
+<tr><td>재고 · 계획오더 · 생산오더로 소요량이 <b>충족됨</b></td><td class="wrap"><span class="good">계획오더를 생성하지 않는다</span> — "아무것도 안 생겼다"는 정상 동작</td></tr>
+<tr><td>소요량이 <b>충족되지 않음</b></td><td class="wrap">부족수량을 제조하기 위한 <span class="key">계획오더를 생성</span>한다 (생산오더로 전환 가능)</td></tr>
+</tbody>
+</table>
+</div>
+
+<p>그래서 진단 순서가 이렇게 고정됩니다: <b>MRP 실행 전 자재커버리지 분석 → MRP 실행 → MRP 실행 후 자재커버리지 분석.</b> 앞뒤를 비교하지 않으면 MRP가 무엇을 했는지 알 수 없습니다.</p>
+
+<h4>계획오더를 생산오더로</h4>
+
+<p>계획오더는 미충족수요(PIR 또는 판매오더)를 채우기 위해 MRP가 만든 <span class="key">미래입고(Future Goods Receipt)</span>로 읽을 수 있습니다. 하지만 <b>계획오더 자체로는 제품을 만들 수 없습니다.</b> 수요를 실제로 충족하려면 제품이 제조되어 재고로 입고되어야 판매오더에 납품할 수 있습니다.</p>
+
+<ul>
+  <li>산업변형에 따라 계획오더 → <b>생산오더</b> 또는 <b>프로세스오더</b>로 전환</li>
+  <li>자전거회사: 최종조립은 생산오더, 페인트 생산은 프로세스오더</li>
+  <li>생산오더는 전체 계획프로세스에 내장돼 있으므로, 이 전환은 <span class="key">계획오더의 종속소요량</span> 같은 관련 오브젝트에도 영향을 준다</li>
+</ul>
+
+<h3>생산오더의 구조</h3>
+
+<p>생산오더는 일반적으로 <b>어떤 자재를 · 얼마의 수량으로 · 언제 · 어떤 방식으로</b> 생산할지를 정의합니다. 구조는 사전 정의돼 있고 세 부분입니다.</p>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>구성</th><th>담기는 것</th><th>자전거 예시</th></tr></thead>
+<tbody>
+<tr><td>오더헤더</td><td class="wrap">생산일자 · 수량, 제조되는 제품 등 가장 중요한 정보</td><td class="wrap">자전거 자재번호, 오더수량</td></tr>
+<tr><td>작업목록</td><td class="wrap">제조프로세스를 모델링하는 일련의 <b>작업(Operation)</b>. <span class="bad">순서를 반드시 지켜야</span> 제품이 올바르게 조립된다</td><td class="wrap">예비조립 → 조립 → 품질검사 → 포장 (대개 순차 실행)</td></tr>
+<tr><td>구성품목록</td><td class="wrap">각 작업에서 조립되는 구성품과 수량. <span class="key">작업목록과 서로 연결</span>된다 — 어떤 구성품은 1번 작업에서, 어떤 것은 2번 작업에서 들어가기 때문</td><td class="wrap">바퀴 2 · 프레임 1 · 체인 1 · 배송박스 1</td></tr>
+</tbody>
+</table>
+</div>
+
+<p>예시에서는 첫 작업(예비조립)에서 <b>프레임</b>이 소모되고, 부분조립된 자전거가 다음 작업(조립)으로 넘어가 <b>바퀴와 체인</b>이 붙습니다. 그 뒤 품질검사, 마지막으로 보관 또는 고객배송을 위한 포장입니다.</p>
+
+<div class="note">
+  <div class="t">🔰 초보자 설명 — 구성품목록이 작업목록에 붙는 이유</div>
+  <p>"이 자전거에 뭐가 들어가나"만 알면 BOM으로 충분합니다. 그런데 생산 현장에서는 <b>"그 부품을 언제 꺼내오나"</b>가 더 중요합니다. 프레임은 1번 공정에, 바퀴는 2번 공정에 있어야 합니다. 그래서 구성품마다 어느 작업에 배정되는지가 같이 관리됩니다.</p>
+</div>
+
+<h3>처리단계 — 릴리스부터 입고까지</h3>
+
+<p>생산오더는 복잡한 오브젝트이고, 일부 사전 정의돼 있으나 개별 생산프로세스에 맞게 조정 가능한 <b>라이프사이클</b>을 갖습니다. 그 사이 <b>생산관리자 · 생산작업자 · 창고담당자</b>가 각 단계를 나눠 실행합니다.</p>
+
+<div class="step"><span class="n">STEP 1</span><p><b>생산오더 릴리스</b> — 라이프사이클의 <span class="bad">필수 단계</span>. 릴리스되지 않으면 출고 · 입고 · 오더확인 등 이후 기능을 실행할 수 없다. 작업자가 조립을 시작하기 전에 생산관리자 등이 릴리스해야 한다</p></div>
+<div class="step"><span class="n">STEP 2</span><p><b>구성품 피킹 · 출고전기</b> — 작업자가 조립을 시작하려면 그 전에 필요한 구성품이 창고담당자 등에 의해 생산현장에 <b>준비(Staged)</b>되어 있어야 한다</p></div>
+<div class="step"><span class="n">STEP 3</span><p><b>작업확인(Confirm Operations)</b> — 각 워크스테이션에서 개별 작업을 실행하고 시스템에 확인해 문서화한다</p></div>
+<div class="step"><span class="n">STEP 4</span><p><b>입고전기(Post Goods Receipt)</b> — 모든 작업이 끝나면 제조된 제품의 입고를 전기해 재고기록을 갱신한다</p></div>
+
+<h4>작업확인 시 시스템으로 넘어가는 정보</h4>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>구분</th><th>내용</th></tr></thead>
+<tbody>
+<tr><td>수율(Yield)</td><td class="wrap">정상 제조되어 <b>다음 작업장으로 이관되는</b> 수량</td></tr>
+<tr><td>스크랩(Scrap)</td><td class="wrap">제조작업 실패로 <span class="bad">파손된</span> 수량</td></tr>
+<tr><td>재작업(Rework)</td><td class="wrap">작업장에 남아 <b>수리될 때까지 대기</b>하는 수량</td></tr>
+<tr><td>작업시간 · 노력</td><td class="wrap">예: 자전거 10대 예비조립에 45분 → 시간실적이 전기되고 <span class="key">관련 원가가 오더에 배부</span>된다. 계획시간 대비 실제시간 비교로 계획데이터를 미세조정(Fine-tune)</td></tr>
+</tbody>
+</table>
+</div>
+
+<div class="note ok">
+  <div class="t">📌 개인 E2E 프로젝트와의 연결점 — 입고전기가 회계를 건드리는 자리</div>
+  <p>생산오더의 마지막 STEP 4(<b>입고전기</b>)는 프로젝트의 MM 입고와 같은 성격입니다. 재고 수량이 늘고 <b>동시에 회계가 움직이는</b> 지점이라는 점에서 그렇습니다 — 프로젝트에서는 벤더 GR(<code>101</code>)이 같은 자리에 섭니다. 출처가 자체 생산이냐 벤더 사입이냐만 다릅니다.</p>
+  <p>그래서 <b>"회계 영향이 있는 처리는 자동화하지 않는다"</b>는 프로젝트 원칙이 여기서도 그대로 유효합니다. 생산오더 릴리스가 사람의 손을 거치게 설계된 것과 같은 이유입니다. CBO <code>ZGATE_INSPECT</code>의 <code>122</code> 반품을 자동으로 돌리기 전에 상태필드(W/P/H)로 한 번 세우기로 한 판단이, 릴리스라는 표준 장치와 같은 발상입니다.</p>
+</div>
+
+</div>
+
+
+<!-- ══════════ APPENDIX ══════════ -->
+<div class="lesson" id="lx">
+<h2><span class="no">APPENDIX</span>정리 · 반드시 기억할 것</h2>
+
+<h3>한 장 요약</h3>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>질문</th><th>답</th></tr></thead>
+<tbody>
+<tr><td>공급망계획 3대 단계</td><td class="wrap">예측 → 수요관리 → MRP. 예측은 PIR을 만들고, 수요관리는 수요프로그램을, MRP는 계획오더·구매요청을 만든다</td></tr>
+<tr><td>계획전략이 정의하는 것</td><td class="wrap"><b>계획독립소요량(PIR)과 고객오더의 관계</b> 하나. MTS / 조립품계획 / MTO</td></tr>
+<tr><td>PIR 100에 판매오더 30이 오면</td><td class="wrap">상계(Consumption)로 총소요 <b>100</b>. 상계가 없으면 130이 되어 과잉생산</td></tr>
+<tr><td>MRP 유형 두 갈래</td><td class="wrap">소비기반계획(과거 소비 + 임계값, 저가부품) / 확정적계획(예측·판매오더 + BOM 다단계 전개, 고가부품)</td></tr>
+<tr><td>MRP를 돌렸는데 아무것도 안 생겼다</td><td class="wrap">정상일 수 있다. 재고 + 계획오더 + 생산오더로 소요량이 충족되면 생성하지 않는다</td></tr>
+<tr><td>MRP가 능력을 보나</td><td class="wrap"><b>안 본다.</b> 무제한 능력 전제 → 능력평가(Capacity Evaluation)가 별도 단계</td></tr>
+<tr><td>생산유형 3종</td><td class="wrap">이산 생산오더 / 프로세스오더(Recipe · Resource) / 반복생산(<b>계획오더</b>로 기간·수량 관리)</td></tr>
+<tr><td>계획오더로 물건을 만들 수 있나</td><td class="wrap"><b>없다.</b> 생산오더 또는 프로세스오더로 전환해야 한다 (반복생산은 예외 — 계획오더로 실행)</td></tr>
+<tr><td>생산오더 구조</td><td class="wrap">오더헤더 + 작업목록(Operation) + 구성품목록. 구성품은 작업에 배정된다</td></tr>
+<tr><td>릴리스를 안 하면</td><td class="wrap">출고 · 입고 · 오더확인 <b>전부 불가</b></td></tr>
+<tr><td>작업확인이 넘기는 수량 3종</td><td class="wrap">수율(Yield) · 스크랩(Scrap) · 재작업(Rework)</td></tr>
+</tbody>
+</table>
+</div>
+
+<div class="note warn">
+  <div class="t">반드시 지킬 것</div>
+  <p>· <b>MRP가 아무것도 안 만들었다 = 고장</b>이라고 먼저 결론 내지 않는다. 자재커버리지를 MRP 전후로 비교하는 것이 순서다.<br>
+     · 계획전략 <b>번호</b>를 외워서 말하지 않는다. 원문은 계열 이름까지만 다뤘다 — 번호와 소비 파라미터는 시스템에서 확인한다.<br>
+     · 반복생산에 "생산오더를 찾는다"고 하지 않는다. 거기엔 <b>계획오더</b>밖에 없다.<br>
+     · 능력 문제와 자재 문제를 섞어서 진단하지 않는다. MRP는 자재만, 능력평가는 능력만 본다.</p>
+</div>
+
+<div class="note warn">
+  <div class="t">확인 필요 — T-Code · 앱 ID</div>
+  <p>이 코스 원문(Beginner 개관)에는 <span class="bad">T-Code도 Fiori 앱 ID도 등장하지 않습니다.</span> 자재커버리지 조회 · MRP 실행 · 계획오더 전환 · 생산오더 릴리스에 해당하는 트랜잭션과 앱은 실제 시스템(winerp01 / MEP)에서 확인한 뒤 이 노트에 보강합니다. 기억에 있는 코드로 채워 넣지 않습니다.</p>
+</div>
+
+<h3>이 노트의 범위에 대해</h3>
+
+<div class="note">
+  <div class="t">개인 프로젝트와의 거리</div>
+  <p>진행 중인 개인 E2E 프로젝트(식품 유통 · 벤더 사입 후 재판매)는 <b>생산과 외주가공이 없습니다.</b> 따라서 이 노트의 BOM · 작업순서 · 작업장 · 생산오더는 프로젝트에 직접 쓰이지 않습니다. PP는 <span class="key">자격증과 지식 목적</span>으로 학습합니다.</p>
+  <p>프로젝트와 실제로 닿는 지점은 두 곳뿐이고, 본문에 그 두 곳에만 📌를 달았습니다 — LESSON 3의 <b>소비기반계획 · 재주문점계획</b>(MM 구매요청 자동생성과 같은 구조), LESSON 5의 <b>입고전기와 릴리스</b>(회계가 움직이는 지점의 승인 통제). 나머지는 억지로 연결하지 않았습니다.</p>
+</div>
+
+<h3>참고</h3>
+
+<ul>
+  <li>원본: 노션 <b>SAP Learning Hub</b> → Implementing Manufacturing in SAP S/4HANA Cloud Private Edition → <b>3-1</b> (Unit 1~5 전체 · 레슨 8개)</li>
+  <li>앞 노트: <b>S4C03</b> S/4HANA Cloud PCE 구현 · <b>SL_RISE419</b> RISE with SAP Methodology (둘 다 SD 저니 공유)</li>
+  <li>이어지는 노트: <b>S42010</b> 생산계획 프로세스 · <b>S42100</b> 제조 기준정보(자재·BOM·작업장·라우팅) · <b>S42220</b> 생산계획(수요관리·MRP Live)</li>
+</ul>
+
+</div>
+
+</div>
+<script src="../../assets/hub.js" defer></script>
+</body>
+</html>

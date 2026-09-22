@@ -1,0 +1,1162 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>S4F17 Configuring Asset Accounting — 자산클래스 · 감가상각 · 자산거래</title>
+<meta name="description" content="SAP Learning Hub의 Configuring Asset Accounting in SAP S/4HANA(S4F17) 노트. 감가상각표와 감가상각영역, 자산클래스가 결정하는 것, 취득·처분·이체·AuC 정산, 감가상각키와 감가상각런, 자산 리포팅, 레거시데이터 이관.">
+<link rel="icon" href="../../assets/favicon.svg">
+<link rel="stylesheet" href="../../assets/notes-paper.css">
+<style>
+/* ── 이 노트 전용: 도해(SVG) 스타일 ─────────────────────────── */
+.dgm{display:block; width:100%; height:auto;}
+.dgm text{font-family:"Malgun Gothic","맑은 고딕","Apple SD Gothic Neo",sans-serif; fill:#1e1e1e;}
+.dgm .t-h{font-size:15px; font-weight:700;}
+.dgm .t{font-size:13px;}
+.dgm .t-s{font-size:11.5px; fill:#555;}
+.dgm .t-xs{font-size:10.5px; fill:#6B7280;}
+.dgm .m{font-family:"D2Coding","Consolas",monospace; font-size:12px;}
+.dgm .m-s{font-family:"D2Coding","Consolas",monospace; font-size:10.5px;}
+.dgm .c-key{fill:#4338CA;} .dgm .c-bad{fill:#B91C1C;} .dgm .c-ok{fill:#047857;}
+.dgm .b{fill:#FFFFFF; stroke:#C7CBD6; stroke-width:1.2;}
+.dgm .b-key{fill:#EEF0FB; stroke:#4338CA; stroke-width:1.4;}
+.dgm .b-bad{fill:#FEF2F2; stroke:#B91C1C; stroke-width:1.3;}
+.dgm .b-ok{fill:#ECFDF5; stroke:#047857; stroke-width:1.3;}
+.dgm .b-mut{fill:#F3F4F6; stroke:#D1D5DB; stroke-width:1.1;}
+.dgm .b-hl{fill:#FEF08A; stroke:#CA8A04; stroke-width:1.2;}
+.dgm .b-ghost{fill:none; stroke:#9AA3B2; stroke-width:1.1; stroke-dasharray:5 4;}
+.dgm .ln{stroke:#7C8697; stroke-width:1.4; fill:none;}
+.dgm .ln-key{stroke:#4338CA; stroke-width:1.8; fill:none;}
+.dgm .ln-bad{stroke:#B91C1C; stroke-width:1.6; fill:none;}
+.dgm .ln-ok{stroke:#047857; stroke-width:1.6; fill:none;}
+.dgm .ln-d{stroke:#9AA3B2; stroke-width:1.2; stroke-dasharray:4 4; fill:none;}
+.dgm .arw{fill:#7C8697;} .dgm .arw-key{fill:#4338CA;}
+.dgm .arw-bad{fill:#B91C1C;} .dgm .arw-ok{fill:#047857;}
+.figwrap{background:#FAFAFE; border:1px solid var(--rule); border-radius:6px;
+  padding:18px 16px 10px; margin:22px 0;}
+.figwrap figcaption{margin-top:12px; padding-top:10px; border-top:1px solid var(--rule);}
+</style>
+</head>
+<body>
+<div class="crumb"><a href="../../index.html">← 자료실 홈</a> · <a href="../../journey.html?j=fi">FI 저니</a> · S4F17 Asset Accounting</div>
+<div class="sheet">
+
+<div class="doc-head">
+  <div class="kicker">LEARNING HUB · S4F17</div>
+  <h1>자산회계 구성 — 자산클래스 · 감가상각 · 자산거래</h1>
+  <div class="sub">
+    Learning Journey <b>Implementing Financial Accounting in SAP S/4HANA</b> · Course 4 / S4F17 · 6 Unit · 22 레슨 · 22 hr+<br>
+    출처: 노션 <b>SAP Learning Hub</b> 노트 4-1 ~ 4-6 변환 (FI 저니에서 분량이 가장 큰 코스)
+  </div>
+</div>
+
+<div class="lead">
+  <p><b>결론부터.</b> 자산회계에서 무엇 하나 전기하려면 시스템이 먼저 묻는 건 "이 자산이 얼마냐"가 아니라 <span class="hl">"어느 감가상각영역에서, 어느 회계원칙으로 평가하느냐"</span>입니다. 그리고 그 평가 조건은 전부 <span class="key">자산클래스</span>에서 내려옵니다.</p>
+  <p>FI-AA는 G/L의 서브레저입니다. 서브레저이므로 조정계정으로 G/L과 항상 균형을 이뤄야 하고, 동시에 하나의 자산을 장부·세무·IFRS 여러 관점으로 <b>동시에</b> 관리해야 합니다. 이 두 요구를 SAP가 푸는 방식이 감가상각표 → 감가상각영역 → 회계원칙 → 원장이라는 계통입니다. 이 코스는 그 계통을 세우고, 그 위에서 자산 한 대가 <b>취득부터 처분까지</b> 어떤 전표를 남기는지를 따라갑니다.</p>
+</div>
+
+<div class="toc">
+  <h4>목차</h4>
+  <ol>
+    <li><a href="#l1">조직구조 — 감가상각표가 평가의 좌표다</a></li>
+    <li><a href="#l2">마스터데이터 — 자산클래스가 결정하는 것</a></li>
+    <li><a href="#l3">자산거래 — 취득 · 처분 · 이체 · AuC 정산</a></li>
+    <li><a href="#l4">주기적 처리와 평가 — 감가상각키부터 병렬회계까지</a></li>
+    <li><a href="#l5">보고 — 정렬변형 · 시뮬레이션 · 자산이력시트</a></li>
+    <li><a href="#l6">레거시데이터 이관 — 이관일자가 전부다</a></li>
+  </ol>
+</div>
+
+
+<!-- ══════════ LESSON 1 ══════════ -->
+<div class="lesson" id="l1">
+<h2><span class="no">LESSON 1</span>조직구조 — 감가상각표가 평가의 좌표다</h2>
+
+<p><span class="tag">Unit 1</span><span class="tag">레슨 4개</span>계정과목표/감가상각표 배정 · CO오브젝트 연결 · 감가상각영역의 G/L 전기 · 자산클래스의 중요성</p>
+
+<h3>언제 이걸 알아야 하는가</h3>
+
+<p>구축 초기에 반드시 한 번은 나오는 문의가 <b>"회사코드에 감가상각표 배정이 안 됩니다"</b> 또는 <b>"자산을 만들려는데 감가상각영역이 비어 있습니다"</b>입니다. 원인은 대개 둘 중 하나입니다 — <span class="key">SAP 샘플 상각표를 복사하지 않고 직접 쓰려 했거나</span>, 회사코드에 상각표를 배정하는 단계를 건너뛰었거나.</p>
+
+<p>자산회계는 FI에서 회사코드를 만들었다고 바로 쓸 수 있는 모듈이 아닙니다. <span class="hl">계정과목표 1개 + 감가상각표 1개</span>가 회사코드에 붙어야 비로소 FI-AA가 열립니다. 이 레슨은 그 좌표계를 세웁니다.</p>
+
+<h3>FI-AA가 쓰는 조직단위</h3>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>단위</th><th>설명</th></tr></thead>
+<tbody>
+<tr><td>클라이언트</td><td class="wrap">SAP 시스템 계층의 최상위. <b>이 레벨의 설정은 모든 회사코드에 적용</b> — 감가상각표와 자산클래스가 여기서 정의된다</td></tr>
+<tr><td>회사코드</td><td class="wrap">독립적인 회계단위. 법정 대차대조표·손익계산서가 이 레벨에서 나온다</td></tr>
+<tr><td>이익센터</td><td class="wrap">비용·수익 책임을 지는 독립영역. 손익계산서만 만들지, 문서분할을 켜서 대차대조표까지 만들지 선택</td></tr>
+<tr><td>세그먼트</td><td class="wrap">외부보고용 재무제표 구분단위. US GAAP(SFAS 131) · IFRS(IFRS 8)가 세그먼트 리포팅을 요구</td></tr>
+<tr><td>사업영역</td><td class="wrap">내부 대차대조표·손익계산서를 만들 수 있는 재무적 독립단위. 사용 전 <code>Enterprise Structure→Definition→Financial Accounting→Define Business Area</code>에서 정의 필요</td></tr>
+</tbody>
+</table>
+</div>
+
+<div class="note">
+  <div class="t">🔰 초보자 설명 — 왜 감가상각영역이 최대 99개나 필요한가</div>
+  <p>같은 기계 한 대라도 <b>회사 내부 관리용 장부가치</b>, <b>세무서에 신고할 세무가치</b>, <b>IFRS 연결재무제표용 가치</b>가 전부 다를 수 있습니다. 감가상각영역은 이 여러 "관점"을 각각 별도로 계산·관리하는 서랍입니다. 하나의 자산에 대해 서랍마다 다른 감가상각 방식을 걸어 두면, 필요할 때 원하는 기준의 가치를 꺼내 씁니다.</p>
+</div>
+
+<h3>계통 — 상각표에서 원장까지</h3>
+
+<figure class="figwrap">
+<svg class="dgm" viewBox="0 0 1000 490" role="img" aria-label="자산회계 조직구조 도해. 계정과목표와 감가상각표가 각각 하나씩 회사코드에 배정되고, 감가상각표가 최대 99개의 감가상각영역을 담으며, 모든 감가상각영역은 회계원칙을 통해 총계정원장의 원장에 연결된다. 자산클래스는 클라이언트 레벨에서 정의되어 자산마스터의 기본값을 공급한다.">
+  <defs>
+    <marker id="aa1" markerWidth="9" markerHeight="9" refX="7" refY="4.5" orient="auto">
+      <polygon class="arw" points="0,0 9,4.5 0,9"/></marker>
+    <marker id="aa1k" markerWidth="9" markerHeight="9" refX="7" refY="4.5" orient="auto">
+      <polygon class="arw-key" points="0,0 9,4.5 0,9"/></marker>
+  </defs>
+
+  <text class="t-xs c-key" x="30" y="26">클라이언트 레벨 — 상각표 · 자산클래스는 여기서 정의된다</text>
+
+  <rect class="b" x="30" y="36" width="250" height="52" rx="6"/>
+  <text class="t-h" x="50" y="60">계정과목표</text>
+  <text class="t-s" x="50" y="78">Chart of Accounts · FI와 공유</text>
+
+  <rect class="b-key" x="310" y="36" width="280" height="52" rx="6"/>
+  <text class="t-h c-key" x="330" y="60">감가상각표  <tspan class="m">Z000</tspan></text>
+  <text class="t-s" x="330" y="78">샘플상각표 0DE 를 복사해서 만든다</text>
+
+  <rect class="b-ok" x="700" y="36" width="270" height="52" rx="6"/>
+  <text class="t-h c-ok" x="720" y="60">자산클래스 카탈로그</text>
+  <text class="t-s" x="720" y="78">여러 상각표에 연결 가능</text>
+
+  <path class="ln" d="M155 88 V116 H260 V140" marker-end="url(#aa1)"/>
+  <path class="ln" d="M420 88 V116 H360 V140" marker-end="url(#aa1)"/>
+
+  <rect class="b-hl" x="200" y="142" width="300" height="54" rx="6"/>
+  <text class="t-h" x="222" y="166">회사코드</text>
+  <text class="t-s" x="222" y="186">계정과목표 1개 + 감가상각표 1개</text>
+  <text class="t-xs c-bad" x="512" y="172">여러 회사코드가 같은 상각표를 공유할 수는 있다</text>
+
+  <path class="ln-key" d="M560 88 V218 H395 V238" marker-end="url(#aa1k)"/>
+  <path class="ln-key" d="M560 218 H555 V238" marker-end="url(#aa1k)"/>
+  <path class="ln-key" d="M560 218 H715 V238" marker-end="url(#aa1k)"/>
+
+  <rect class="b-key" x="320" y="240" width="150" height="48" rx="5"/>
+  <text class="t" x="338" y="262">01  장부감가상각</text>
+  <text class="t-xs" x="338" y="280">로컬 회계기준</text>
+  <rect class="b-key" x="480" y="240" width="150" height="48" rx="5"/>
+  <text class="t" x="498" y="262">15  세무감가상각</text>
+  <text class="t-xs" x="498" y="280">세무 대차대조표</text>
+  <rect class="b-key" x="640" y="240" width="150" height="48" rx="5"/>
+  <text class="t" x="658" y="262">32  IFRS 평가</text>
+  <text class="t-xs" x="658" y="280">연결재무제표용</text>
+  <rect class="b-ghost" x="800" y="240" width="160" height="48" rx="5"/>
+  <text class="t-s" x="818" y="268">… 최대 99 개</text>
+
+  <text class="t-xs c-key" x="30" y="268">감가상각영역</text>
+  <text class="t-xs" x="30" y="286">1 영역 = 1 상각표</text>
+
+  <path class="ln-key" d="M395 288 V314" marker-end="url(#aa1k)"/>
+  <path class="ln-key" d="M555 288 V314" marker-end="url(#aa1k)"/>
+  <path class="ln-key" d="M715 288 V314" marker-end="url(#aa1k)"/>
+
+  <rect class="b" x="320" y="316" width="470" height="48" rx="6"/>
+  <text class="t-h" x="340" y="338">회계원칙 (Accounting Principle)</text>
+  <text class="t-s" x="340" y="356">영역마다 반드시 1개 배정 — 비전기·리포팅전용 영역도 공란 불가</text>
+
+  <path class="ln-key" d="M555 364 V392" marker-end="url(#aa1k)"/>
+
+  <rect class="b-ok" x="320" y="394" width="470" height="48" rx="6"/>
+  <text class="t-h c-ok" x="340" y="416">원장그룹 → 원장  <tspan class="m">0L</tspan> <tspan class="m">2L</tspan> <tspan class="m">3L</tspan></text>
+  <text class="t-s" x="340" y="434">회사코드가 잔액을 갱신하는 모든 기저원장은 감가상각영역으로 통제돼야 한다</text>
+
+  <rect class="b-ghost" x="30" y="452" width="940" height="30" rx="6"/>
+  <text class="t-s" x="52" y="472"><tspan class="c-bad">리딩 감가상각영역이라는 개념은 없다.</tspan> 모든 감가상각영역은 동등하며, 영역 01 이 반드시 리딩원장 0L 에 배정될 필요도 없다.</text>
+</svg>
+<figcaption><span class="fno">그림 1</span>감가상각표에서 원장까지. 회사코드에 붙는 것은 계정과목표 1개와 감가상각표 1개, 그 아래로 평가 관점이 감가상각영역으로 갈린다.</figcaption>
+</figure>
+
+<h3>감가상각표 — 반드시 복사해서 쓴다</h3>
+
+<p>감가상각표는 자산의 감가상각·평가에 대한 <b>법적 요건</b>을 관리하는 그릇입니다. 클라이언트 전역의 계산요소(계산방법·기간통제 등)를 기반으로 자동감가상각용 키를 상각표마다 유연하게 정의합니다.</p>
+
+<div class="note warn">
+  <div class="t">샘플 상각표는 직접 쓸 수 없다</div>
+  <p>상각표는 국가별로 달라야 하므로 SAP가 다수 국가용 <b>샘플상각표</b>를 제공합니다. 그러나 <span class="bad">이것을 그대로 배정할 수는 없습니다.</span> 반드시 참조 상각표를 복사해 자체 상각표를 만들고, 불필요한 감가상각영역을 삭제해서 씁니다. (S4F17 표준 교육은 국가별 샘플 대신 <code>0DE</code>의 복사본 <code>Z000</code>을 실습 템플릿으로 씁니다.)</p>
+  <p>복사 시 <span class="hl">감가상각영역별 파라미터도 함께 복사됩니다.</span> 클래식 자산회계에서 필요했던 <b>감가상각영역 제한 트랜잭션유형</b>(테이블 <code>TABWA</code>)이 그중 하나인데, 신 자산회계에서는 제한된 트랜잭션유형으로 전기할 필요가 없습니다(예외: 재평가·투자지원). 신규 상각표 생성 후 <code>TABWA</code>에 제한이 정의돼 있는지 확인하고 필요하면 삭제해야 합니다.</p>
+</div>
+
+<h4>FI-AA 회사코드 생성 절차</h4>
+
+<div class="step"><span class="n">STEP 1</span><p>FI에서 회사코드를 설정한다</p></div>
+<div class="step"><span class="n">STEP 2</span><p>회사코드에 감가상각표를 배정한다 — <b>가능하면 별도 프로젝트(전송요청)로</b> 분리</p></div>
+<div class="step"><span class="n">STEP 3</span><p>여러 Customizing 활동으로 회사코드에 필요한 데이터·정보를 확장한다. 완료되면 FI-AA 사용 가능 상태가 된다</p></div>
+
+<h3>관리회계 오브젝트 연결</h3>
+
+<p>자산마스터레코드에 배정 가능한 CO 오브젝트는 <b>코스트센터 · 오더(내부, 실제 또는 통계적) · 활동유형</b>(순수 통계정보)입니다. 이들은 관리회계영역에 배정되며 하나 이상의 회사코드에 관련될 수 있습니다. 순수 CO 오브젝트 외에 <b>WBS요소 · 부동산오브젝트 · 유지보수오더 · 공공부문관리(PSM) 오브젝트</b>도 배정할 수 있습니다.</p>
+
+<p>감가상각을 <span class="key">전기할 수 있는</span> CO 오브젝트는 따로 정해져 있습니다 — 코스트센터, 실제오더, 코스트센터+통계적오더, WBS요소, 코스트센터+통계적WBS요소, 부동산오브젝트, PSM 오브젝트.</p>
+
+<div class="note warn">
+  <div class="t">하나의 자산을 2개 코스트센터에 배정할 수 없다</div>
+  <p>원가를 나눠 실어야 한다면 자산을 <b>(실제)오더</b>에 배정한 뒤, 그 오더를 정기적으로 각 코스트센터에 <b>정산(Settle)</b>하는 경로를 씁니다.</p>
+</div>
+
+<h3>감가상각영역이 G/L에 전기하는 방식 4가지</h3>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>옵션</th><th>설명</th></tr></thead>
+<tbody>
+<tr><td><code>(0)</code></td><td class="wrap">영역이 FI에 어떤 값도 전기하지 않음 — 리포팅 전용 영역</td></tr>
+<tr><td><code>(1)</code></td><td class="wrap">자산가치는 <b>실시간 온라인 전기</b>, 감가상각은 정기전기</td></tr>
+<tr><td><code>(3)</code></td><td class="wrap">감가상각만 전기</td></tr>
+<tr><td><code>(4)</code></td><td class="wrap">APC(취득/제작원가)는 즉시전기, 감가상각은 정기전기</td></tr>
+</tbody>
+</table>
+</div>
+
+<p>감가상각은 어느 옵션이든 <span class="hl">항상 정기적으로</span> 전기되고, 프로그램 <code>FAA_DEPRECIATION_POST</code>가 그 전기를 담당합니다.</p>
+
+<h4>회계원칙과 원장 배정</h4>
+
+<ul>
+  <li>FI-GL 회사코드에 배정된 원장은 FI-AA의 상각표와 <b>일치해야 한다</b></li>
+  <li>동일한 회계원칙을 나타내는 모든 감가상각영역은 <b>동일한 회계원칙(및 원장그룹)</b>에 배정된다</li>
+  <li>비전기(Non-Posting) 영역이나 리포팅전용 델타영역도 <span class="bad">회계원칙을 반드시 배정</span>해야 한다 — 공란 불가</li>
+  <li>자산회계의 병행통화는 총계정원장의 통화와 일치해야 하며, <b>동일한 비리딩원장·동일한 병행통화</b>를 유지하는 회사코드만 같은 상각표를 배정받을 수 있다</li>
+</ul>
+
+<p>경로 — 회계원칙 정의: <code>Financial Accounting Global Settings→Ledgers→Parallel Accounting→Define Accounting Principles</code> / 원장그룹 결합: <code>…→Assign Accounting Principle to Ledger Groups</code>.</p>
+
+<h4>자산보고서용 재무제표버전</h4>
+
+<p>개별 감가상각영역의 자산가치·감가상각가치를 각각 다른 재무제표계정·손익계정에 전기할 수 있습니다. 자산보고서가 재무제표항목을 표시해야 한다면 <b>감가상각영역별로 재무제표버전을 배정</b>합니다 — 경로 <code>Asset Accounting→Integration with G/L Accounting→Specify Financial Statement Version for Asset Reports</code>. 표시에 쓸 <b>정렬변형(Sort Variant)</b>도 여기서 고릅니다(→ LESSON 5).</p>
+
+<h3>자산클래스가 왜 중요한가</h3>
+
+<p>각 자산은 <span class="key">정확히 하나의 자산클래스</span>에 배정됩니다(건물·차량·비품·기계 …). 자산클래스는 <b>클라이언트 레벨</b>에서 생성되고, 마스터데이터 섹션과 감가상각데이터 섹션 두 덩어리로 구성됩니다. 하나의 자산클래스가 여러 상각표에 연결될 수 있어서, 감가상각영역이 나라마다 달라도 <b>전역적으로 통일된 클래스 카탈로그</b>를 유지할 수 있습니다.</p>
+
+<ul>
+  <li>서로 다른 대차대조표항목에 나타나는 자산(예: 건물과 기계)은 <b>반드시 다른 자산클래스</b>에 배정</li>
+  <li>자산클래스별로 개별 감가상각영역을 <b>억제(Suppress)</b>할 수 있다</li>
+  <li>영역별 감가상각속성을 제안값으로 쓸지 선택할 수 있고, 제안된 속성은 자산 생성 시 수동으로 덮어쓸 수 있다</li>
+  <li><b>건설중자산(AuC)</b>, <b>소액자산(LVA)</b>, 무형자산(특허·소프트웨어), 리스자산용 클래스도 정의 가능</li>
+</ul>
+
+<div class="note">
+  <div class="t">🔰 초보자 설명 — FI-AA가 다루지 않는 자산</div>
+  <p>자산의 <b>기술적</b> 관리(정비 이력, 고장, 점검)는 물류 컴포넌트 <b>Plant Maintenance(PM / EAM)</b>가 합니다. <b>금융자산</b>은 Treasury and Risk Management가, <b>리스계약 평가</b>(IFRS 16 등)는 SAP RE-FX 기반 Contract and Lease Management가 담당합니다. FI-AA는 어디까지나 <span class="hl">가치 평가와 전기</span>를 맡습니다.</p>
+</div>
+
+<div class="note ok">
+  <div class="t">📌 개인 E2E 프로젝트와의 연결점</div>
+  <p>이 프로젝트는 회사코드 <b>CL04</b> 하나이고 국가도 하나이므로, 감가상각표는 <b>1개</b>로 충분합니다. 다만 그림 1의 왼쪽 계통(계정과목표)은 이미 FI 설정에서 쓰고 있는 것을 그대로 재사용한다는 점을 기억해야 합니다 — FI-AA가 계정과목표를 따로 갖지 않습니다.</p>
+  <p>자산이 실제로 붙을 자리는 플랜트 <b>GATE</b>(입고 게이트)와 <b>STOR</b>(보관)의 설비입니다. 냉동·냉장 보관을 쓰기로 했으므로 <span class="key">냉동설비</span>와 <span class="key">일반 창고설비</span>는 감가상각 조건과 대차대조표 항목이 다를 가능성이 높고, 그렇다면 <b>자산클래스를 나눠야</b> 합니다. 코스트센터는 플랜트 단위로 잡되, 자산 하나를 두 코스트센터에 걸 수 없다는 제약을 설계 시점에 반영해야 합니다.</p>
+</div>
+
+<div class="note warn">
+  <div class="t">확인 필요 — 실제 시스템(winerp01 / MEP)에서 확정할 것</div>
+  <p>· 사용 가능한 <b>샘플 상각표 키</b>와 한국 요건에 맞는 복사 원본(<code>0DE</code>는 교육용 예시)<br>
+     · 회사코드 CL04 에 이미 배정된 <b>원장 구성</b>(리딩원장 <code>0L</code> 외 비리딩원장 존재 여부) — 원장이 여럿이면 LESSON 4의 병렬회계 설계가 먼저 필요하다<br>
+     · 감가상각영역 번호 체계(<code>01</code> / <code>15</code> / <code>32</code>는 SAP 관례일 뿐 시스템마다 다르다)</p>
+</div>
+
+</div>
+
+
+<!-- ══════════ LESSON 2 ══════════ -->
+<div class="lesson" id="l2">
+<h2><span class="no">LESSON 2</span>마스터데이터 — 자산클래스가 결정하는 것</h2>
+
+<p><span class="tag">Unit 2</span><span class="tag">레슨 3개</span>자산클래스 구성요소(계정결정·번호범위·화면레이아웃) · 마스터데이터 생성/변경 · 워크리스트 일괄변경</p>
+
+<h3>자산클래스 → 자산마스터로 내려오는 네 가지</h3>
+
+<figure class="figwrap">
+<svg class="dgm" viewBox="0 0 1000 420" role="img" aria-label="자산클래스가 자산마스터레코드에 공급하는 네 가지 도해. 계정결정은 전기될 G/L 계정을, 번호범위는 자산번호 배정 방식을, 화면레이아웃은 필드의 입력 가능 여부와 유지레벨을, 감가상각 기본값은 영역별 감가상각키와 내용연수를 결정한다.">
+  <defs>
+    <marker id="aa2" markerWidth="9" markerHeight="9" refX="7" refY="4.5" orient="auto">
+      <polygon class="arw-key" points="0,0 9,4.5 0,9"/></marker>
+    <marker id="aa2o" markerWidth="9" markerHeight="9" refX="7" refY="4.5" orient="auto">
+      <polygon class="arw-ok" points="0,0 9,4.5 0,9"/></marker>
+  </defs>
+
+  <rect class="b-hl" x="350" y="18" width="300" height="56" rx="6"/>
+  <text class="t-h" x="372" y="42">자산클래스</text>
+  <text class="t-s" x="372" y="62">클라이언트 레벨 · 트랜잭션 <tspan class="m-s">OAOA</tspan></text>
+
+  <path class="ln-key" d="M420 74 V100 H132 V126" marker-end="url(#aa2)"/>
+  <path class="ln-key" d="M470 74 V100 H374 V126" marker-end="url(#aa2)"/>
+  <path class="ln-key" d="M530 74 V100 H616 V126" marker-end="url(#aa2)"/>
+  <path class="ln-key" d="M580 74 V100 H863 V126" marker-end="url(#aa2)"/>
+
+  <rect class="b-key" x="20" y="128" width="225" height="98" rx="6"/>
+  <text class="t-h c-key" x="38" y="150">계정결정</text>
+  <text class="t-s" x="38" y="170">APC 대차대조표계정</text>
+  <text class="t-s" x="38" y="188">누적감가상각계정</text>
+  <text class="t-s" x="38" y="206">감가상각비용 · 상각환입 수익</text>
+  <text class="t-xs" x="38" y="222">Assign G/L Accounts</text>
+
+  <rect class="b-key" x="262" y="128" width="225" height="98" rx="6"/>
+  <text class="t-h c-key" x="280" y="150">번호범위</text>
+  <text class="t-s" x="280" y="170">내부배정 — 시스템이 채번</text>
+  <text class="t-s" x="280" y="188">외부배정 — 사용자·타시스템</text>
+  <text class="t-s" x="280" y="206">회사코드별 / 회사코드횡단</text>
+  <text class="t-xs" x="280" y="222">Define Number Range Interval</text>
+
+  <rect class="b-key" x="504" y="128" width="225" height="98" rx="6"/>
+  <text class="t-h c-key" x="522" y="150">화면레이아웃</text>
+  <text class="t-s" x="522" y="170">필드선택 — 필수/선택/숨김</text>
+  <text class="t-s" x="522" y="188">유지레벨 — 어디서 고치나</text>
+  <text class="t-s" x="522" y="206">참조 — 복사될 필드 지정</text>
+  <text class="t-xs" x="522" y="222">마스터 + 감가상각영역 2종</text>
+
+  <rect class="b-key" x="746" y="128" width="234" height="98" rx="6"/>
+  <text class="t-h c-key" x="764" y="150">감가상각 기본값</text>
+  <text class="t-s" x="764" y="170">영역별 감가상각키</text>
+  <text class="t-s" x="764" y="188">내용연수 · 잔존가치</text>
+  <text class="t-s" x="764" y="206">영역 억제(Suppress) 가능</text>
+  <text class="t-xs" x="764" y="222">트랜잭션 <tspan class="m-s">OAYZ</tspan></text>
+
+  <path class="ln-ok" d="M132 226 V252 H420 V286" marker-end="url(#aa2o)"/>
+  <path class="ln-ok" d="M374 226 V252 H470 V286" marker-end="url(#aa2o)"/>
+  <path class="ln-ok" d="M616 226 V252 H530 V286" marker-end="url(#aa2o)"/>
+  <path class="ln-ok" d="M863 226 V252 H580 V286" marker-end="url(#aa2o)"/>
+
+  <rect class="b-ok" x="280" y="288" width="440" height="60" rx="6"/>
+  <text class="t-h c-ok" x="302" y="314">자산마스터레코드</text>
+  <text class="t-s" x="302" y="334">트랜잭션 <tspan class="m-s">AS01</tspan> 생성 · <tspan class="m-s">AS02</tspan> 변경 · <tspan class="m-s">AS03</tspan> 조회</text>
+
+  <rect class="b-ghost" x="20" y="360" width="960" height="48" rx="6"/>
+  <text class="t-s" x="42" y="380">기본값은 <tspan class="t-h">제안</tspan>일 뿐이라 자산 생성 시 수동으로 덮어쓸 수 있다. 다만 화면레이아웃의 <tspan class="c-key">유지레벨</tspan>이 자산클래스로 잡혀 있으면 덮어쓸 수 없다.</text>
+  <text class="t-s" x="42" y="400">계정결정 하나를 여러 자산클래스가 공유해 같은 대차대조표계정으로 모을 수도 있고, 운영계정과목표가 다른 회사코드에도 같은 키를 쓸 수 있다.</text>
+</svg>
+<figcaption><span class="fno">그림 2</span>자산클래스가 결정하는 네 가지. "자산마스터의 이 필드가 왜 이 값이냐"는 질문은 거의 전부 이 그림 위쪽에서 답이 나온다.</figcaption>
+</figure>
+
+<h3>계정결정 — 자산가치가 어느 계정으로 가는가</h3>
+
+<p>자산클래스는 자산마스터레코드와 그 가치를 <span class="key">관련 G/L 계정에 연결</span>하는 역할을 하고, 그 연결을 계정결정이 통제합니다. 유지 경로는 <code>Asset Accounting→Integration with General Ledger Accounting→Assign G/L Accounts</code>.</p>
+
+<ul>
+  <li>클래스 카탈로그가 작으면 계정결정키가 고정자산 대차대조표계정번호와 같을 수 있다 (드문 경우)</li>
+  <li>유사한 자산클래스가 여럿이면 <b>동일 계정결정키</b>를 써서 하나의 대차대조표계정으로 모을 수 있다</li>
+  <li>운영계정과목표가 다른 회사코드를 써도, 하나의 계정결정키로 서로 다른 계정과목표의 계정에 전기할 수 있다</li>
+</ul>
+
+<p>G/L에 감가상각을 전기하는 감가상각영역에는 <b>추가 계정 배정</b>이 필요합니다 — 정상감가상각·특별상각용 누적감가상각계정, 비용계정, 상각환입(Write-up)용 수익계정.</p>
+
+<h3>화면레이아웃 — 유지레벨이 통제의 핵심</h3>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>유지레벨</th><th>설명</th></tr></thead>
+<tbody>
+<tr><td>자산클래스</td><td class="wrap">자산클래스 레벨에서 평가를 <b>일관되게 강제</b> — 개별 자산에서 못 바꾼다</td></tr>
+<tr><td>주자산번호</td><td class="wrap">클래스의 값이 마스터레코드에 채택되고 <b>거기서 변경 가능</b>. 소속 서브번호는 주번호 값을 따라간다</td></tr>
+<tr><td>자산서브번호</td><td class="wrap">서브번호별로 유연한 평가통제 — 서브번호마다 개별 감가상각조건 배정 가능</td></tr>
+</tbody>
+</table>
+</div>
+
+<p>SAP는 감가상각영역용 표준 화면레이아웃규칙 <code>1000</code> · <code>2000</code>을 제공하며, 유지레벨도 함께 들어 있어 감가상각이 일관되게 통제되도록 보장합니다. 본 과정은 자산번호 레벨(<code>AS02</code>)과 자산클래스 레벨(<code>OAYZ</code>) 둘 다에서 작업합니다.</p>
+
+<h3>계정지정오브젝트와 세그먼트 리포팅</h3>
+
+<p>자산마스터에 계정지정오브젝트가 <b>나타나게 하려면 먼저 활성화</b>해야 합니다 — <code>Asset Accounting→Integration with the General Ledger→Additional Account Assignment Objects→Activate Account Assignment Objects</code>. 원가회계 감가상각은 코스트센터 · CO내부오더 · WBS요소 · 부동산오브젝트 · PSM 오브젝트에 전기할 수 있고, <b>투자오더나 투자프로젝트의 WBS요소</b>에는 APC 값까지 전기할 수 있습니다(Investment Management의 직접자본화, 자산구매 통계적 예산 모니터링에 필요).</p>
+
+<div class="note warn">
+  <div class="t">세그먼트 리포팅을 켜면 기존 자산이 잠길 수 있다</div>
+  <p>활성화(<code>…→Segment Reporting→Activate Segment Reporting</code>) 직후 <span class="bad">모든 자산마스터의 이익센터·세그먼트 필드는 초기값</span>이 됩니다. Customizing에 따라 데이터를 채우기 전까지 해당 자산 전기가 <b>차단</b>될 수 있습니다.</p>
+  <p>채우는 도구는 프로그램 <code>FAGL_ASSET_MASTERDATA_UPD</code>(경로 <code>…→Segment Reporting→Fill Master Data for Segment Reporting</code>). 추가로 조정계정의 G/L 마스터 <b>Control Data</b> 탭에서 <b>Record Account Assignment</b> 지시자도 설정해야 합니다(SAP Note 2318878).</p>
+</div>
+
+<p>세그먼트 리포팅을 켜면 코스트센터·내부오더에서 이익센터·세그먼트를 도출해 저장하므로, 계정지정 축을 코스트센터에서 <b>이익센터·세그먼트로 전환</b>할 수 있습니다. 코스트센터가 바뀌면 자산가치의 <b>자동 이체전기</b>도 수행합니다.</p>
+
+<h3>클래스 복사 · 사용자필드 · 특수 클래스</h3>
+
+<p>기존 자산클래스를 <b>복사(<code>OAOA</code>)</b>해 새 클래스를 만들면 감가상각영역 섹션 기본값도 함께 복사되고, 이후 변경할 수 있습니다. 자산마스터의 표준 분류필드는 <b>평가그룹 1~5</b>(고객 특화 정보 매핑), <b>환경보호지시자</b>, <b>투자사유</b>(예: 대체취득), <b>자산상위번호</b>(여러 자산을 하나의 사업단위·생산라인으로 묶음)이고, 전부 FI-AA 리포팅의 선택기준으로 쓸 수 있습니다.</p>
+
+<p><b>Custom Fields and Logic</b> 앱으로 고객정의필드를 추가할 수 있으나 제약이 있습니다 — <span class="bad">시간독립(Time-Independent) 필드로만 확장 가능</span>하고, 자동 입력검사와 필드도움말이 지원되지 않습니다.</p>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>특수 클래스</th><th>반드시 지켜야 하는 점</th></tr></thead>
+<tbody>
+<tr><td>건설중자산 (AuC)</td><td class="wrap">재무제표에 별도 표시해야 하므로 <b>별도 자산클래스 + 대응 G/L 계정</b> 필요. 표준 감가상각키 <code>0000</code>이 재무제표용 영역에서 AuC 감가상각을 계산하지 않도록 보장한다. 완전 자본화 이후에도 대변표 전기가 가능한데, 이를 위해 감가상각데이터 상세화면에서 <b>음수 APC 값 허용</b>을 켜야 한다</td></tr>
+<tr><td>소액자산 (LVA)</td><td class="wrap">개별관리 / 집합관리 중 선택하며 <b>관리유형별로 별도 자산클래스</b>가 필요하다. 집합관리를 고르면 클래스의 기본측정단위를 지정해야 한다(<code>OAOA</code>). 회사코드별 최대금액은 <code>General Valuation→Amount Specifications→Specify Max. Amount for Low-Value Assets + Asset Classes</code></td></tr>
+</tbody>
+</table>
+</div>
+
+<h3>마스터레코드 생성 · 변경</h3>
+
+<p>생성 방법은 둘입니다. <b>자산클래스 이용</b>(회사코드 + 자산클래스 입력, 클래스가 기본값 공급) 또는 <b>참조 이용</b>(기존 마스터를 복사). 참조가 더 나은 기본값을 줄 수 있지만 <span class="bad">자본화일자 같은 원치 않는 데이터가 따라오지 않도록</span> 주의해야 합니다.</p>
+
+<ul>
+  <li><b>대량생성(Mass Creation)</b> — PC 20대, 책상 12개처럼 유사자산을 한 번에. 개별값을 유지할 수 있는 기본 필드는 자산설명·재고번호·사업영역·코스트센터·평가그룹 1~5. 추가 필드는 <code>Master Data→Screen Layout→Define Screen Layout for Asset Master Data</code>의 <b>Multiple</b> 화면에서 필드그룹별 "Ready for Input When Creating Multiple Assets" 스위치로 연다(테이블 <code>ANLA</code>·<code>ANLZ</code>의 대부분 필드 선택 가능)</li>
+  <li><b>자산서브번호</b> — 후속취득(건물 증축)을 연도별로 따로 관리하거나, 부품 가치를 분리하거나, 기술적 측면으로 자산을 쪼갤 때. 클래스에서 서브번호용 내부/외부 배정을 지정한다 (레거시 이관 중엔 외부배정, 끝나면 내부배정으로 전환하는 식)</li>
+  <li><b>시간종속데이터</b> — CO 조직단위 배정이 여기 들어간다. <span class="key">교대작업(Shift Operation)과 자산가동중단(Asset Shutdown)은 감가상각에 직접 영향</span>을 주므로 반드시 시간종속 데이터로 입력한다. <b>Further Intervals</b> 버튼으로 구간을 편집</li>
+  <li><b>변경문서</b> — 마스터를 고칠 때마다 자동 생성된다. 변경된 필드목록·변경횟수·사용자·이전/신규 값을 담는다. <code>AS02</code> 안에서, 또는 표준리포트 <code>RAAEND01</code>, Fiori의 <b>Change Documents for Asset Master Record</b> 타일에서 조회</li>
+</ul>
+
+<p>설비(Equipment)와의 연결은 <b>N : 1</b>입니다 — 여러 설비가 하나의 자산에 배정될 수 있지만, <span class="bad">하나의 설비는 하나의 자산에만</span> 속합니다. 자산 생성 시 설비마스터가 자동 생성되도록 설정할 수 있고(회사코드·재고번호 등 자동 복사), 이후 양방향으로 필드가 동기화됩니다. 경로 <code>Asset Accounting→Master Data→Automatic Creation of Equipment Master Records</code> (SAP Note 370884, 549929).</p>
+
+<h3>워크리스트로 대량변경</h3>
+
+<div class="note">
+  <div class="t">🔰 초보자 설명 — 워크리스트 대량변경이 왜 필요한가</div>
+  <p>자산 1,000개의 코스트센터를 하나씩 클릭해 바꾸면 시간도 시간이지만 실수가 납니다. 워크리스트 대량변경은 <b>"이런 조건의 자산을(대체규칙 조건) → 이렇게 바꿔라(대체값)"</b>를 한 번만 정의해 두고, 대상 목록을 뽑아 일괄 적용하는 기능입니다. 엑셀의 찾기-바꾸기를 대규모 자산 데이터에 안전하게 적용하는 것과 비슷합니다.</p>
+</div>
+
+<p>대량변경의 핵심은 <b>대체규칙(Substitution Rule)</b>입니다 — 선별 조건(폼 편집기 또는 전문가 모드)과 조건 충족 시 적용할 대체값(상수값 · 필드-필드 배정 · 사용자 익싯)으로 구성됩니다. 시간종속 마스터데이터 대량변경의 상세는 SAP Note 210897.</p>
+
+<div class="step"><span class="n">STEP 1</span><p>대체규칙 생성 — <code>Asset Accounting→Master Data→Define Substitution</code> → Define substitution for mass changes → Substitution → Create Substitution → if-then 조건 스텝을 최소 1개</p></div>
+<div class="step"><span class="n">STEP 2</span><p>저장된 대체규칙을 <b>회사코드에 배정</b></p></div>
+<div class="step"><span class="n">STEP 3</span><p>트랜잭션 <code>OA02</code> 시작</p></div>
+<div class="step"><span class="n">STEP 4</span><p>변경대상 자산목록(워크리스트) 생성 — 임의의 ABAP 자산리포트에서, 또는 FI-AA 메뉴 <code>Environment→Worklist→Generate</code>(<code>AR01</code>) → 결과화면의 <b>Create Worklist</b></p></div>
+<div class="step"><span class="n">STEP 5</span><p>워크리스트 목적 선택(사전정의 표준태스크, 예: 마스터데이터 변경) + 설명 입력</p></div>
+<div class="step"><span class="n">STEP 6</span><p>대화상자에서 정의된 <b>대체규칙 선택·저장</b> → 데이터 저장</p></div>
+<div class="step"><span class="n">STEP 7</span><p>워크리스트 편집 — <code>Environment→Worklist→Edit</code>(<code>AR31</code>)</p></div>
+<div class="step"><span class="n">STEP 8</span><p>자산 조회 또는 <code>RAAEND01</code> 실행으로 <b>성공 여부 확인</b></p></div>
+
+<div class="note warn">
+  <div class="t">대량변경은 워크플로우 위에 얹혀 있다</div>
+  <p>대량변경 기술은 워크플로우 기반으로 <b>BOR(Business Object Repository)</b>의 메소드를 씁니다. 최소한의 워크플로우 구성이 필요하고, 기본설정이 안 돼 있으면(<code>SWU3</code>) 자동 워크플로우 Customizing으로 생성할 수는 있습니다. 다만 <span class="bad">시스템 전체에 영향을 주는 중대한 결정</span>이라 IT부서와 반드시 논의해야 합니다(SAP Note 127931).</p>
+</div>
+
+<div class="note ok">
+  <div class="t">📌 개인 E2E 프로젝트와의 연결점</div>
+  <p>그림 2의 구조는 프로젝트에서 이미 쓰고 있는 사고방식과 같습니다. MM 쪽에서 <b>자재그룹</b>(<code>CHKN</code> <code>RICE</code> <code>SHAK</code> <code>PROT</code> <code>PBAR</code>)이 계정결정(평가클래스)과 화면 항목을 몰아서 결정하듯, FI-AA에서는 <b>자산클래스</b>가 같은 일을 합니다. 자재그룹 설계를 온도군 기준으로 쪼갠 것과 같은 논리로, 자산클래스도 <span class="key">대차대조표 항목이 갈리면 반드시 쪼갠다</span>가 기준입니다.</p>
+  <p>주목할 점은 워크리스트 대량변경이 <b>마스터데이터만 건드리고 전표를 만들지 않는다</b>는 것입니다. 프로젝트 원칙인 "회계 영향이 있는 처리는 자동화하지 않는다"와 정확히 같은 선에 서 있습니다. <code>ZBATCH_ZONE</code>이 저장위치만 <code>311</code>로 옮기고 금액을 건드리지 않는 것도 같은 이유입니다.</p>
+</div>
+
+</div>
+
+
+<!-- ══════════ LESSON 3 ══════════ -->
+<div class="lesson" id="l3">
+<h2><span class="no">LESSON 3</span>자산거래 — 취득 · 처분 · 이체 · AuC 정산</h2>
+
+<p><span class="tag">Unit 3</span><span class="tag">레슨 6개</span>통합/비통합 취득 · 자산탐색기 · MM 통합 · 처분 · 사내/사간 이체 · AuC 정산 · 비계획감가상각</p>
+
+<h3>언제 이걸 알아야 하는가</h3>
+
+<p>운영에서 제일 골치 아픈 자산 문의가 <b>"자산 취득 전표가 벤더 청구서 금액과 안 맞습니다"</b>입니다. 원인이 여러 갈래라서 답이 하나가 아닙니다 — 순액 문서유형이라 <span class="key">현금할인이 차감</span>되었거나, MM 통합에서 <span class="key">평가입고와 청구서 금액 차이</span>가 자산에 조정 전기되었거나, 병렬회계라 회계원칙별로 자본화 금액이 다르거나.</p>
+
+<p>그래서 이 레슨은 "취득 방법이 몇 가지인가"부터 시작해야 합니다. 방법을 알면 전표가 어떻게 생겼는지 보이고, 전표가 보이면 차이가 어디서 났는지 3분이면 답이 나옵니다.</p>
+
+<h3>자산 라이프사이클과 전표</h3>
+
+<figure class="figwrap">
+<svg class="dgm" viewBox="0 0 1000 450" role="img" aria-label="자산 라이프사이클 도해. 취득, 감가상각, 이체 및 건설중자산 정산, 처분의 네 단계와 각 단계에서 생성되는 전표의 차대변 구조를 보여준다. 모든 전기는 트랜잭션유형으로 구분되고 자산이력시트가 그 유형으로 분류한다.">
+  <defs>
+    <marker id="aa3" markerWidth="9" markerHeight="9" refX="7" refY="4.5" orient="auto">
+      <polygon class="arw-key" points="0,0 9,4.5 0,9"/></marker>
+  </defs>
+
+  <rect class="b-key" x="20" y="24" width="210" height="58" rx="6"/>
+  <text class="t-h c-key" x="38" y="48">취득 Acquisition</text>
+  <text class="t-s" x="38" y="68"><tspan class="m-s">F-90</tspan> · <tspan class="m-s">MIGO</tspan>/<tspan class="m-s">MIRO</tspan> · 조정계정</text>
+  <path class="ln-key" d="M230 53 H266" marker-end="url(#aa3)"/>
+
+  <rect class="b-key" x="274" y="24" width="210" height="58" rx="6"/>
+  <text class="t-h c-key" x="292" y="48">감가상각</text>
+  <text class="t-s" x="292" y="68"><tspan class="m-s">FAA_DEPRECIATION_POST</tspan></text>
+  <path class="ln-key" d="M484 53 H520" marker-end="url(#aa3)"/>
+
+  <rect class="b-key" x="528" y="24" width="210" height="58" rx="6"/>
+  <text class="t-h c-key" x="546" y="48">이체 · AuC 정산</text>
+  <text class="t-s" x="546" y="68">이체변형 · 결산프로파일 <tspan class="m-s">AI</tspan></text>
+  <path class="ln-key" d="M738 53 H774" marker-end="url(#aa3)"/>
+
+  <rect class="b-key" x="782" y="24" width="198" height="58" rx="6"/>
+  <text class="t-h c-key" x="800" y="48">처분 Retirement</text>
+  <text class="t-s" x="800" y="68">유상 매각 · 폐기(scrapping)</text>
+
+  <path class="ln-d" d="M125 82 V112"/>
+  <path class="ln-d" d="M379 82 V112"/>
+  <path class="ln-d" d="M633 82 V112"/>
+  <path class="ln-d" d="M881 82 V112"/>
+
+  <rect class="b" x="20" y="114" width="210" height="104" rx="6"/>
+  <text class="t-s c-key" x="38" y="134">생성되는 전표</text>
+  <text class="m-s" x="38" y="156">차  자산 APC</text>
+  <text class="m-s" x="38" y="176">대  벤더 (AP)</text>
+  <text class="t-xs c-bad" x="38" y="198">통합취득은 기술조정계정을</text>
+  <text class="t-xs c-bad" x="38" y="212">거쳐 두 장으로 갈린다</text>
+
+  <rect class="b" x="274" y="114" width="210" height="104" rx="6"/>
+  <text class="t-s c-key" x="292" y="134">생성되는 전표</text>
+  <text class="m-s" x="292" y="156">차  감가상각비</text>
+  <text class="m-s" x="292" y="176">대  누적감가상각</text>
+  <text class="t-xs" x="292" y="198">G/L + CO 문서 동시 생성</text>
+  <text class="t-xs" x="292" y="212">계정지정오브젝트까지 전기</text>
+
+  <rect class="b" x="528" y="114" width="210" height="104" rx="6"/>
+  <text class="t-s c-key" x="546" y="134">생성되는 전표</text>
+  <text class="m-s" x="546" y="156">차  대상자산</text>
+  <text class="m-s" x="546" y="176">대  원천자산</text>
+  <text class="t-xs" x="546" y="198">이체변형이 원천·대상의</text>
+  <text class="t-xs" x="546" y="212">트랜잭션유형을 결정</text>
+
+  <rect class="b" x="782" y="114" width="198" height="104" rx="6"/>
+  <text class="t-s c-key" x="800" y="134">생성되는 전표</text>
+  <text class="m-s" x="800" y="156">차  누적감가상각 + 수익</text>
+  <text class="m-s" x="800" y="176">대  자산 APC</text>
+  <text class="t-xs" x="800" y="198">장부가치와 매각가의 차이 =</text>
+  <text class="t-xs" x="800" y="212">처분손익, 시스템이 자동계산</text>
+
+  <rect class="b-hl" x="20" y="238" width="960" height="46" rx="6"/>
+  <text class="t" x="42" y="258">모든 자산 전기는 <tspan class="t-h">트랜잭션유형(Transaction Type)</tspan>으로 구분된다 — SAP 사전정의이며 <tspan class="c-bad">고객이 변경할 수 없다.</tspan></text>
+  <text class="t-s" x="42" y="276">자산이력시트가 이 유형으로 전기를 분류한다 (당해년도 취득의 이체인지, 전년도 취득의 이체인지까지 갈라서 보여준다).</text>
+
+  <path class="ln-bad" d="M379 342 V290" marker-end="url(#aa3)"/>
+  <rect class="b-bad" x="274" y="344" width="460" height="64" rx="6"/>
+  <text class="t-h c-bad" x="296" y="368">비계획감가상각 (Unplanned Depreciation)</text>
+  <text class="t-s" x="296" y="388">개별 자산에 수동으로 <tspan class="t-h">스케줄링만</tspan> 한다 — 이 시점에 FI 전표는 생기지 않는다.</text>
+  <text class="t-s" x="296" y="402">감가상각전기프로그램이 돌아야 비로소 전표가 만들어진다.</text>
+
+  <rect class="b-ghost" x="20" y="418" width="960" height="26" rx="6"/>
+  <text class="t-s" x="42" y="436">취득 시 자본화일자 · 최초취득일자 · 취득연도/기간이 <tspan class="c-key">자동으로</tspan> 마스터에 채워진다. 정상감가상각 개시일은 자산가치일자 + 기간통제방법으로 결정된다.</text>
+</svg>
+<figcaption><span class="fno">그림 3</span>자산 한 대의 라이프사이클과 각 단계의 전표. 감가상각만 유일하게 "정기 실행"으로 만들어진다.</figcaption>
+</figure>
+
+<h3>취득 — 세 가지 경로</h3>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>경로</th><th>언제 쓰나 · 전표 구조</th></tr></thead>
+<tbody>
+<tr><td>AP 통합</td><td class="wrap">구매오더 참조 없이 <b>입고청구서 기준</b>으로 자산과 벤더를 <span class="key">하나의 문서로</span> 전기. Fiori 타일 <b>Post Acquisition (Integrated AP) without Purchase Order</b>(<code>F-90</code>)</td></tr>
+<tr><td>비통합 (조정계정)</td><td class="wrap">청구서가 자산보다 먼저 도착했거나, 자산은 이미 인도돼 써야 하는데 청구서가 안 왔을 때. AP에서 1건(차 조정계정 / 차 세금 / 대 벤더), FI-AA에서 1건(차 자산 / 대 조정계정). 순서는 트랜잭션에 따라 결정된다</td></tr>
+<tr><td>MM 통합</td><td class="wrap">로지스틱스에서 자산을 전기·활성화. 구매요청 → <b>계정지정범주 A</b> 구매오더 → 입고 → 청구서입고</td></tr>
+<tr><td>사내제작</td><td class="wrap">IM에서 투자조치(오더/프로젝트) 생성 → AuC에 결산 → 최종자산으로 결산</td></tr>
+</tbody>
+</table>
+</div>
+
+<p>자산을 전기할 때는 <span class="bad">트랜잭션유형을 반드시 입력</span>해야 합니다. 자산이력시트가 이 유형으로 전기 종류를 구분하기 때문입니다. 자동상계전기의 새 기능으로 전기 시점에 <b>신규 자산마스터를 생성</b>하거나, 한 단계에서 <b>여러 기존 자산마스터에 전기</b>할 수도 있습니다.</p>
+
+<h4>통합자산취득 기술조정계정 (Technical Clearing Account)</h4>
+
+<p>통합취득에서 시스템은 업무를 둘로 쪼갭니다.</p>
+
+<ul>
+  <li><b>운영 측면</b>(벤더청구서) — 모든 회계원칙에 유효한 <span class="key">원장그룹 독립적 문서</span>를 기술조정계정에 전기</li>
+  <li><b>평가 측면</b>(자산 자본화) — 회계원칙별로 <span class="key">원장그룹 특정 문서</span>를 같은 조정계정에 전기</li>
+</ul>
+
+<p>덕분에 조정계정 잔액은 <b>항상 0</b>으로 유지되고, <span class="bad">수동 전기는 불가능</span>합니다. 설정 경로 <code>Asset Accounting→Integration with General Ledger Accounting→Technical Clearing Account for Integrated Asset Acquisition</code>.</p>
+
+<div class="note warn">
+  <div class="t">기술조정계정의 전제조건</div>
+  <p>· <b>대차대조표계정</b>이어야 하고, 고정자산계정용 <b>조정계정</b>으로 생성돼야 한다<br>
+     · Asset Accounting <b>계정결정에 정의되면 안 된다</b> (여기 넣으면 동작이 깨진다)<br>
+     · 문서분할(Document Splitting) 활성화 시 원장그룹 특정 문서에 <b>대체 문서유형</b> 지정이 필요할 수 있다 (<code>→Specify Alternative Document Type for Acctg-Principle-Specific Documents</code>)</p>
+</div>
+
+<h4>총액 / 순액 문서유형과 현금할인</h4>
+
+<p>여기서 총액·순액은 <span class="bad">세금 이야기가 아닙니다.</span> 시스템이 지급조건에 따라 <b>현금할인액을 자동 계산해 자본화 금액에서 뺄지</b>를 뜻합니다. 표준 유형은 총액 <code>AA</code> · <code>KR</code>, 순액 <code>AN</code> · <code>KN</code>이고 문서유형 제안은 <code>OBU1</code>에서 봅니다.</p>
+
+<ul>
+  <li><b>순액 문서유형</b> — 지급조건 기준 현금할인을 자동 결정하고, <b>세금·현금할인을 제외한</b> 금액을 자본화</li>
+  <li>지급 시 발생하는 현금할인 과소/과다 공제 차이는 <span class="key">문서분할이 켜져 있을 때만</span> 자동으로 자산에 자본화 보정된다. 그 외에는 FI 프로그램 <code>SAPF181</code>(Profit and Loss Adjustment)로 집합 처리</li>
+  <li><b>AP 통합 없이</b> 자산취득을 전기할 때는 <span class="bad">실제 APC 금액(현금할인 미차감)</span>을 자본화하고, 현금할인은 벤더 측에서만 처리한다</li>
+</ul>
+
+<p>FI 문서번호 배정 관련으로 두 가지를 기억합니다 — 문서유형은 <b>클라이언트 특정</b>이지만 번호범위구간은 <b>회사코드별로 별도 생성</b>(<code>FBN1</code>)해야 하고, New G/L 원장솔루션에서 <b>비주도원장 전용 전기</b>용 문서유형에는 별도 번호범위를 배정해 주도뷰에 갭이 생기지 않게 해야 합니다.</p>
+
+<h4>MM 통합 — 평가입고냐 비평가입고냐</h4>
+
+<div class="step"><span class="n">STEP 1</span><p>구매요청(PReq) 생성, 필요하면 자산마스터도 함께 생성</p></div>
+<div class="step"><span class="n">STEP 2</span><p><b>계정지정범주 A</b>(Asset)로 구매오더 생성. 구매오더 Item Detail에서 자산번호를 지정하거나, <span class="key">구매오더 트랜잭션에서 자산마스터를 직접 생성</span>하면 통합도가 더 높아진다</p></div>
+<div class="step"><span class="n">STEP 3</span><p>입고 전기 — 구매오더 입력 시점에 <b>평가입고</b>(입고 시 자산 활성화)인지 <b>비평가입고</b>(청구서입고 시 활성화)인지 결정된다</p></div>
+<div class="step"><span class="n">STEP 4</span><p>청구서입고 전기 — 비평가입고였다면 이 시점에 자산 자본화 · 라인아이템 생성 · 가치필드 갱신이 일어난다</p></div>
+
+<div class="note warn">
+  <div class="t">평가입고를 쓰면 차이 조정 전기가 따라온다</div>
+  <p>입고가 청구서보다 먼저 오는 경우 평가입고를 씁니다. 이때 <span class="hl">청구서 금액과 입고 시점 전기금액이 다르면 그 차이가 자산에 조정 전기</span>됩니다 — "취득원가가 왜 청구서와 다르냐"의 흔한 원인입니다.</p>
+  <p>비평가입고는 자산이 아직 자본화되지 않았으므로 조정이 불필요합니다. 단 <b>입고일자를 자본화일자로</b> 사용합니다.</p>
+</div>
+
+<h3>자산탐색기 (Asset Explorer)</h3>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>기능</th><th>설명</th></tr></thead>
+<tbody>
+<tr><td>감가상각 투명계산</td><td class="wrap">감가상각키 세부내역을 펼쳐 계산 근거를 보여준다 — <b>Display dep. calc.</b></td></tr>
+<tr><td>FI문서 이동</td><td class="wrap">연결된 회계문서로 바로 점프</td></tr>
+<tr><td>가치추이 표시</td><td class="wrap"><b>Compare</b> 탭 — 여러 연도 × 여러 감가상각영역을 동시에 비교</td></tr>
+<tr><td>Planned / Posted values</td><td class="wrap">계획값과 실제 전기된 금액을 나눠서 표시, 계획값 탭에서 재계산 가능</td></tr>
+<tr><td>시뮬레이션</td><td class="wrap">트랜잭션·상각조건을 바꿔 보는 <b>Preview</b></td></tr>
+<tr><td>서브번호 <code>*</code></td><td class="wrap">서브번호 필드에 별표를 넣으면 주번호 + 전체 서브번호 통합 리포트</td></tr>
+</tbody>
+</table>
+</div>
+
+<p>오버뷰 트리에서 감가상각영역을 고를 수 있고 실제영역·파생영역이 기호로 구분됩니다. 화면 좌측 하단에는 관련 SAP 오브젝트(코스트센터 · G/L계정 · 벤더 · 구매오더 · 설비) 목록이 있어 해당 마스터로 바로 링크됩니다. <b>Manage Fixed Assets</b> 앱은 같은 정보를 <span class="key">라이프사이클 차트</span>로 보여주면서 APC · 누적감가상각 · 순장부가치를 한 화면에 묶어, 예상치 못한 가치변동(예: 사고로 인한 특별상각)의 원인을 찾게 해 줍니다.</p>
+
+<h3>처분 (Retirement)</h3>
+
+<div class="note">
+  <div class="t">🔰 초보자 설명 — 처분 손익은 어떻게 나오나</div>
+  <p>원래 취득원가(APC)에서 그동안 쌓인 감가상각을 뺀 것이 <b>장부가치</b>입니다. 이 장부가치와 실제 매각으로 받은 돈의 차이가 손익입니다. 장부가치 5,000인 자산을 3,700에 팔았다면 <b>1,300 손실</b>이고, 시스템이 자동으로 계산합니다.</p>
+</div>
+
+<p>처분 방식은 세 갈래이며 <span class="key">전부 완전처분·부분처분 모두 가능</span>합니다 — 수익 + 고객 있는 처분(통합) / 수익은 있으나 고객 없는 처분(비통합) / 수익 없는 처분(폐기, scrapping).</p>
+
+<p>매각수익계정을 전기할 때 <b>Asset Retirement</b> 체크박스를 켜면 대화상자가 뜨고, 기본값이 없으면 <b>자산번호 · 처분 트랜잭션유형 · 자산가치일자(처분일자) · 처분비율</b>(부분/완전 지시자)을 입력해야 합니다. 시스템은 처분일자로 처분기간을 정하고, 감가상각키의 <b>기간통제키</b>로 처분되는 부분에 감가상각을 얼마나 허용할지 자동 계산한 뒤 처분을 함께 전기합니다.</p>
+
+<p>대량처분도 표준태스크로 정의돼 있습니다 — 자산리포트로 대상 목록 작성 → 워크리스트 생성 → 목적 선택(무수익처분 / 유수익매각처분) → 수익배분 입력 → 처리 또는 릴리스 전 편집.</p>
+
+<h3>이체 — 사내와 사간</h3>
+
+<p>사내이체(회사코드 내)를 쓰는 이유는 셋입니다 — 마스터를 <b>잘못된 클래스로</b> 만들어 전기했거나, 자산을 <b>분할</b>하거나 일부를 신규자산으로 옮기고 싶거나, <b>AuC를 완성자산으로</b> 결산·이체하려는 경우. 시스템은 회사코드 내 이체에 <span class="key">이체변형 4</span>를 사용하고, 이체변형은 원천·대상 자산에 기록될 트랜잭션유형을 결정합니다. 경로 <code>Asset Accounting→Transactions→Intercompany Asset Transfers→Automatic Intercompany Asset Transfers→Define Transfer Variants</code>.</p>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>이체방법</th><th>대상자산에 자본화되는 값</th></tr></thead>
+<tbody>
+<tr><td>총액 (Gross)</td><td class="wrap">자산의 <b>이력값이 자동 이전</b>된다 — 매각수익 입력 불필요. 대부분의 사내이체 트랜잭션유형이 이 방법</td></tr>
+<tr><td>순액 (Net)</td><td class="wrap">원천 회사코드의 <b>순장부가치</b>가 자본화. 매각수익 입력 필요</td></tr>
+<tr><td>신규가치 (New Value)</td><td class="wrap"><b>매각수익 금액</b>이 자본화. 매각수익 입력 필요 (처분손익이 없으면 매각수익 = 순장부가치)</td></tr>
+</tbody>
+</table>
+</div>
+
+<p>사간이체에서 시스템은 회사코드의 <b>회사 ID</b>로 관계유형을 자동 결정합니다 — 관계유형 <code>02</code>는 하나의 회사(ID) 내 법적단위 간 이체(두 회사코드가 법적 종속관계), 관계유형 <code>01</code>은 서로 다른 회사에 배정된 법적 독립 회사코드 간 이체. <code>→Check Company ID of Company Codes</code>에서 재확인할 수 있고, 예외는 고객 프로그램 익싯으로 정의합니다.</p>
+
+<p>SAP 표준 이체변형(트랜잭션유형 + 이체방법 조합)이 <b>이체 행위의 80%</b>를 커버합니다(SAP Note 327088). 표준은 "관계유형 02 이체는 항상 하나의 법적단위 내 이체이므로 <b>사내이체(트랜잭션유형 <code>3++</code>, 총액방법)</b>로 표현한다"를 가정합니다. 기업구조가 다르면 자체 이체변형을 정의해야 합니다.</p>
+
+<div class="note warn">
+  <div class="t">회사코드가 다른 상각표를 쓰면 회사간 감가상각영역이 먼저다</div>
+  <p>상각표가 다르면 키/영역 ID가 달라도 기능은 같을 수 있습니다. 이 경우 <span class="bad">이체 전에 회사간 감가상각영역(Cross-Company Depreciation Area)을 정의</span>해야 합니다. 이 영역은 자체 통제파라미터가 없고 클라이언트 전체에서 일관된 짧은 설명과 키로만 구성됩니다.</p>
+  <p>정의하지 않으면 시스템이 별표(<code>*</code>)를 일반 항목으로 넣습니다. 그리고 <span class="hl">한 번 쓰기로 했다면, 영역 키가 같더라도 이체되는 다른 모든 감가상각영역에 대해서도 전부 정의해야 합니다.</span></p>
+</div>
+
+<h3>건설중자산(AuC) 정산</h3>
+
+<p>AuC는 <b>건설중 단계</b>와 <b>내용연수(사용) 단계</b>에서 서로 다른 대차대조표 항목에 표시되므로, 두 단계를 서로 다른 오브젝트·자산마스터로 관리합니다. 건설중에서 완성자산으로 넘기는 것을 <b>AuC의 자본화</b>라고 합니다. FI-AA에서 AuC는 두 가지로 관리할 수 있습니다 — 일반 자산마스터로 <b>합계 결산</b>, 또는 <b>라인아이템 관리</b>가 있는 자산마스터.</p>
+
+<div class="step"><span class="n">STEP 1</span><p>회사코드에 <b>결산프로파일</b> 배정 — SAP 표준 프로파일은 <code>AI</code>. 경로 <code>Asset Accounting Transactions→Capitalization of Assets under Construction→Define/Assign Settlement Profiles</code></p></div>
+<div class="step"><span class="n">STEP 2</span><p>동일 가치금액으로 동일 수신자에게 결산할 <b>라인아이템을 선택</b></p></div>
+<div class="step"><span class="n">STEP 3</span><p>해당 라인아이템의 <b>배분규칙(Distribution Rule)</b> 정의</p></div>
+<div class="step"><span class="n">STEP 4</span><p>배분규칙으로 지정된 수신자에게 <b>결산 전기</b>. 이 전기는 <span class="bad">배분규칙이 배정된 모든 라인아이템을 한꺼번에 결산</span>한다는 점에 주의</p></div>
+
+<p>시스템은 당해년도와 이전연도 트랜잭션을 자동으로 구분하고 서로 다른 트랜잭션유형을 씁니다. 금액 기준으로 결산하려면 라인아이템을 하나씩 선택·배분해야 하고, <b>모든 라인아이템을 한 번에 결산할 필요도, 각 라인아이템의 100%를 배분할 필요도 없습니다.</b></p>
+
+<h3>비계획감가상각</h3>
+
+<p>감가상각키로 스케줄링되는 정상감가상각과 별개로, 개별 자산에 <b>수동으로</b> 비계획감가상각을 스케줄링할 수 있습니다. 해당 트랜잭션유형을 넣으면 시스템이 비계획감가상각 전기임을 인식하고, 대화상자에서 어느 감가상각영역에 넣을지 고릅니다 — 예컨대 <span class="key">장부감가상각에는 허용되지만 세무감가상각에는 허용되지 않는</span> 현재가치감가상각이 여기 들어갑니다.</p>
+
+<div class="note warn">
+  <div class="t">비계획감가상각을 입력해도 전표는 바로 생기지 않는다</div>
+  <p>수동으로 <b>스케줄링만</b> 한 것이라 시스템이 즉시 FI 문서를 만들지 않습니다. <span class="hl">감가상각전기프로그램이 실행돼야 비로소 FI 문서가 생성됩니다.</span> "비계획감가상각 넣었는데 회계에 안 보인다"는 문의의 답이 이것입니다.</p>
+  <p>수동감가상각 평가용 리포트: <code>Accounting→Financial Accounting→Fixed Assets→Information System→Reports on Asset Accounting→Explanations for P&amp;L→International→Manual Depreciation</code></p>
+</div>
+
+<div class="note warn">
+  <div class="t">전기일자와 자산가치일자는 같은 회계연도 안에 있어야 한다</div>
+  <p>강의 본문의 Caution 항목입니다. 취득·처분 전기에서 자산가치일자를 과거로 밀 때 회계연도를 넘기면 거부됩니다. 트랜잭션유형별 자산가치일자 <b>기본값</b>은 Customizing에서 지정할 수 있습니다.</p>
+</div>
+
+<div class="note ok">
+  <div class="t">📌 개인 E2E 프로젝트와의 연결점</div>
+  <p>프로젝트에서 자산 취득이 실제로 일어난다면 경로는 <b>MM 통합</b>입니다 — 냉동설비를 벤더에서 사입할 때 <span class="key">계정지정범주 A</span>로 구매오더를 걸고, 입고(<code>101</code>)와 송장검증(<code>MIRO</code>)을 그대로 타면 자산이 자본화됩니다. 기존에 깔아 둔 구매~입고~송장 프로세스에 계정지정범주만 바뀌어 얹히는 구조라, 별도 IMG 덩어리를 새로 만들 필요가 없습니다.</p>
+  <p>더 직접적인 연결은 <b>평가입고 / 비평가입고</b> 선택입니다. <code>ZGATE_INSPECT</code>가 "GR <code>101</code>은 있는데 송장이 아직 안 붙은 건"을 찾아내는 것과 완전히 같은 구간을 자산 쪽에서도 다룹니다 — 물건은 왔는데 금액이 확정 안 된 구간을 <b>어느 시점에 장부에 올릴 것인가</b>. 재고는 GR/IR 조정계정으로, 자산은 자산 조정계정 또는 기술조정계정으로 그 구간을 잡습니다.</p>
+  <p>반대로 프로젝트에서 <b>쓰지 않을</b> 것도 분명합니다 — 회사코드가 CL04 하나뿐이므로 사간이체·회사간 감가상각영역은 설계 대상이 아니고, 생산·외주가공이 없으므로 AuC 투자조치(IM)도 범위 밖입니다.</p>
+</div>
+
+</div>
+
+
+<!-- ══════════ LESSON 4 ══════════ -->
+<div class="lesson" id="l4">
+<h2><span class="no">LESSON 4</span>주기적 처리와 평가 — 감가상각키부터 병렬회계까지</h2>
+
+<p><span class="tag">Unit 4</span><span class="tag">레슨 4개</span>감가상각영역/키/계산·전기 · 회계연도변경과 결산마감 · 투자지원조치 · 병렬회계</p>
+
+<h3>감가상각키는 계산방법 5개의 조합이다</h3>
+
+<figure class="figwrap">
+<svg class="dgm" viewBox="0 0 1000 400" role="img" aria-label="감가상각키 구조 도해. 기본방법, 정률법, 최대금액방법, 다단계방법, 기간통제방법 다섯 가지 계산방법이 하나의 감가상각키로 조합되고, 이 키가 자산마스터의 감가상각영역에 들어가 감가상각런에서 전표로 실현된다.">
+  <defs>
+    <marker id="aa4" markerWidth="9" markerHeight="9" refX="7" refY="4.5" orient="auto">
+      <polygon class="arw-key" points="0,0 9,4.5 0,9"/></marker>
+    <marker id="aa4o" markerWidth="9" markerHeight="9" refX="7" refY="4.5" orient="auto">
+      <polygon class="arw-ok" points="0,0 9,4.5 0,9"/></marker>
+  </defs>
+
+  <text class="t-xs c-key" x="30" y="26">계산방법 (Calculation Methods)</text>
+
+  <rect class="b" x="30" y="34" width="280" height="42" rx="5"/>
+  <text class="t" x="48" y="52">기본방법 Base</text>
+  <text class="t-xs" x="48" y="68">상각유형 · 계산방식 · 내용연수 처리</text>
+
+  <rect class="b" x="30" y="84" width="280" height="42" rx="5"/>
+  <text class="t" x="48" y="102">정률법 Declining-balance</text>
+  <text class="t-xs" x="48" y="118">체감 계수 · 상한/하한율</text>
+
+  <rect class="b" x="30" y="134" width="280" height="42" rx="5"/>
+  <text class="t" x="48" y="152">최대금액방법 Maximum amount</text>
+  <text class="t-xs" x="48" y="168">기간 내 상각 상한액</text>
+
+  <rect class="b" x="30" y="184" width="280" height="42" rx="5"/>
+  <text class="t" x="48" y="202">다단계방법 Multilevel</text>
+  <text class="t-xs" x="48" y="218">연차별로 상각률이 바뀌는 단계표</text>
+
+  <rect class="b" x="30" y="234" width="280" height="42" rx="5"/>
+  <text class="t" x="48" y="252">기간통제방법 Period control</text>
+  <text class="t-xs" x="48" y="268">취득·처분·이체 시 상각 개시/종료 시점</text>
+
+  <path class="ln-key" d="M310 55 H346 V140" marker-end="url(#aa4)"/>
+  <path class="ln-key" d="M310 105 H346 V140" marker-end="url(#aa4)"/>
+  <path class="ln-key" d="M310 155 H380" marker-end="url(#aa4)"/>
+  <path class="ln-key" d="M310 205 H346 V172" marker-end="url(#aa4)"/>
+  <path class="ln-key" d="M310 255 H346 V172" marker-end="url(#aa4)"/>
+
+  <rect class="b-hl" x="388" y="112" width="220" height="88" rx="6"/>
+  <text class="t-h" x="408" y="140">감가상각키</text>
+  <text class="t-s" x="408" y="162">예: <tspan class="m-s">LINA</tspan> · <tspan class="m-s">0000</tspan>(AuC용)</text>
+  <text class="t-s" x="408" y="184">트랜잭션 <tspan class="m-s">AFAMA</tspan></text>
+
+  <path class="ln-key" d="M608 156 H664" marker-end="url(#aa4)"/>
+
+  <rect class="b-key" x="672" y="56" width="300" height="86" rx="6"/>
+  <text class="t-h c-key" x="692" y="80">자산마스터 · 감가상각영역</text>
+  <text class="t-s" x="692" y="102">감가상각키 + 내용연수 + 개시일</text>
+  <text class="t-s" x="692" y="122">영역마다 따로, 시간종속 구간 가능</text>
+
+  <path class="ln-key" d="M672 156 H664 V99" marker-end="url(#aa4)"/>
+  <path class="ln-ok" d="M822 142 V196" marker-end="url(#aa4o)"/>
+
+  <rect class="b-ok" x="672" y="198" width="300" height="86" rx="6"/>
+  <text class="t-h c-ok" x="692" y="222">감가상각런</text>
+  <text class="m-s" x="692" y="244">FAA_DEPRECIATION_POST</text>
+  <text class="t-s" x="692" y="266">FI 전표 + CO 문서 + 계정지정오브젝트</text>
+
+  <rect class="b-bad" x="30" y="300" width="942" height="46" rx="6"/>
+  <text class="t" x="52" y="322">감가상각키 Customizing 을 바꿔도 <tspan class="t-h c-bad">이미 전기됐거나 활성 상태인 자산의 금액은 자동 보정되지 않는다.</tspan></text>
+  <text class="t-s" x="52" y="340">보정하려면 감가상각 재계산을 따로 돌려야 한다 — 단건은 <tspan class="m-s">AS02</tspan>, 전체는 프로그램 <tspan class="m-s">RAAFAR00</tspan>.</text>
+
+  <rect class="b-ghost" x="30" y="356" width="942" height="34" rx="6"/>
+  <text class="t-s" x="52" y="377">계산방법을 쪼개 두는 이유: 계정과목표별 특화방법으로 국가별 요건을 표현하고, 내부계산키 개수가 무한정 늘어나는 것을 막는다.</text>
+</svg>
+<figcaption><span class="fno">그림 4</span>감가상각키 구조. "왜 이 금액이 나왔나"를 추적하려면 키 하나가 아니라 그 안에 배정된 계산방법 다섯을 봐야 한다.</figcaption>
+</figure>
+
+<h3>주기적 처리에 무엇이 들어가나</h3>
+
+<ul>
+  <li><b>원가계획</b> — 코스트센터 기준 기본원가계획을 위해 계획 감가상각·이자를 주기적으로 결정해 CO에 리포트로 전달</li>
+  <li><b>투자지원</b> — 특정 자산투자에 받는 보조금. 대상 자산은 마스터에 <b>투자지원키</b>로 표시</li>
+  <li><b>인플레이션 관리</b> — 고인플레이션/디플레이션 국가에서 필요</li>
+  <li><b>결산 코쿠핏</b> — FI-AA의 주기적 반복업무를 정의·스케줄링·처리·통제</li>
+</ul>
+
+<h3>감가상각 유형 네 가지</h3>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>유형</th><th>설명</th></tr></thead>
+<tbody>
+<tr><td>정상감가상각</td><td class="wrap">정상 마모로 인한 <b>계획된</b> 가치 감소</td></tr>
+<tr><td>특별감가상각</td><td class="wrap">순수 세무목적. 세금혜택기간 내에 자산가치의 일정 비율을 <b>실제 마모와 무관하게</b> 단계적으로 상각</td></tr>
+<tr><td>비계획감가상각</td><td class="wrap">자산 손상 등 이례적 상황으로 인한 <b>영구적</b> 가치 감소 (→ LESSON 3)</td></tr>
+<tr><td>생산량비례감가상각</td><td class="wrap">활동량 변동을 반영 — 트럭 주행거리, 기계 생산단위수로 상각액 결정</td></tr>
+</tbody>
+</table>
+</div>
+
+<h3>기간구간 기준 계산 · 시간종속 감가상각조건</h3>
+
+<p>계산 로직은 <span class="key">같은 참조값(구매가치나 순장부가치)이 회계연도 안에서 얼마나 오래 유효한지</span>를 봅니다. 자산에 트랜잭션이 없으면 참조값이 1년 내내 같으므로 기간구간은 정확히 하나(1~12기간)입니다. 트랜잭션이 생기면 참조값이 바뀌므로 시스템이 기간통제에 따라 구간을 추가합니다. 실제 계산은 <b>Depreciation Engine</b>(Enterprise Extension <code>EA-FIN</code>의 일부)이 수행합니다.</p>
+
+<p>시간종속으로 바꿀 수 있는 파라미터는 <b>감가상각키 · 내용연수(연/기간) · 가변감가상각비중 · 절대잔존가치 · 비율잔존가치</b>입니다. <code>AS02</code>의 감가상각영역 상세화면에서 <b>Further Intervals</b> · <b>Add Interval</b>로 구간을 정의합니다.</p>
+
+<div class="note warn">
+  <div class="t">시간종속을 쓰지 않으면 과거까지 전부 재계산된다</div>
+  <p>시간종속 감가상각조건을 쓰지 않고 파라미터를 바꾸면, <span class="bad">개방된 모든 회계연도와 향후 연도에 영향</span>을 미쳐 시스템이 개방연도의 모든 기간을 재계산합니다. 새 계산 로직은 회계연도 중 변경마다 새 기간구간을 만들므로 <span class="hl">변경이 향후 기간에만 영향</span>을 줍니다.</p>
+  <p>또 하나 — 시간종속 변경은 다른 시스템 종속성을 위반하지 않을 때만 적용됩니다. 예를 들어 영역 <code>01</code>만 내용연수를 단축했는데 파생영역 <code>03</code>(= <code>02 - 01</code>)이 음수/영 순장부가치를 요구하도록 설정돼 있으면, 영역 03이 양수가 되어 <b>시스템이 변경 효과를 무시</b>합니다(계산된 감가상각의 자동 감소).</p>
+</div>
+
+<h3>원가회계 감가상각영역 — 이자와 지수</h3>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>감가상각조건 항목</th><th>예시</th></tr></thead>
+<tbody>
+<tr><td>감가상각키</td><td class="wrap"><code>LINA</code> — 대체가치 기준 정액법, pro rata temporis, curb·이자 포함</td></tr>
+<tr><td>정상상각 개시일</td><td class="wrap"><code>YYYY/02/01</code> → 1년차 상각·이자는 연간값의 <b>11/12</b></td></tr>
+<tr><td>지수 (Index)</td><td class="wrap">APC의 <b>103%</b> — 2년차부터 지수화된 대체가치를 기준으로 상각 계산</td></tr>
+<tr><td>이자</td><td class="wrap">취득가치의 절반에 대해 <b>10%</b></td></tr>
+<tr><td>계획내용연수 이후 상각지속</td><td class="wrap">계획된 내용연수가 끝난 뒤에도 계속 상각할지 지시</td></tr>
+<tr><td>순장부가치 0 이하 상각</td><td class="wrap">장부가치가 0이 된 뒤에도 상각 지속 — <b>영역이 음수 순장부가치를 허용</b>해야 한다</td></tr>
+<tr><td>실제내용연수 (curb)</td><td class="wrap">상각률을 <b>계획이 아닌 실제</b> 내용연수로 결정 — 10년이면 매년 1/10 상각하다가 11년차부터 1/11로 줄어들어 상각액이 서서히 감소</td></tr>
+</tbody>
+</table>
+</div>
+
+<p><b>귀속이자(Imputed Interest)</b>를 쓰려면 세 가지가 필요합니다 — 해당 감가상각영역에 이자 계산 허용, 회사코드와 그 영역에 이자 전기 지정, 이자 감가상각유형용 계산방법이 배정된 감가상각키. 이자는 주기적 감가상각 전기실행 때 함께 전기되고, 계정지정은 그 영역의 계정결정에 지정된 계정으로 갑니다(자산마스터의 코스트센터/내부오더로 추가 계정지정 가능).</p>
+
+<p><b>지수시리즈(Index Series)</b>는 취득가치를 지수화해 대체가치를 계산합니다. 회계연도별 지수 수치를 지정해야 하고, <span class="bad">누락되면 시스템이 시뮬레이션 연간율로 전환</span>합니다. 이자계산키가 대체가치 기준이면 누적감가상각·귀속이자에 대해서도 지수화된 재평가가 계산됩니다.</p>
+
+<h3>감가상각런 — 실행 전에 맞춰야 할 여섯 가지</h3>
+
+<div class="step"><span class="n">STEP 1</span><p>감가상각을 전기할 감가상각영역 구성 — <code>Asset Accounting→General Valuation→Depreciation Areas→Define Depreciation Areas</code></p></div>
+<div class="step"><span class="n">STEP 2</span><p>계정결정에서 감가상각 전기용 <b>G/L 계정 지정</b> — <code>→Integration with General Ledger Accounting→Assign G/L Accounts</code></p></div>
+<div class="step"><span class="n">STEP 3</span><p>감가상각 전기용 <b>문서유형 <code>AF</code></b>를 회사코드에 배정 — <code>→Post Depreciation to General Ledger Accounting→Specify Document Type for Posting of Depreciation</code></p></div>
+<div class="step"><span class="n">STEP 4</span><p>감가상각영역별 <b>구간·전기규칙</b> 지정 — <code>→Specify Intervals and Posting Rules</code></p></div>
+<div class="step"><span class="n">STEP 5</span><p><b>계정지정오브젝트 활성화</b> — <code>→Additional Account Assignment Objects→Activate Account Assignment Objects</code></p></div>
+<div class="step"><span class="n">STEP 6</span><p>활성 CO 계정지정오브젝트의 <b>계정지정유형</b> 지정 — <code>→Specify Account Assignment Types for Account Assignment Objects</code>. 확인은 프로그램 <code>RAACCOBJ01</code> / 트랜잭션 <code>AACCOBJ</code></p></div>
+
+<p><code>FAA_DEPRECIATION_POST</code>가 전기하는 것: 정상감가상각(장부·원가회계) / 세무·특별세무감가상각으로 인한 준비금 배분·상각 / 비계획감가상각과 기타 수동 계획감가상각 / 귀속이자 / APC·누적감가상각의 재평가. 이 프로그램은 <span class="key">FI-AA뿐 아니라 G/L 계정에도 직접 전기</span>하고 추가 계정지정오브젝트까지 함께 전기하며 CO 문서도 만듭니다.</p>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>감가상각런 오류</th><th>원인</th></tr></thead>
+<tbody>
+<tr><td>잘못된 계정지정오브젝트</td><td class="wrap">CO에서 <b>잠긴 코스트센터</b> 등</td></tr>
+<tr><td>계정지정유형 누락</td><td class="wrap">FI-AA Customizing 미설정 — "계정 xxxx는 CO 오브젝트 배정이 필요하다" 메시지</td></tr>
+<tr><td>감가상각 전기용 계정 누락</td><td class="wrap">계정결정 미완성 (STEP 2 누락)</td></tr>
+<tr><td>잘못된 전기기간</td><td class="wrap">프로그램 초기화면의 전기구간 문제</td></tr>
+<tr><td>전기주기 설정 누락</td><td class="wrap">감가상각영역의 전기주기 미지정 (STEP 4 누락)</td></tr>
+</tbody>
+</table>
+</div>
+
+<p>오류는 빨간 신호등으로 표시되고 <b>Error list</b> 버튼으로 상세를 봅니다. <span class="hl">반드시 테스트런을 먼저 돌려 잠긴 코스트센터 같은 문제를 걸러냅니다.</span> 운영런 로그는 프로그램 <code>RAPOST2001</code>(<code>Periodic Processing→Depreciation Run→Display Log</code>)에서 전체 기간 문서를 확인할 수 있습니다.</p>
+
+<h3>회계연도변경과 결산마감</h3>
+
+<p>FI-GL의 <b>중앙이월프로그램 <code>FAGLGVTR</code></b>로 FI-AA에서도 신규 연도가 열려 자산 전기가 가능해집니다. 회계연도변경 프로그램은 자산별로 새 연간가치필드를 개설하며, 당해년도 마지막 전기기간에 시작할 수 있습니다. 단 <span class="bad">이전 연도가 FI-AA에서 마감된 경우에만</span> 다음 연도로 넘어갈 수 있습니다.</p>
+
+<p>결산마감 준비는 감가상각리스트와 자산이력시트를 확인한 뒤 감가상각을 전기하는 순서입니다. 결과가 만족스럽지 않으면 감가상각 시뮬레이션·일괄변경·조정전기를 하고, <span class="key">감가상각값을 바꿨으면 감가상각 전기를 다시 실행해야 합니다.</span> 결산마감프로그램은 감가상각이 빠짐없이 전기되었는지, 자산에 오류·불완전이 없는지 점검하고, 문제가 없으면 각 감가상각영역의 마지막 마감 회계연도를 갱신하며 마감된 연도로의 전기를 차단합니다.</p>
+
+<div class="note warn">
+  <div class="t">서브레저를 먼저 마감한다 — 회계 원칙</div>
+  <p>FI-GL의 회계연도를 마감하기 <b>전에</b> FI-AA를 포함한 모든 서브레저의 회계연도가 먼저 마감되어야 합니다. 순서를 뒤집으면 <span class="bad">총계정원장 잔액에 심각한 불일치</span>가 생깁니다. 결산마감 전에 반드시 확인할 것.</p>
+  <p>실행 경로: <code>Fixed Assets→Periodic Processing→Year-End Closing→Execute/Undo</code> 또는 <code>Execute (Cross-Company Code and Ledger)</code>. <b>Schedule Asset Accounting Jobs</b> 앱의 잡템플릿 <b>Year-End Closing Asset Accounting</b>도 쓸 수 있습니다.</p>
+</div>
+
+<h3>투자지원조치</h3>
+
+<p>특정 유형의 투자에 나오는 <b>정부 보조금</b>을 관리하는 기능입니다. 보조금은 <span class="key">APC의 차감</span>(자산측)으로 관리하거나 <span class="key">부채측 가치조정</span>으로 관리할 수 있고, 어느 쪽인지는 <b>어느 감가상각영역에서 관리할지</b>로 Customizing에서 결정합니다. 조치는 <b>투자지원키</b>로 식별됩니다. 경로 <code>Asset Accounting→Special Valuations→Investment Support→Define Investment Support Measures</code>.</p>
+
+<p>정의 요소: 유효기간 / APC 대비 최대비율 또는 최대금액 / <b>보유기간(Retention Period)</b> / 조기처분 시 상환유형(부채측 관리 시에만) / 관리할 감가상각영역 / 관련 업무트랜잭션의 계정지정 / 조치 배정의 타당성검사.</p>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>구분</th><th>자산측 (APC 차감)</th><th>부채측 (특별준비금)</th></tr></thead>
+<tbody>
+<tr><td>자본화 금액</td><td class="wrap">지원금만큼 <b>차감된</b> 취득원가가 감가상각 기준이 된다</td><td class="wrap">전체 취득가치를 내용연수에 걸쳐 상각하고, 지원금은 <b>부채측 특별준비금</b>으로 전기해 별도 상각</td></tr>
+<tr><td>별도 감가상각영역</td><td class="wrap">자산당 1개 조치면 불필요 — G/L에 자동전기하는 영역에서 관리. 2개 이상 별도 전기하려면 특수 영역 필요</td><td class="wrap">최소 1개 필요. 조치가 여럿이면 각각 별도 영역(전기지시자 <b>Area Posts in Realtime</b>)</td></tr>
+<tr><td>처분 시 자동지원</td><td class="wrap"><span class="bad">없다.</span> 상환도 FI에서 수동 전기, 보유기간 중 처분해도 <b>경고가 뜨지 않는다</b></td><td class="wrap">트랜잭션유형에 따라 상각전기 또는 상환전기가 자동 생성</td></tr>
+<tr><td>필요 계정</td><td class="wrap">투자지원 배분용 APC 대차대조표계정 + 배분용 조정계정</td><td class="wrap">부채측 특별준비금계정</td></tr>
+</tbody>
+</table>
+</div>
+
+<p>조치를 정의하면 시스템이 전기용 트랜잭션유형을 만듭니다(<code>XX</code> = 투자지원키) — <code>IXX</code> 투자지원 청구 / <code>KXX</code> 사후자본화(청구 + 비례가치조정) / <code>JXX</code> 상환의무 없는 처분으로 인한 부채측 조치의 특별상각. 개별 자산 수동 전기는 <code>ABIF</code>, 프로그램은 <code>RAINZU10N</code>.</p>
+
+<div class="note warn">
+  <div class="t">투자지원 처분 시 트랜잭션유형을 틀리면 상환이 안 걸린다</div>
+  <p>· 상환이 <b>불필요</b>한 처분 → 트랜잭션유형 <code>201</code>(재해로 인한 처분)<br>
+     · 상환이 <b>필요</b>한 처분 → 일반 자산처분 트랜잭션(예: <code>200</code>)<br>
+     상환유형은 조치 정의에서 고릅니다 — 전액상환 / 경과 보유기간(연 단위) 비례상환 / 정확한 기간 비례상환.</p>
+  <p>또한 <span class="hl">처분 전기 연도와 같은 해에 투자지원을 청구했다면, 처분을 전기하기 전에 투자지원조치를 먼저 반전(reverse)해야 합니다.</span> 그리고 투자지원조치용으로 고른 감가상각영역은 전부 <b>같은 회계원칙</b>에 속해야 합니다 — 시스템은 회계원칙 경계를 넘는 정의를 지원하지 않습니다.</p>
+</div>
+
+<h3>병렬회계 — 원장접근법 vs 계정접근법</h3>
+
+<p>New Asset Accounting은 <b>감가상각영역으로</b> 병렬회계를 처리합니다. 관련된 각 회계원칙마다 감가상각영역을 정의하고, 그 영역에 회계원칙을 배정함으로써 평가유형이 지정됩니다.</p>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>구분</th><th>원장접근법 (Ledger Approach)</th><th>계정접근법 (Accounts Approach)</th></tr></thead>
+<tbody>
+<tr><td>평가를 어디에 담나</td><td class="wrap">별도 <b>원장</b>에 매핑. 일반적으로 원장 간 <b>같은 계정</b>을 쓴다</td><td class="wrap">같은 총계정원장 안의 <b>다른 계정</b>. 병렬평가마다 계정 세트를 다시 만들어야 하고, 계정과목표에 자릿수를 추가해야 할 수 있다</td></tr>
+<tr><td>주도평가 영역의 전기옵션</td><td class="wrap"><b>Area Posts in Realtime</b> (주도·병렬 모두)</td><td class="wrap">주도평가는 <b>Area Posts in Realtime</b>, 병렬평가는 <b>Area Posts APC Immediately, Depreciation Periodically</b></td></tr>
+<tr><td>원장그룹</td><td class="wrap">평가마다 별도 원장그룹, <span class="bad">원장이 서로 겹칠 수 없다</span></td><td class="wrap">평가마다 별도 원장그룹이되 <b>항상 리딩원장을 대표원장으로 포함</b></td></tr>
+<tr><td>FI 구조</td><td class="wrap">대차대조표·손익 구조 1세트</td><td class="wrap">완전히 별개인 대차대조표·손익 구조 <b>2세트</b>가 필요</td></tr>
+<tr><td>전기되는 값</td><td class="wrap">전액값(full value) — 델타값이 아니다. 회계원칙마다 별도 문서</td><td class="wrap">동일. 전액값, 회계원칙별 별도 문서</td></tr>
+</tbody>
+</table>
+</div>
+
+<div class="step"><span class="n">STEP 1</span><p>신규 감가상각영역에 <b>회계원칙 배정</b> — <code>Asset Accounting→General Valuation→Depreciation Areas→Define Depreciation Areas</code></p></div>
+<div class="step"><span class="n">STEP 2</span><p>회계원칙에 <b>원장그룹 배정</b> — <code>Ledgers→Parallel Accounting→Assign Accounting Principle to Ledger Groups</code></p></div>
+<div class="step"><span class="n">STEP 3</span><p>신규 <b>원장그룹 정의</b> — <code>Financial Accounting Global Settings→Ledgers→Ledger→Define Ledger Group</code></p></div>
+
+<h4>회계원칙 간 인식·평가 차이를 어떻게 담나</h4>
+
+<ul>
+  <li><b>자본화 여부가 갈리는 자산(편면자산, unilateral asset)</b> — 실제로 자본화되는 감가상각영역만 마스터에서 관리한다. 권장은 <span class="key">별도 자산클래스를 쓰고</span>, 자본화가 필요 없는 회계원칙의 영역을 클래스에서 <b>비활성화</b>(<code>General Valuation→Determine Depreciation Areas in the Asset Class</code>)하는 것. 비활성화한 영역에는 자본화차이/비영업비용 계정(필드 <code>KTNAIB</code>)을 Customizing에 유지해야 한다</li>
+  <li><b>자본화 시점 금액이 갈릴 때</b> — 먼저 벤더청구서를 입력해 <b>모든 회계원칙에 전액을 자본화</b>한 뒤, 특정 회계원칙에만 유효한 <b>자산특정 대변메모</b>를 입력해 그 회계원칙의 자본화 금액을 정리하고 비용으로 직접 전기한다</li>
+  <li><b>사내제작자산</b> — IM의 자본화가치결정으로 투자조치 결산 시 감가상각영역별 자본화 비율과 비영업비용 비율을 지정한다. <b>사전결산(preliminary settlement)</b>으로 자본화하지 않을 원가를 코스트센터 등으로 정산할 수 있는데, <span class="bad">사전결산된 값은 이후 자산이나 AuC로 다시 결산할 수 없다</span></li>
+  <li>주도평가뷰를 나타내는 감가상각영역은 <b>AuC에도 항상 존재</b>해야 하며 비활성화할 수 없다</li>
+  <li>CO 관점에서는 <b>완전히 결산되는 원가회계 감가상각영역이 반드시 하나 존재</b>해야 한다 — 사전결산 후 남는 값이 CO 입장에서 항상 완전 자본화되도록 보장하기 위해서</li>
+</ul>
+
+<div class="note ok">
+  <div class="t">📌 개인 E2E 프로젝트와의 연결점</div>
+  <p>그림 4 아래쪽의 빨간 블록이 프로젝트 설계 원칙과 정확히 같은 이야기를 합니다 — <b>Customizing을 고쳐도 이미 전기된 값은 자동으로 보정되지 않는다.</b> <code>ZPRICE_CHECK</code>가 정보레코드가(<code>EINE-NETPR</code>)와 이동평균가(<code>MBEW-VERPR</code>)의 괴리를 찾아 <span class="key">알림만 내고 재평가 전표를 자동으로 만들지 않는</span> 것과 같은 판단입니다. SAP 표준조차 감가상각 재계산을 <code>RAAFAR00</code>이라는 <b>별도 실행</b>으로 분리해 둡니다.</p>
+  <p>감가상각런의 <b>테스트런 → 오류목록 → 운영런</b> 구조도 그대로 가져올 만합니다. 프로젝트 CBO 테이블에 상태필드 <b>W / P / H</b>를 두기로 한 설계가 이 구조의 축소판입니다 — W(대기)에서 테스트, P(처리)에서 전기, H(보류)에서 오류목록에 해당합니다.</p>
+  <p>병렬회계는 이 프로젝트 범위 밖입니다. 회사코드 CL04 하나, 국내 기준 하나이므로 <b>리딩원장 <code>0L</code> 단일 + 감가상각영역 1개</b>로 두는 것이 맞습니다. 다만 "영역마다 회계원칙 배정은 공란 불가"라는 규칙은 영역이 하나여도 적용되므로, 회계원칙 정의는 건너뛸 수 없습니다.</p>
+</div>
+
+</div>
+
+
+<!-- ══════════ LESSON 5 ══════════ -->
+<div class="lesson" id="l5">
+<h2><span class="no">LESSON 5</span>보고 — 정렬변형 · 시뮬레이션 · 자산이력시트</h2>
+
+<p><span class="tag">Unit 5</span><span class="tag">레슨 4개</span>SAP List Viewer와 정렬변형 · 분석 아키텍처(CDS/VDM) · 감가상각 시뮬레이션 · 자산이력시트</p>
+
+<h3>SAP List Viewer와 정렬변형</h3>
+
+<p>자산리포트는 <b>SAP List Viewer</b>(ALV 그리드 컨트롤)로 표준화되어 있습니다. 컬럼 삭제·삽입, 오름/내림차순 정렬, 하나 이상 컬럼의 합계·소계, 레이아웃 저장·재사용, 조건 필터가 전부 같은 방식으로 동작합니다.</p>
+
+<p>그 위에 FI-AA 고유의 축이 하나 더 있습니다 — <b>정렬변형(Sort Variant)</b>. 모든 리포트가 정의 가능한 정렬기준으로 데이터를 정렬·합계하며, 이 기준들이 정렬변형으로 묶입니다.</p>
+
+<ul>
+  <li>정렬변형은 <span class="key">최대 5개의 정렬기준</span>을 포함하고, 기준은 <b>ABAP 딕셔너리 필드</b>로 결정된다</li>
+  <li>리포트 파라미터 <b>합계컬럼(Total column)</b> — 어느 레벨에서 합계를 출력할지 지정</li>
+  <li>리포트 파라미터 <b>통계지시자(Statistics indicator)</b> — 그룹레벨 합계의 상세 내역을 분석할 때 선택</li>
+  <li>정렬변형은 <b>모든 FI-AA 리포트</b>에서 쓸 수 있다. 리포트 <code>RABEST_ALV01</code> · <code>RAGITT_ALV01</code> · <code>RABEWG_ALV01</code>은 "Custom selection"에서 선택한 필드를 ALV 리스트로 전달할 수 있다</li>
+</ul>
+
+<h3>분석 아키텍처 — CDS와 가상데이터모델</h3>
+
+<p>S/4HANA Embedded Analytics는 트랜잭션과 분석을 결합해 <span class="hl">실시간 트랜잭션 데이터에 대한 운영 리포팅</span>을 가능하게 합니다. 핵심은 <b>Core Data Services(CDS) 뷰</b>이고, 콘텐츠는 트랜잭션·마스터데이터 테이블 기반의 <b>가상데이터모델(VDM)</b>로 표현됩니다. CDS 뷰는 ABAP 계층에서 개발·유지·확장되고, 시스템은 HANA DB 계층에서 읽기·변환을 수행할 <b>SQL 런타임 뷰</b>를 생성합니다.</p>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>사용자 유형</th><th>하는 일</th></tr></thead>
+<tbody>
+<tr><td>IT 사용자</td><td class="wrap">CDS 뷰 · 신규 앱 · 계획기능 개발</td></tr>
+<tr><td>분석 키유저</td><td class="wrap">쿼리 · 사전정의 리포트 · KPI · 대시보드 · 타일을 만들고 유지 — 최종사용자가 적합한 리포트를 찾도록 지원</td></tr>
+<tr><td>분석 최종사용자</td><td class="wrap">다양한 분석도구로 데이터를 소비·분석하고 그에 따라 조치</td></tr>
+</tbody>
+</table>
+</div>
+
+<h4>Asset Balances 앱</h4>
+
+<p>회사코드 · 감가상각영역 · 세그먼트 · 이익센터 등으로 고정자산 잔액을 표시합니다. APC와 감가상각으로부터 <b>순장부가치가 어떻게 도출되는지</b>를 보는 앱입니다. 자산별로 보고일 기준 누적취득가치, 당해 회계연도 상각유형별 전기/미전기 누적감가상각, 보고기간말 계획장부가치를 보여주고, 결과를 그리드로 표시하거나 Excel로 내보낼 수 있습니다.</p>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>표준 핵심수치그룹</th><th>용도</th></tr></thead>
+<tbody>
+<tr><td><code>ABS_DEF</code></td><td class="wrap">계획값(Planned values)용</td></tr>
+<tr><td><code>ABS_POSTED</code></td><td class="wrap">전기값(Posted values)용</td></tr>
+<tr><td><code>DEPR_TOTAL</code></td><td class="wrap">총감가상각(Total Depreciation)</td></tr>
+<tr><td><code>DEPR_WRUP</code></td><td class="wrap">상각환입(Write-Ups)</td></tr>
+</tbody>
+</table>
+</div>
+
+<p>자체 핵심수치그룹도 만들 수 있습니다 — <code>Asset Accounting Information System→Define Key Figure Groups for Asset Balances (Fiori)</code>. <b>Asset Accounting Overview</b> 앱은 자산회계 담당자의 중앙 정보소스로 KPI와 관련 앱 이동을 묶어 둔 화면입니다.</p>
+
+<h3>감가상각 시뮬레이션</h3>
+
+<p>여기서 시뮬레이션은 <span class="key">자산평가에 영향을 주는 감가상각 파라미터를 실험적으로 바꿔 보는 것</span>이고, 단일 자산 · 전체 포트폴리오 · 포트폴리오 일부에 적용할 수 있습니다. 프로그램은 <code>RASIMU_ALV01</code>. <b>시뮬레이션버전</b>으로 모든 주요 감가상각조건을 바꿔 가치 발전을 보고, <b>미래 회계연도</b>의 감가상각도 시뮬레이션합니다.</p>
+
+<ul>
+  <li>시뮬레이션버전은 <b>영역 · 자산클래스 · 감가상각키별로</b> 대체 감가상각키와 내용연수를 지정한다</li>
+  <li><span class="bad">유효기간 구간을 벗어난 자본화일자를 가진 자산은 제외</span>된다 — 결과 건수가 예상과 다르면 여기부터 본다</li>
+  <li>계획된 자본투자까지 예측에 넣으려면, CO의 오더/프로젝트에 계획투자금액을 계획원가로 관리하고 감가상각조건과 <b>계획가동개시일</b>을 배정한다</li>
+  <li>개별 자산 단위 미리보기는 자산탐색기의 <b>Preview</b> 기능 (→ LESSON 3)</li>
+</ul>
+
+<h3>자산이력시트 (Asset History Sheet)</h3>
+
+<p>자산이력시트는 <b>가장 중요하고 포괄적인 결산·중간 리포트</b>입니다. 회계연도 중 감가상각영역별 고정자산 잔액의 <span class="hl">가치 변동</span>을 보여 주며, 모든 회계원칙·현지규정·경영관리 목적으로 잔액을 문서화·설명하는 데 씁니다.</p>
+
+<ul>
+  <li>다른 리포트처럼 정렬버전과 임의의 그룹레벨 합계로 생성 가능</li>
+  <li>개별 자산 정보 없는 <b>간결한 합계 리스트</b>를 먼저 뽑고, 합계 표시에서 개별 자산 시트를 호출한 뒤 거기서 자산탐색기로 들어가는 것이 기본 동선</li>
+  <li><b>리포트-리포트 인터페이스(RRI)</b>로 다른 FI-AA 리포팅 프로그램을 바로 띄울 수 있다</li>
+  <li>자체 이력시트 버전도 정의 가능 — 단 <span class="bad">10행 × 8열 이하</span>로 크기가 제한된다. 항목 헤더를 저장하고, 값이 항목에 공급되는 방식을 정의한다</li>
+  <li>SAP가 국가별 법적요건을 충족하는 <b>국가특화 이력시트 버전</b>을 제공한다</li>
+</ul>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>표준 핵심수치그룹</th><th>용도</th></tr></thead>
+<tbody>
+<tr><td><code>AHS</code></td><td class="wrap">전기값(Posted values)용</td></tr>
+<tr><td><code>AHS_PLAN</code></td><td class="wrap">계획값(Planned values)용</td></tr>
+<tr><td><code>AHS_HRY</code></td><td class="wrap">전기값을 <b>계층구조로</b> 그룹화</td></tr>
+<tr><td><code>AHS_HRY_PL</code></td><td class="wrap">계획값을 계층구조로 그룹화</td></tr>
+</tbody>
+</table>
+</div>
+
+<p>경로: <code>Asset Accounting→Information System→Asset History Sheet Define Key Figure Groups for Asset History Sheet (Fiori)</code>.</p>
+
+<div class="note ok">
+  <div class="t">📌 개인 E2E 프로젝트와의 연결점</div>
+  <p>정렬변형이 <b>최대 5개 기준</b>, 자체 이력시트 버전이 <b>10행 × 8열</b>로 막혀 있다는 점이 이 노트에서 가장 실용적인 대목입니다. 표준 리포팅에는 이런 상한이 항상 있고, 상한을 넘는 요구가 나오면 그때부터 CBO 리포트 이야기가 시작됩니다. 프로젝트의 "표준 우선, CBO는 표준으로 안 되는 지점만" 원칙을 적용할 때 <span class="key">"표준으로 안 된다"의 근거가 바로 이런 수치</span>여야 합니다 — 감으로 판단하면 안 됩니다.</p>
+  <p>ALV 레이아웃·정렬변형은 프로젝트 CBO 리포트에서도 그대로 쓸 수 있는 자산입니다. <code>ZGATE_INSPECT</code>의 차이 목록처럼 "합계는 상위 레벨, 상세는 개별 건"인 화면은 표준 ALV의 합계컬럼 개념을 그대로 따라가면 됩니다.</p>
+</div>
+
+</div>
+
+
+<!-- ══════════ LESSON 6 ══════════ -->
+<div class="lesson" id="l6">
+<h2><span class="no">LESSON 6</span>레거시데이터 이관 — 이관일자가 전부다</h2>
+
+<p><span class="tag">Unit 6</span><span class="tag">레슨 1개</span>이관 방법(수동 · BAPI · AS100) · 회사코드 상태 · 이관일자 · Migration Cockpit</p>
+
+<h3>이관은 Customizing 다음의 첫 작업이다</h3>
+
+<p>레거시 시스템에서의 데이터 이관은 <b>Customizing과 자산 분류가 끝난 뒤 신규 운영시스템에서 하는 첫 작업</b>입니다. 자산 데이터가 적으면 트랜잭션 <code>AS91</code>로 마스터를 수동 입력할 수 있습니다.</p>
+
+<div class="note warn">
+  <div class="t">마스터와 값은 분리되어 있다</div>
+  <p><code>AS91</code>은 <b>마스터데이터</b>만 다룹니다. <span class="hl">이관값(takeover values)은 전기 트랜잭션 <code>ABLDT</code>로 별도 전기</span>되며, 이 경우 <b>이관조정계정</b>에 즉시 전기가 이루어져 예전처럼 별도의 일괄상각(summary write-off) 수동 단계를 밟을 필요가 없습니다.</p>
+  <p><code>ABLDT</code>는 입력 가능한 ALV 그리드 컨트롤을 쓰기 때문에 <span class="bad">배치입력(batch input)을 지원하지 않습니다</span>(SAP Note 311440). 따라서 <b><code>ABLDT</code>용 LSMW 레코딩을 만들 수 없습니다</b>(SAP Note 554635) — 대량 건은 아래 BAPI나 <code>AS100</code>으로 가야 합니다.</p>
+</div>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>규모</th><th>도구</th><th>제약</th></tr></thead>
+<tbody>
+<tr><td>소량</td><td><code>AS91</code> + <code>ABLDT</code></td><td class="wrap">수동 입력. <code>ABLDT</code>는 배치입력·LSMW 레코딩 불가</td></tr>
+<tr><td>수백 건</td><td><code>AS100</code></td><td class="wrap">Microsoft Excel 기반. <b>파일 1건당 최대 5,000개 자산</b>, 필요하면 파일을 분할</td></tr>
+<tr><td>대량~초대량</td><td class="wrap"><code>BAPI_FIXEDASSET_OVRTAKE_CREATE</code></td><td class="wrap">레거시자산의 <b>생성 + 값 이관을 한 단계</b>로. <span class="bad">기존 레거시자산으로의 값 이관은 지원하지 않는다</span></td></tr>
+</tbody>
+</table>
+</div>
+
+<p>값을 고쳐야 한다면 순서가 정해져 있습니다 — <code>BAPI_FIXEDASSET_OVRTAKE_POST</code>로 신규값을 전기하기 <b>전에</b> 이관 트랜잭션을 반전해야 하고, 반전에는 <code>BAPI_ASSET_REVERSAL_POST</code>를 씁니다(SAP Note 2481644).</p>
+
+<div class="note warn">
+  <div class="t">이관값을 바꾸는 유일한 길은 반전 후 재전기다</div>
+  <p>신규 솔루션에서 이관문서가 전기되는 방식 때문에, 이관값 수정은 <span class="hl">전기된 이관문서를 반전하고 다시 전기하는 것</span> 외에는 없습니다. 그리고 이관문서를 반전하려면 그 자산에 <span class="bad">후속 트랜잭션이 하나도 없어야</span> 합니다 — 레거시 이관이 그 자산의 가치 기반을 제공하기 때문입니다.</p>
+  <p>이미 후속 트랜잭션이 전기됐다면: ① 모든 트랜잭션을 반전(가급적 <b>역순</b>으로) → ② 이관 트랜잭션 반전 → ③ 신규 이관값 전기 → ④ 후속 트랜잭션을 <b>개별적으로 다시 생성</b>. 컷오버 계획에서 이 순서를 모르면 재작업 비용이 폭증합니다.</p>
+</div>
+
+<h4>AuC는 누적값을 직접 못 넣는다</h4>
+
+<p>건설중자산은 누적 APC나 누적감가상각을 <span class="bad">직접 이관할 수 없고</span> 트랜잭션 이관 방식을 써야 합니다.</p>
+
+<ul>
+  <li>수동 — <code>ABLDT</code> 대신 <code>AB01</code>을 쓰거나, SAP Note 2294012 이후로는 신규 트랜잭션 <code>ABLDT_OI</code></li>
+  <li>BAPI — 값을 테이블 <code>CUMULATEDVALUES</code>가 아니라 테이블 <code>TRANSACTIONS</code>에 넣는다</li>
+  <li>라인아이템 관리되는 AuC의 트랜잭션은 레거시 전용 <b>특수 트랜잭션유형 <code>900</code> · <code>910</code></b>으로 전기된다</li>
+</ul>
+
+<p>상세는 SAP Note 2208321, 이관 조정(reconcile) 방법은 SAP Note 2304473.</p>
+
+<h3>회사코드 상태와 이관일자</h3>
+
+<p>이관을 시작하려면 Customizing에서 회사코드 상태를 <b>"Asset data transfer not yet completed"</b>로 설정합니다 — 경로 <code>Asset Accounting→Asset Data Transfer→Parameters for Data Transfer→Define Transfer Date and Additional Parameters</code>. 이 <b>Ongoing 상태</b>에서는 레거시데이터를 이관할 수 있지만 <span class="bad">일반(정상) 트랜잭션은 전기할 수 없습니다.</span></p>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>이관시점</th><th>이관되는 데이터 범위</th></tr></thead>
+<tbody>
+<tr><td class="wrap">마지막 마감 회계연도 말일</td><td class="wrap">마스터데이터 · 이력상 건설중자산 · APC값 · <b>마지막 마감 회계연도 시점의 누적감가상각</b></td></tr>
+<tr><td class="wrap">회계연도 중</td><td class="wrap">위에 더해 <b>당해년도 중 전기된 감가상각과 자산 트랜잭션</b>까지</td></tr>
+</tbody>
+</table>
+</div>
+
+<p>레거시 시스템의 과거 어느 날짜로도 이관할 수 있지만, <span class="hl">이관일자 이전 시점의 데이터는 SAP 시스템에 생성할 수 없습니다.</span> 이관일자는 마지막으로 마감된 회계연도의 말일이거나, 그 다음 회계연도(같은 해) 안의 임의의 날짜여야 합니다.</p>
+
+<div class="note">
+  <div class="t">🔰 초보자 설명 — 이관 시점이 왜 그렇게 중요한가</div>
+  <p>새 SAP 시스템을 도입할 때 기존(레거시) 시스템의 자산 정보를 옮겨 와야 하는데, <b>"언제 기준으로 옮길 것인가"</b>가 작업량을 결정합니다. 작년 말 결산이 끝난 시점 기준이면 그때까지의 마스터·취득원가·누적감가상각만 가져오면 됩니다. 올해 중간 시점 기준이면 <b>올해 들어 발생한 감가상각과 거래내역까지</b> 추가로 가져와야 합니다. 기준일자를 잘못 잡으면 신규 시스템의 자산가치가 실제와 어긋납니다.</p>
+</div>
+
+<h3>Migrate Your Data — Migration Cockpit</h3>
+
+<p>비즈니스 데이터를 S/4HANA로 옮기는 앱으로, 특정 SAP 소스시스템에서 직접 옮기거나 <b>스테이징 테이블</b>을 경유할 수 있습니다. 기능은 마이그레이션 프로젝트 생성·상태 모니터링 / 시나리오에 맞는 <b>마이그레이션 오브젝트</b> 선택 / 매핑 작업 처리 / <span class="key">실제 이관 전 시뮬레이션</span>과 진행상태 모니터링 / 실제 마이그레이션 실행과 모니터링.</p>
+
+<div class="note ok">
+  <div class="t">📌 개인 E2E 프로젝트와의 연결점</div>
+  <p>이 레슨은 프로젝트 <b>목표 2번(AL11 기반 대량처리 + 병렬처리 프로그램)</b>의 설계 근거로 쓸 수 있는 자료입니다. 세 가지가 그대로 겹칩니다.</p>
+  <p>첫째, <b>전표는 직접 INSERT 하지 않고 BAPI로</b>. SAP 자신도 초대량 이관에 테이블 INSERT가 아니라 <code>BAPI_FIXEDASSET_OVRTAKE_CREATE</code>를 쓰고, 취소조차 <code>BAPI_ASSET_REVERSAL_POST</code>라는 BAPI로 합니다. 프로젝트 원칙과 같은 자리입니다.</p>
+  <p>둘째, <b><code>AS100</code>의 파일당 5,000건 제한</b>. 대량처리에서 커밋·파일 단위를 왜 쪼개야 하는지에 대한 실증입니다. AL11 파일을 읽어 병렬로 돌릴 때 <span class="key">한 워크프로세스가 한 번에 처리할 건수의 상한</span>을 정해 둬야 한다는 설계 근거로 그대로 인용할 수 있습니다.</p>
+  <p>셋째, <b>Ongoing 상태에서는 정상 트랜잭션을 막는다</b>는 장치. CBO 테이블 상태필드 <b>W / P / H</b>로 처리 중인 건을 잠그는 설계와 같은 발상입니다. 다만 프로젝트에서는 <span class="bad">ENQUEUE 없이 상태필드만으로 동시성을 막을 수 없다</span>는 점을 별도로 다뤄야 합니다 — SAP 표준은 상태필드 뒤에 락과 권한 체크가 함께 있습니다.</p>
+</div>
+
+</div>
+
+
+<!-- ══════════ APPENDIX ══════════ -->
+<div class="lesson" id="lx">
+<h2><span class="no">APPENDIX</span>정리 · 반드시 기억할 것</h2>
+
+<h3>한 장 요약</h3>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>질문</th><th>답</th></tr></thead>
+<tbody>
+<tr><td>회사코드에 붙는 것</td><td class="wrap">계정과목표 <b>1개</b> + 감가상각표 <b>1개</b>. 여러 회사코드가 같은 상각표를 공유할 수는 있다</td></tr>
+<tr><td>샘플 상각표를 바로 쓸 수 있나</td><td class="wrap"><b>없다.</b> 반드시 복사해 자체 상각표를 만든다. 복사 후 <code>TABWA</code>의 트랜잭션유형 제한을 확인·삭제</td></tr>
+<tr><td>리딩 감가상각영역은 어느 것인가</td><td class="wrap"><b>그런 개념이 없다.</b> 모든 감가상각영역은 동등하고, 영역 <code>01</code>이 원장 <code>0L</code>에 배정될 필요도 없다</td></tr>
+<tr><td>비전기 영역도 회계원칙이 필요한가</td><td class="wrap"><b>필요하다.</b> 리포팅전용·델타영역도 공란 불가</td></tr>
+<tr><td>자산클래스가 결정하는 것</td><td class="wrap">계정결정 · 번호범위 · 화면레이아웃 · 영역별 감가상각 기본값 (그림 2)</td></tr>
+<tr><td>자산 하나를 코스트센터 2개에</td><td class="wrap"><b>안 된다.</b> (실제)오더에 배정한 뒤 오더를 각 코스트센터로 정산한다</td></tr>
+<tr><td>설비와 자산의 관계</td><td class="wrap">여러 설비 → 자산 1개는 가능. <b>설비 1개는 자산 1개에만</b> 속한다</td></tr>
+<tr><td>통합취득 시 전표가 두 장인 이유</td><td class="wrap">운영측면(원장그룹 독립) + 평가측면(원장그룹 특정)으로 갈려 <b>기술조정계정</b>을 경유. 조정계정 잔액은 항상 0, 수동전기 불가</td></tr>
+<tr><td>총액/순액 문서유형의 뜻</td><td class="wrap">세금이 아니라 <b>현금할인을 자본화금액에서 뺄지</b>. 총액 <code>AA</code>·<code>KR</code> / 순액 <code>AN</code>·<code>KN</code></td></tr>
+<tr><td>취득원가가 청구서와 다른 이유</td><td class="wrap">순액 문서유형(현금할인 차감), 평가입고 후 청구서 금액 차이 조정, 회계원칙별 대변메모 — 이 셋부터 본다</td></tr>
+<tr><td>비계획감가상각을 넣었는데 전표가 없다</td><td class="wrap">스케줄링만 된 것. <b>감가상각런이 돌아야</b> FI 문서가 생긴다</td></tr>
+<tr><td>감가상각키를 바꿨는데 금액이 그대로</td><td class="wrap">자동 보정되지 않는다. <code>AS02</code>(단건) / <code>RAAFAR00</code>(전체)로 <b>재계산</b></td></tr>
+<tr><td>결산 순서</td><td class="wrap">FI-AA 등 <b>모든 서브레저를 먼저 마감</b>한 뒤 FI-GL 회계연도를 마감한다</td></tr>
+<tr><td>정렬변형의 상한</td><td class="wrap">정렬기준 <b>최대 5개</b>. 자체 자산이력시트 버전은 <b>10행 × 8열</b> 이하</td></tr>
+<tr><td>이관값을 고치려면</td><td class="wrap">이관문서 <b>반전 후 재전기</b>가 유일한 방법. 후속 트랜잭션이 있으면 역순 반전부터</td></tr>
+<tr><td>대량 이관 도구</td><td class="wrap">수백 건 <code>AS100</code>(파일당 5,000개) / 대량 <code>BAPI_FIXEDASSET_OVRTAKE_CREATE</code>. <code>ABLDT</code>는 LSMW 레코딩 불가</td></tr>
+</tbody>
+</table>
+</div>
+
+<h3>반드시 지킬 것</h3>
+
+<div class="note warn">
+  <div class="t">이 코스에서 틀리면 되돌리기 어려운 것들</div>
+  <p>· <b>기술조정계정을 계정결정에 넣지 않는다.</b> 대차대조표계정이면서 고정자산용 조정계정으로만 만든다.<br>
+     · <b>세그먼트 리포팅은 켜기 전에 순서를 정한다.</b> 활성화 직후 자산 전기가 막힐 수 있고, <code>FAGL_ASSET_MASTERDATA_UPD</code>로 채워야 풀린다.<br>
+     · <b>감가상각런은 반드시 테스트런 먼저.</b> 잠긴 코스트센터 하나가 전체 런을 세운다.<br>
+     · <b>시간종속 감가상각조건을 쓴다.</b> 안 쓰면 파라미터 변경이 개방된 모든 연도를 재계산한다.<br>
+     · <b>투자지원 자산을 처분할 때 트랜잭션유형을 확인한다.</b> <code>201</code>이면 상환 없음, <code>200</code>이면 상환. 같은 해 청구분은 처분 전에 반전.<br>
+     · <b>레거시 이관 전에 후속 트랜잭션을 만들지 않는다.</b> 만들면 되돌릴 때 전부 역순으로 반전해야 한다.<br>
+     · <b>대량변경 워크플로우(<code>SWU3</code>)는 혼자 켜지 않는다.</b> 시스템 전역에 영향을 주는 결정이다.</p>
+</div>
+
+<div class="note warn">
+  <div class="t">확인 필요 — 실제 시스템(winerp01 / MEP)에서 확정할 것</div>
+  <p>이 노트는 SAP Learning Hub 강의 본문(S/4HANA 기준) 정리이고, 아래는 시스템·버전·릴리스별로 갈리므로 <span class="bad">단정하지 않고 실물에서 확인해야 합니다.</span></p>
+  <p>· 회사코드 <b>CL04</b>의 <b>원장 구성</b>과 회계원칙 정의 여부 — 원장이 여럿이면 병렬회계 설계가 자산클래스보다 먼저다<br>
+     · 사용 가능한 <b>샘플 상각표 키</b>(본문의 <code>0DE</code>/<code>Z000</code>은 SAP 교육용 예시) 및 감가상각영역 번호 체계<br>
+     · <b>Fiori 앱 제공 여부</b> — Manage Fixed Assets, Asset Balances, Asset History Sheet, Migration Cockpit은 릴리스·라이선스에 따라 없을 수 있다. 없으면 <code>AW01N</code>·<code>AR01</code> 등 GUI 트랜잭션으로 대체<br>
+     · <b>Enterprise Extension <code>EA-FIN</code></b> 활성 여부 (Depreciation Engine의 전제)<br>
+     · 트랜잭션 <code>ABLDT_OI</code> 존재 여부 (SAP Note 2294012 적용 이후에만)<br>
+     · 표준 핵심수치그룹(<code>ABS_DEF</code> · <code>AHS</code> 등)의 실제 제공 목록</p>
+</div>
+
+<h3>참고</h3>
+
+<ul>
+  <li>원본: 노션 <b>SAP Learning Hub</b> → Implementing Financial Accounting in SAP S/4HANA → <b>4-1 ~ 4-6</b> (Learning Hub 레슨 본문 22개를 크롬에서 직접 읽어 정리한 노트의 변환본. 다운로드 가능한 PDF 없음, 실습(Exercise/Demo) 단계는 원본에서 이미 생략됨)</li>
+  <li>앞 노트: <b>S4F12</b> FI 핵심 설정 · <b>S4F13</b> 추가 설정 · <b>S4F15</b> 결산마감 구성 — 특히 S4F15의 원장·결산 순서가 이 노트 LESSON 4의 전제다</li>
+  <li>이어지는 노트: <b>S4C03</b> S/4HANA Cloud Private Edition 구현 (SD 저니와 공유)</li>
+  <li>이 노트는 <span class="key">개인 학습·포트폴리오 목적</span>의 정리물이며, 실무 프로젝트 산출물이 아니다. 📌 블록의 "개인 E2E 프로젝트"는 가상 식품유통회사(회사코드 CL04)를 대상으로 한 개인 구축 프로젝트를 가리킨다</li>
+</ul>
+
+</div>
+
+</div>
+<script src="../../assets/hub.js" defer></script>
+</body>
+</html>

@@ -1,0 +1,1277 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>S42240 PP/DS 고급 생산계획 — 휴리스틱 · 페깅 · 상세스케줄링</title>
+<meta name="description" content="SAP Learning Hub의 Exploring Advanced Production Planning with PP/DS(S42240) 노트. embedded PP/DS 개요와 CIF 마스터데이터 통합, 알림모니터, 계획전략과 요구클래스 결정, 안전재고·로트사이징·휴리스틱·확산범위·페깅, 상세스케줄링과 계획보드, SBC, DS Optimizer와 PPO, MRP Live 연동.">
+<link rel="icon" href="../../assets/favicon.svg">
+<link rel="stylesheet" href="../../assets/notes-paper.css">
+<style>
+/* ── 이 노트 전용: 도해(SVG) 스타일 ─────────────────────────── */
+.dgm{display:block; width:100%; height:auto;}
+.dgm text{font-family:"Malgun Gothic","맑은 고딕","Apple SD Gothic Neo",sans-serif; fill:#1e1e1e;}
+.dgm .t-h{font-size:15px; font-weight:700;}
+.dgm .t{font-size:13px;}
+.dgm .t-s{font-size:11.5px; fill:#555;}
+.dgm .t-xs{font-size:10.5px; fill:#6B7280;}
+.dgm .m{font-family:"D2Coding","Consolas",monospace; font-size:12px;}
+.dgm .m-s{font-family:"D2Coding","Consolas",monospace; font-size:10.5px;}
+.dgm .c-key{fill:#4338CA;} .dgm .c-bad{fill:#B91C1C;} .dgm .c-ok{fill:#047857;}
+.dgm .b{fill:#FFFFFF; stroke:#C7CBD6; stroke-width:1.2;}
+.dgm .b-key{fill:#EEF0FB; stroke:#4338CA; stroke-width:1.4;}
+.dgm .b-bad{fill:#FEF2F2; stroke:#B91C1C; stroke-width:1.3;}
+.dgm .b-ok{fill:#ECFDF5; stroke:#047857; stroke-width:1.3;}
+.dgm .b-mut{fill:#F3F4F6; stroke:#D1D5DB; stroke-width:1.1;}
+.dgm .b-hl{fill:#FEF08A; stroke:#CA8A04; stroke-width:1.2;}
+.dgm .b-ghost{fill:none; stroke:#9AA3B2; stroke-width:1.1; stroke-dasharray:5 4;}
+.dgm .ln{stroke:#7C8697; stroke-width:1.4; fill:none;}
+.dgm .ln-key{stroke:#4338CA; stroke-width:1.8; fill:none;}
+.dgm .ln-bad{stroke:#B91C1C; stroke-width:1.6; fill:none;}
+.dgm .ln-ok{stroke:#047857; stroke-width:1.6; fill:none;}
+.dgm .ln-d{stroke:#9AA3B2; stroke-width:1.2; stroke-dasharray:4 4; fill:none;}
+.dgm .arw{fill:#7C8697;} .dgm .arw-key{fill:#4338CA;}
+.dgm .arw-bad{fill:#B91C1C;} .dgm .arw-ok{fill:#047857;}
+.figwrap{background:#FAFAFE; border:1px solid var(--rule); border-radius:6px;
+  padding:18px 16px 10px; margin:22px 0;}
+.figwrap figcaption{margin-top:12px; padding-top:10px; border-top:1px solid var(--rule);}
+</style>
+</head>
+<body>
+<div class="crumb"><a href="../../index.html">← 자료실 홈</a> · <a href="../../journey.html?j=pp">PP 저니</a> · S42240 PP/DS 고급 생산계획</div>
+<div class="sheet">
+
+<div class="doc-head">
+  <div class="kicker">LEARNING HUB · S42240</div>
+  <h1>PP/DS 고급 생산계획 — 휴리스틱 · 페깅 · 상세스케줄링</h1>
+  <div class="sub">
+    Learning Journey <b>Implementing Manufacturing in SAP S/4HANA Cloud Private Edition</b> · Course 9 / S42240 · 14 hr+ · 7 Unit · 24 레슨<br>
+    출처: 노션 <b>SAP Learning Hub</b> 노트 9-1 · 9-2 · 9-3 · 9-4 (Unit 1~7 전체) 변환 · PP 저니에서 가장 분량이 큰 코스
+  </div>
+</div>
+
+<div class="lead">
+  <p><b>결론부터.</b> PP/DS는 MRP의 상위 호환이 아니라 <span class="hl">"MRP가 못 보는 두 가지 — 능력과 시간"</span>을 보는 별도의 계획 엔진입니다. MRP는 무제한 능력을 전제로 <b>일(day)</b> 단위 소요량을 계산하지만, PP/DS는 자원의 실제 능력을 보면서 <b>시·분</b> 단위로 오퍼레이션을 자원에 꽂습니다. 그래서 병목자원에서 생산되는 critical 제품만 PP/DS로 계획하고, 나머지는 MRP Live에 남겨 두는 것이 표준 구도입니다.</p>
+  <p>이 코스는 그 엔진을 네 덩어리로 훑습니다 — ① 마스터데이터를 CIF로 넘겨 계획 무대를 만들고(Unit 1-2), ② 계획전략으로 무엇을 어떤 수요 기준으로 만들지 정하고(Unit 3), ③ 휴리스틱으로 수량과 일자를 뽑고(Unit 4), ④ 상세스케줄링과 최적화로 순서를 확정해(Unit 5-7) 다시 S/4HANA 생산오더로 돌려보냅니다. 용어가 많지만 축은 셋입니다 — <span class="key">유한계획이냐 무한계획이냐</span>, <span class="key">어떤 입고가 어떤 소요에 묶이느냐(페깅)</span>, <span class="key">규칙으로 풀 것이냐 비용으로 풀 것이냐(휴리스틱 vs 최적화)</span>.</p>
+</div>
+
+<div class="toc">
+  <h4>목차</h4>
+  <ol>
+    <li><a href="#l1">PP/DS 개요와 마스터데이터 — CIF · 모델/버전 · 알림모니터</a></li>
+    <li><a href="#l2">계획전략 — 제품뷰 · 수요계획 · 전략 20/40/50 · 요구클래스</a></li>
+    <li><a href="#l3">계획실행 — 안전재고 · 로트사이징 · 휴리스틱 · 확산범위 · 페깅</a></li>
+    <li><a href="#l4">상세스케줄링 · SBC · 최적화 · MRP Live 연동</a></li>
+    <li><a href="#lx">APPENDIX — 정리 · 반드시 기억할 것</a></li>
+  </ol>
+</div>
+
+
+<!-- ══════════ LESSON 1 ══════════ -->
+<div class="lesson" id="l1">
+<h2><span class="no">LESSON 1</span>PP/DS 개요와 마스터데이터 — CIF · 모델/버전 · 알림모니터</h2>
+
+<p><span class="tag">Unit 1-2</span><span class="tag">레슨 6개</span>S/4HANA Manufacturing 개관 · 공급망계획 · Advanced Planning(PP/DS) · 일반 마스터데이터 · PP/DS 통합 · 알림모니터</p>
+
+<h3>언제 이걸 알아야 하는가</h3>
+
+<p>PP/DS를 켠 현장에서 가장 먼저 올라오는 문의가 <b>"자재는 만들었는데 PP/DS 제품뷰에 안 보입니다"</b>입니다. 원인은 거의 항상 같은 자리에 있습니다 — 자재마스터에서 <span class="key">Advanced Planning</span>을 켜지 않았거나, 작업장·생산버전이 <b>자원·PDS로 넘어가지 않았거나</b>, 넘어간 마스터데이터가 <b>활성모델 000 / 계획버전 000</b>에 배정되지 않았거나.</p>
+
+<p>즉 PP/DS는 S/4HANA 마스터데이터를 그대로 쓰는 게 아니라 <span class="hl">자기 쪽 객체로 한 번 번역해서</span> 씁니다. 그 번역 통로가 CIF이고, 이 LESSON이 그 통로의 지도입니다.</p>
+
+<h3>PP/DS는 무엇을 하는 물건인가</h3>
+
+<p>PP/DS(Production Planning and Detailed Scheduling)는 이전 릴리스에서 <b>SAP APO의 일부</b>였으나 현재는 SAP S/4HANA에 완전히 통합되어 있습니다. 릴리스 1610에서 Extended Warehouse Management · Advanced ATP와 함께 S/4HANA에 포함되었고, 1709에서 SAP IBP가 계획 관점의 패밀리 멤버로 추가되었습니다.</p>
+
+<div class="note">
+  <div class="t">🔰 초보자 설명 — PP/DS · embedded PP/DS · ePP/DS</div>
+  <p>이 코스에서 <b>PP/DS · SAP S/4HANA PP/DS · embedded PP/DS · ePP/DS는 전부 같은 말</b>입니다. S/4HANA 안에 내장된 PP/DS 솔루션을 가리킵니다. 별도 시스템으로 돌리는 Standalone PP/DS와의 차이는 SAP Note <code>2372590</code>에 정리되어 있습니다.</p>
+</div>
+
+<p><b>목적.</b> 사내생산과 외부조달 양쪽에 대해, 생산플랜트에서 <span class="key">정확한 시간 단위의 유한계획(Finite Planning)</span>을 수행합니다. 그 결과로 계획오더(사내생산)와 구매요청/스케줄라인(외부조달)을 만들어 소요를 충당합니다.</p>
+
+<p><b>모든 자재를 PP/DS로 계획할 필요는 없습니다.</b> 일반적으로 병목자원(Bottleneck Resource)에서 생산되는 critical 제품은 PP/DS로, 소비기준 구매자재처럼 덜 critical한 자재는 MRP Live로 계획합니다.</p>
+
+<div class="note warn">
+  <div class="t">⚠️ Hint — 같은 자원에서 나오는 제품은 같이 계획한다</div>
+  <p>동일 자원에서 생산되는 제품은 <b>모두 PP/DS로 함께 계획</b>해야 실질적인 능력계획이 가능합니다. 일부만 PP/DS로 돌리면 그 자원의 부하가 반쪽만 보이므로 실무적인 능력계획을 달성하지 못합니다.</p>
+</div>
+
+<h3>PP/DS의 특징</h3>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>특징</th><th>설명</th></tr></thead>
+<tbody>
+<tr><td>정밀 시간계획</td><td class="wrap">종속소요를 포함해 <b>시(hour)·분(minute) 단위</b>로 정확한 시간 계획</td></tr>
+<tr><td>표준 휴리스틱</td><td class="wrap">양방향계획(Bidirectional Planning)을 위한 Bottom-up 휴리스틱 등 — 유연한 계획 프로세스 설계 지원</td></tr>
+<tr><td><span class="key">페깅(Pegging)</span></td><td class="wrap">자재가용성·능력가용성의 <b>다단계 뷰</b> 제공</td></tr>
+<tr><td>능력계획 강화 옵션</td><td class="wrap">유한자원 · 능력초과 제어 등</td></tr>
+<tr><td>최적화(Optimization)</td><td class="wrap">Detailed Scheduling 내에서 셋업시간·셋업비용·스케줄지연 최소화, 대체자원 선택 등 최적화 절차 수행</td></tr>
+<tr><td>동적 예외메시지</td><td class="wrap">알림(Alert)으로 계획 이상을 즉시 노출</td></tr>
+</tbody>
+</table>
+</div>
+
+<p><b>이점은 두 줄로 압축됩니다</b> — 오더 시퀀스 최적화를 통한 <span class="good">리드타임 단축</span>, 그리고 재고 절감과 납기신뢰성 향상의 <span class="good">동시 달성</span>.</p>
+
+<h4>양방향계획(Bidirectional Planning)</h4>
+
+<p>S/4HANA에서 구성부품 계획오더가 과거 시점에 시작된 경우, 계획은 순방향 스케줄링으로 전환되지만 <b>상위 완제품의 계획오더는 재스케줄링되지 않습니다.</b> 예를 들어 Bottom-up 휴리스틱을 사용하면 <span class="key">구성부품이 완료되기 전까지 완제품 계획오더가 시작되지 않도록</span> 보장할 수 있습니다.</p>
+
+<p>리소스마스터에서 자원을 <b>유한자원(Finite Resource)</b>으로 정의하면, 지정된 완료일까지 오더수량을 충당할 충분한 능력이 있을 때에만 그 자원에 오더 오퍼레이션이 생성됩니다. 능력이 부족하면 시스템이 능력상황을 고려해 새 일자를 탐색합니다. 시간이 지나며 최적이 아닌 오더 시퀀스가 쌓이면 <b>최적화 실행(Optimization Run)</b>으로 기존 오더의 시퀀스와 자원배정을 바꿉니다.</p>
+
+<h3>공급망계획의 일반 마스터데이터</h3>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>객체</th><th>내용</th></tr></thead>
+<tbody>
+<tr><td>로케이션</td><td class="wrap">플랜트 · 유통센터 · 벤더 · 고객. <b>S/4HANA에서 생성</b>한다. 생산플랜트에는 자재 외에 작업장 · BOM · 작업리스트(Task List)가 필요</td></tr>
+<tr><td>운송경로</td><td class="wrap">특수조달유형(Special Procurement Types)으로 로케이션 간 운송경로(Transportation Lane)를 정의 — 공급망을 따른 자재흐름을 결정</td></tr>
+<tr><td>공급관계</td><td class="wrap">벤더-플랜트 간은 <b>구매정보레코드</b> 또는 <b>아웃라인계약</b>으로 생성. 소스리스트 항목이 있어야 정보레코드가 MRP에 직접 영향을 준다. 쿼터배정으로 복수 공급원천 병행 가능</td></tr>
+<tr><td>고객 · 벤더</td><td class="wrap">S/4HANA에서는 <span class="key">비즈니스파트너(Business Partner)</span>로 저장</td></tr>
+<tr><td>자재</td><td class="wrap">전역데이터(치수·중량 등) + 로케이션별 데이터. 공급망계획의 핵심 설정은 <b>MRP뷰 1~4</b>(MRP유형 · 로트사이징절차 · 조달유형 · 사내생산시간/조달소요기간 · 안전재고)</td></tr>
+</tbody>
+</table>
+</div>
+
+<div class="note">
+  <div class="t">📖 참고 — 플랜트와 유통센터 구분은 없어졌다</div>
+  <p>과거 SAP ERP/ECC에서는 Customizing의 노드타입으로 플랜트와 유통센터를 구분했습니다(그래픽 프론트엔드 아이콘 표시에만 영향). <b>S/4HANA에서는 이 구분이 단순화되어 더 이상 존재하지 않습니다.</b></p>
+</div>
+
+<p>라우팅 쪽에서 재확인할 점 하나 — 라우팅에서 BOM 구성부품을 특정 오퍼레이션에 배정하면 <b>해당 오퍼레이션 시작시점에 조달이 계획</b>됩니다. 명시적으로 배정되지 않은 구성부품은 <span class="key">첫 오퍼레이션에 배정된 것으로 간주</span>됩니다. PRT(생산자원/공구)도 라우팅에서 배정할 수 있습니다.</p>
+
+<h3>PP/DS로의 마스터데이터 통합 — CIF</h3>
+
+<p>PP/DS 마스터데이터 객체는 S/4HANA 마스터데이터 객체와 <b>다릅니다.</b> 마스터데이터 전송(Master Data Transfer) 과정에서 S/4HANA PP 마스터데이터가 PP/DS의 계획 마스터데이터로 <span class="key">매핑</span>되고, S/4HANA에 대응물이 없는 PP/DS 마스터데이터는 PP/DS에서 직접 만듭니다.</p>
+
+<figure class="figwrap">
+<svg class="dgm" viewBox="0 0 1000 430" role="img" aria-label="PP/DS와 S/4HANA의 관계 도해. 자재는 제품으로, 작업장은 능력카테고리별 자원으로, 생산버전은 PDS로 CIF를 통해 번역되어 활성모델 000의 계획버전 000에 배정되고, 계획은 PP/DS에서 돌아 계획오더가 내부 CIF로 S/4HANA에 전송되어 S/4HANA 채번을 받은 뒤 전환지시자가 서면 생산오더가 된다.">
+  <defs>
+    <marker id="f1a" markerWidth="9" markerHeight="9" refX="7" refY="4.5" orient="auto">
+      <polygon class="arw" points="0,0 9,4.5 0,9"/></marker>
+    <marker id="f1k" markerWidth="9" markerHeight="9" refX="7" refY="4.5" orient="auto">
+      <polygon class="arw-key" points="0,0 9,4.5 0,9"/></marker>
+  </defs>
+
+  <text class="t-xs" x="12" y="24">SAP S/4HANA — 실행 · 마스터데이터 원천</text>
+  <text class="t-xs" x="568" y="24">SAP S/4HANA PP/DS (embedded) — 계획</text>
+  <rect class="b-ghost" x="12" y="34" width="420" height="250" rx="6"/>
+  <rect class="b-ghost" x="568" y="34" width="420" height="250" rx="6"/>
+
+  <rect class="b" x="32" y="60" width="380" height="46" rx="5"/>
+  <text class="t" x="48" y="80">자재마스터 (MRP 1~4뷰)</text>
+  <text class="t-xs" x="48" y="98">Advanced Planning 지시자를 켜야 넘어간다</text>
+
+  <rect class="b" x="32" y="118" width="380" height="46" rx="5"/>
+  <text class="t" x="48" y="138">작업장 + 능력카테고리</text>
+  <text class="t-xs" x="48" y="156">능력카테고리 하나당 자원 하나로 매핑</text>
+
+  <rect class="b" x="32" y="176" width="380" height="46" rx="5"/>
+  <text class="t" x="48" y="196">생산버전 (BOM + 라우팅)</text>
+  <text class="t-xs" x="48" y="214">CURTOADV_CREATE 로 PDS 생성</text>
+
+  <rect class="b" x="32" y="234" width="380" height="46" rx="5"/>
+  <text class="t" x="48" y="254">로케이션 · 정보레코드 · 계약</text>
+  <text class="t-xs" x="48" y="272">CIF 통합모델(Integration Model)이 필요</text>
+
+  <rect class="b-key" x="450" y="34" width="100" height="250" rx="6"/>
+  <text class="t-h c-key" x="500" y="140" text-anchor="middle">CIF</text>
+  <text class="t-xs" x="500" y="162" text-anchor="middle">코어인터페이스</text>
+  <text class="t-xs" x="500" y="180" text-anchor="middle">SCM Basis</text>
+  <text class="t-xs" x="500" y="204" text-anchor="middle">유지보수는</text>
+  <text class="t-xs" x="500" y="220" text-anchor="middle">훨씬 간편해짐</text>
+
+  <path class="ln-key" d="M412 83 H446" marker-end="url(#f1k)"/>
+  <path class="ln-key" d="M412 141 H446" marker-end="url(#f1k)"/>
+  <path class="ln-key" d="M412 199 H446" marker-end="url(#f1k)"/>
+  <path class="ln-key" d="M412 257 H446" marker-end="url(#f1k)"/>
+  <path class="ln-key" d="M552 83 H584" marker-end="url(#f1k)"/>
+  <path class="ln-key" d="M552 141 H584" marker-end="url(#f1k)"/>
+  <path class="ln-key" d="M552 199 H584" marker-end="url(#f1k)"/>
+  <path class="ln-key" d="M552 257 H584" marker-end="url(#f1k)"/>
+
+  <rect class="b-key" x="588" y="60" width="380" height="46" rx="5"/>
+  <text class="t c-key" x="604" y="80">로케이션제품 (Product)</text>
+  <text class="t-xs" x="604" y="98">계획절차 · 휴리스틱 · 로트사이즈를 여기서</text>
+
+  <rect class="b-key" x="588" y="118" width="380" height="46" rx="5"/>
+  <text class="t c-key" x="604" y="138">자원 (Resource)</text>
+  <text class="t-xs" x="604" y="156">W + 작업장 + * + 플랜트 + * + 능력카테고리</text>
+
+  <rect class="b-key" x="588" y="176" width="380" height="46" rx="5"/>
+  <text class="t c-key" x="604" y="196">PDS (생산데이터구조)</text>
+  <text class="t-xs" x="604" y="214">오퍼레이션 · 활동 · 구성부품 · 자원</text>
+
+  <rect class="b-hl" x="588" y="234" width="380" height="46" rx="5"/>
+  <text class="t" x="604" y="254">활성모델 000 / 계획버전 000</text>
+  <text class="t-xs" x="604" y="272">여기에 배정된 것만 실행시스템과 데이터 교환</text>
+
+  <text class="t-h" x="12" y="312">계획은 PP/DS에서 돌고, 결과는 다시 S/4HANA로 돌아온다</text>
+
+  <rect class="b-key" x="12" y="326" width="220" height="58" rx="6"/>
+  <text class="t c-key" x="28" y="348">① PP/DS 계획실행</text>
+  <text class="t-xs" x="28" y="368">휴리스틱 · 유한계획</text>
+  <path class="ln-key" d="M232 355 H258" marker-end="url(#f1k)"/>
+
+  <rect class="b" x="264" y="326" width="220" height="58" rx="6"/>
+  <text class="t" x="280" y="348">② PP/DS 계획오더</text>
+  <text class="t-xs" x="280" y="368">오퍼레이션 단위 생산일자 보유</text>
+  <path class="ln-key" d="M484 355 H510" marker-end="url(#f1k)"/>
+
+  <rect class="b" x="516" y="326" width="220" height="58" rx="6"/>
+  <text class="t" x="532" y="348">③ 내부 CIF 전송</text>
+  <text class="t-xs" x="532" y="368">S/4HANA 넘버레인지로 채번</text>
+  <path class="ln-key" d="M736 355 H762" marker-end="url(#f1k)"/>
+
+  <rect class="b-ok" x="768" y="326" width="220" height="58" rx="6"/>
+  <text class="t c-ok" x="784" y="348">④ 전환지시자 ON</text>
+  <text class="t-xs" x="784" y="368">→ S/4HANA 생산오더</text>
+
+  <text class="t-s" x="12" y="410">S/4HANA로 전송되지 않는 오더(시뮬레이션 계획버전 등)만 PP/DS 고유 오더번호를 그대로 유지한다.</text>
+</svg>
+<figcaption><span class="fno">그림 1</span>PP/DS와 S/4HANA의 관계. 마스터데이터는 CIF로 번역되어 들어가고, 계획 결과는 계획오더가 되어 실행시스템으로 되돌아온다.</figcaption>
+</figure>
+
+<div class="note">
+  <div class="t">📖 참고 — CIF는 왜 아직 있나</div>
+  <p>과거 SAP SCM 솔루션에서는 CIF가 <b>ERP 시스템(R/3 · R/3 Enterprise · S/4HANA)과 별도의 SCM 시스템</b> 사이에서 데이터를 교환했습니다(CIF는 SCM Basis의 일부). PP/DS가 S/4HANA에 내장된 지금도 <b>마스터데이터를 PP/DS로 통합하는 데는 CIF가 계속 사용</b>되며, 다만 유지보수는 훨씬 간편해졌습니다.</p>
+</div>
+
+<h4>제품 · 자원 · PDS</h4>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>S/4HANA</th><th>PP/DS로 넘어가면</th></tr></thead>
+<tbody>
+<tr><td>자재</td><td class="wrap">자재마스터에서 <span class="key">Advanced Planning</span>을 선택하면 <b>제품(Product)</b>으로 통합</td></tr>
+<tr><td>작업장</td><td class="wrap"><b>자원(Resource)</b>으로 통합. 각 <span class="key">능력카테고리마다 자원 하나</span>가 만들어지며, 명명규칙은 <code>W</code> + 작업장번호 + <code>*</code> + 플랜트번호 + <code>*</code> + 능력카테고리. 생산카테고리에서는 단일활동(Single-Activity) 또는 복수활동(Multi-Activity) 자원으로 전송</td></tr>
+<tr><td>생산버전</td><td class="wrap"><b>PDS(Production Data Structure)</b> 생성. 각 PDS는 하나 이상의 오퍼레이션을 갖고, 각 오퍼레이션은 하나 이상의 활동(Activity) · 소비 구성부품 · 순차 사용 자원을 포함. 전송은 트랜잭션 <code>CURTOADV_CREATE</code>(PP/DS 애드온)</td></tr>
+</tbody>
+</table>
+</div>
+
+<h4>모델(Model)과 버전(Version)</h4>
+
+<div class="step"><span class="n">1</span><p>하나의 <b>버전</b>은 하나의 <b>모델</b>에 고유하게 배정되며, 그 모델 마스터데이터의 트랜잭션데이터를 관리한다.</p></div>
+<div class="step"><span class="n">2</span><p><span class="key">활성모델 000의 계획버전 000</span>만이 실행시스템과 트랜잭션데이터를 교환한다. 나머지는 전부 시뮬레이션이다.</p></div>
+<div class="step"><span class="n">3</span><p>시뮬레이션 목적으로 모델에 추가 버전을 만들어 특정 마스터데이터와 전체 트랜잭션데이터를 바꿀 수 있다 — 예: 계획독립소요를 늘려 수요가 증가한 상황의 생산계획을 미리 본다.</p></div>
+<div class="step"><span class="n">4</span><p>모델·계획버전은 <b>버전관리(Version Management)</b>로 복사하거나 수동 생성한다. 서로 다른 모델의 계획버전이 같은 이름을 갖지 않도록 명확히 구분한다.</p></div>
+
+<p><b>계획방법(Planning Methods)</b> — Advanced Planning 지시자를 설정하면 MRP Live 계획실행 시 PP/DS에서 유지된 <span class="key">제품휴리스틱(Product Heuristic)</span>이 실행됩니다.</p>
+
+<h4>외부능력(External Capacities)</h4>
+
+<p>작업장 능력 설정은 <b>S/4HANA 쪽</b> 또는 <b>embedded PP/DS 쪽</b> 중 한 곳에서 유지합니다. 트랜잭션 <code>CFC9</code>에서 외부능력 사용 여부와 변경프로세스(자재·벤더·셋업그룹 등 독립 설정의 변경 반영 시점, 자원의 최초데이터전송·변경전송, 애플리케이션 종속 설정)를 정의합니다.</p>
+
+<p>외부능력 옵션을 선택하면 작업장 능력에 <b>"APO Resource"</b> 링크가 붙어 S/4HANA 화면에서 PP/DS 전용 작업장 설정을 유지할 수 있습니다. 선택하지 않으면 PP/DS의 애플리케이션별 마스터데이터에서 유지합니다.</p>
+
+<h3>알림모니터(Alert Monitor)</h3>
+
+<p>알림의 표시 여부는 <b>알림프로파일(Alert Profile)</b>에 정의된 컨텍스트에 따라 달라지며, 계획버전·모델에 따라서도 달라집니다. 알림은 알림모니터에 자동 표시되고, 관련 애플리케이션에서 드릴다운하면 PP/DS 알림객체에 접근할 수 있습니다.</p>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>구분</th><th>내용</th></tr></thead>
+<tbody>
+<tr><td>알림 유형</td><td class="wrap">정보(Information) · 경고(Warning) · <span class="bad">오류(Error)</span> 중 하나로 발행</td></tr>
+<tr><td>우선순위</td><td class="wrap">알림유형에 <b>자동으로 배정</b>되나 Customizing에서 레벨 2 또는 1로 변경 가능</td></tr>
+<tr><td>임계값</td><td class="wrap">알림프로파일에서 설정 — 예: <span class="key">능력초과 10% 초과 시 알림 생성</span></td></tr>
+<tr><td>계획버전 종속 여부</td><td class="wrap">능력초과 알림은 <b>특정 계획버전에 속하고</b>, 수요계획 알림은 계획버전에 배정되지 않는다. 둘 다 알림모니터에 표시된다</td></tr>
+</tbody>
+</table>
+</div>
+
+<h4>전체프로파일(Overall Profile)에 들어가는 것</h4>
+
+<ul>
+  <li>알림유형 선택</li>
+  <li>오브젝트선택 변형(Object Selection Variants)</li>
+  <li>우선순위 변형 — 핵심수치 기준으로 오류 / 경고 / 정보 / 무시를 가른다</li>
+  <li>사용자별 알림프로파일 — 제품뷰 · 제품계획테이블 · 상세스케줄링계획보드 · 공급망코크핏 등 애플리케이션별로 따로</li>
+</ul>
+
+<p>알림모니터에 직접 들어가면 <b>즐겨찾기로 배정했거나 대리인(Substitute)으로 지정된</b> 전체프로파일을 고를 수 있습니다. 알림모니터 프로파일에는 평가할 계획버전 · 기간(상대/절대) · 애플리케이션별 알림프로파일이 들어가고, <span class="key">선택변형</span>으로 표시할 오브젝트를 지정해 알림을 필터링합니다. 각 알림유형은 여러 애플리케이션에 배정될 수 있습니다.</p>
+
+<div class="note warn">
+  <div class="t">⚠️ Hint — 대리인(Substitute)</div>
+  <p>모든 사용자의 즐겨찾기에 대해 <b>(시간종속적) 대리인</b>을 지정할 수 있습니다. 대리인은 알림모니터에서 본인의 즐겨찾기와 대신하는 사용자의 즐겨찾기 중 선택합니다(<b>Adopt Substitute</b> 버튼).</p>
+</div>
+
+<p>SAP SCM Basis의 <b>알림통지엔진(Alert Notification Engine)</b>을 쓰면 PP/DS가 만든 알림을 워크플로로 자동 발송할 수 있습니다(SAP Web Application Server 6.20 기능). 통지유형은 통지프로파일과 알림통지프로파일로 정의하며, BAdI <code>/SAPAPO/AM_ALERTLIST</code>로 알림출력목록에 항목을 추가할 수 있습니다.</p>
+
+<div class="note ok">
+  <div class="t">📌 개인 E2E 프로젝트와의 연결점 — 알림은 알림까지만</div>
+  <p>알림모니터의 구조가 프로젝트의 <code>ZPRICE_CHECK</code>와 같은 발상입니다. 정보레코드가(<code>EINE-NETPR</code>)와 이동평균가(<code>MBEW-VERPR</code>)의 괴리를 잡되 <b>가격을 자동으로 고치지 않고 알림까지만</b> 내기로 한 판단 — PP/DS가 능력초과를 만나면 계획을 임의로 뒤집는 대신 <span class="key">임계값(예: 10% 초과)으로 알림을 띄우고 플래너에게 넘기는</span> 것과 같은 자리입니다.</p>
+  <p>차용할 구조도 둘입니다. ① <b>임계값을 코드가 아니라 프로파일에 둔다</b> — CBO에서도 괴리율 임계값은 상수가 아니라 커스터마이징 테이블 항목으로 두어야 운영에서 조정 가능합니다. ② <b>우선순위(정보/경고/오류)를 구분한다</b> — CBO 테이블의 상태필드(W/P/H)가 그 역할이며, 전부 같은 경고로 쏟아내면 아무도 보지 않게 됩니다.</p>
+</div>
+
+<div class="note warn">
+  <div class="t">확인 필요 — 알림모니터 진입 T-Code · Fiori 앱 ID</div>
+  <p>원문은 알림모니터의 구성요소와 프로파일 구조까지만 설명하고 <b>진입 트랜잭션이나 Fiori 앱 ID를 명시하지 않습니다.</b> 여기서는 기억에 있는 APO 계열 코드로 채우지 않습니다 — 실제 시스템(winerp01 / MEP)에서 확인한 뒤 보강합니다. <code>CFC9</code> · <code>CURTOADV_CREATE</code>는 원문에 명시된 코드입니다.</p>
+</div>
+
+</div>
+
+<!-- ══════════ LESSON 2 ══════════ -->
+<div class="lesson" id="l2">
+<h2><span class="no">LESSON 2</span>계획전략 — 제품뷰 · 수요계획 · 전략 20/40/50 · 요구클래스</h2>
+
+<p><span class="tag">Unit 3</span><span class="tag">레슨 6개</span>제품뷰 활용 · 수요계획의 원리 · SAP IBP · 계획전략 개요 · 전략 20/40/50 · 요구클래스 결정</p>
+
+<h3>언제 이걸 알아야 하는가</h3>
+
+<p><b>"자재마스터에 전략그룹을 넣었는데 PP/DS에서는 소비가 안 됩니다"</b> — 계획전략 관련 문의는 거의 전부 <span class="key">S/4HANA 쪽 계획전략과 PP/DS 쪽 요구전략이 서로 다른 객체</span>라는 사실에서 출발합니다. 표준전략은 둘의 매칭이 하드코딩되어 있어서 그냥 되지만, <b>커스텀 전략을 만든 순간</b> 두 영역에 각각 정의해 주지 않으면 소비가 죽습니다.</p>
+
+<p>그래서 이 LESSON은 두 갈래로 읽습니다 — ① 전략 자체(20 · 40 · 50)는 Course 8과 같은 내용이고, ② PP/DS 관점에서 새로 붙는 것은 <b>제품뷰 · 요구클래스 결정 순서 · 전략 매칭의 하드코딩</b>입니다.</p>
+
+<div class="note">
+  <div class="t">📖 이 LESSON의 범위</div>
+  <p>원문 자체가 "Unit 3의 상당 부분은 Course 8(<code>S42220</code>) 8-1에서 이미 다룬 전략 20/40/50과 사실상 동일하다"고 밝히고 있습니다. 여기서도 <b>중복 설명은 압축</b>하고, PP/DS 관점에서 달라지는 것과 신규 개념(제품뷰 · 수요계획 툴 · 요구클래스 결정 로직) 위주로 정리합니다.</p>
+</div>
+
+<h3>제품뷰(Product View)</h3>
+
+<p>제품뷰는 <b>특정 계획버전에서 특정 로케이션의 제품</b>에 대한 재고·입고·소요 현황을 보여주는 최신 개요 화면입니다. 화면을 호출하거나 <b>Refresh</b> 기능을 쓰면 최신 데이터가 표시됩니다. PP/DS에서 무슨 일이 벌어졌는지 확인하는 기본 화면이므로, 뒤에 나오는 페깅 구조 편집도 여기서 합니다.</p>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>구분</th><th>예시 MRP요소</th></tr></thead>
+<tbody>
+<tr><td>입고요소<br>(Receipt)</td><td class="wrap">계획오더 · 생산오더 · 구매요청 등</td></tr>
+<tr><td>소요요소<br>(Requirement)</td><td class="wrap">영업오더 · 계획독립소요 · 종속소요 등</td></tr>
+</tbody>
+</table>
+</div>
+
+<p><b>목표/원천(Target/Source) 컬럼</b>은 MRP요소 유형(오더카테고리)에 따라 다른 정보를 보여줍니다 — 구매오더면 공급업체, 영업오더면 고객, 재고이전오더(STO)면 재고가 이전되는 대상/원천 로케이션.</p>
+
+<h3>수요계획(Demand Planning)과 SAP IBP</h3>
+
+<p>예측(Forecasting)은 SAP SCM이나 SAP IBP 등 여러 툴에서 수행할 수 있고, 그 결과는 <span class="key">계획독립소요(PIR)</span>로 S/4HANA에 전달됩니다. 공급망계획은 여러 단계로 나뉘며 오늘날 그 단계들은 대체로 SAP IBP 컴포넌트가 담당합니다. 전통적인 SAP SCM 구성으로 보면 수요계획(DP) · 글로벌 ATP · 공급망계획(SNP) · PP/DS이고, S/4HANA와 PP/DS 사이의 통합은 (부분적으로) CIF입니다.</p>
+
+<div class="note">
+  <div class="t">📖 참고 — Flexible Planning · Standard SOP</div>
+  <p>SOP 관련 계획툴인 <b>Flexible Planning</b>과 <b>Standard SOP</b>는 S/4HANA에서 비전략적(non-strategic)이며 <b>SAP IBP 기능으로 대체</b>되고 있습니다(Course 8과 동일한 설명).</p>
+</div>
+
+<h4>SAP IBP for Demand</h4>
+
+<p>SAP IBP는 실시간 통합 공급망계획을 위한 <b>SAP HANA 기반 클라우드 계획툴</b>입니다. 영업/운영 · 수요 · 재고 · 공급/대응 계획을 통합하고, 대시보드 분석·모니터링을 위한 <b>공급망 컨트롤타워</b>를 제공합니다. 특징은 실시간 대시보드 · 고급 예측분석 · 대화형 시뮬레이션 · 임베디드 소셜협업 · Excel 연동 계획테이블이며, 수요계획을 위한 <span class="key">사이드바이사이드(Side-by-Side) 대안</span>으로 씁니다.</p>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>개념</th><th>내용</th></tr></thead>
+<tbody>
+<tr><td>계획레벨</td><td class="wrap">고객 · 지역 · 영업조직 등 원하는 레벨을 자유롭게 선택. 시스템의 <b>특성(Characteristics)</b>으로 정의하며, <b>특성값</b>이 집계·분해·평가의 대상 객체가 된다</td></tr>
+<tr><td>키피겨<br>(Key Figures)</td><td class="wrap">계획데이터가 저장되는 그릇. 수량 또는 금액을 나타내는 수치값 — 수량기준·금액기준 계획을 모두 만들 수 있다</td></tr>
+<tr><td>예측기법</td><td class="wrap">과거 데이터 유형(자재소비 · 수주수량 · 청구수량 · 매출)을 골라 예측. 변화가 적은 제품은 <b>정상모델</b>, 계절성 제품(아이스크림 · 부활절 사탕 · 크리스마스 조명)은 <b>계절모델</b>. 평활화 · 시간가중치 · 이상치 보정 옵션 제공</td></tr>
+</tbody>
+</table>
+</div>
+
+<p><b>프로세스 흐름은 한 줄입니다</b> — 과거 영업오더 수량이 미래 수요예측의 기초가 되고(무역박람회 같은 일회성 이벤트·시장정보도 반영), 그 예측이 <span class="key">PIR로 릴리스</span>되어 조달·생산계획의 기초가 되며, 현재 영업오더에 의해 소비됩니다.</p>
+
+<h3>계획전략 — S/4HANA와 PP/DS</h3>
+
+<p><b>순소요계산(Net Requirements Calculation)</b>은 특정 시점의 소요상황이 재고/입고상황을 초과할 때에만 조달이 필요하다고 판단하는 로직입니다. 어떤 소요가 소요상황에 포함되는지, 소요 간 상쇄관계가 있는지는 <span class="key">계획전략의 기본설정</span>이 결정합니다.</p>
+
+<div class="note warn">
+  <div class="t">⚠️ Hint — 순소요계산 ≠ 가용성체크</div>
+  <p>기술적으로 이 로직은 <b>가용성체크(Availability Check)와 다릅니다.</b> 여기서 말하는 것은 <b>MRP 실행 중에 수행되는 순소요계산</b>입니다. 둘을 섞어서 진단하면 원인을 못 찾습니다.</p>
+</div>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>계열</th><th>무엇을 지원하는가</th></tr></thead>
+<tbody>
+<tr><td>Make-to-Stock</td><td class="wrap">예측 기준으로 생산/구매한 뒤 <b>영업오더는 창고재고로 충당</b>. 수요·판매 변동이 있으나 생산가동률은 최대로 유지해야 하는 업종에서 사용 — 변동을 창고재고가 흡수한다</td></tr>
+<tr><td>Make-to-Order</td><td class="wrap">영업오더 수신 전까지 생산/구매를 시작하지 않는다. <span class="key">영업오더가 유일한 페깅소요(Pegged Requirement)</span>. 표준 방식 외에 최종조립 없는 계획 · 조립처리(Assembly Processing)도 가능</td></tr>
+<tr><td>조합형</td><td class="wrap">하위 조립품은 예측 기준으로 만들어 두고, 최종조립은 영업오더 수신 후 개시</td></tr>
+</tbody>
+</table>
+</div>
+
+<div class="note warn">
+  <div class="t">⚠️ Caution — 커스텀 전략을 쓰면 양쪽에 정의해야 한다</div>
+  <p>표준전략은 <b>S/4HANA 계획전략과 PP/DS 요구전략(Requirement Strategy)의 매칭이 하드코딩</b>되어 있습니다. 그러나 자체 커스텀 전략을 쓸 경우, <span class="bad">Production Planning 영역의 계획전략</span>과 <span class="bad">Advanced Planning 영역의 요구전략</span>을 Customizing에서 <b>동일한 기술키(Technical Key)</b>로 각각 정의해야 합니다. 한쪽만 만들면 소비가 동작하지 않습니다.</p>
+</div>
+
+<h4>전략 20 — 수주생산(Make-to-Order)</h4>
+
+<p>개별/집합소요 지시자(1 / 2 / 공란)와 펌프 P-100 · 샤프트 예시는 Course 8과 동일합니다. PP/DS 관점에서 재확인할 것은 <b>BOM 품목 데이터의 Explosion Type</b> 필드로 BOM별 개별제어가 가능하다는 점, 그리고 <span class="key">BOM에서 집합소요로 표시된 하위 자재는 자재마스터 설정과 무관하게 모두 집합소요로 계획된다</span>(상속)는 점입니다.</p>
+
+<h4>전략 50 — 최종조립 없는 계획</h4>
+
+<p>영업오더 수신 전에 조립품을 사전생산/조달하고, 완제품 계획오더는 <b>VP 오더유형</b>으로 두어 전환되지 않게 하는 구조입니다. 재고수준을 유연하게 옮길 수 있고 <b>Planning off Explosion Control</b> 지시자로 제어합니다(Course 8과 동일).</p>
+
+<div class="note">
+  <div class="t">📖 참고 (예시) — 전략 50에서 영업오더가 들어오면</div>
+  <p>계획독립소요 <b>100개</b>가 있는 상태에서 영업오더 <b>40개</b>를 받으면, 40개는 <span class="key">개별고객계획세그먼트</span>에 남고 예측세그먼트에는 PIR <b>60개</b>가 남습니다. 다음 계획실행에서 개별고객세그먼트에 40개짜리 계획오더가 생성되어 생산오더로 전환 가능해지고, 동시에 계획세그먼트의 기존 계획오더는 <b>100 → 60</b>으로 줄어듭니다.</p>
+</div>
+
+<h4>전략 40 — 최종조립을 포함한 계획</h4>
+
+<p>영업오더는 창고재고로 충당되고, 영업오더 수신 전에 조달수량을 계획(PIR)할 수 있습니다. <b>적용 상황</b>은 자재를 특정 영업오더별로 별도 저장·배정할 필요가 없을 때, 원가를 영업오더 단위가 아니라 <span class="key">자재 단위</span>로 파악해야 할 때입니다. 품질검사를 통과한 반품이나 비계획 입고를 다른 영업오더에 쓸 수 있다는 것도 MTS의 이점입니다.</p>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>단계</th><th>내용</th></tr></thead>
+<tbody>
+<tr><td>1</td><td class="wrap">계획독립소요 생성</td></tr>
+<tr><td>2</td><td class="wrap">조달</td></tr>
+<tr><td>3</td><td class="wrap">영업오더 수신</td></tr>
+<tr><td>4</td><td class="wrap">인도를 위한 재고출고 및 <b>계획독립소요 감소</b></td></tr>
+</tbody>
+</table>
+</div>
+
+<p>마스터데이터(전략그룹 40 · MRP3 뷰) · 소비모드(1/2/3/4) · 소비기간 기본값(999일 역방향)은 Course 8과 동일합니다.</p>
+
+<div class="note warn">
+  <div class="t">⚠️ Hint — 전략그룹이 MRP그룹을 이긴다</div>
+  <p>자재마스터에서 <b>전략그룹으로 직접 결정되는 소비값</b>과 <b>MRP그룹을 통해 간접 결정되는 소비값</b>이 모두 있을 때는 <span class="key">전략그룹의 값이 우선</span> 적용됩니다.</p>
+</div>
+
+<h3>계획전략과 요구클래스의 결정</h3>
+
+<p>계획전략은 세 가지를 결정합니다 — ① 생산프로그램이 <b>영업오더 기준</b>인지 <b>예측치 기준</b>인지, ② 제품의 재고수준(완제품을 저장할지, 조립품 레벨에 세워 두고 Assemble-to-Order로 갈지), ③ 고객소요가 계획독립소요를 <b>어떻게 소비</b>하는지.</p>
+
+<figure class="figwrap">
+<svg class="dgm" viewBox="0 0 1000 300" role="img" aria-label="요구클래스 결정 순서 도해. 전략그룹이 없으면 MRP그룹으로, MRP그룹도 없으면 자재유형을 MRP그룹 대신 사용해 전략을 결정하고, 전략이 요구유형을, 요구유형이 실제 제어파라미터를 담은 요구클래스를 결정한다. 영업오더 품목카테고리와 자재 MRP유형의 조합으로도 요구유형이 결정될 수 있다.">
+  <defs>
+    <marker id="f4k" markerWidth="9" markerHeight="9" refX="7" refY="4.5" orient="auto">
+      <polygon class="arw-key" points="0,0 9,4.5 0,9"/></marker>
+    <marker id="f4d" markerWidth="9" markerHeight="9" refX="7" refY="4.5" orient="auto">
+      <polygon class="arw" points="0,0 9,4.5 0,9"/></marker>
+  </defs>
+
+  <text class="t-h" x="12" y="26">① 무엇으로 전략을 결정하는가 — 위에서부터 내려온다</text>
+
+  <rect class="b-key" x="12" y="42" width="210" height="58" rx="6"/>
+  <text class="t c-key" x="28" y="64">자재마스터 전략그룹</text>
+  <text class="t-xs" x="28" y="84">1순위</text>
+  <text class="t-xs" x="228" y="66">없으면</text>
+  <path class="ln" d="M222 80 H258" marker-end="url(#f4d)"/>
+
+  <rect class="b" x="262" y="42" width="210" height="58" rx="6"/>
+  <text class="t" x="278" y="64">MRP그룹</text>
+  <text class="t-xs" x="278" y="84">2순위</text>
+  <text class="t-xs" x="478" y="66">없으면</text>
+  <path class="ln" d="M472 80 H508" marker-end="url(#f4d)"/>
+
+  <rect class="b" x="512" y="42" width="210" height="58" rx="6"/>
+  <text class="t" x="528" y="64">자재유형</text>
+  <text class="t-xs" x="528" y="84">MRP그룹 대신 사용</text>
+  <path class="ln-key" d="M722 71 H758" marker-end="url(#f4k)"/>
+
+  <rect class="b-hl" x="762" y="42" width="226" height="58" rx="6"/>
+  <text class="t" x="778" y="64">계획전략 결정</text>
+  <text class="t-xs" x="778" y="84">Customizing의 전략 목록</text>
+
+  <path class="ln-key" d="M875 100 V138 H387 V166" marker-end="url(#f4k)"/>
+
+  <text class="t-h" x="12" y="158">② 전략에서 요구클래스까지</text>
+
+  <rect class="b-ghost" x="12" y="170" width="230" height="58" rx="6"/>
+  <text class="t-s" x="28" y="192">영업오더 품목카테고리</text>
+  <text class="t-s" x="28" y="212">+ 자재 MRP유형 조합</text>
+  <path class="ln-d" d="M242 199 H276" marker-end="url(#f4d)"/>
+
+  <rect class="b-key" x="280" y="170" width="210" height="58" rx="6"/>
+  <text class="t c-key" x="296" y="192">요구유형</text>
+  <text class="t-xs" x="296" y="212">Requirement Type</text>
+  <path class="ln-key" d="M490 199 H524" marker-end="url(#f4k)"/>
+
+  <rect class="b-key" x="528" y="170" width="210" height="58" rx="6"/>
+  <text class="t c-key" x="544" y="192">요구클래스</text>
+  <text class="t-xs" x="544" y="212">Requirement Class</text>
+  <path class="ln-key" d="M738 199 H762" marker-end="url(#f4k)"/>
+
+  <rect class="b-ok" x="766" y="170" width="222" height="58" rx="6"/>
+  <text class="t c-ok" x="782" y="192">실제 제어파라미터</text>
+  <text class="t-xs" x="782" y="212">가용성체크 · 소요전달 여부</text>
+
+  <rect class="b-ghost" x="12" y="244" width="976" height="48" rx="6"/>
+  <text class="t-s" x="32" y="266">결정순서 자체는 하드코딩이지만 SD Customizing으로 영향을 줄 수 있다. 표준전략은 PP/DS 요구전략과의 매칭도 하드코딩.</text>
+  <text class="t-s" x="32" y="284">커스텀 전략을 쓰면 Production Planning과 Advanced Planning 양쪽에 같은 기술키로 정의해야 한다.</text>
+</svg>
+<figcaption><span class="fno">그림 2</span>요구클래스 결정 순서. 전략그룹 → MRP그룹 → 자재유형으로 내려가며 전략을 찾고, 전략이 요구유형을, 요구유형이 요구클래스를 결정한다.</figcaption>
+</figure>
+
+<div class="step"><span class="n">1</span><p>자재에 배정 가능한 계획전략은 Customizing에 나열되며, <b>전략그룹(Strategy Group)</b>을 통해 자재에 배정한다.</p></div>
+<div class="step"><span class="n">2</span><p>전략그룹이 유지되지 않으면 <b>MRP그룹</b>으로 결정하고, MRP그룹도 정의되지 않으면 <b>자재유형을 MRP그룹 대신</b> 사용해 전략그룹을 결정한다.</p></div>
+<div class="step"><span class="n">3</span><p>전략을 통해 <b>요구유형(Requirement Type)</b>이 결정된다 — 고객소요의 요구유형 포함.</p></div>
+<div class="step"><span class="n">4</span><p>고객소요의 요구유형을 통해 <b>요구클래스(Requirement Class)</b>가 결정된다. 가용성체크·소요전달(Transfer of Requirements) 실행 여부는 요구클래스가 정의한다.</p></div>
+<div class="step"><span class="n">5</span><p>별도 경로로 <b>영업오더 품목카테고리 + 자재의 MRP유형</b> 조합으로도 요구유형을 결정할 수 있다. 결정순서는 하드코딩이나 SD Customizing으로 영향을 줄 수 있다.</p></div>
+
+<div class="note warn">
+  <div class="t">확인 필요 — 전략그룹 · 소비 파라미터의 실제 필드값</div>
+  <p>원문은 전략 <b>20 / 40 / 50</b>의 번호와 전략그룹 개념까지만 제시하고, 자재마스터의 필드명(<code>MARC-STRGR</code> 등)이나 소비모드·소비기간 필드는 직접 명시하지 않습니다. 필드 레벨 확정은 <span class="bad">실제 시스템(winerp01 / MEP)</span>에서 하고, 여기서 외운 값으로 단정하지 않습니다.</p>
+</div>
+
+</div>
+
+<!-- ══════════ LESSON 3 ══════════ -->
+<div class="lesson" id="l3">
+<h2><span class="no">LESSON 3</span>계획실행 — 안전재고 · 로트사이징 · 휴리스틱 · 확산범위 · 페깅</h2>
+
+<p><span class="tag">Unit 4</span><span class="tag">레슨 6개</span>전제조건·기본설정 · 안전재고 · 로트사이즈 결정 · 휴리스틱 · 계획실행 · 샵플로어 통합(확정 · 페깅 · 셋업매트릭스)</p>
+
+<h3>언제 이걸 알아야 하는가</h3>
+
+<p><b>"PP/DS 계획실행을 돌렸는데 이 제품만 계획이 안 잡힙니다"</b> — PP/DS에서 계획이 안 도는 이유는 MRP보다 훨씬 다양합니다. Main Switch가 꺼져 있거나, 제품마스터의 <span class="key">계획절차</span>가 수동계획이거나, <span class="key">확산범위(Propagation Range)</span> 밖의 제품이거나, PDS에 순환구조가 있어 실행이 종료(Terminate)됐거나, 저수준코드가 낡아서 순서가 꼬였거나.</p>
+
+<p>이 LESSON은 그 체크리스트 전체입니다. 그리고 PP/DS의 진짜 특징인 <b>페깅</b>이 여기서 나옵니다 — "이 입고가 어느 소요를 위한 것인가"를 시스템이 기억하는 장치입니다.</p>
+
+<h3>전제조건과 기본설정</h3>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>항목</th><th>내용</th></tr></thead>
+<tbody>
+<tr><td>공급망모델</td><td class="wrap">벤더에서 고객까지 생산·유통 로케이션을 거치는 전체 공급망. <b>로케이션 · 운송경로 · 제품 · 자원 · PDS의 그룹</b>. S/4HANA 마스터데이터는 전송 시 <span class="key">자동으로 활성모델 000에 배정</span>되지만, PP/DS에서 수동 생성한 마스터데이터는 <b>명시적으로 배정</b>해야 한다</td></tr>
+<tr><td>계획버전</td><td class="wrap">모델에 고유하게 배정. <b>활성모델 000의 계획버전 000</b>만 실행시스템과 트랜잭션데이터를 교환한다. 나머지는 시뮬레이션용</td></tr>
+<tr><td>오더 채번</td><td class="wrap">PP/DS 오더는 (선택적으로) 내부 넘버레인지로 채번되고, 내부 CIF로 S/4HANA에 전송되면 <b>S/4HANA 넘버레인지 기준 번호</b>를 받아 그 번호가 PP/DS로 되돌아온다. 전송되지 않는 오더만 PP/DS 고유번호를 유지</td></tr>
+<tr><td>전략프로파일</td><td class="wrap">Advanced Planning의 전역설정에서 정의해 <b>Global Parameter and Defaults</b>에 배정. 무한계획 여부, 역방향+반전(reverse) 계획방향 등 상세스케줄링을 제어. <span class="key">대화형계획 · 계획실행 · S/4HANA 전송오더용</span>을 각각 유지</td></tr>
+<tr><td>PP 계획절차</td><td class="wrap">Customizing에서 정의해 <b>제품마스터에 배정</b>. 제품이 어떻게 계획될지를 결정하며, 권장 기본값은 <span class="key">Planning in Planning Run</span>(절차 4)</td></tr>
+</tbody>
+</table>
+</div>
+
+<div class="note warn">
+  <div class="t">⚠️ Caution — Main Switch</div>
+  <p>PP/DS를 쓰려면 <b>SAP S/4HANA Customizing에서 "Main Switch"를 활성화</b>해야 합니다. 이게 꺼져 있으면 그 아래 모든 설정이 무의미합니다.</p>
+</div>
+
+<div class="note">
+  <div class="t">📖 참고 — 수동계획 제품도 계획실행 대상이다</div>
+  <p>Planning in Planning Run이 아닌 <b>수동계획(절차 1·2)</b> 제품도 계획파일항목(Planning File Entry) 생성이 허용되므로 생산계획실행 대상에 포함됩니다. 결과적으로 제품마스터에서 <b>"Procurement planning: external"</b> 상태가 아닌 모든 제품은 생산계획실행으로 계획할 수 있습니다.</p>
+</div>
+
+<h4>요구클래스와 PP/DS — 수동으로 맞춰야 한다</h4>
+
+<p>S/4HANA의 소비제어는 요구클래스가 담당하지만, <span class="bad">PP/DS는 요구클래스를 제어파라미터로 인식하지 않습니다.</span> 과거 SAP/ECC에서는 요구클래스가 체크모드로 APO에 전달되었으나 지금은 그렇지 않습니다. 따라서 <b>배정모드(Assignment Mode)를 포함하는 모든 요구클래스는 S/4HANA PP/DS Customizing에 수동으로 유지</b>해야 하며, <span class="key">동일한 기술키로 생성</span>해야 소비가 정상 동작합니다(일부 표준 요구클래스의 매칭만 하드코딩).</p>
+
+<h3>안전재고(Safety Stock)</h3>
+
+<div class="note">
+  <div class="t">📖 참고 — 릴리스 2023이 분기점</div>
+  <p>SAP S/4HANA 릴리스 <b>2023 이전</b>에는 S/4HANA와 PP/DS의 안전재고 처리 방식이 서로 <b>달랐습니다.</b> 2022까지 PP/DS는 서비스휴리스틱 <code>SAP_PP_018</code>("Generation of Safety Stock in LC")로 동적 산출했고, 2023부터 안전재고계획 기능이 향상되어 PP/DS에도 반영되었습니다(<span class="key">SAP Fiori 환경 전용</span>).</p>
+</div>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>S/4HANA MRP2 뷰</th><th>내용</th></tr></thead>
+<tbody>
+<tr><td>정적안전재고<br>(SB)</td><td class="wrap">시간에 따라 변하지 않는 고정 안전재고 수량. 계획 관점에서 <b>항상 추가소요로 취급되며 가장 시급</b>하다</td></tr>
+<tr><td>최소안전재고</td><td class="wrap">절대 하회해서는 안 되는 안전재고 <b>하한선</b></td></tr>
+<tr><td>안전시간</td><td class="wrap">MRP상 소요일자를 지정 <b>작업일수만큼 앞당긴다</b>. Range of Coverage Profile로 동적 안전재고를 통계적으로 산출</td></tr>
+</tbody>
+</table>
+</div>
+
+<p>릴리스 2023부터는 <b>MRP2 뷰의 설정을 보고 시스템이 PP/DS 안전재고방법을 자동 결정</b>합니다.</p>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>MRP2 뷰 설정</th><th>PP/DS 안전재고방법</th></tr></thead>
+<tbody>
+<tr><td class="wrap">안전재고 + 안전시간 모두 설정<br>(또는 안전재고만 설정, 안전시간 초기값)</td><td class="wrap"><b>SB</b> — Safety Stock from Location Product</td></tr>
+<tr><td class="wrap">안전재고 초기값, 안전시간만 설정</td><td class="wrap"><b>SZ</b> — Safety Days' Supply from Location Product</td></tr>
+</tbody>
+</table>
+</div>
+
+<div class="note warn">
+  <div class="t">⚠️ Hint — 자동결정을 켜면 편집이 잠긴다</div>
+  <p><b>"Safety Stock Method – Automatic Determination"</b> 파라미터가 활성화되어 있으면 전송된 SFT 방법은 <span class="bad">편집 불가</span>입니다. 이 파라미터를 해제하면 이후 다시 편집할 수 있습니다. <b>시간종속(Time-dependent) 방법</b>을 선택하면 해당 자재는 <b>Maintain Time-Dependent Stock Levels</b> 앱에 표시됩니다.</p>
+</div>
+
+<h3>로트사이즈 결정(Lot-Size Determination)</h3>
+
+<p>조달계획 휴리스틱의 데이터는 원칙적으로 <b>로케이션제품마스터</b>에서 가져옵니다(예외: <code>SAP_PP_004</code> 등 일부 휴리스틱). 다만 휴리스틱의 <b>Lot Size 탭</b>에서 "Use Lot-Size Settings from Heuristic" 옵션을 켜면 로트사이즈를 휴리스틱 설정에서 가져옵니다. <span class="key">단, 잔여 로트사이즈나 안전재고 계획 파라미터 같은 특수 파라미터는 이 옵션을 켜도 여전히 로케이션제품마스터에서 읽습니다.</span></p>
+
+<h4>정적 로트사이징</h4>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>절차</th><th>설명</th></tr></thead>
+<tbody>
+<tr><td>Lot-for-Lot</td><td class="wrap">부족분만큼 오더제안 생성. 하루 중 여러 소요가 있으면 <b>분 단위까지 정확한 시간으로 개별 생성</b>된다. 하루치 부족량을 한 번에 묶으려면 <span class="key">일일로트(Daily Lot Size)</span>를 쓴다</td></tr>
+<tr><td>고정로트</td><td class="wrap">부족 발생 시 제품마스터의 고정로트 수량 사용. 한 번으로 부족분을 못 채우면 <b>동일 시점에 복수 로트</b>를 스케줄링</td></tr>
+<tr><td class="wrap">최대재고수준 보충</td><td class="wrap">제품마스터의 최대재고수준까지 채운다(하루 부족량이 최대재고수준보다 크면 부족량만큼). PP/DS에서는 <span class="key">휴리스틱 <code>SAP_PP_007</code>(재주문점계획)과만 결합</span> 가능</td></tr>
+</tbody>
+</table>
+</div>
+
+<div class="note">
+  <div class="t">📖 참고 — Lot Size Always</div>
+  <p>PP/DS 제품마스터의 <b>"Lot Size Always"</b> 지시자를 켜면 Make-to-Order 계획에서도 제품마스터의 로트사이징 절차가 항상 적용됩니다. 켜지 않으면 MTO·개별프로젝트계획에서는 <span class="key">항상 Lot-for-Lot</span>이 되고 최소/최대 로트사이즈·라운딩값 같은 제약은 <b>무시</b>됩니다. 이 지시자도 CIF로 전송됩니다.</p>
+</div>
+
+<h4>기간별 로트사이징 · 라운딩</h4>
+
+<ul>
+  <li><b>기간별 로트사이징</b> — 시/일/주/월/사용자정의 기간 내 소요수량을 하나의 로트로 묶는다. 그룹화 기간 수는 S/4HANA Customizing <b>"Check Lot-Sizing Procedure"</b> 단계에서 지정하며 PP/DS 제품마스터로 전송된다. 결과 입고는 <b>기간 시작 · 기간 종료 · 첫 소요일</b> 중 하나에 배치할 수 있다</li>
+  <li><b>라운딩</b> — 최소로트(하회 불가) · 최대로트(초과 불가) · 라운딩값(이 값의 배수로 반올림)을 제품마스터에서 설정. 설정값은 CIF로 전송되지만 <span class="bad">라운딩 프로파일 자체는 전송되지 않으므로</span> PP/DS에서 별도로 만들어야 한다</li>
+</ul>
+
+<h4>최적화 로트사이징</h4>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>휴리스틱</th><th>설명</th></tr></thead>
+<tbody>
+<tr><td>Part Period Balancing<br><code>SAP_PP_005</code></td><td class="wrap">제품 부족일부터 순차적으로 소요를 묶되, <b>총 보관비용이 셋업비용을 초과하기 전까지만</b> 묶는다. Groff절차(<code>SAP_PP_013</code>)도 동일 방식</td></tr>
+<tr><td>Least Unit Cost<br><code>SAP_PP_006</code></td><td class="wrap">외부조달용. 공급업체별 <b>납기·할인단계</b>를 고려해 단위당비용을 산출하고 보관비용도 함께 반영해 오더수량을 최적화</td></tr>
+</tbody>
+</table>
+</div>
+
+<p>발주비용과 보관비용의 <b>총 조달비용을 최소화</b>하려는 절차들입니다.</p>
+
+<h4>재주문점계획 휴리스틱</h4>
+
+<p>소비기준계획 절차로, <b>저가 대량생산 B/C 품목</b>에 주로 씁니다(S/4HANA에서만 계획하고 PP/DS로 보내지 않는 경우가 많습니다). S/4HANA 자재마스터의 재주문점·최대재고수준을 PP/DS 제품마스터로 전송하고 해당 휴리스틱을 배정하면 PP/DS에서도 사용할 수 있습니다. 재고가 재주문점(예: 1000개) 이하로 떨어지면 <span class="key">순방향 스케줄링으로 오늘 날짜부터</span> 지정수량만큼 조달을 트리거하며, <b>이미 고정입고(고정 구매요청·계획오더)가 충분하면 트리거되지 않습니다.</b></p>
+
+<h3>휴리스틱(Heuristics)</h3>
+
+<p>휴리스틱은 <b>특정 알고리즘</b>으로 정의되며, 필요하면 추가 제어파라미터로 프로세스를 조정합니다. 표준 SAP 알고리즘으로 자체 휴리스틱을 정의하거나, PP/DS에 통합한 <span class="key">사용자 프로그래밍 알고리즘</span>을 쓸 수도 있습니다.</p>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>그룹</th><th>설명</th></tr></thead>
+<tbody>
+<tr><td>제품휴리스틱</td><td class="wrap"><b>제품마스터에 입력</b>해 계획실행 시 해당 제품의 계획에 영향을 준다</td></tr>
+<tr><td class="wrap">프로세스제어휴리스틱</td><td class="wrap"><b>생산계획실행 초기화면에서 지정</b>해 계획실행 순서를 정의. 예: 저수준코드 기준 구성부품 포함 제품계획 = S/4HANA MRP와 같은 방식의 계획실행</td></tr>
+<tr><td>서비스휴리스틱</td><td class="wrap">생산계획실행에서 지정해 <b>개별 기능</b>을 수행</td></tr>
+</tbody>
+</table>
+</div>
+
+<p>같은 제품에 대해 생산계획·상세스케줄링에 속하는 여러 휴리스틱을 <b>한 계획실행에서 순차 실행</b>할 수 있습니다 — 초기화면에 입력한 순서대로 돕니다.</p>
+
+<h4>MRP 휴리스틱</h4>
+
+<p>프로세스제어용 휴리스틱(<code>SAP_MRP_001</code> 또는 <code>SAP_MRP_002</code>)은 생산계획실행 초기화면에서 지정합니다. <b>Product Planning (Components According To Low-Level Code)</b>(<code>SAP_MRP_001</code>)를 쓰면 제품은 항상 <span class="key">저수준코드 순서</span>로 계획됩니다.</p>
+
+<ul>
+  <li>구성부품의 계획오더가 종속소요보다 <b>늦게</b> 생성되면 알림(Alert)이 부여되지만, <span class="bad">이 지연은 상위로 전파되지 않는다</span> — 완제품 A의 계획오더는 예정대로 유지된다</li>
+  <li>처리 속도가 매우 빨라 <b>대량 적용에 적합</b></li>
+  <li><b>"Manually with check"</b>로 계획된 구성부품에는 가용성체크가 수행되지 않는다</li>
+</ul>
+
+<h4>주요 서비스휴리스틱</h4>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>휴리스틱</th><th>기능</th></tr></thead>
+<tbody>
+<tr><td><code>SAP_PP_015</code></td><td class="wrap">Ascertaining and Adjusting Requirements — 계획독립소요를 영업오더 수량에 맞춰 조정. <span class="key">전략20에서 영업오더가 없는 부분수량을 생산해 버리는 것을 방지</span>하는 데 유용</td></tr>
+<tr><td><code>SAP_PP_014</code></td><td class="wrap">Ascertaining Pl. Ind. Requirements — 미해결 계획독립소요를 평가해 고객에게 발주를 요청하는 데 활용</td></tr>
+<tr><td>Schedule Sequence</td><td class="wrap">선택된 오퍼레이션을 <b>지정 순서대로</b> 재스케줄링</td></tr>
+<tr><td>Dissolve Backlog</td><td class="wrap">과거로 밀린 오퍼레이션을 현재일/미래로 재스케줄링(오프셋 시간 설정 가능)</td></tr>
+<tr><td class="wrap">Schedule Sequence Manually</td><td class="wrap">DS계획보드에서 그래픽 인터페이스로 순서를 수동 지정한 뒤 재스케줄링</td></tr>
+<tr><td>Minimize Lead Time</td><td class="wrap">선택자원의 오퍼레이션을 고정하고 <b>오더 내 오퍼레이션 간 시간간격을 최소화</b></td></tr>
+<tr><td class="wrap">Schedule Deallocated Op.</td><td class="wrap">할당 해제된 오퍼레이션 재스케줄링</td></tr>
+<tr><td class="wrap">Stable Forward Scheduling</td><td class="wrap">백로그 해소 · 능력초과 해소 · <b>순서를 유지하며</b> 다단계 제품 조정. 대규모 데이터의 백그라운드 계획실행에도 적합</td></tr>
+</tbody>
+</table>
+</div>
+
+<p><b>Stable Forward Scheduling</b>의 성질을 한 줄씩 보면 — 백로그 오퍼레이션을 미래로 이동, 능력초과 해소, <span class="key">오더 순서는 변경하지 않음</span>, 자원의 오퍼레이션은 미래로 이동 가능, 자원 활용률은 유지, 관계·페깅 고려, 그리고 <span class="bad">고객 희망일자는 위반될 수 있음</span>.</p>
+
+<div class="note">
+  <div class="t">📖 참고 — 표준적인 계획 실행 순서 예시</div>
+  <p>원문이 제시하는 조합입니다. ① 저수준코드 산정을 위한 <b>단계번호부여 알고리즘</b>을 주기적으로(계획실행 시작 시 또는 주간 스케줄로) 실행 → ② <code>SAP_MRP_001</code>로 <b>무한계획</b> 일반 MRP 수행 → ③ 다단계 최적화를 위해 <b>고정페깅 생성 휴리스틱</b>으로 소요·소요충당요소를 다단계로 연결 → ④ <b>최적화기</b>로 능력계획(셋업시간·스케줄지연 고려 시퀀싱 동시 수행) → ⑤ 최적화 종료 후 <b>고정페깅 유틸리티 엣지를 다시 제거</b>. 단계별 테스트 검증을 권장합니다.</p>
+</div>
+
+<h3>계획실행(Planning Run)</h3>
+
+<p>계획절차 4(Planning in Planning Run)를 선택한 제품은 <b>계획관련 변경이 생길 때마다 계획파일항목이 생성</b>되고, 다음 계획실행에서 제품마스터에 지정된 휴리스틱(없으면 계획절차의 Customizing 휴리스틱)으로 계획됩니다. 종속소요가 발생하면 계획절차 4인 구성부품에도 계획파일항목이 생깁니다.</p>
+
+<div class="note">
+  <div class="t">📖 참고 — 계획절차 3은 아직 없다 (이 시점 기준)</div>
+  <p>Planning in Planning Run은 자동계획 대비 <b>성능 부담이 적어</b> 다수 제품을 계획할 때 유용한 PP/DS 표준 설정입니다. 과거 계획절차 3(ATP체크에서 즉시 생산트리거, <b>CTP 시나리오</b>)은 이 레슨 시점의 설명 기준으로 S/4HANA에서 아직 지원되지 않습니다. <span class="key">단, LESSON 4의 SBC(릴리스 2022~)가 그 후속기능으로 계획절차 3과 연동됩니다</span> — 원문 안에서 시점이 갈리는 대목이므로 릴리스를 같이 봐야 합니다.</p>
+</div>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>실행방식</th><th>내용</th></tr></thead>
+<tbody>
+<tr><td class="wrap">대화형 개별품목계획</td><td class="wrap">단일 제품</td></tr>
+<tr><td>총계획 — 온라인</td><td class="wrap">즉시 실행. 소량 데이터에 적합하나 <span class="bad">대화형모드에서 리포트가 5분을 넘기면 자동 종료</span>된다</td></tr>
+<tr><td class="wrap">총계획 — 백그라운드</td><td class="wrap">대량계획용 <b>변형(Variant)</b>을 사용해 즉시 실행 또는 예약실행. 대규모 계획은 반드시 이쪽</td></tr>
+</tbody>
+</table>
+</div>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>표준 휴리스틱프로파일</th><th>용도</th></tr></thead>
+<tbody>
+<tr><td>SAP 001</td><td class="wrap">상세스케줄링계획보드용 — 자원·오퍼레이션 중심 휴리스틱</td></tr>
+<tr><td>SAP 002</td><td class="wrap">제품뷰용 — 제품 중심 생산계획휴리스틱</td></tr>
+<tr><td>SAPREM</td><td class="wrap">제품계획테이블용</td></tr>
+</tbody>
+</table>
+</div>
+
+<p><b>계획파일항목 지시자</b>를 설정하지 않으면 <b>모든 제품이 계획</b>됩니다(최초 실행이나 데이터 정합성 문제 발생 시 유용). 설정하면 <span class="key">순변경계획</span>이 되어 MRP관련 변경이 있는 제품만 계획하므로 짧은 주기로 돌릴 수 있습니다.</p>
+
+<p>계획파일항목 값은 다음과 같습니다 — <b>공란</b>=계획파일항목 없음, <b>1</b>=적합한 입고 사용, <b>2</b>=비고정 입고 삭제, <b>3</b>=계획 재전개, <b>4</b>=비고정 입고 삭제 후 신규 고정입고로 재전개.</p>
+
+<div class="note">
+  <div class="t">📖 참고 — PP/DS 호라이즌은 더 이상 필요 없다</div>
+  <p>과거 SCM/APO에서는 계획데이터량을 줄이려고 <b>PP/DS 호라이즌</b>을 쓰는 것이 일반적이었으나, HANA 기반 신규 솔루션에서는 로케이션제품 계획 시 <b>전체 호라이즌에 걸쳐</b> 계획이 수행되므로 더 이상 필요하지 않습니다.</p>
+</div>
+
+<h4>확산범위(Propagation Range)</h4>
+
+<p>플래너가 <b>계획을 변경할 수 있는 자원·제품의 범위</b>를 정의합니다 — 오더 생성·변경, 해당 자원의 능력·계획파라미터 변경, 해당 자원 오퍼레이션 재스케줄링. Customizing <b>"Maintain Propagation Ranges"</b>에서 정의하며, <code>SAPALL</code> 확산범위는 모든 자원·제품 계획을 허용합니다.</p>
+
+<div class="step"><span class="n">1</span><p>확산범위 <b>내</b> 제품에 대해서만 오더 생성 등 계획변경이 가능하다.</p></div>
+<div class="step"><span class="n">2</span><p>확산범위 내 제품의 오더에 <b>확산범위 밖 구성부품</b>이 포함되면, 그 구성부품에는 <span class="bad">오더가 생성되지 않고 계획파일항목만 기록</span>된다.</p></div>
+<div class="step"><span class="n">3</span><p>확산범위 <b>내</b> 자원에 대해서만 오퍼레이션 스케줄링·재스케줄링이 가능하다.</p></div>
+
+<div class="note warn">
+  <div class="t">⚠️ Hint — From Work Area</div>
+  <p><b>"From Work Area"</b> 지시자를 쓰면 작업영역(Work Area)의 자원선택을 확산범위로 그대로 복사합니다. <span class="bad">단, 이 방식의 확산범위는 제품계획테이블에서는 사용할 수 없습니다.</span> 작업영역은 DS계획보드(능력계획)에 표시할 오브젝트를 정의하는 데 씁니다. 휴리스틱군의 계획실행 대상 기간은 <b>시간프로파일(Time Profile)</b>로 정의합니다.</p>
+</div>
+
+<p>생산계획실행 결과는 <b>시뮬레이션버전에 저장한 뒤</b> 나중에 운영계획버전에 반영할지 결정할 수 있습니다. 처리단계는 두 유형으로 갈립니다 — <b>기능(Functions)</b>은 상세스케줄링용이며 <span class="bad">변경 불가</span>, <b>휴리스틱(Heuristics)</b>은 생산계획용이며 PP/DS Customizing에서 정의 가능합니다.</p>
+
+<h4>저수준코드(Low-Level Code)</h4>
+
+<ul>
+  <li>PDS 내에서 자재가 등장하는 <b>최하위 레벨</b>이며, 상위 자재보다 항상 <b>높은</b> 코드를 갖는다</li>
+  <li>PDS 최상위 레벨의 제품이나 PDS에 배정되지 않은 제품은 저수준코드 <b>0</b>(로케이션 간 통합 산정)</li>
+  <li>저수준코드 0부터 순차적으로 계획되어 전체 제품이 올바른 순서로 <b>한 번에</b> 계획된다</li>
+  <li><span class="bad">마스터데이터를 바꿔도 저수준코드는 자동 재계산되지 않는다</span> — <code>SAP_PP_020</code>(단계번호부여 알고리즘)으로 재계산해야 한다</li>
+  <li>순환구조 PDS가 있으면 해당 제품의 생산계획실행이 <span class="bad">종료(Terminate)</span>된다</li>
+</ul>
+
+<h3>샵플로어제어(Shop Floor Control)와의 통합</h3>
+
+<div class="note">
+  <div class="t">📖 참고 — 원문의 용어 기준</div>
+  <p>이 레슨은 과거 <b>APO 계획오더 vs ECC 계획오더</b> 구도로 설명하지만, PP/DS가 S/4HANA에 내장된 지금은 <b>PP/DS 계획오더 ↔ S/4HANA 생산오더</b>의 관계로 읽으면 됩니다.</p>
+</div>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>구분</th><th>내용</th></tr></thead>
+<tbody>
+<tr><td class="wrap">PP/DS 계획오더</td><td class="wrap"><b>모든 생산일자를 오퍼레이션 단위로</b> 포함한다</td></tr>
+<tr><td class="wrap">전송된 계획오더<br>(S/4HANA 쪽)</td><td class="wrap">오퍼레이션 일자 없이 <b>기본일자(Basic Dates)</b>만 포함. 단, PP/DS 구성부품과 비PP/DS 구성부품의 <b>종속소요는 함께</b> 포함되어 S/4HANA에서 그 구성부품의 조달을 계획할 수 있다</td></tr>
+<tr><td class="wrap">계획오더 → 생산오더</td><td class="wrap">둘의 유일한 차이는 <span class="key">전환지시자(Conversion Indicator)</span>. 지시자가 서면 대응하는 S/4HANA 생산오더가 생성되고, <b>PP/DS에서 결정된 생산일자를 그대로 채택</b>한다. 이후는 여느 생산오더와 동일(오더서류 인쇄 · 확인 등)</td></tr>
+</tbody>
+</table>
+</div>
+
+<h3>확정(Firming)</h3>
+
+<p><b>계획시간펜스(Planning Time Fence)</b>는 오늘부터 미래로 <b>작업일 기준</b>으로 계산되며 S/4HANA 자재마스터에서 전송됩니다. 계획시간펜스 <b>안</b>에서는 입고요소에 대한 <span class="key">수동변경만</span> 허용되고 휴리스틱에 의한 자동변경은 일어나지 않습니다.</p>
+
+<div class="step"><span class="n">1</span><p>제품별로 개별 값을 유지할 수 있고, 계획 중 대화형으로 특정 제품의 계획시간펜스 종료일을 <b>고정일자</b>로 설정할 수도 있다(고정영역은 계획시간펜스와 타임펜스 중 <b>더 늦은 값</b>으로 결정).</p></div>
+<div class="step"><span class="n">2</span><p>계획시간펜스 <b>밖</b>의 계획오더는 시스템이 언제든 바꿀 수 있고, <b>안</b>에서는 MRP컨트롤러가 수동으로만 바꾼다.</p></div>
+<div class="step"><span class="n">3</span><p>계획시간펜스·타임펜스로 확정된 계획오더는 <b>동적으로</b> 확정되므로 <span class="bad">일자고정·수량고정 지시자를 얻지 않는다.</span></p></div>
+<div class="step"><span class="n">4</span><p>계획시간펜스 안에 신규소요가 추가되면 시스템은 계획오더를 만들어 <b>계획시간펜스 종료지점에 배치</b>함으로써 기존 계획을 건드리지 않는다.</p></div>
+<div class="step"><span class="n">5</span><p>시간이 흘러 계획시간펜스 안으로 들어온 계획오더는 <b>완료일이 펜스 안에 들어오는 즉시</b> 확정된다.</p></div>
+
+<div class="note ok">
+  <div class="t">📌 개인 E2E 프로젝트와의 연결점 — "여기부터는 시스템이 손대지 않는다"를 명시한다</div>
+  <p>계획시간펜스는 <b>자동화에 경계선을 그어 둔 표준 장치</b>입니다. 펜스 안은 사람만 바꾸고, 시스템은 새 소요가 생겨도 기존 계획을 건드리지 않고 펜스 끝에 갖다 붙입니다. 프로젝트의 <code>ZBATCH_ZONE</code>(잔여 유통기한 30% 미달 시 정상→임박 <code>311</code> 자동이동)에 그대로 옮길 수 있는 발상입니다.</p>
+  <p>구체적으로는 두 가지입니다. ① <b>자동이동을 걸지 않는 구간을 정의한다</b> — 예를 들어 이미 납품오더에 할당된 배치, 또는 당일 출고 예정 배치는 자동 <code>311</code> 대상에서 제외합니다(펜스 안). ② <b>제외 사유를 상태로 남긴다</b> — 조용히 건너뛰지 않고 CBO 테이블에 <code>H</code>(보류)로 기록해야 나중에 "왜 안 옮겨졌나"에 답할 수 있습니다. 표준이 펜스 밖/안을 구분해 보여주는 것과 같은 이유입니다.</p>
+</div>
+
+<h3>페깅(Pegging)</h3>
+
+<p>페깅은 <b>로케이션 내 제품의 입고요소와 소요요소 사이에 연결을 설정</b>하는 기능입니다. 입고를 관련 소요에 배정해 <span class="key">페깅네트워크</span>를 만들고, 변경사항은 아직 배정되지 않은 오더수량을 찾아 모든 종속 오더로 전파됩니다. 페깅전략(Pegging Strategy)은 입고 배정 시 소요를 충당하는 방식을 정의하며 <b>제품마스터에 두 가지 전략</b>을 입력할 수 있습니다.</p>
+
+<figure class="figwrap">
+<svg class="dgm" viewBox="0 0 1000 440" role="img" aria-label="페깅 도해. 왼쪽은 계획오더 한 건이 영업오더와 계획독립소요 두 소요에 나뉘어 묶이고 그 종속소요가 하위 계획오더로 이어지는 다단계 페깅네트워크이며, 오른쪽은 일자 기준으로 자동 변동하는 동적페깅과 관계를 고정해 시스템이 건드리지 못하게 하는 고정페깅의 차이를 정리한다.">
+  <defs>
+    <marker id="f2k" markerWidth="9" markerHeight="9" refX="7" refY="4.5" orient="auto">
+      <polygon class="arw-key" points="0,0 9,4.5 0,9"/></marker>
+    <marker id="f2a" markerWidth="9" markerHeight="9" refX="7" refY="4.5" orient="auto">
+      <polygon class="arw" points="0,0 9,4.5 0,9"/></marker>
+  </defs>
+
+  <text class="t-h" x="12" y="26">다단계 페깅네트워크</text>
+
+  <rect class="b" x="40" y="52" width="190" height="58" rx="6"/>
+  <text class="t" x="56" y="74">소요 · 영업오더</text>
+  <text class="m-s" x="56" y="94">40 EA</text>
+
+  <rect class="b" x="270" y="52" width="190" height="58" rx="6"/>
+  <text class="t" x="286" y="74">소요 · 계획독립소요</text>
+  <text class="m-s" x="286" y="94">60 EA</text>
+
+  <path class="ln-key" d="M250 140 L135 114" marker-end="url(#f2k)"/>
+  <path class="ln-key" d="M250 140 L365 114" marker-end="url(#f2k)"/>
+  <text class="t-xs c-key" x="168" y="132">40</text>
+  <text class="t-xs c-key" x="324" y="132">60</text>
+
+  <rect class="b-key" x="155" y="140" width="190" height="58" rx="6"/>
+  <text class="t c-key" x="171" y="162">입고 · 계획오더 A</text>
+  <text class="m-s" x="171" y="182">100 EA</text>
+
+  <path class="ln" d="M250 198 V224" marker-end="url(#f2a)"/>
+  <text class="t-xs" x="258" y="216">PDS 전개</text>
+
+  <rect class="b" x="155" y="228" width="190" height="58" rx="6"/>
+  <text class="t" x="171" y="250">소요 · 종속소요 B</text>
+  <text class="m-s" x="171" y="270">100 EA</text>
+
+  <path class="ln-key" d="M250 316 V290" marker-end="url(#f2k)"/>
+  <text class="t-xs c-key" x="258" y="308">페깅</text>
+
+  <rect class="b-key" x="155" y="316" width="190" height="58" rx="6"/>
+  <text class="t c-key" x="171" y="338">입고 · 계획오더 B</text>
+  <text class="m-s" x="171" y="358">100 EA</text>
+
+  <text class="t-s" x="12" y="398">페깅구조는 BOM 구조를 따라 정렬된 평가다 — 특정 소요를 위해 무엇을 만들어야 하는지 한눈에 본다.</text>
+
+  <text class="t-h" x="560" y="26">두 가지 페깅</text>
+
+  <rect class="b" x="560" y="40" width="428" height="122" rx="6"/>
+  <text class="t-h" x="578" y="64">동적페깅 (Dynamic)</text>
+  <text class="t-s" x="578" y="88">소요·입고의 가용일자 / 소요일자 기준으로 배정</text>
+  <text class="t-s" x="578" y="110">계획이 바뀌면 페깅관계도 같이 변동</text>
+  <text class="t-s" x="578" y="132">최대선행 · 최대지연 조건으로 범위를 제한</text>
+  <text class="t-s" x="578" y="152">시간형식 HHHHHH:MM · 캘린더 무시 연속시간</text>
+
+  <rect class="b-key" x="560" y="176" width="428" height="122" rx="6"/>
+  <text class="t-h c-key" x="578" y="200">고정페깅 (Fixed)</text>
+  <text class="t-s" x="578" y="224">관계를 고정 — 계획 중 시스템이 자동변경하지 않음</text>
+  <text class="t-s" x="578" y="246">제품뷰의 페깅구조 편집으로 수동 고정</text>
+  <text class="t-s" x="578" y="268">SAP_PP_019 로 자동 생성 · SAP_PP_011 로 삭제</text>
+  <text class="t-s" x="578" y="288">MRP실행과 결합하면 다단계 고정페깅네트워크</text>
+
+  <rect class="b-ghost" x="560" y="312" width="428" height="114" rx="6"/>
+  <text class="t-h" x="578" y="336">페깅관계가 성립하는 조건</text>
+  <text class="t-s" x="578" y="358">제품 · 로케이션이 같을 것</text>
+  <text class="t-s" x="578" y="378">계정배정(MTS / MTO)이 같을 것</text>
+  <text class="t-s" x="578" y="398">계획버전(활성 / 비활성)이 같을 것</text>
+  <text class="t-s" x="578" y="414">→ 하나의 페깅영역(Pegging Area) 안에서만</text>
+
+  <rect class="b-bad" x="12" y="406" width="520" height="28" rx="5"/>
+  <text class="t-s c-bad" x="28" y="424">소요-입고 간 페깅관계를 만들 수 없으면 수량알림(Quantity Alert)이 발생한다.</text>
+</svg>
+<figcaption><span class="fno">그림 3</span>페깅 — 어떤 입고가 어떤 소요를 위한 것인지의 연결. 일자 기준으로 흔들리는 동적페깅과, 사람이 못박아 두는 고정페깅.</figcaption>
+</figure>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>유형</th><th>설명</th></tr></thead>
+<tbody>
+<tr><td>고정페깅</td><td class="wrap">페깅관계를 고정해 <b>계획 중 시스템이 자동변경하지 않는다.</b> 수동 또는 휴리스틱으로 특정 수량을 특정 소요에 고정할 수 있다(제품뷰의 페깅구조 편집으로 수동 고정)</td></tr>
+<tr><td>동적페깅</td><td class="wrap">소요·입고의 <b>가용일자/소요일자 기준</b>으로 배정되며, 계획이 바뀌면 함께 변동한다</td></tr>
+</tbody>
+</table>
+</div>
+
+<p><b>동적페깅의 조건</b>은 두 개입니다 — <span class="key">최대선행(Maximum Earliness)</span>: 입고가 소요보다 앞설 수 있는 최대기간, <span class="key">최대지연(Maximum Delay)</span>: 소요가 입고보다 앞설 수 있는 최대기간. 시간형식은 <code>HHHHHH:MM</code>(최대 999999시간 99분)이며, <b>팩토리캘린더·교대모델을 고려하지 않는 연속시간흐름</b>으로 계산됩니다. 소요-입고 간 페깅관계를 만들 수 없으면 <span class="bad">수량알림(Quantity Alert)</span>이 발생합니다.</p>
+
+<p><b>페깅구조(Pegging Structure)</b>는 BOM 구조에 따라 정렬된 평가로, 특정 소요를 위해 완제품·조립품을 생산하는 데 필요한 오더들의 개요를 보여줍니다.</p>
+
+<div class="note warn">
+  <div class="t">📖 고정페깅의 제약 — 순수 PP/DS 기능이다</div>
+  <p>· <b>고정페깅상속</b>(생산오더 → 현재고 페깅관계 전이)은 S/4HANA Customizing <b>"Activate fixed pegging for stocks"</b>에서 활성화해야 한다<br>
+     · 고정페깅은 <span class="bad">순수 PP/DS 기능으로 S/4HANA와 통합되지 않는다</span> — S/4HANA에서 생성된 소요-입고 관계는 PP/DS 고정페깅관계를 유발하지 않는다<br>
+     · <span class="bad">유효기간(Shelf Life) 프로세스 · 용기자원(Container Resource)의 제한능력 · PP/DS 생산확인은 지원되지 않는다</span><br>
+     · 계획독립소요 → 영업오더(소비용) 간에는 고정페깅관계가 전달되지 않는다 (SAP Note <code>704583</code>)</p>
+</div>
+
+<p>고정페깅관계는 <b>제품뷰에서 대화형으로 수동 생성</b>하거나 <code>SAP_PP_019</code>("Fixing pegging relationships") 휴리스틱으로 자동 생성합니다 — 단독 실행하면 단일레벨, MRP실행과 결합하면 <span class="key">다단계 고정페깅네트워크</span>가 만들어집니다. <b>정렬프로파일(Sort Profile)</b>로 선택된 문서의 처리 우선순위를 사용자정의할 수 있고, <code>SAP_PP_011</code>("Deleting pegging relationships")로 고정페깅관계를 삭제합니다(수동/자동 고정관계로 범위 제한 가능).</p>
+
+<div class="note ok">
+  <div class="t">📌 개인 E2E 프로젝트와의 연결점 — FEFO 배치결정은 페깅과 같은 질문에 답한다</div>
+  <p>프로젝트에는 생산이 없어 PP/DS를 쓸 일이 없지만, <b>"이 재고를 어느 소요에 붙일 것인가"</b>라는 질문 자체는 SD 배치결정에서 그대로 반복됩니다. 프로젝트는 유통기한(<code>MCHA-VFDAT</code>) 기준 <span class="key">FEFO</span>로 배치를 붙이는데, 이것은 PP/DS의 <b>동적페깅</b>과 성격이 같습니다 — 일자를 기준으로 자동 배정하고, 상황이 바뀌면 배정도 바뀝니다.</p>
+  <p>여기서 배울 것은 <b>동적 배정에는 반드시 예외 고정 수단이 있어야 한다</b>는 점입니다. PP/DS는 고정페깅을 두어 "이 입고는 이 소요 전용"을 못박습니다. 프로젝트에서도 특정 배치를 특정 납품에 묶어야 하는 상황(클레임 대응·샘플 출고 등)이 생기면, FEFO 자동결정에 전부 맡기지 말고 수동 배치지정 경로를 남겨 두어야 합니다.</p>
+  <p>다만 <b>고정페깅이 유효기간(Shelf Life) 프로세스를 지원하지 않는다</b>는 원문의 제약은 그대로 새길 값입니다 — 유통기한 관리와 고정 배정은 표준에서도 잘 안 맞는 조합입니다. 프로젝트에서 수동 배치고정을 허용한다면 <span class="bad">유통기한 초과를 자동으로 막아 주지 않는다</span>고 보고 별도 체크를 붙여야 합니다.</p>
+</div>
+
+<h3>셋업매트릭스(Setup Matrix)</h3>
+
+<p>단일자원에서 오퍼레이션을 스케줄링/재스케줄링할 때, 셋업활동 소요시간이 <b>그 자원에서 직전에 처리된 오퍼레이션(셋업상태)</b>에 따라 달라질 수 있습니다. 이 <span class="key">시퀀스종속(Sequence-Dependent) 셋업시간</span>을 자동 반영하려고 셋업매트릭스를 생산계획 마스터데이터에 정의합니다. 셋업매트릭스는 시퀀스종속 셋업시간을 사용할 <b>주자원(Primary Resource, 단일자원만 가능)</b>에 입력합니다.</p>
+
+<p>셋업매트릭스는 자원의 각 셋업상태 <b>전이(Transition)</b>마다 필요한 셋업소요시간·셋업비용을 담은 전이매트릭스입니다. <b>셋업그룹(Setup Group)</b>으로 표준 셋업전이를, <b>셋업키(Setup Key)</b>로 예외 셋업전이를 정의합니다.</p>
+
+<div class="note warn">
+  <div class="t">⚠️ Hint — 매트릭스는 작을수록 좋다</div>
+  <p>성능을 위해 셋업매트릭스는 <b>가능한 한 작게(적은 셋업전이)</b> 정의합니다. 필요한 만큼만 셋업그룹·셋업키로 상세화하고, 예외 셋업전이는 최소화하며, 셋업시간·비용이 유사한 오퍼레이션/제품에는 <span class="key">동일한 셋업그룹·셋업키를 재사용</span>합니다.</p>
+</div>
+
+<h3>계획독립소요의 조정 및 재편성</h3>
+
+<div class="note">
+  <div class="t">📖 참고 — Course 8과 동일</div>
+  <p>조정기간(Period of Adjustment), 재편성 3단계(<code>MD74</code> 소요조정 → <code>MD75</code> 스케줄라인 재편성 → <code>MD76</code> 이력삭제), 재편성기간 Customizing은 Course 8(8-1)과 동일하므로 생략합니다. 여기서 추가로 확인할 것은 <b>조정지시자(Adjustment Indicator)</b> 하나입니다 — 조정기간이 <b>과거/미래 중 어느 방향</b>을 가리키는지, 그리고 조정이 <b>모든 전략에 적용되는지</b> 아니면 <b>고객소요-PIR 소비전략에만</b> 적용되는지를 결정합니다.</p>
+</div>
+
+</div>
+
+<!-- ══════════ LESSON 4 ══════════ -->
+<div class="lesson" id="l4">
+<h2><span class="no">LESSON 4</span>상세스케줄링 · SBC · 최적화 · MRP Live 연동</h2>
+
+<p><span class="tag">Unit 5-7</span><span class="tag">레슨 6개</span>상세스케줄링 기본원리·전략 · 대체모드 · DS계획보드 · SBC · DS Optimizer와 PPO · MRP Live 연동</p>
+
+<h3>언제 이걸 알아야 하는가</h3>
+
+<p><b>"PP/DS로 순서까지 잡아놨는데 다음날 아침에 보면 일자가 다 흐트러져 있습니다"</b> — 원문이 Unit 7에서 <span class="bad">Caution</span>으로 못박은 사고가 정확히 이것입니다. PP/DS 계획실행 뒤에 비PP/DS 자재를 계획하려고 MRP Live를 돌리면, <span class="key">MRP Live가 PP/DS 대상 제품까지 다시 계산해 입고일·시간을 재스케줄링</span>해 버립니다. 상세계획의 결과가 사라집니다.</p>
+
+<p>그래서 이 LESSON은 두 갈래로 읽습니다 — 앞쪽(Unit 5-6)은 <b>순서를 어떻게 잡는가</b>(상세스케줄링 · 최적화), 뒤쪽(Unit 7)은 <b>잡아 놓은 순서를 어떻게 지키는가</b>(계획범위 분리)입니다.</p>
+
+<h3>상세스케줄링의 기본원리와 제약조건</h3>
+
+<p>상세스케줄링에서 시스템은 <b>오더/오퍼레이션 활동의 시작·종료일을 결정</b>하고 자원에 오더·오퍼레이션을 스케줄링하며, 특정 컨텍스트의 <span class="key">능력가용성을 직접 고려</span>합니다. 판단 근거는 오퍼레이션/오더의 희망가용일뿐 아니라 <b>PDS 전개 시 계산되는 활동의 소요시간·능력소요량</b>입니다.</p>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>구분</th><th>내용</th></tr></thead>
+<tbody>
+<tr><td>자원</td><td class="wrap">가용능력 · 능력활용률 · 복수활동 동시로딩(멀티액티비티자원) 등</td></tr>
+<tr><td>PDS</td><td class="wrap">활동 소요시간 · 활동 중단 가능 여부 · 활동 간 최소/최대 허용 시간간격 등</td></tr>
+<tr><td>휴리스틱/전략</td><td class="wrap"><span class="key">유한계획이냐 무한계획이냐</span></td></tr>
+</tbody>
+</table>
+</div>
+
+<p><b>입고처리시간(Goods Receipt Time)</b>은 S/4HANA 자재마스터에서 PP/DS 제품마스터로 전송됩니다. 입고/출고 시간의 스케줄링은 로케이션에 저장된 <b>취급자원(Handling Resource)</b>으로 수행하며, <span class="key">캘린더자원(24시간 가동 무한자원)</span>을 취급자원으로 정의하는 것이 일반적입니다. 입고프로세스를 <b>유한계획</b>하려면 입고처리시간이 아니라 <span class="bad">PDS 내 적절한 프로세스로 모델링</span>해야 합니다.</p>
+
+<h3>상세스케줄링 전략</h3>
+
+<p>상세스케줄링 전략이 결정하는 것들 — 유한계획 여부(유한자원에서 이미 스케줄된 오퍼레이션의 능력부하를 고려할지), 계획방향(순방향/역방향, 반전 포함), <b>오프셋시간</b>(활동의 최조가능시작일이 현재일/시각으로부터 벗어날 수 있는 시간간격), 갭탐색(Find Gap) 여부, 오퍼레이션 삽입(Insert) 여부, 비가동시간 스케줄링 허용 여부(계획보드 전용), 스케줄링 순서, 오더내부 관계 고려 여부, <b>페깅관계 고려 여부</b>.</p>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>유한계획 모드</th><th>설명</th></tr></thead>
+<tbody>
+<tr><td>Find Slot</td><td class="wrap">계획방향으로 <b>첫 번째로 충분한 길이·능력을 가진 슬롯</b>에 오퍼레이션 배치. <span class="key">유한계획 자원에만</span> 사용 가능</td></tr>
+<tr><td>Insert Operation</td><td class="wrap">기존 스케줄에서 희망일(또는 최대한 근접한 일자)에 배치. 슬롯이 부족하면 계획방향에 따라 <b>인접 오퍼레이션을 이동</b>시켜 간격을 만든다(오퍼레이션 순서는 유지). <span class="key">단일자원 · 유한계획</span> 전용. 관계 위반 등으로 간격을 못 찾으면 삽입되지 않는다</td></tr>
+<tr><td class="wrap">Squeezing in an Op.</td><td class="wrap">희망일에 배치하되 필요하면 <b>양방향으로</b> 인접 오퍼레이션을 이동시켜 간격 생성. <span class="key">단일활동자원 · 유한계획</span> 전용</td></tr>
+</tbody>
+</table>
+</div>
+
+<p><b>무한자원</b>은 기존 스케줄과 무관하게 항상 희망가용일에 무한계획으로 배치됩니다. 오프셋시간에 <b>음수</b>를 넣으면 과거 시점의 오퍼레이션 시작을 허용할 수 있습니다.</p>
+
+<h4>비가동시간 스케줄링</h4>
+
+<p>DS계획보드에서 가동시간은 <b>흰색</b>, 정기 비가동시간(휴식·주말)은 <b>회색</b>, 다운타임(설비정지)은 <b>진회색</b>으로 표시됩니다. <span class="bad">다운타임에는 오퍼레이션을 스케줄링할 수 없습니다.</span> 비가동시간에 스케줄링된 오퍼레이션은 <b>고정(Fixed)</b>되어 재스케줄링되지 않으며, 비가동시간 지시자를 해제해도 고정 상태는 유지됩니다 — 재스케줄링하려면 <span class="key">먼저 고정을 해제</span>해야 합니다.</p>
+
+<h4>무한시퀀싱 · 유한성레벨</h4>
+
+<ul>
+  <li><b>무한시퀀싱(Infinite Sequencing)</b> — 종속 오퍼레이션은 전략프로파일 설정과 무관하게 무한으로 계획된다. <span class="bad">시퀀스종속 셋업활동이 있는 오퍼레이션에는 사용하지 않는 것이 좋다</span>(예상치 못한 계획결과가 나온다)</li>
+  <li><b>유한성레벨(Finiteness Level)</b> — 오퍼레이션의 무한계획은 유한자원에 능력초과를 유발할 수 있고 알림모니터에 표시된다(PP/DS 알림프로파일 필요). 자원별로 <b>능력초과 허용 최대기간</b>을 정의한다. 일부 애플리케이션에서는 유한, 다른 애플리케이션에서는 무한으로 다루고 싶을 때 쓰며 자원 Customizing 또는 PP/DS 전역설정에서 정의한다. <span class="key">기본값 0 = 모든 애플리케이션에서 유한자원</span></li>
+</ul>
+
+<h3>대체모드(Alternative Modes)</h3>
+
+<p>대체자원을 쓰려면 <b>PDS에서 오퍼레이션의 각 활동에 대체자원을 포함한 복수 모드를 저장</b>해야 하고, 연결된 모드에는 <span class="key">동일한 우선순위</span>를 배정해야 합니다. 대체자원은 보통 동등하지 않으므로(빠르고 비싼 전용설비 vs 느리고 저렴한 대체설비) 모드에 우선순위를 줍니다 — <b>A=최고</b>, <b>Z=DS계획보드에서 수동계획 전용</b>.</p>
+
+<p>오더 생성 시 시스템이 <b>우선순위·가용일 기준</b>으로 모드를 자동 선택하고, DS계획보드에서는 수동 선택합니다. 재스케줄링 중 드래그앤드롭으로 특정 활동모드(예: 모드1)를 선택 해제하면 <span class="key">동일모드의 다른 활동도 함께 해제</span>됩니다.</p>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>모드연계 유형</th><th>설명</th></tr></thead>
+<tbody>
+<tr><td class="wrap">동일 모드명 간 연계</td><td class="wrap"><b>서로 다른 오퍼레이션</b>의 활동을 연결할 때만 사용. 연계유형 <b>3</b> "Same mode number"로 관계 생성 필요</td></tr>
+<tr><td class="wrap">동일 주자원 간 연계</td><td class="wrap"><b>한 오퍼레이션 내 두 활동</b>을 연계할 때 필수이며, 서로 다른 오퍼레이션 간에도 사용 가능. 연계유형 <b>2</b> "Identical primary resource"로 관계 생성 필요</td></tr>
+</tbody>
+</table>
+</div>
+
+<p>PDS에서 모드연계는 <b>BAdI 또는 트랜잭션 <code>PDS_MAINT</code></b>로 설정합니다.</p>
+
+<h3>상세스케줄링 계획보드(DS Planning Board)</h3>
+
+<p>계획보드는 <b>대화형계획</b>(예: 알림 처리·해결)에 쓰이며 스케줄을 그래픽으로 표시합니다. 레이아웃으로 여러 차트(자원차트·오더차트 등), 테이블 영역의 필드선택·정렬·행 형식, 다이어그램 영역의 표시 오브젝트(오퍼레이션/오더, 히스토그램, <span class="key">오퍼레이션·오더 간 시간/페깅관계를 보여주는 네트워크뷰</span>), 오퍼레이션·오더 레이아웃을 정의합니다.</p>
+
+<p>시간축 위의 오브젝트는 컨텍스트메뉴로 검색·선택할 수 있고 축척도 바꿀 수 있습니다. <b>Shift + 좌클릭 드래그</b>로 확대(줌인)하고, <b>쌍안경 아이콘</b> 또는 Edit 메뉴로 오더번호 · 제품 · 제품명 · 셋업그룹 · 셋업키로 검색합니다.</p>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>평가(Evaluation)</th><th>내용</th></tr></thead>
+<tbody>
+<tr><td>오더리스트</td><td class="wrap">선택 자원에서 처리되는 <b>첫 오퍼레이션을 가진</b> 모든 오더 표시</td></tr>
+<tr><td>오퍼레이션리스트</td><td class="wrap">선택 자원에서 처리되는 <b>구성부품 포함</b> 오퍼레이션 표시</td></tr>
+<tr><td>생산개요</td><td class="wrap">선택 제품의 수량·상태(릴리스/확인 여부 등) 목록</td></tr>
+<tr><td>WIP리스트</td><td class="wrap">선택 자원에서 <b>후속처리를 위해 제공되는 재고</b> 표시</td></tr>
+<tr><td>자원활용도</td><td class="wrap">기간별 단일/복수자원의 활용도 표시</td></tr>
+</tbody>
+</table>
+</div>
+
+<p>자원부하 · 제품재고 · 네트워크뷰는 <b>상시 표시되는 정적차트</b> 또는 필요시 표시/숨김이 가능한 <b>동적차트</b>로 정의할 수 있습니다. 컨텍스트메뉴 기능과 툴바 기능키는 <b>계획보드프로파일</b>에서 정의하며, 작업영역 Customizing에서 <b>오퍼레이션필터</b> 지시자를 켜면 정적오퍼레이션차트의 세트에 <span class="key">명시적으로 입력한 오퍼레이션만</span> 계획보드에 표시됩니다.</p>
+
+<h4>실행 가능한 능력계획 방법 4가지</h4>
+
+<div class="step"><span class="n">1</span><p>자원의 <b>표준능력공급 증가</b> 또는 시간구간별 능력공급 증가 (가용능력 조정)</p></div>
+<div class="step"><span class="n">2</span><p>여유능력이 있는 자원의 <b>대체모드</b> 활용</p></div>
+<div class="step"><span class="n">3</span><p>계획보드에서 충분한 가용능력 구간을 <b>수동 결정/생성</b></p></div>
+<div class="step"><span class="n">4</span><p>셋업시간 단축을 위한 <b>최적순서 구성</b></p></div>
+
+<p><b>계획보드 호출</b>은 View 1 · View 2 · View 3 · Variable View 등으로 여러 전체프로파일(Overall Profile)을 부릅니다. Variable View로 부를 때는 적절한 전체프로파일과 하위프로파일(Customizing에서 정의)을 골라야 합니다. View 1~3은 SAP 사전정의 프로파일을 쓰며, 다른 전체프로파일을 쓰려면 <b>사용자프로파일(System → User Profile → Own Data)</b>에서 SET/GET 파라미터에 배정해야 합니다.</p>
+
+<div class="note warn">
+  <div class="t">⚠️ Hint — 작업영역과 확산범위는 다른 것이다</div>
+  <p><b>작업영역(Work Area)</b>은 시스템이 각 차트(자원·오더·오퍼레이션·제품차트)에 <span class="key">무엇을 표시할지</span> 결정하는 자원 집합입니다. 반면 계획테이블에서 <span class="key">실제로 스케줄링할 수 있는</span> 제품·자원은 <b>확산범위(Propagation Range)</b>가 정합니다. 둘 사이의 연결은 Customizing의 <b>확산영역(Propagation Area)</b>에서 정의합니다. "보인다"와 "바꿀 수 있다"는 서로 다른 설정입니다.</p>
+</div>
+
+<h3>공급창출기반확정(SBC)</h3>
+
+<p>과거 SCM/APO 기반 embedded PP/DS 도입 초기에는 <b>CTP(Capable-to-Promise) 시나리오</b> — 미확정/부분확정 영업오더 기준으로 헤더자재와 모든 하위구성부품에 대해 백그라운드에서 즉시 계획실행을 수행해 실현가능한 생산계획을 만드는 것 — 를 지원하는 휴리스틱이 없었습니다. <b>S/4HANA 릴리스 2022</b>부터 후속기능인 제품휴리스틱 <code>SAP_PP_SBC</code>가 도입되어 <span class="key">계획절차 3(Cover Dependent Requirements Immediately)</span>과 연동됩니다.</p>
+
+<p><b>SBC(Supply Creation-Based Confirmation)</b>는 S/4HANA <b>Advanced ATP(aATP)</b>와 PP/DS를 통합해, 요청제품의 가용수량이 부족할 때 <span class="key">PP/DS 계획을 근거로 영업오더 소요를 확정(Confirm)</span>할 수 있게 합니다. 영업오더 생성 시 SBC는 <b>공급수요기반능력체크(SCC)</b>로 가용성체크를 실행하는데, 여기서 "능력체크"란 자재가용성 확인뿐 아니라 필요하면 <b>공급창출(계획오더 · 구매요청 · 재고이전요청 생성)까지 트리거</b>하는 것을 말합니다.</p>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>SCC가 트리거하는 체크</th><th>설명</th></tr></thead>
+<tbody>
+<tr><td>PAC + 공급창출</td><td class="wrap">Product Availability Check. <b>ATP 시계열</b> 기준으로 소요를 확인한 뒤, 남은 수량에 대해 공급창출 개시. 전체수량 확정이 가능하면 공급창출은 불필요. 완제품에 대한 영업/능력 <b>제품할당(PAL)</b>도 함께 사용 가능</td></tr>
+<tr><td>PPAC + 공급창출</td><td class="wrap">Production Planning-Based Availability Check. <b>PP/DS의 순소요계산</b>으로 소요를 확인하고 기존 공급요소를 점검. 부족분이 있으면 PP/DS가 <span class="key">임시 공급요소(Temporary Supply Elements)</span>를 만들어 그 소요에 배정하고, 결과가 aATP로 돌아가 확정 계산·인도제안 생성에 쓰인다. <b>영업오더 저장 시 임시 공급요소가 영구 공급요소로 전환</b></td></tr>
+</tbody>
+</table>
+</div>
+
+<p>계획오더 생성 시 시스템은 <b>자원의 가용능력과 구성부품의 가용성</b>을 PP/DS 로직으로 확인하고, 조달제안의 가용일자를 이용해 영업오더의 확정일자를 산출합니다. 체크·공급창출 결과는 <b>Review Availability Check Result</b> 화면과 <b>Monitor BOP Run</b> 앱에서 확인합니다. SBC는 MTO·MTS 시나리오 모두에 쓸 수 있습니다.</p>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>계획전략</th><th>재확인(Recheck) 시 동작</th></tr></thead>
+<tbody>
+<tr><td>Make-to-Order</td><td class="wrap">수량/일자 변경 등으로 영업오더를 재확인하면 <span class="bad">이전 체크로 생성된 공급요소가 모두 삭제되고 새로 생성</span>된다</td></tr>
+<tr><td>Make-to-Stock</td><td class="wrap">재확인 후에도 공급요소가 <b>재생성되지 않는다</b></td></tr>
+</tbody>
+</table>
+</div>
+
+<p>영업오더 <b>저장 후</b> 수량 증감·일자 변경 등을 하면 대부분 공급요소가 삭제·재생성되지 않고 <b>조정만</b> 됩니다. 영업오더를 취소·삭제하면 대응 공급요소도 함께 삭제됩니다(MTO·MTS 모두).</p>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>전제조건</th><th>내용</th></tr></thead>
+<tbody>
+<tr><td>aATP Customizing</td><td class="wrap"><b>체크그룹(Checking Group)</b> 기준으로 SBC를 활성화하고, PAC / PPAC 중 실행할 방식도 여기서 선택</td></tr>
+<tr><td>PP/DS Customizing</td><td class="wrap">전략프로파일 <code>SAP_SBC</code>(Find Slot 방식의 유한계획) 또는 <code>SAP_BSBC</code>(여유능력이 있는 <b>버킷</b>을 탐색)가 필요. 어느 쪽을 쓸지는 <b>Global Parameter and Default Values</b>(Advanced Planning)에서 정의</td></tr>
+<tr><td>자재마스터</td><td class="wrap"><b>계획절차 3</b>(Cover Dependent Requirements Immediately)이 배정되어 있으면, 시스템이 기존 재고(체크범위 고려)를 감안해 <span class="key">고객오더 라인마다 자동으로 충당요소(사내생산용 계획오더)를 생성</span></td></tr>
+</tbody>
+</table>
+</div>
+
+<div class="note">
+  <div class="t">📖 참고 — 별도 계획실행이 필요 없다</div>
+  <p>이 계획은 시스템이 <b>백그라운드에서 자동 실행</b>하므로 별도의 계획실행이 필요 없습니다. 영업오더 생성 중에는 영업소요가 <b>임시소요(Temporary Requirements)</b>로 표현되고(오더 미저장 상태) 시스템은 오더라인마다 임시충당요소를 만듭니다. 영업오더를 저장하면 임시소요가 <span class="key">"실제" 영업오더품목으로 대체</span>되며 프로세스가 끝납니다. <code>SAP_SBC</code> 전략프로파일에 따라 PP/DS가 백그라운드계획에서 <b>능력초과 없는 실현가능한 계획</b>을 보장합니다.</p>
+</div>
+
+<h3>최적화 — DS Optimizer와 PPO</h3>
+
+<p>최적화는 <b>목적함수(Objective Function)</b>로 스케줄(일자·순서·자원배정)을 평가합니다. 목적함수는 계획상 특히 중요한 여러 시간·비용에 <span class="key">가중치를 부여한 합계</span>이며, 최적화는 이 값을 <b>최소화하는</b> 스케줄을 찾습니다.</p>
+
+<figure class="figwrap">
+<svg class="dgm" viewBox="0 0 1000 440" role="img" aria-label="휴리스틱과 최적화의 비교 도해. 휴리스틱은 규칙을 정해진 순서로 적용해 빠르고 결과를 예측할 수 있는 반면, DS 옵티마이저는 목적함수의 가중합을 최소화하는 순서와 자원배정을 유전알고리즘으로 탐색하므로 느리지만 시퀀스 최적화가 가능하며, 표준 실행은 휴리스틱으로 수량과 일자를 만든 뒤 최적화로 순서를 다듬는 순서를 따른다.">
+  <defs>
+    <marker id="f3k" markerWidth="9" markerHeight="9" refX="7" refY="4.5" orient="auto">
+      <polygon class="arw-key" points="0,0 9,4.5 0,9"/></marker>
+  </defs>
+
+  <rect class="b-key" x="12" y="34" width="478" height="230" rx="6"/>
+  <text class="t-h c-key" x="32" y="60">휴리스틱 (Heuristic)</text>
+  <text class="t-s" x="32" y="88">정해진 알고리즘을 정해진 순서로 적용한다</text>
+  <text class="t-s" x="32" y="112">제품 · 프로세스제어 · 서비스 3그룹</text>
+  <text class="t-s" x="32" y="136">수량과 일자를 만든다 — 무엇을 얼마나 언제</text>
+  <text class="t-s" x="32" y="160">처리가 매우 빠르다 · 대량 적용에 적합</text>
+  <text class="t-s" x="32" y="184">결과를 예측하고 재현할 수 있다</text>
+  <text class="t-s" x="32" y="208">순서를 비용 기준으로 고르지는 못한다</text>
+  <text class="t-s c-key" x="32" y="240">쓰는 자리 — 일상 계획실행 · 야간 배치 · 대량 제품</text>
+
+  <rect class="b-hl" x="510" y="34" width="478" height="230" rx="6"/>
+  <text class="t-h" x="530" y="60">최적화 (DS Optimizer)</text>
+  <text class="t-s" x="530" y="88">목적함수의 가중합을 최소화하는 해를 찾는다</text>
+  <text class="t-s" x="530" y="112">유전알고리즘 — 좋은 해를 탐색</text>
+  <text class="t-s" x="530" y="136">셋업시간 · 셋업비용 · 스케줄지연에 가중치</text>
+  <text class="t-s" x="530" y="160">기존 오더의 순서와 자원배정을 바꾼다</text>
+  <text class="t-s" x="530" y="184">처리시간을 길게 줄수록 더 나은 해</text>
+  <text class="t-s" x="530" y="208">문제가 복잡할수록 시간이 더 필요하다</text>
+  <text class="t-s" x="530" y="240">쓰는 자리 — 시퀀스종속 셋업이 큰 병목자원</text>
+
+  <text class="t-h" x="12" y="294">표준적인 실행 순서 — 휴리스틱으로 만들고, 최적화로 다듬는다</text>
+
+  <rect class="b" x="12" y="308" width="176" height="62" rx="6"/>
+  <text class="t-s" x="26" y="330">① 저수준코드</text>
+  <text class="m-s" x="26" y="350">SAP_PP_020</text>
+  <text class="t-xs" x="26" y="364">단계번호부여</text>
+  <path class="ln-key" d="M188 339 H208" marker-end="url(#f3k)"/>
+
+  <rect class="b" x="212" y="308" width="176" height="62" rx="6"/>
+  <text class="t-s" x="226" y="330">② 무한계획 MRP</text>
+  <text class="m-s" x="226" y="350">SAP_MRP_001</text>
+  <text class="t-xs" x="226" y="364">수량 · 일자 확보</text>
+  <path class="ln-key" d="M388 339 H408" marker-end="url(#f3k)"/>
+
+  <rect class="b" x="412" y="308" width="176" height="62" rx="6"/>
+  <text class="t-s" x="426" y="330">③ 고정페깅 생성</text>
+  <text class="m-s" x="426" y="350">SAP_PP_019</text>
+  <text class="t-xs" x="426" y="364">다단계 연결</text>
+  <path class="ln-key" d="M588 339 H608" marker-end="url(#f3k)"/>
+
+  <rect class="b-hl" x="612" y="308" width="176" height="62" rx="6"/>
+  <text class="t-s" x="626" y="330">④ 최적화 실행</text>
+  <text class="t-xs" x="626" y="350">셋업 · 지연 고려</text>
+  <text class="t-xs" x="626" y="364">시퀀싱 동시 수행</text>
+  <path class="ln-key" d="M788 339 H808" marker-end="url(#f3k)"/>
+
+  <rect class="b" x="812" y="308" width="176" height="62" rx="6"/>
+  <text class="t-s" x="826" y="330">⑤ 고정페깅 제거</text>
+  <text class="m-s" x="826" y="350">SAP_PP_011</text>
+  <text class="t-xs" x="826" y="364">유틸리티 엣지 정리</text>
+
+  <rect class="b-ghost" x="12" y="384" width="976" height="48" rx="6"/>
+  <text class="t-s" x="32" y="406">PPO(생산계획최적화)는 별개다 — 비용 기준으로 무엇을 어디서 언제 만들지를 정하되, 시간 정밀도는 버킷 단위까지만.</text>
+  <text class="t-s" x="32" y="424">유한하고 시퀀스까지 최적화된 계획이 필요하면 PPO 실행 뒤에 DS 최적화를 한 번 더 돌린다.</text>
+</svg>
+<figcaption><span class="fno">그림 4</span>휴리스틱과 최적화의 분업. 휴리스틱은 규칙으로 계획을 만들고, 옵티마이저는 비용·가중치로 순서를 고친다.</figcaption>
+</figure>
+
+<div class="note">
+  <div class="t">📖 참고 — 제약전파 알고리즘은 단종됐다</div>
+  <p>과거 지원되던 <b>제약전파(Constraint Propagation)</b> 알고리즘은 SAP에 의해 <span class="bad">단종(Discontinued)</span>되었습니다. 현재 상세스케줄링 최적화에 쓰이는 것은 <b>유전알고리즘(Genetic Algorithm)</b>이며, 실현가능한 해는 찾을 수 있으나 <span class="key">좋은 해를 찾기 어려운</span> 계획문제(예: 오퍼레이션 셋업 기준 최적순서 결정)에 적합합니다.</p>
+</div>
+
+<h4>생산계획최적화(PPO)</h4>
+
+<p><b>PP 옵티마이저</b>는 구매·제조·유통을 통합해 <span class="key">단일하고 전역적으로 일관된 모델</span>을 기반으로 전술계획·소싱결정을 지원합니다. PP/DS에서 선택한 제품군에 대해 실행할 수 있는 계획휴리스틱 중 하나이며, <b>비용기반계획(Cost-Based Planning)</b>으로 실현가능한 모든 계획안 중 <b>총비용이 가장 낮은 해</b>를 찾습니다.</p>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>구분</th><th>내용</th></tr></thead>
+<tbody>
+<tr><td>총비용 구성</td><td class="wrap">생산 · 조달 · 보관 · 운송비용, 생산능력 증설비용, <b>안전재고수준 미달 페널티</b>, <b>납기지연 페널티</b></td></tr>
+<tr><td>비용유형 예시</td><td class="wrap">생산비용 · 운송비용 · 외부조달비용 · 보관비용 · <b>유효기간위반 페널티</b> · 안전재고위반 페널티 · 납기지연 페널티. 대부분 관련 마스터데이터 객체에서 유지</td></tr>
+<tr><td>결정사항</td><td class="wrap">제품·기간별 <b>생산수량 · 조달수량 · 재고이전수량</b>, 자원 선택과 생산계획, 플랜트 · 창고 · 공급업체 · 운송경로 선택</td></tr>
+<tr><td>버킷능력</td><td class="wrap">계획호라이즌을 <b>버킷</b>(일/주/월 등 이산 시간구간)으로 나눈다. <b>시간버킷프로파일</b>로 버킷 생성에 쓸 시간단위 세트를 정의</td></tr>
+<tr><td>알고리즘</td><td class="wrap"><span class="key">선형계획법(Linear Programming)</span>으로 모든 관련 조건을 동시에 고려. 제약이 많을수록 복잡해져 처리시간이 늘어난다 — <b>백그라운드 작업 권장</b>. 연속적/이산적으로 풀 수 있으며, 소요의 우선순위화는 <b>페널티비용</b>으로 한다. 최적화방법(선형/이산)과 고려할 제약은 <b>옵티마이저프로파일</b>에서 결정</td></tr>
+</tbody>
+</table>
+</div>
+
+<p>PPO는 제약(Constraint)과 페널티(Penalty) 기반 기법으로 공급망을 따른 제품흐름을 계획합니다. 수요계획을 출발점으로 <b>확정·추정 판매량을 충족하는 단기~중기 실현가능계획</b>을 내며, 로케이션 간 운송수량과 생산·조달수량을 모두 포함하고 모든 물류활동을 가용능력과 비교해 권고안을 도출합니다. PPO가 답하는 것은 <span class="key">"무엇을, 어디서, 언제 생산할 것인가"</span>이고, 여기서 "언제"는 <b>계획버킷 단위 이상으로 정밀할 수 없습니다</b>(시퀀스종속 셋업활동을 어느 정도 고려하기는 합니다).</p>
+
+<div class="note warn">
+  <div class="t">⚠️ Caution — PPO는 버킷 단위라서 생기는 한계</div>
+  <p>PPO는 기간(버킷) 단위로 작동하므로 <b>버킷 내 오더 순서는 정의되지 않습니다.</b> 따라서<br>
+     · 최적화 결과가 <span class="bad">개별 원소요까지 페깅되지 않는다</span>(소요가 버킷화된다)<br>
+     · <span class="bad">오더기반계획을 지원하지 않아</span> 최적화 후 특정 계획오더와 원영업오더 사이의 연결정보를 확인할 수 없다<br>
+     · 능력초과가 나면 시스템설정에 따라 소요를 제때 충당하지 못하거나, 페널티비용 계산을 근거로 능력을 증설하거나, 아예 충당하지 않을 수 있다</p>
+</div>
+
+<div class="note">
+  <div class="t">📖 참고 — PPO와 DS 최적화를 같이 쓸 때</div>
+  <p>PPO는 <b>버킷기반계획 전용</b>으로 시퀀싱을 다루지 않습니다. 유한하고 시퀀스최적화된 생산계획이 필요하면 <b>PPO 실행 후 DS 최적화를 추가로</b> 수행할 수 있습니다. 단, DS옵티마이저는 PPO가 만든 생산계획(자원·버킷별 수량배정 포함)을 <span class="key">그대로 고려하며 이미 생성된 오더를 다른 버킷으로 재배치하지는 않습니다</span>(이를 위한 별도 최적화프로파일이 있습니다). PPO 실행 후 단독으로 DS 최적화를 돌리는 방식과 PPO·DS 최적화를 결합 실행하는 방식 모두 가능하며 <b>결과가 달라질 수 있습니다.</b></p>
+</div>
+
+<h3>PP/DS와 MRP Live의 연동 (Unit 7)</h3>
+
+<div class="note">
+  <div class="t">📖 참고 — Course 8과 동일한 내용</div>
+  <p>이 Unit은 Course 8(<code>S42220</code>) 8-2의 "Unit 6. Using Multistep Planning in SAP S/4HANA PP/DS"와 사실상 동일합니다.</p>
+</div>
+
+<p>로케이션제품에서 <b>Advanced Planning 플래그</b>로 PP/DS가 활성화된 자재는 PP/DS에서, 나머지는 S/4HANA에서 계획이 유지됩니다. <b>MRP Live는 두 계획 알고리즘을 하나의 계획실행에서 병렬로 결합</b>할 수 있으며, 이때 Customizing의 전역파라미터·기본값에 지정된 표준휴리스틱 또는 로케이션제품에 지정된 휴리스틱을 참조합니다.</p>
+
+<div class="note warn">
+  <div class="t">⚠️ Caution — MRP Live가 상세계획 결과를 지워 버린다</div>
+  <p>소요별로 서로 다른 상세휴리스틱으로 먼저 계획한 뒤, <b>PP/DS 계획실행 이후에 비PP/DS 자재/구성부품을 계획하려고 MRP Live를 실행</b>하면, 이 과정에서 <span class="bad">MRP Live가 PP/DS 대상 제품까지 재계산해 입고일·시간을 재스케줄링</span>해 버려 상세계획실행 결과가 사라질 수 있습니다.</p>
+  <p>과거 SAP ERP/ECC + APO 조합에서도 같은 문제가 있었고, 당시 해결책은 PP/DS 자재에 <b>특수 MRP유형 <code>X0</code></b>를 배정하는 것이었습니다. <span class="key">S/4HANA PP/DS 시나리오에서는 이 방식이 바뀌어</span>, 계획범위(Planning Scope) 정의 시 <b>자재번호를 선택기준으로 사용</b>하거나 PP/DS 자재에 <b>별도의 MRP플래너를 배정</b>해 MRP Live 대상에서 제외합니다.</p>
+</div>
+
+<div class="note warn">
+  <div class="t">확인 필요 — 계획범위 정의 화면 · MRP플래너 분리 운영</div>
+  <p>원문은 "계획범위 정의 시 자재번호를 선택기준으로 쓰거나 별도 MRP플래너를 배정한다"까지만 말하고 <b>해당 앱/트랜잭션과 실제 설정 경로를 명시하지 않습니다.</b> 운영에서는 이 분리가 곧 야간 배치 스케줄 설계이므로, 실제 시스템(winerp01 / MEP)에서 <span class="bad">MRP Live 실행 변형의 선택기준을 직접 확인</span>한 뒤 보강합니다.</p>
+</div>
+
+</div>
+
+<!-- ══════════ APPENDIX ══════════ -->
+<div class="lesson" id="lx">
+<h2><span class="no">APPENDIX</span>정리 · 반드시 기억할 것</h2>
+
+<h3>한 장 요약</h3>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>질문</th><th>답</th></tr></thead>
+<tbody>
+<tr><td class="wrap">PP/DS는 MRP와 뭐가 다른가</td><td class="wrap">MRP는 무제한 능력 전제로 소요량을 계산하고, PP/DS는 <b>유한계획으로 시·분 단위</b>로 자원에 오퍼레이션을 꽂는다</td></tr>
+<tr><td class="wrap">전부 PP/DS로 계획하나</td><td class="wrap">아니다. <b>병목자원의 critical 제품만</b> PP/DS, 나머지는 MRP Live. 단 <span class="key">같은 자원에서 나오는 제품은 전부 같이</span> PP/DS로 넣어야 능력계획이 성립한다</td></tr>
+<tr><td class="wrap">마스터데이터는 어떻게 넘어가나</td><td class="wrap">CIF로 번역된다. 자재→제품, 작업장→<b>능력카테고리별 자원</b>, 생산버전→<b>PDS</b>(<code>CURTOADV_CREATE</code>). 자재마스터의 <b>Advanced Planning</b>을 켜야 넘어간다</td></tr>
+<tr><td class="wrap">실행시스템과 데이터를 주고받는 버전</td><td class="wrap"><b>활성모델 000의 계획버전 000</b> 하나뿐. 나머지는 전부 시뮬레이션</td></tr>
+<tr><td class="wrap">PP/DS를 켜는 스위치</td><td class="wrap">S/4HANA Customizing의 <b>Main Switch</b></td></tr>
+<tr><td class="wrap">계획오더가 생산오더가 되는 조건</td><td class="wrap"><b>전환지시자(Conversion Indicator)</b> 하나. 둘의 유일한 차이다</td></tr>
+<tr><td class="wrap">안전재고방법 SB와 SZ</td><td class="wrap">MRP2 뷰에 안전재고가 있으면 <b>SB</b>, 안전시간만 있으면 <b>SZ</b>. 릴리스 2023부터 자동 결정(Fiori 전용)</td></tr>
+<tr><td class="wrap">MTO에서 로트사이즈가 무시된다</td><td class="wrap">정상이다. <b>Lot Size Always</b>를 켜지 않으면 MTO·개별프로젝트계획은 항상 Lot-for-Lot이고 최소/최대·라운딩이 무시된다</td></tr>
+<tr><td class="wrap">휴리스틱 3그룹</td><td class="wrap"><b>제품</b>(제품마스터에 입력) · <b>프로세스제어</b>(계획실행 초기화면에서 순서 정의) · <b>서비스</b>(개별 기능 수행)</td></tr>
+<tr><td class="wrap">저수준코드가 안 맞는다</td><td class="wrap">마스터데이터를 바꿔도 <b>자동 재계산되지 않는다.</b> <code>SAP_PP_020</code>으로 재계산. 순환구조 PDS가 있으면 계획실행이 종료된다</td></tr>
+<tr><td class="wrap">계획을 바꿀 수 있는 범위</td><td class="wrap"><b>확산범위(Propagation Range)</b>. 범위 밖 구성부품에는 오더가 안 생기고 <b>계획파일항목만</b> 남는다. 작업영역은 "보이는 범위"이지 "바꿀 수 있는 범위"가 아니다</td></tr>
+<tr><td class="wrap">온라인 총계획의 함정</td><td class="wrap">대화형모드에서 <b>5분을 넘기면 자동 종료</b>. 대규모는 백그라운드 변형으로</td></tr>
+<tr><td class="wrap">페깅이란</td><td class="wrap">입고요소와 소요요소의 <b>연결</b>. 동적페깅은 일자 기준으로 자동 변동, 고정페깅은 못박아 시스템이 자동변경하지 못하게 한다(<code>SAP_PP_019</code> 생성 / <code>SAP_PP_011</code> 삭제)</td></tr>
+<tr><td class="wrap">페깅이 성립하는 조건</td><td class="wrap">제품 · 로케이션 · 계정배정(MTS/MTO) · 계획버전이 <b>모두 같을 것</b>. 하나의 <b>페깅영역</b> 안에서만. 못 맺으면 <b>수량알림</b></td></tr>
+<tr><td class="wrap">계획시간펜스 안에서는</td><td class="wrap"><b>수동변경만</b> 가능. 휴리스틱이 자동으로 바꾸지 않는다. 신규소요는 <b>펜스 종료지점에 배치</b>된다</td></tr>
+<tr><td class="wrap">유한계획 3모드</td><td class="wrap"><b>Find Slot</b>(첫 빈 슬롯) · <b>Insert</b>(희망일, 인접 오퍼레이션을 한쪽으로 밀어냄, 단일자원) · <b>Squeeze</b>(양방향으로 밀어냄, 단일활동자원)</td></tr>
+<tr><td class="wrap">SBC가 하는 일</td><td class="wrap">aATP + PP/DS 통합. 재고가 모자랄 때 <b>공급창출(계획오더·구매요청)까지 트리거</b>해 영업오더를 확정한다. 릴리스 2022~, <code>SAP_PP_SBC</code> + 계획절차 3</td></tr>
+<tr><td class="wrap">PAC와 PPAC의 차이</td><td class="wrap">PAC는 <b>ATP 시계열</b>로 확인, PPAC는 <b>PP/DS 순소요계산</b>으로 확인하고 <b>임시 공급요소</b>를 만든다(저장 시 영구 전환)</td></tr>
+<tr><td class="wrap">휴리스틱과 옵티마이저</td><td class="wrap">휴리스틱은 <b>규칙</b>으로 수량·일자를 만들고(빠름·재현 가능), DS 옵티마이저는 <b>목적함수 최소화</b>로 순서·자원배정을 바꾼다(유전알고리즘·느림)</td></tr>
+<tr><td class="wrap">PPO의 한계</td><td class="wrap"><b>버킷 단위</b>라서 버킷 내 순서가 없다 → 개별 원소요까지 페깅되지 않고, 계획오더-영업오더 연결을 확인할 수 없다. 순서까지 원하면 <b>PPO 뒤에 DS 최적화</b></td></tr>
+<tr><td class="wrap">PP/DS 결과가 사라졌다</td><td class="wrap">뒤이어 돈 <b>MRP Live가 PP/DS 제품까지 재스케줄링</b>했을 가능성. 계획범위에서 자재번호로 제외하거나 <b>별도 MRP플래너</b>로 가른다(과거 ECC의 <code>X0</code> 대체)</td></tr>
+</tbody>
+</table>
+</div>
+
+<div class="note warn">
+  <div class="t">반드시 지킬 것</div>
+  <p>· <b>같은 자원의 제품을 반만 PP/DS로 넣지 않는다.</b> 부하가 반쪽만 보여 능력계획이 무의미해진다.<br>
+     · <b>커스텀 계획전략을 만들면 양쪽에 정의한다.</b> Production Planning의 계획전략과 Advanced Planning의 요구전략을 <span class="bad">동일 기술키</span>로. 요구클래스도 PP/DS Customizing에 수동 유지해야 소비가 동작한다.<br>
+     · <b>PP/DS 계획실행 뒤에 MRP Live를 무심코 돌리지 않는다.</b> 계획범위를 갈라 두지 않으면 상세계획 결과가 지워진다.<br>
+     · <b>마스터데이터를 바꾼 뒤에는 저수준코드를 재계산한다</b>(<code>SAP_PP_020</code>). 자동으로 갱신되지 않는다.<br>
+     · <b>고정페깅을 유통기한 관리와 섞지 않는다.</b> 원문이 유효기간(Shelf Life) 프로세스는 지원하지 않는다고 명시했다.<br>
+     · <b>대규모 계획을 온라인으로 돌리지 않는다.</b> 5분 컷에 걸려 조용히 종료된다.</p>
+</div>
+
+<div class="note warn">
+  <div class="t">확인 필요 — 이 노트에서 단정하지 않은 것</div>
+  <p>· <b>진입 T-Code · Fiori 앱 ID</b> — 원문에 명시된 것은 <code>CFC9</code> · <code>CURTOADV_CREATE</code> · <code>PDS_MAINT</code> · <code>MD74</code> / <code>MD75</code> / <code>MD76</code>뿐입니다. 제품뷰 · 알림모니터 · DS계획보드 · 계획실행의 진입 코드는 <span class="bad">기억으로 채우지 않았습니다.</span><br>
+     · <b>릴리스 종속 항목</b> — 안전재고 자동결정(2023~), SBC(2022~), 계획절차 3의 지원 여부는 원문 안에서도 시점이 갈립니다. 실제 시스템(winerp01 / MEP)의 릴리스를 먼저 확인하고 읽어야 합니다.<br>
+     · <b>필드 레벨</b> — 전략그룹 · 소비모드 · 계획시간펜스에 대응하는 자재마스터 필드명은 원문에 없습니다. 시스템에서 확정합니다.</p>
+</div>
+
+<h3>이 노트의 범위에 대해</h3>
+
+<div class="note">
+  <div class="t">개인 프로젝트와의 거리</div>
+  <p>진행 중인 개인 E2E 프로젝트(식품 유통 · 벤더 사입 후 재판매)는 <b>생산과 외주가공이 없습니다.</b> PP/DS · PDS · 자원 · 상세스케줄링은 프로젝트에 <span class="bad">전혀 쓰이지 않습니다.</span> 이 노트는 <span class="key">자격증과 지식 목적</span>으로만 정리한 것입니다.</p>
+  <p>그래서 📌는 세 곳에만 달았습니다 — LESSON 1의 <b>알림모니터</b>(임계값과 우선순위를 코드가 아니라 설정에 두는 구조 → <code>ZPRICE_CHECK</code>), LESSON 3의 <b>계획시간펜스</b>(자동화하지 않는 구간을 명시하는 장치 → <code>ZBATCH_ZONE</code>), LESSON 3의 <b>페깅</b>(일자 기준 자동 배정과 예외 고정의 병행 → SD FEFO 배치결정). 나머지는 억지로 연결하지 않았습니다.</p>
+</div>
+
+<h3>참고</h3>
+
+<ul>
+  <li>원본: 노션 <b>SAP Learning Hub</b> → Implementing Manufacturing in SAP S/4HANA Cloud Private Edition → <b>9-1 · 9-2 · 9-3 · 9-4</b> (Unit 1~7 전체 · 레슨 24개)</li>
+  <li>원문 주석: 이 코스는 S/4HANA 아키텍처·Business Suite·디지털 전환 등 <b>다른 러닝저니 도입부와 중복되는 일반 배경</b>을 다수 포함하나, 원문 단계에서 이미 PP/DS 특화 내용 위주로 추린 상태다. 전략 20/40/50과 PIR 재편성은 Course 8과 중복이라 압축했다</li>
+  <li>앞 노트: <b>S42220</b> 생산계획 — 수요관리·MRP Live (전략 20/40/50과 MRP Live 다단계계획의 원본 설명)</li>
+  <li>이어지는 노트: <b>S42300</b> 능력계획(Capacity Planning) · <b>S4260</b> 생산오더 관리</li>
+</ul>
+
+</div>
+
+</div>
+<script src="../../assets/hub.js" defer></script>
+</body>
+</html>

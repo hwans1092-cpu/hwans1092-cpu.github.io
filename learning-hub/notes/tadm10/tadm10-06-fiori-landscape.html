@@ -1,0 +1,1196 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>TADM10 Unit 17-21 — Fiori 랜드스케이프와 앱 구현 · SAPconnect</title>
+<meta name="description" content="SAP Learning Hub TADM10 Unit 17~21 노트. Fiori 배포 옵션(Embedded·Hub), SAP Activate·Maintenance Planner, Rapid Activation task list, Fiori 앱 활성화 경로(Business Role→Catalog→OData→ICF), In-App Help와 알림, SAPconnect·SMTP 구성.">
+<link rel="icon" href="../../assets/favicon.svg">
+<link rel="stylesheet" href="../../assets/notes-paper.css">
+<style>
+/* ── 이 노트 전용: 도해(SVG) 스타일 ─────────────────────────── */
+.dgm{display:block; width:100%; height:auto;}
+.dgm text{font-family:"Malgun Gothic","맑은 고딕","Apple SD Gothic Neo",sans-serif; fill:#1e1e1e;}
+.dgm .t-h{font-size:15px; font-weight:700;}
+.dgm .t{font-size:13px;}
+.dgm .t-s{font-size:11.5px; fill:#555;}
+.dgm .t-xs{font-size:10.5px; fill:#6B7280;}
+.dgm .m{font-family:"D2Coding","Consolas",monospace; font-size:12px;}
+.dgm .m-s{font-family:"D2Coding","Consolas",monospace; font-size:10.5px;}
+.dgm .c-key{fill:#4338CA;} .dgm .c-bad{fill:#B91C1C;} .dgm .c-ok{fill:#047857;}
+.dgm .b{fill:#FFFFFF; stroke:#C7CBD6; stroke-width:1.2;}
+.dgm .b-key{fill:#EEF0FB; stroke:#4338CA; stroke-width:1.4;}
+.dgm .b-bad{fill:#FEF2F2; stroke:#B91C1C; stroke-width:1.3;}
+.dgm .b-ok{fill:#ECFDF5; stroke:#047857; stroke-width:1.3;}
+.dgm .b-mut{fill:#F3F4F6; stroke:#D1D5DB; stroke-width:1.1;}
+.dgm .b-hl{fill:#FEF08A; stroke:#CA8A04; stroke-width:1.2;}
+.dgm .b-ghost{fill:none; stroke:#9AA3B2; stroke-width:1.1; stroke-dasharray:5 4;}
+.dgm .ln{stroke:#7C8697; stroke-width:1.4; fill:none;}
+.dgm .ln-key{stroke:#4338CA; stroke-width:1.8; fill:none;}
+.dgm .ln-bad{stroke:#B91C1C; stroke-width:1.6; fill:none;}
+.dgm .ln-ok{stroke:#047857; stroke-width:1.6; fill:none;}
+.dgm .ln-d{stroke:#9AA3B2; stroke-width:1.2; stroke-dasharray:4 4; fill:none;}
+.dgm .arw{fill:#7C8697;} .dgm .arw-key{fill:#4338CA;}
+.dgm .arw-bad{fill:#B91C1C;} .dgm .arw-ok{fill:#047857;}
+.figwrap{background:#FAFAFE; border:1px solid var(--rule); border-radius:6px;
+  padding:18px 16px 10px; margin:22px 0;}
+.figwrap figcaption{margin-top:12px; padding-top:10px; border-top:1px solid var(--rule);}
+</style>
+</head>
+<body>
+<div class="crumb"><a href="../../index.html">← 자료실 홈</a> · <a href="../../journey.html?j=tadm10">BASIS 저니</a> · TADM10 Fiori 랜드스케이프</div>
+<div class="sheet">
+
+<div class="doc-head">
+  <div class="kicker">LEARNING HUB · TADM10 U17-21</div>
+  <h1>Fiori 랜드스케이프와 앱 구현 · SAPconnect</h1>
+  <div class="sub">
+    Learning Journey <b>Technical Implementation and Operation I of SAP S/4HANA and SAP Business Suite</b> · TADM10 Unit 17-21 · 5 Unit · 15 레슨<br>
+    출처: 노션 <b>SAP Learning Hub</b> 노트 5-1 ~ 9-1 변환 · 이 코스의 마지막 구간
+  </div>
+</div>
+
+<div class="lead">
+  <p><b>결론부터.</b> Fiori 앱은 "설치하면 보이는 것"이 아니라 <span class="hl">역할 · 카탈로그 · OData 서비스 · ICF 노드 네 겹을 전부 켜야 비로소 열리는 것</span>입니다. 앱이 안 뜬다는 문의의 답은 거의 항상 이 네 겹 중 어디가 꺼져 있느냐입니다.</p>
+  <p>앞 단계(Unit 16)에서 ICM · ICF · Gateway · Web Dispatcher라는 HTTP 배관을 깔았다면, 이 구간은 그 배관 위에 <b>Fiori 랜드스케이프를 어떻게 배치하고(Unit 17), 콘텐츠를 어떤 도구로 한 번에 켜고(Unit 18-19), 도움말·알림·메일이라는 부가 채널을 어떻게 붙이는가(Unit 20-21)</b>를 다룹니다. 마지막 Unit 21의 SAPconnect는 Fiori와 무관하게 <span class="key">ABAP 프로그램이 메일을 내보내는 유일한 표준 경로</span>라, 배치 프로그램을 만드는 사람이 실제로 가장 많이 건드리는 부분입니다.</p>
+</div>
+
+<div class="toc">
+  <h4>목차</h4>
+  <ol>
+    <li><a href="#l1">Fiori 배포 옵션 · SAP Activate · Enterprise Search · SSO</a></li>
+    <li><a href="#l2">콘텐츠 모델과 Rapid Activation — Gateway·Fiori 구성</a></li>
+    <li><a href="#l3">Fiori 앱 구현 — 앱 하나를 살리는 순서</a></li>
+    <li><a href="#l4">In-App Help와 알림(Notification)</a></li>
+    <li><a href="#l5">SAPconnect와 SMTP — 메일이 안 나갈 때</a></li>
+  </ol>
+</div>
+
+
+<!-- ══════════ LESSON 1 ══════════ -->
+<div class="lesson" id="l1">
+<h2><span class="no">LESSON 1</span>Fiori 배포 옵션 · SAP Activate · Enterprise Search · SSO</h2>
+
+<p><span class="tag">Unit 17</span><span class="tag">레슨 4개</span>Implementation Planning · Activating Enterprise Search · Activating Embedded Analytics · Enabling Single Sign-On</p>
+
+<h3>배포 옵션 — 무엇이 어디에 설치되는가</h3>
+
+<p>Fiori 랜드스케이프 설계의 첫 갈림길은 <b>SAP Fiori front-end server(FES)를 어디에 두느냐</b>입니다. SAP S/4HANA에는 <span class="key">embedded FES</span>가 권장이고, 여러 시스템을 묶는 SAP Business Suite 시나리오에는 여전히 중앙 <span class="key">hub</span> 옵션이 권장됩니다.</p>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>배포 옵션</th><th>설명</th></tr></thead>
+<tbody>
+<tr><td>Embedded (S/4HANA 단일)</td><td class="wrap">S/4HANA용 embedded FES가 <b>권장 구성</b>. Launchpad · 앱 · 비즈니스 역할 설정을 자동화하는 task list가 제공된다</td></tr>
+<tr><td>전용 FES hub (S/4HANA별)</td><td class="wrap">특정 사용 사례에서만 선택지가 된다</td></tr>
+<tr><td>FES hub (다중 Business Suite)</td><td class="wrap">Fiori UI 컴포넌트 · Launchpad 콘텐츠 · Gateway 서버가 중앙 FES에 번들. 전통 UI와 비즈니스 로직은 백엔드에 남는다. <b>여러 릴리스의 백엔드를 FES 하나에 연결</b> 가능</td></tr>
+<tr><td>혼합 (S/4HANA + 기존 Suite)</td><td class="wrap">기존 중앙 FES hub를 유지한 채 S/4HANA를 추가. 신규 S/4HANA에는 embedded FES를 두고, 중앙 Launchpad에서 <b>URL 타일</b>로 로컬 Launchpad를 연결한다. 기존 hub 배포에 영향이 없는 것이 장점</td></tr>
+</tbody>
+</table>
+</div>
+
+<figure class="figwrap">
+<svg class="dgm" viewBox="0 0 1000 450" role="img" aria-label="Fiori 배포 옵션 비교 도해. Embedded는 UI·Gateway·비즈니스 로직이 한 서버에 모여 업그레이드와 권한 관리가 단순하고, Hub는 FES를 백엔드와 분리해 여러 릴리스의 백엔드를 하나의 진입점으로 묶는 대신 두 시스템을 따로 관리해야 한다.">
+  <defs>
+    <marker id="d1a" markerWidth="9" markerHeight="9" refX="7" refY="4.5" orient="auto">
+      <polygon class="arw" points="0,0 9,4.5 0,9"/></marker>
+    <marker id="d1k" markerWidth="9" markerHeight="9" refX="7" refY="4.5" orient="auto">
+      <polygon class="arw-key" points="0,0 9,4.5 0,9"/></marker>
+  </defs>
+
+  <text class="t-s c-ok" x="22" y="20">① Embedded — SAP S/4HANA 권장</text>
+  <rect class="b-ok" x="20" y="30" width="440" height="230" rx="8"/>
+  <text class="t-h c-ok" x="40" y="56">한 서버 = SAP S/4HANA</text>
+  <text class="t-xs" x="40" y="74">ABAP Platform 위에 FES 컴포넌트가 같이 산다</text>
+
+  <rect class="b" x="40" y="84" width="400" height="36" rx="5"/>
+  <text class="t" x="56" y="107">SAPUI5 · SAP Fiori Launchpad</text>
+  <rect class="b" x="40" y="126" width="400" height="36" rx="5"/>
+  <text class="t" x="56" y="149">SAP Gateway (FES 컴포넌트)</text>
+  <rect class="b-key" x="40" y="168" width="400" height="36" rx="5"/>
+  <text class="t c-key" x="56" y="191">비즈니스 로직 · OData 구현 (IW_BEP)</text>
+
+  <text class="t-xs" x="40" y="226">처리모드 Co-Deployed — 라우팅 없이 IW_BEP 직결</text>
+  <text class="t-xs" x="40" y="244">시스템 별칭은 LOCAL 하나면 끝난다</text>
+
+  <text class="t-s c-key" x="512" y="20">② Hub — Business Suite · 혼합 랜드스케이프</text>
+  <rect class="b-ghost" x="510" y="30" width="470" height="230" rx="8"/>
+
+  <rect class="b-key" x="528" y="58" width="176" height="124" rx="6"/>
+  <text class="t-h c-key" x="546" y="84">FES hub</text>
+  <text class="t-xs" x="546" y="106">SAPUI5 · Launchpad</text>
+  <text class="t-xs" x="546" y="124">Gateway core</text>
+  <text class="t-xs" x="546" y="142">Launchpad 콘텐츠</text>
+  <text class="t-xs c-key" x="546" y="164">중앙 진입점 1개</text>
+
+  <path class="ln-key" d="M704 96 H786" marker-end="url(#d1k)"/>
+  <text class="t-xs" x="712" y="88">OData</text>
+  <path class="ln-d" d="M786 148 H704" marker-end="url(#d1a)"/>
+  <text class="t-xs" x="708" y="166">신뢰 RFC</text>
+
+  <rect class="b" x="790" y="58" width="172" height="56" rx="6"/>
+  <text class="t" x="806" y="82">백엔드 BES ①</text>
+  <text class="t-xs" x="806" y="102">비즈니스 로직</text>
+  <rect class="b" x="790" y="124" width="172" height="56" rx="6"/>
+  <text class="t" x="806" y="148">백엔드 BES ②</text>
+  <text class="t-xs" x="806" y="168">릴리스가 달라도 됨</text>
+
+  <text class="t-xs" x="528" y="206">FES 2023 = hub로 쓸 수 있는 마지막 버전</text>
+  <text class="t-xs c-bad" x="528" y="224">이후 계획된 배포 옵션은 embedded 하나뿐</text>
+  <text class="t-xs" x="528" y="242">SAP Business Suite는 FES 2023과 함께 유지보수 종료</text>
+
+  <rect class="b-mut" x="20" y="278" width="960" height="152" rx="8"/>
+  <text class="t-h" x="40" y="302">갈리는 지점</text>
+  <text class="t-s c-ok" x="190" y="302">Embedded</text>
+  <text class="t-s c-key" x="570" y="302">Hub</text>
+  <path class="ln-d" d="M20 312 H980"/>
+
+  <text class="t-s" x="40" y="334">업그레이드</text>
+  <text class="t-s" x="190" y="334">S/4HANA 업그레이드에 FES가 딸려 온다</text>
+  <text class="t-s" x="570" y="334">FES만 따로 올린다 · 요구 버전 이상 유지</text>
+
+  <text class="t-s" x="40" y="360">보안 · 사용자</text>
+  <text class="t-s" x="190" y="360">인증 · 권한이 한 시스템에서 끝난다</text>
+  <text class="t-s" x="570" y="360">FES 인증 후 백엔드는 신뢰 RFC · 두 벌 관리</text>
+
+  <text class="t-s" x="40" y="386">성능 · LC</text>
+  <text class="t-s" x="190" y="386">런타임 최적 · 소프트웨어 LC 단순</text>
+  <text class="t-s" x="570" y="386">홉이 하나 늘고 버전 매트릭스를 관리</text>
+
+  <text class="t-s" x="40" y="412">쓰는 곳</text>
+  <text class="t-s" x="190" y="412">S/4HANA 신규 · 다중 시스템</text>
+  <text class="t-s" x="570" y="412">Business Suite 다중 · 기존 hub 유지</text>
+</svg>
+<figcaption><span class="fno">그림 1</span>Embedded와 Hub의 차이는 "UI가 어디 사느냐"가 아니라 <b>업그레이드 단위와 인증 경계가 어디서 갈리느냐</b>다.</figcaption>
+</figure>
+
+<h3>릴리스별 FES 버전</h3>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>SAP S/4HANA</th><th>기본 제공 FES</th><th>업그레이드 가능 버전</th></tr></thead>
+<tbody>
+<tr><td>1709</td><td>FES 4.0</td><td>FES 5.0, 6.0</td></tr>
+<tr><td>1809</td><td>FES 5.0</td><td>FES 6.0, 2020, 2022</td></tr>
+<tr><td>1909</td><td>FES 6.0</td><td>FES 2020, 2021, 2022</td></tr>
+<tr><td>2020</td><td>FES 2020</td><td>FES 2021, 2022</td></tr>
+<tr><td>2021</td><td>FES 2021</td><td>FES 2022</td></tr>
+<tr><td>2022</td><td>FES 2022</td><td class="wrap">전체 시스템 업그레이드로 S/4HANA 2023</td></tr>
+</tbody>
+</table>
+</div>
+
+<p>여기서 걸리는 지점이 하나 있습니다. <span class="bad">FES 2023은 S/4HANA 2023의 일부로만 설치됩니다.</span> 낮은 릴리스에서 FES 컴포넌트만 2023으로 올릴 수 없다는 뜻이고, FES 2023의 UI 기술 혁신을 쓰려면 <b>전체 시스템 업그레이드</b>가 필요합니다.</p>
+
+<div class="note warn">
+  <div class="t">확인 필요</div>
+  <p>위 표는 2022년 7월 기준 정리입니다. 개인 프로젝트 서버의 실제 조합(S/4HANA 릴리스 · SAP_UI · SAP_GWFND SP)은 <code>SPRO</code>가 아니라 <b>System → Status → Component Information</b>에서 직접 확인해야 합니다. 노트 값으로 단정하지 않습니다.</p>
+</div>
+
+<p>제품 버전 관점에서 FES는 신규 기술 컴포넌트가 아니라 <b>"필요한 스택 조합을 정의한 번들"</b>입니다. S/4HANA 2023이면 FES 2023 = SAP Gateway Foundation 7.58 + User Interface Technology 7.58 + UI for Basis Applications 7.58 조합이고, FES의 DB는 SAP HANA · SAP ASE · SAP MaxDB 중 하나여야 합니다(ABAP 백엔드는 SAP HANA 2.0). 상세는 SAP Note <code>3336823</code> · <code>3307222</code>.</p>
+
+<div class="note">
+  <div class="t">🔰 초보자 설명 — Web Dispatcher 용어 주의</div>
+  <p>SAP Web Dispatcher 문서에서는 <b>FES도 "백엔드(back-end)"라고 부릅니다.</b> Fiori 용어의 백엔드(BES, 비즈니스 로직 시스템)와 다른 말이니, 파라미터를 읽을 때 어느 쪽 용어인지 먼저 구분해야 합니다. 클라이언트↔Web Dispatcher 구간은 HTTPS(SAP Note <code>908097</code>).</p>
+</div>
+
+<h3>SAP Build Work Zone와 콘텐츠 페더레이션</h3>
+
+<p>SAP의 전략 방향은 BTP 위의 중앙 진입점 <b>SAP Build Work Zone, standard edition</b>(구 SAP Launchpad service)입니다. 온프레미스·클라우드를 가리지 않는 <span class="key">UX 통합자</span> 역할이고, 연결된 시스템은 라이프사이클·권한·콘텐츠 구조 면에서 <b>여전히 독립 개체로 남습니다</b>. 통합 방법은 두 가지입니다.</p>
+
+<div class="step"><span class="n">수동</span><p>SAPUI5 · Web Dynpro ABAP · SAP GUI for HTML 템플릿으로 앱을 개별 통합. 웹 애플리케이션은 동적 URL 런처로도 가능하고, iFrame 인플레이스 또는 새 탭 실행을 고를 수 있다</p></div>
+<div class="step"><span class="n">페더레이션</span><p>SAP 제품이 <b>콘텐츠 제공자</b>가 되어 역할·앱·메타데이터를 노출. 교환 포맷은 <span class="key">Common Data Model(CDM)</span>이며, 각 제공자 시스템이 CDM에 맞춰 자기 콘텐츠를 노출할 책임을 진다</p></div>
+
+<p>배포 위치에 따라 OData 경로도 갈립니다. 온프레미스면 UI 컴포넌트가 FES(hub 또는 embedded)에 설치되고 FES의 Gateway가 백엔드 OData 구현을 호출합니다. BTP에 배포하면 UI는 BTP에, 연결은 <b>SAP Cloud Connector</b>로 가고 OData 처리는 동일합니다. Business Suite 백엔드라면 경량 대안으로 BTP의 <b>OData Provisioning service</b>가 있지만 완전한 Gateway Server보다 범위가 제한적입니다.</p>
+
+<h3>SAP Activate와 Maintenance Planner</h3>
+
+<p><b>SAP Activate</b>는 모범 사례 + 도구 + 방법론을 묶은 도입 프레임워크입니다. 구성요소 세 가지와 시작점 세 가지를 같이 외워 두면 됩니다.</p>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>구성요소</th><th>설명</th></tr></thead>
+<tbody>
+<tr><td>SAP Best Practices</td><td class="wrap">즉시 실행 가능한 비즈니스 프로세스. 통합·마이그레이션 기본사항, 클라우드 참조 솔루션, 확장성 세부사항 포함</td></tr>
+<tr><td>Guided Configuration</td><td class="wrap">초기 구현부터 go-live 이후까지 지원하는 어시스트형 구현 도구 세트</td></tr>
+<tr><td>Methodology</td><td class="wrap">배포 모드와 무관하게 일관된 접근. 직접 · 파트너 · SAP 수행 모두 지원</td></tr>
+</tbody>
+</table>
+</div>
+
+<div class="step"><span class="n">시작점 1</span><p><b>New implementation</b> — 레거시에서 마이그레이션하거나 신규 설치</p></div>
+<div class="step"><span class="n">시작점 2</span><p><b>System conversion</b> — 기존 SAP 시스템을 S/4HANA로 전환</p></div>
+<div class="step"><span class="n">시작점 3</span><p><b>Selective data transition</b>(구 landscape transformation) — 랜드스케이프 통합, 또는 특정 엔터티(예: company code)·프로세스를 떼어내 옮기는 carve out</p></div>
+
+<p>도구 쪽은 <b>Maintenance Planner</b>(<code>apps.support.sap.com/sap/support/mp</code>)입니다. Maintenance Optimizer · Landscape Planner · Product System Editor의 후속으로, 시스템 설치·업데이트·업그레이드 계획, 트랙 그룹화, 종속 시스템 영향 분석, S/4HANA 전환 계획을 한 도구에서 처리합니다.</p>
+
+<p>Fiori 앱과의 접점이 여기 있습니다. Fiori 앱은 프론트엔드 · 백엔드 · (해당 시) HANA 컴포넌트를 <b>각각 별도 제품으로</b> 요구하는데, <span class="hl">SAP Fiori apps reference library에서 앱을 고르면 Maintenance Planner로 바로 넘어가 필요한 패키지를 한 트랜잭션으로 내려받을 수 있습니다.</span> 라이브러리의 <b>Relevance and Readiness Analysis</b>는 "내 프로세스에 관련 있는 앱"(Relevance)과 "지금 쓸 수 있는가"(Readiness)를 나눠 보여 줍니다 — 이미 설치된 앱, 업데이트·DB 마이그레이션이 필요한 앱, 필요한 설치 사항까지.</p>
+
+<h3>Enterprise Search 활성화</h3>
+
+<p>Fiori 검색은 <b>SAP Enterprise Search on HANA</b>를 쓰며, HANA를 기반으로 트랜잭션 테이블에 직접 접근합니다. 주의할 전제가 하나 있습니다 — <span class="key">Object Page 앱은 동작 자체에 검색 모델이 필요하지 않지만, 검색에서 앱을 시작하려면 기저 검색 커넥터가 활성화되어 있어야 합니다.</span> 즉 <b>Fiori 검색 설정은 Object Page 사용의 전제조건</b>입니다.</p>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>Task list</th><th>설명</th></tr></thead>
+<tbody>
+<tr><td><code>SAP_ESH_RESET</code></td><td class="wrap">(선택) Enterprise Search 데이터·구성을 배포 상태로 초기화. <b>고객별 모델은 기본적으로 삭제되지 않음</b> — 제거하려면 파라미터 뷰에서 기본 설정을 끈다</td></tr>
+<tr><td><code>SAP_ESH_INITIAL_SETUP_WRK_CLIENT</code></td><td class="wrap">work client에서 자동 초기 설정. <b>실행 시간이 매우 길어 백그라운드 실행 권장</b></td></tr>
+<tr><td><code>SAP_ESH_CREATE_INDEX_SC</code></td><td class="wrap">(선택) 검색 커넥터 생성·인덱싱. 위 task list의 일부 task를 포함</td></tr>
+</tbody>
+</table>
+</div>
+
+<div class="note warn">
+  <div class="t">Caution — 메모리와 시간</div>
+  <p>Enterprise Search task list는 <b>검색 커넥터 수에 따라 극도로 많은 메모리를 소비하고 수 시간 동안 실행</b>될 수 있습니다. 반드시 백그라운드로, 그리고 업무 시간을 피해서 겁니다.</p>
+</div>
+
+<p>실행 전후 체크리스트:</p>
+
+<div class="step"><span class="n">권한</span><p>실행 사용자는 관리자 역할 <code>SAP_ESH_LOCAL_ADMIN</code>(또는 동일 권한 객체를 전부 가진 역할)을 보유해야 한다</p></div>
+<div class="step"><span class="n">선행</span><p>이전 SAP_BASIS 릴리스에서는 client 000에서 <code>SAP_ESH_INITIAL_SETUP_000_CLIENT</code>를 먼저 실행해야 한다 (SAP Note <code>2626107</code>)</p></div>
+<div class="step"><span class="n">연결</span><p><b>Set TREX Destination or SAP HANA DB Connection</b> task에서 S/4HANA는 <span class="key">Use SAP HANA Primary DB Connection: DEFAULT</span>를 선택. TREX · Secondary DB Connection은 Business Suite(sidecar)용이다</p></div>
+<div class="step"><span class="n">모델</span><p><b>Select Models to Create Connectors</b> task에서 Software Component에 <code>SAPAPPLH</code> 입력</p></div>
+<div class="step"><span class="n">후처리</span><p>완료 후 리포트 <code>ESH_REFRESH_RUNTIME_BUFFER</code>를 실행해 런타임 버퍼를 갱신</p></div>
+
+<p>Fact sheet 앱은 데이터베이스로 <b>SAP HANA를 요구</b>한다는 점도 같이 기억해 둡니다.</p>
+
+<h3>Embedded Analytics 활성화</h3>
+
+<p>분석 앱 구성의 두 축은 <b>S/4HANA embedded analytics 구성</b>과 <b>KPI Design 앱 구성</b>입니다. BW 콘텐츠 설치 전에 SAP Note <code>2289865</code>("Configuration steps for SAP S/4HANA Analytics")를 먼저 읽고, 거기서 참조하는 task list <code>SAP_BW_SETUP_INITIAL_S4HANA</code>를 씁니다.</p>
+
+<p>이 task list의 첫 task는 <b>SAP Note 2303900을 읽었는지 확인</b>하는 것이고, <b>Install essential BW Content</b> task의 결과는 애플리케이션 로그(<code>SLG1</code>)에서 Object <code>RSTCO_UT</code>로 필터링해 모니터링합니다. Design Studio 구성은 이 범위 밖이며 SAP Note <code>2356997</code>을 별도로 봐야 합니다.</p>
+
+<h3>Single Sign-On — 초기 인증 한 번, 백엔드는 신뢰 RFC</h3>
+
+<p>Fiori 인증 개념은 두 토막입니다.</p>
+
+<div class="step"><span class="n">1</span><p><b>초기 인증</b> — 앱 실행 요청이 Launchpad에서 ABAP front-end server로 가고, FES가 지원 메커니즘 중 하나로 사용자를 인증한다. 이후 클라이언트↔FES 사이에 <b>보안 세션</b>이 수립된다</p></div>
+<div class="step"><span class="n">2</span><p><b>백엔드 요청 인증</b> — 보안 세션이 선 뒤 트랜잭션 앱의 OData 요청은 FES를 거쳐 BES로 간다. 이 구간은 <span class="key">신뢰(trusted) RFC로 전달되며 추가 인증이 필요 없다</span></p></div>
+
+<p>예외가 검색입니다. Launchpad 검색은 클라이언트에서 HANA로 <b>InA 검색 요청</b>을 직접 보내며, 이건 Kerberos/SPNego · X.509 클라이언트 인증서 · 로그온 티켓으로 인증합니다.</p>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>메커니즘</th><th>쓸 곳과 제약</th></tr></thead>
+<tbody>
+<tr><td>User ID / Password</td><td class="wrap">구성 복잡도가 낮고 기본 보호는 되지만, 시스템이 많아지면 <b>반복 로그온 부담</b>이 그대로 사용자에게 간다</td></tr>
+<tr><td><span class="key">X.509 Client Certificates</span></td><td class="wrap">PKI가 있으면 백엔드(ABAP · HANA)를 인증서 수락으로 구성. <b>로그온 시 발급 시스템 접근이 필요 없어 인터넷 노출 시나리오에 적합.</b> SAP GUI 로그온에도 지원돼 SSO 설정이 단순해진다. 모바일은 MDM으로 중앙 배포</td></tr>
+<tr><td>Kerberos / SPNego</td><td class="wrap">사내망 접근에 적합. Active Directory 등 인프라가 이미 있으면 Windows 로그온 자격 증명을 재사용한다. <span class="bad">로그온 시 발급 시스템 접근이 필요해 대부분의 인터넷 노출 시나리오에는 못 쓴다</span> — 외부는 VPN이 필요할 수 있다</td></tr>
+<tr><td>SAML 2.0</td><td class="wrap">페더레이션 기능이 풍부해 <b>federated user domain</b> · 다중 사용자 도메인에 적합(사용자명·이메일 속성 기반 매핑). 대신 신뢰 구성이 복잡하고, 인터넷 노출 시 <b>IdP가 사외에서도 안전하게 접근 가능</b>해야 한다</td></tr>
+<tr><td>SAP Logon Tickets</td><td class="wrap">FES가 발급하거나 기존 포털이 발급. 백엔드도 수락하도록 구성해야 하며 <span class="bad">ABAP 사용자명과 HANA DB 사용자명이 동일해야 하고 매핑을 지원하지 않는다.</span> 쿠키로 전달되므로 <b>모든 시스템이 같은 DNS 도메인</b>에 있어야 쓸 수 있다</td></tr>
+</tbody>
+</table>
+</div>
+
+<h4>X.509 — Web Dispatcher가 끼어 있을 때</h4>
+
+<p>Web Dispatcher는 보통 SSL을 <b>종료(terminate)한 뒤 재암호화</b>해 AS ABAP으로 보냅니다. 그래서 AS ABAP이 보는 SSL 연결은 "Web Dispatcher의 인증서로 시작된 연결"이지 브라우저의 것이 아닙니다. 원본 클라이언트 인증서는 HTTP 헤더(기본값 <code>SSL_CLIENT_CERT</code>)에 실려 전달되어야 합니다.</p>
+
+<p>그렇다고 AS ABAP이 헤더의 인증서를 그냥 믿으면 <span class="bad">탈취한 인증서를 그대로 쓸 수 있게 됩니다.</span> 그래서 <b>신뢰할 수 있는 중개자가 전달한 것만</b> 수락합니다. 구성은 세 부분입니다.</p>
+
+<div class="step"><span class="n">1</span><p>클라이언트(브라우저)가 자기 인증서를 보낸다</p></div>
+<div class="step"><span class="n">2</span><p>SAP Web Dispatcher가 클라이언트 인증서를 수락하고 전달한다</p></div>
+<div class="step"><span class="n">3</span><p>AS ABAP이 전달된 인증서를 수락한다 — 프로파일 파라미터 <code>icm/trusted_reverse_proxy_&lt;n&gt;</code>에 SUBJECT · ISSUER를 지정해 신뢰할 프록시를 등록 (다수 프록시는 SAP Note <code>2052899</code>)</p></div>
+
+</div>
+
+
+<!-- ══════════ LESSON 2 ══════════ -->
+<div class="lesson" id="l2">
+<h2><span class="no">LESSON 2</span>콘텐츠 모델과 Rapid Activation — Gateway·Fiori 구성</h2>
+
+<p><span class="tag">Unit 18</span><span class="tag">레슨 3개</span>Understanding Rapid Activation · Configuring SAP Gateway and SAP Fiori · Preparing SAP Fiori Apps</p>
+
+<h3>콘텐츠 모델 — 카탈로그 · 그룹 · 스페이스 · 페이지</h3>
+
+<p>먼저 종속 관계 세 줄입니다. <b>UI 엔티티</b>가 사용자에게 보이는 앱을 정의하고, <b>OData 서비스</b>가 표시할 동적 데이터를 조회하며, <span class="key">앱을 시작·사용하는 데 필요한 권한은 OData 서비스로 정의</span>됩니다. 권한이 UI가 아니라 서비스에 걸린다는 점이 핵심입니다.</p>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>엔티티</th><th>역할</th></tr></thead>
+<tbody>
+<tr><td>Catalog</td><td class="wrap">사용자에게 <b>제공·권한 부여</b>하려는 앱의 집합. 사용자는 카탈로그를 탐색해 앱을 자기 진입 페이지에 추가한다</td></tr>
+<tr><td>Group</td><td class="wrap">진입 페이지 자체를 정의. 그룹 안의 앱은 카탈로그에 할당된 앱의 <b>부분집합</b>이다. <span class="bad">그룹에 있어도 카탈로그로 권한이 없으면 타일이 안 보인다</span></td></tr>
+<tr><td>Space</td><td class="wrap">하나 이상의 페이지를 담는 단위. 업무 프로필(역할)에 따라 할당되고 내비게이션 바에 표시된다</td></tr>
+<tr><td>Page</td><td class="wrap">Launchpad의 중심. 비즈니스 사례와 관련된 앱(Fiori · 클래식)에 여기서 접근한다. 스페이스에 페이지가 하나면 스페이스 클릭 즉시 그 페이지로 간다</td></tr>
+</tbody>
+</table>
+</div>
+
+<p>유지보수 도구는 <b>launchpad content manager</b>(카탈로그만)와 <b>launchpad designer</b>(카탈로그·그룹 둘 다)입니다. SAP은 애플리케이션 영역별 <b>기술적 카탈로그</b>와, 특정 역할용 샘플인 <b>비즈니스 카탈로그·비즈니스 그룹</b>을 같이 제공합니다.</p>
+
+<figure class="figwrap">
+<svg class="dgm" viewBox="0 0 1000 400" role="img" aria-label="Fiori 콘텐츠 모델 계층 도해. 기술 카탈로그와 백엔드 카탈로그의 앱 설명자가 비즈니스 카탈로그로 참조되고 비즈니스 카탈로그 그룹을 거쳐 비즈니스 역할로 묶이며, 스페이스와 페이지가 같은 역할에 붙어 홈페이지를 구성한다.">
+  <defs>
+    <marker id="d2k" markerWidth="9" markerHeight="9" refX="7" refY="4.5" orient="auto">
+      <polygon class="arw-key" points="0,0 9,4.5 0,9"/></marker>
+    <marker id="d2a" markerWidth="9" markerHeight="9" refX="7" refY="4.5" orient="auto">
+      <polygon class="arw" points="0,0 9,4.5 0,9"/></marker>
+  </defs>
+
+  <text class="t-s" x="30" y="20">앱 설명자 (descriptor) — 기술 레이어</text>
+  <rect class="b-mut" x="30" y="30" width="228" height="56" rx="6"/>
+  <text class="t" x="48" y="52">TC · 기술 카탈로그</text>
+  <text class="m-s" x="48" y="72">SAP_TC_&lt;area&gt;_&lt;sub&gt;_COMMON</text>
+  <rect class="b-mut" x="272" y="30" width="228" height="56" rx="6"/>
+  <text class="t" x="290" y="52">BEC · 백엔드 카탈로그</text>
+  <text class="m-s" x="290" y="72">SAP_TC_&lt;area&gt;_&lt;sub&gt;_BE_APPS</text>
+  <text class="t-xs" x="30" y="102">SAPUI5 웹 앱의 타일·타깃 매핑</text>
+  <text class="t-xs" x="272" y="102">ABAP 트랜잭션 등 클래식 앱 · 백엔드에서 복제</text>
+
+  <path class="ln-key" d="M144 86 V112 H265 V136" marker-end="url(#d2k)"/>
+  <path class="ln-key" d="M386 86 V112 H265 V136" marker-end="url(#d2k)"/>
+
+  <rect class="b" x="115" y="138" width="300" height="48" rx="6"/>
+  <text class="t" x="133" y="160">BC · 비즈니스 카탈로그</text>
+  <text class="t-xs" x="133" y="178">직무 분리(segregation of duty) 단위로 참조</text>
+
+  <path class="ln-key" d="M265 186 V212" marker-end="url(#d2k)"/>
+  <rect class="b" x="115" y="214" width="300" height="48" rx="6"/>
+  <text class="t" x="133" y="236">BCG · 비즈니스 카탈로그 그룹</text>
+  <text class="t-xs" x="133" y="254">여러 BC를 하나의 하위 주제로 묶는다</text>
+
+  <path class="ln-key" d="M265 262 V292" marker-end="url(#d2k)"/>
+  <rect class="b-key" x="95" y="294" width="340" height="58" rx="6"/>
+  <text class="t-h c-key" x="115" y="318">BR · 비즈니스 역할</text>
+  <text class="m-s" x="115" y="338">SAP_BR_&lt;role&gt;   — 사용자에게 할당되는 단위</text>
+
+  <text class="t-s" x="600" y="20">홈페이지 레이아웃 — 사용자에게 보이는 쪽</text>
+  <rect class="b" x="600" y="138" width="330" height="48" rx="6"/>
+  <text class="t" x="618" y="160">PG · 페이지</text>
+  <text class="m-s" x="618" y="178">SAP_&lt;area&gt;PG&lt;task&gt;  일상 업무용 타일</text>
+
+  <path class="ln" d="M765 186 V212" marker-end="url(#d2a)"/>
+  <rect class="b" x="600" y="214" width="330" height="48" rx="6"/>
+  <text class="t" x="618" y="236">SP · 스페이스</text>
+  <text class="m-s" x="618" y="254">SAP_&lt;area&gt;SP&lt;topic&gt;  페이지를 주제로 묶음</text>
+
+  <path class="ln" d="M600 238 H500 V323 H441" marker-end="url(#d2a)"/>
+  <text class="t-xs" x="460" y="230">같은 주제의</text>
+  <text class="t-xs" x="460" y="246">BR에 붙는다</text>
+
+  <rect class="b-ghost" x="600" y="40" width="330" height="76" rx="6"/>
+  <text class="t-s" x="618" y="64">그룹(Group) 기반 홈페이지는 구 방식이고,</text>
+  <text class="t-s" x="618" y="84">스페이스·페이지가 그 대안이다. 전환은 FLP</text>
+  <text class="t-s" x="618" y="104">파라미터 SPACES 로 켠다.</text>
+
+  <rect class="b-bad" x="30" y="364" width="900" height="30" rx="5"/>
+  <text class="t-s c-bad" x="48" y="384">타일이 안 보이는 흔한 원인 — 그룹에는 넣었는데 그 앱을 담은 카탈로그가 사용자 역할에 없다.</text>
+</svg>
+<figcaption><span class="fno">그림 2</span>콘텐츠 모델 계층. 앱 하나가 사용자에게 도달하려면 <b>TC/BEC → BC → (BCG) → BR</b> 사슬이 끊기지 않아야 한다.</figcaption>
+</figure>
+
+<h3>명명 규칙 (S/4HANA 2020 이후)</h3>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>요소</th><th>약어</th><th>명명 스키마</th><th>설명</th></tr></thead>
+<tbody>
+<tr><td>Business Role</td><td>BR</td><td><code>SAP_BR_&lt;role&gt;</code></td><td>주제별 역할</td></tr>
+<tr><td>Space</td><td>SP</td><td><code>SAP_&lt;area&gt;SP&lt;topic&gt;</code></td><td>주제별 타일</td></tr>
+<tr><td>Page</td><td>PG</td><td><code>SAP_&lt;area&gt;PG&lt;task&gt;</code></td><td>일상 업무용 타일</td></tr>
+<tr><td>Business Catalog Group</td><td>BCG</td><td><code>SAP_&lt;area&gt;BCG&lt;subtopic&gt;</code></td><td>하위 주제용 타일</td></tr>
+<tr><td>Business Catalog</td><td>BC</td><td><code>SAP_&lt;area&gt;BC&lt;duty&gt;</code></td><td>직무별 타일</td></tr>
+<tr><td>Technical Catalog</td><td>TC</td><td><code>SAP_TC_&lt;area&gt;_&lt;subarea&gt;_COMMON</code></td><td>영역별 앱 설명자</td></tr>
+<tr><td>Back-End Catalog</td><td>BEC</td><td><code>SAP_TC_&lt;area&gt;_&lt;subarea&gt;_BE_APPS</code></td><td>영역별 앱 설명자</td></tr>
+</tbody>
+</table>
+</div>
+
+<div class="note">
+  <div class="t">🔰 초보자 설명 — TCR · BCR은 어디 갔나</div>
+  <p>SAP Business Suite 시절 콘텐츠 모델에는 technical catalog role(TCR)과 business catalog role(BCR)이 있었습니다. <b>business role(BR)이 이 둘을 대체</b>했습니다. 옛 문서를 보다 TCR이 나오면 BR로 읽으면 됩니다.</p>
+</div>
+
+<h3>Rapid Activation task list</h3>
+
+<p>목적은 단순합니다 — <span class="hl">S/4HANA에서 Fiori를 최대한 빨리 "구경할 수 있게" 만드는 것</span>. SAP Activate의 초기 <b>Explore</b> 단계, 즉 "이 시스템에 뭐가 딸려 왔나"를 파악하는 단계에 쓰입니다. 릴리스별 복합 SAP Note가 다르며 개요는 SAP Note <code>2902673</code>(S/4HANA 2023 FPS02는 <code>3469488</code>)에 있습니다.</p>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>Task list</th><th>범위와 전제</th></tr></thead>
+<tbody>
+<tr><td><code>SAP_GW_FIORI_ERP_ONE_CLNT_SETUP</code></td><td class="wrap"><b>embedded 전용.</b> Gateway 초기 설정 + Launchpad 구성 + OData 서비스 활성화. 선행 SAP Note <code>2510134</code> · <code>2639552</code></td></tr>
+<tr><td><code>SAP_FIORI_FOUNDATION_S4</code></td><td class="wrap">S/4HANA 1809 FPS00 이상(또는 1709 FPS01 이상). <span class="bad">Central Hub 배포는 지원하지 않는다.</span> 선행 SAP Note <code>2712785</code></td></tr>
+<tr><td><code>SAP_FIORI_CONTENT_ACTIVATION</code></td><td class="wrap">선택한 비즈니스 역할의 모든 앱을 활성화. <b>샌드박스 대상</b>이며 <code>SAP_BR*</code> 역할만 선택 가능. 테스트 사용자 생성 옵션. 선행 SAP Note <code>2686456</code></td></tr>
+<tr><td><code>SAP_FIORI_FCM_CONTENT_ACTIVATION</code></td><td class="wrap"><b>테스트 시스템 대상.</b> 카탈로그가 할당된 모든 역할(SAP · 고객)에서 선택 가능. 선행 SAP Note <code>2813396</code></td></tr>
+<tr><td><code>SAP_FIORI_FCM_CATALOG_ACTIVATION</code></td><td class="wrap"><b>카탈로그 레벨</b>로 Gateway 서비스·ICF 노드를 자동 활성화. 선행 SAP Note <code>3349671</code> · <code>3339909</code></td></tr>
+</tbody>
+</table>
+</div>
+
+<p>뒤의 두 개는 content manager에서 역할·카탈로그를 고른 뒤 <b>Services → Activate Services(<code>STC02</code>)</b>로 실행 준비를 할 수도 있습니다.</p>
+
+<h3>SAP_GW_FIORI_ERP_ONE_CLNT_SETUP — Gateway와 Fiori 켜기</h3>
+
+<p>이 task list는 <code>SAP_FIORI_FOUNDATION_S4</code>의 <b>전제조건</b>이고, 비즈니스 로직이 있는 것과 같은 클라이언트에서 돌립니다. 아래 task list들의 task를 모아 놓은 묶음입니다.</p>
+
+<pre><code>SAP_GATEWAY_BASIC_CONFIG
+SAP_FIORI_LAUNCHPAD_INIT_SETUP
+/UI5/SCHEDULE_JOB_UPDATE_CACHE
+SAP_GATEWAY_ACTIVATE_ODATA_SERV
+SAP_BASIS_ACTIVATE_ICF_NODES</code></pre>
+
+<h4>HTTPURLLOC — SAP GUI에서 FLP를 띄울 때</h4>
+
+<p>SAP GUI로 <code>/UI2/FLP</code>나 <code>/UI2/FLPD_CONF</code> · <code>/UI2/FLPD_CUST</code>를 실행하면, 시스템은 <b>현재 서버 주소</b>로 URL을 만듭니다. Web Dispatcher를 거쳐야 하는 구성에서는 이게 틀린 주소가 됩니다. 트랜잭션 <code>HTTPURLLOC</code>(테이블 HTTPURLLOC 유지보수)에서 <span class="key">시작 URL에 쓸 Web Dispatcher의 호스트명·포트</span>를 정의하면 해결됩니다. <code>SM30</code> · <code>SE16</code>으로도 유지보수 가능(SAP Note <code>2780619</code>).</p>
+
+<h4>Gateway 전역 활성화</h4>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>방법</th><th>경로</th></tr></thead>
+<tbody>
+<tr><td>Customizing (<code>SPRO</code>)</td><td class="wrap">ABAP Platform → UI Technologies → SAP Fiori → Initial Setup → Connection Settings (Front-End Server to ABAP Back-End Server) → Activate SAP Gateway</td></tr>
+<tr><td>트랜잭션</td><td><code>/IWFND/IWF_ACTIVATE</code></td></tr>
+<tr><td>Task list</td><td class="wrap"><code>SAP_GATEWAY_BASIC_CONFIG</code> — 활성화를 포함한 기본 설정</td></tr>
+</tbody>
+</table>
+</div>
+
+<p>끄면 <span class="bad">모든 Gateway 서비스가 중지되고 소비 서버는 통신이 끊기며, 호출 시스템에는 오류 메시지가 갑니다.</span></p>
+
+<h4>시스템 별칭(System Alias)</h4>
+
+<p>시스템 별칭은 <b>인바운드 요청의 라우팅 결과</b>이고, 원격일 수도 로컬일 수도 있습니다. <b>Local GW</b>로 표시되면 데이터를 처리·저장하는 시스템이 로컬 Gateway 인스턴스 자신이라는 뜻입니다. 유지보수 경로는 여러 갈래지만 <span class="key">어느 도구를 써도 결국 뷰 <code>/IWFND/V_DFSYAL</code>에 저장</span>됩니다.</p>
+
+<ul>
+  <li><code>SPRO</code> → ABAP Platform → UI Technologies → SAP Fiori → Initial Setup → Manual Setup without Task Lists → Connection Settings → Define SAP System Alias</li>
+  <li>트랜잭션 <code>/UI2/GW_SYS_ALIAS</code></li>
+  <li><code>SPRO</code> → ABAP Platform → SAP Gateway → OData Channel → Configuration → Connection Settings → SAP Gateway to SAP System → Manage SAP System Aliases</li>
+  <li>트랜잭션 <code>/IWFND/ROUTING</code></li>
+  <li>Task list <code>SAP_GATEWAY_ADD_SYSTEM_ALIAS</code>(별칭 추가) · <code>SAP_GATEWAY_ADD_SYSTEM</code>(백엔드 시스템 추가 + 별칭)</li>
+</ul>
+
+<div class="note">
+  <div class="t">🔰 초보자 설명 — Co-Deployed면 라우팅을 안 본다</div>
+  <p>최신 task list를 쓰는 embedded 시나리오에서는 Gateway 서비스 처리 모드가 보통 <b>Co-Deployed</b>입니다. 이 모드는 Gateway와 로컬 <code>IW_BEP</code> 사이의 빠른 데이터 전송을 위한 것이라 <span class="key">라우팅 구성을 아예 쓰지 않고 OData 요청이 IW_BEP로 직접</span> 갑니다. 교육 시스템에서는 별칭 <code>LOCAL</code>이 참조 앱·백엔드 별칭으로 쓰입니다. "별칭을 고쳤는데 아무 변화가 없다"면 처리 모드부터 확인합니다.</p>
+</div>
+
+<h4>Launchpad가 요구하는 Gateway 서비스와 ICF 노드</h4>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>서비스</th><th>용도</th></tr></thead>
+<tbody>
+<tr><td><code>/UI2/PAGE_BUILDER_CONF</code></td><td>Launchpad Designer</td></tr>
+<tr><td><code>/UI2/PAGE_BUILDER_CUST</code></td><td>Launchpad Designer</td></tr>
+<tr><td><code>/UI2/PAGE_BUILDER_PERS</code></td><td>Launchpad</td></tr>
+<tr><td><code>/UI2/TRANSPORT</code></td><td>Launchpad Designer</td></tr>
+<tr><td><code>/UI2/INTEROP</code></td><td>Launchpad · Designer 공통</td></tr>
+</tbody>
+</table>
+</div>
+
+<p>등록·상태 확인은 <code>/IWFND/MAINT_SERVICE</code>입니다. ICF 쪽은 <code>SAP_FIORI_LAUNCHPAD_INIT_SETUP</code>의 <b>Activate HTTP Services for SAP Fiori Launchpad (SICF)</b> task가 처리하며, 대상 목록은 테이블 <code>ICFINSTACT</code>에 기술명 <code>/UI2/FIORI</code>로 저장돼 있습니다.</p>
+
+<pre><code>/sap/bc/ui2/start_up              /sap/bc/ui5_ui5/sap/ar_srvc_news
+/sap/bc/ui5_ui5/sap/arsrvc_upb_admn   /sap/bc/ui5_ui5/ui2/ushell
+/sap/public/bc/ui2                /sap/public/bc/ui5_ui5
+/sap/bc/ui2/flp                   /sap/bc/ui2/smi/rest_tunnel
+/sap/bc/rest/themes               /sap/bc/ui2/app_index
+/sap/bc/ui5/index                 /sap/bc/lrep</code></pre>
+
+<p>SAPUI5 리소스용으로는 <code>/sap/public/bc/ui5_ui5</code> · <code>/sap/bc/ui5_ui5/ui2</code>가 별도로 필요하고, <b>Activate HTTP Services for UI5 (SICF)</b> task가 켜 줍니다.</p>
+
+<h3>Cache Buster — 업그레이드 후 "화면이 옛날 것"일 때</h3>
+
+<p>브라우저는 JS · CSS · 이미지를 캐시합니다. 업그레이드로 서버 리소스가 바뀌었는데 사용자가 캐시를 지우지 않으면 옛 화면이 나옵니다. <b>cache buster</b>는 리소스 URL에 <span class="key">버전 토큰</span>을 붙여, 업데이트 후에는 새 토큰이 붙은 URL이 되고 브라우저가 그걸 초기 요청으로 취급해 서버에서 새로 받게 만듭니다.</p>
+
+<p>장점은 <b>캐시 유효기간을 짧게 줄이는 방식이 아니라는 점</b>입니다. 실제로 리소스가 바뀐 경우에만 캐시가 무효화되므로 평소 성능을 그대로 유지합니다.</p>
+
+<div class="step"><span class="n">외부 별칭</span><p><code>SAP_GW_FIORI_ERP_ONE_CLNT_SETUP</code>의 <b>Customize Launchpad URL for Cache Buster</b> task가 ICF 서비스 <code>/sap/bc/ui2/flp</code>를 가리키는 외부 별칭 <code>/sap/bc/ui5_ui5/ui2/ushell/shells/abap</code>를 생성한다</p></div>
+<div class="step"><span class="n">인덱스</span><p>리포트 <code>/UI5/APP_INDEX_CALCULATE</code>를 <b>백그라운드 작업으로 예약</b>해야 SAPUI5 application index가 유지된다. 이 인덱스는 SAPUI5 리포지토리의 앱·컴포넌트·라이브러리 정보를 캐싱해, 매번 계산하는 것보다 훨씬 빠르게 조회하게 한다 (컴포넌트 ID가 있는 앱·컴포넌트에 한정)</p></div>
+<div class="step"><span class="n">수동 무효화</span><p>패치로 갱신된 리소스가 application index에 안 들어간 경우에 한해, 프론트엔드 서버에서 <code>/UI2/INVALIDATE_CLIENT_CACHES</code>로 클라이언트 캐시를 무효화한다</p></div>
+
+<p>Launchpad 기본 URL에도 외부 별칭을 만들 수 있습니다 — <code>SICF</code>에서 타깃을 <code>/sap/bc/ui2/flp</code>로 지정하면 원하는 도메인의 짧은 URL로 Launchpad를 열 수 있습니다.</p>
+
+<h3>SAP_FIORI_FOUNDATION_S4 — 기반 다지기</h3>
+
+<p>목적 세 가지입니다.</p>
+
+<div class="step"><span class="n">1</span><p>SAP GUI for HTML과 범용 Launchpad 기능에 필요한 <b>ICF 서비스 · Gateway 서비스 활성화</b></p></div>
+<div class="step"><span class="n">2</span><p>클래식 UI 기술(SAP GUI for HTML · Web Dynpro ABAP) 초기화</p></div>
+<div class="step"><span class="n">3</span><p>작동하는 Launchpad <b>사용자 · 관리자 역할(복합 역할 포함)</b> 생성</p></div>
+
+<p>ICF 활성화 task가 건드리는 범위:</p>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>Task</th><th>활성화 대상</th></tr></thead>
+<tbody>
+<tr><td>SAP GUI for HTML (WEBGUI)</td><td class="wrap"><code>/sap/public/bc/ur</code> · <code>icons</code> · <code>icons_rtl</code> · <code>webicons</code> · <code>pictograms</code> · <code>/sap/public/bc/webdynpro/*</code> · <code>/sap/bc/gui/sap/its/webgui</code> · <code>typeahead</code> · <code>/sap/public/bc/its/mimes</code> · <code>/sap/bc/apc/sap/webgui_services</code> · <code>/sap/public/myssocntl</code></td></tr>
+<tr><td>WebClient UI (WCF)</td><td class="wrap">CRM 관련 BSP 서비스 (<code>/sap/bc/bsp/sap/bsp_dlc_frcmp</code> · <code>crm_ui_frame</code> 등)</td></tr>
+<tr><td>NW Business Client (NWBC)</td><td class="wrap"><code>/sap/bc/nwbc/*</code> · <code>/sap/bc/ui2/nwbc/nwbc_api</code></td></tr>
+<tr><td>Smart Business Modeler</td><td class="wrap">Smart Business 관련 BSP · UI5 서비스</td></tr>
+<tr><td>Fiori (Other)</td><td class="wrap"><code>/sap/bc/webdynpro/sap/SUI_TM_MM_APP</code> · <code>/sap/bw/ina</code> 등</td></tr>
+</tbody>
+</table>
+</div>
+
+<p>별칭 쪽은 <b>Assign System Alias to S/4 System Alias</b> task가 <code>/UI2/V_ALIASMAP</code>에 매핑을 만들고(Target을 비워 두면 로컬 매핑), <code>/UI2/VC_SYSALIAS</code>에 <code>FIORI</code> 별칭을 만듭니다. 그 밖에 <code>S4FIN</code>/<code>S4SD</code>(Designer Studio 앱), <code>FIORI_MENU</code>(Easy Access 메뉴 서비스 등록), <code>LOCAL_TGW</code>(My Inbox의 TASKPROCESSING 등록)를 없으면 만듭니다. <b>Replicate backend catalog for System Aliases</b> task는 리포트 <code>/UI2/GET_APP_DESCR_REMOTE_ALL</code> 백그라운드 작업을 생성합니다.</p>
+
+<h4>FLP 구성 (<code>/UI2/FLP_CUS_CONF</code>)</h4>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>Task</th><th>설정</th></tr></thead>
+<tbody>
+<tr><td>Easy Access Menu</td><td class="wrap"><code>APPFINDER_EASYACCESSMENU_SAPMENU=true</code> · <code>APPFINDER_EASYACCESSMENU_USERMENU=true</code> · <code>FLP_EAM_ALIASES=FIORI_MENU</code></td></tr>
+<tr><td>Navigation</td><td class="wrap"><code>NAVIGATION_GUI_INPLACE=true</code> · <code>NAVIGATION_GUI_STATEFUL_CONTAINER=true</code> · <code>NAVIGATION_WDA_INPLACE=true</code> · <code>NAVIGATION_HOMETARGET=origin_page</code></td></tr>
+<tr><td>Notification</td><td class="wrap"><code>NOTIFICATIONS=true</code> · <code>NOTIFICATIONS_UI=true</code></td></tr>
+<tr><td>UI5 Apps</td><td class="wrap"><code>TIME_ZONE_FROM_SERVER_IN_UI5=true</code></td></tr>
+<tr><td>Spaces and Pages</td><td class="wrap"><code>SPACES=true</code> · <code>SPACES_CUSTOM_HOME=true</code> · <code>SPACES_CUSTOM_HOME_COMPONENT_ID=ux.eng.s4producthomes1</code> · <code>SPACES_ENABLE_USER=true</code> · <code>SPACES_MYHOME=true</code> · <code>UI5_INSIGHTS=true</code></td></tr>
+</tbody>
+</table>
+</div>
+
+<div class="note warn">
+  <div class="t">확인 필요 — task list가 여기서 멈춘다</div>
+  <p>파라미터를 설정하지 않으면 S/4HANA 2023 FPS02 기준으로 <code>SAP_FIORI_FOUNDATION_S4</code>가 <b>Activate and Configure FLP for Spaces and Pages</b> task에서 중단됩니다(SAP Note <code>3324574</code>). <code>SPACES=true</code>가 기본값인지 여부는 릴리스·FPS에 따라 갈리므로 실제 시스템에서 <code>/UI2/FLP_CUS_CONF</code>로 현재 값을 먼저 확인하고 넘어갑니다.</p>
+</div>
+
+<p>마지막으로 <b>Activate Gateway OData Services Foundation</b> task가 등록하는 서비스입니다.</p>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>서비스</th><th>모드 / 별칭</th></tr></thead>
+<tbody>
+<tr><td><code>SMART_BUSINESS_RUNTIME_SRV</code></td><td>co-deployed</td></tr>
+<tr><td><code>SMART_BUSINESS_DESIGNTIME_SRV</code></td><td>co-deployed</td></tr>
+<tr><td><code>ESH_SEARCH_SRV</code></td><td class="wrap">co-deployed — <b>등록하면 Fiori 검색이 OData로 처리된다.</b> 등록하지 않으면 SAP 자체 InA 프로토콜이 쓰인다</td></tr>
+<tr><td><code>RSAO_ODATA_SRV</code></td><td>co-deployed</td></tr>
+<tr><td><code>/UI2/EASY_ACCESS_MENU</code></td><td>routing-based · 별칭 <code>FIORI_MENU</code></td></tr>
+<tr><td><code>/UI2/USER_MENU</code></td><td>routing-based · 별칭 <code>FIORI_MENU</code></td></tr>
+</tbody>
+</table>
+</div>
+
+<p><b>Generate Fiori Foundation Roles</b> task는 SAP 역할을 고객 네임스페이스로 복사합니다 — <code>SAP_FLP_ADMIN</code> → <code>&lt;Prefix&gt;_FLP_ADMIN</code>(동명 복합 역할 포함), <code>SAP_FLP_USER</code> → <code>&lt;Prefix&gt;_FLP_USER</code>(복합 역할 <code>&lt;Prefix&gt;_FIORI_FOUNDATION_USER</code>).</p>
+
+</div>
+
+
+<!-- ══════════ LESSON 3 ══════════ -->
+<div class="lesson" id="l3">
+<h2><span class="no">LESSON 3</span>Fiori 앱 구현 — 앱 하나를 살리는 순서</h2>
+
+<p><span class="tag">Unit 19</span><span class="tag">레슨 4개</span>Activating Apps by Business Roles · Configuring Transactional Apps · Fact Sheet &amp; Search · Classic Applications</p>
+
+<h3>언제 이걸 알아야 하는가</h3>
+
+<p>Fiori를 켠 직후 가장 많이 받는 문의가 <b>"타일을 눌렀는데 '앱을 찾을 수 없습니다'가 뜹니다"</b>, 그리고 <b>"제 화면에는 그 타일이 아예 없습니다"</b>입니다. 두 문의는 증상이 비슷해 보이지만 <span class="key">꺼져 있는 층이 서로 다릅니다.</span></p>
+
+<p>앱 하나가 열리려면 <b>역할 → 카탈로그 → OData 서비스 → ICF 노드</b> 네 겹이 전부 켜져 있어야 합니다. 어느 층이 꺼졌는지는 증상으로 구분할 수 있고, 구분만 되면 확인할 T-Code가 하나로 정해집니다. 아래 도해가 그 대응표입니다.</p>
+
+<figure class="figwrap">
+<svg class="dgm" viewBox="0 0 1000 450" role="img" aria-label="Fiori 앱 활성화 경로 도해. 비즈니스 역할 할당, 카탈로그와 타일, OData 서비스 등록, ICF 노드 활성화 네 단계를 순서대로 켜야 앱이 열리며, 각 단계가 꺼졌을 때 나타나는 증상과 대량 처리용 task list가 단계별로 대응된다.">
+  <defs>
+    <marker id="d3k" markerWidth="9" markerHeight="9" refX="7" refY="4.5" orient="auto">
+      <polygon class="arw-key" points="0,0 9,4.5 0,9"/></marker>
+    <marker id="d3b" markerWidth="9" markerHeight="9" refX="7" refY="4.5" orient="auto">
+      <polygon class="arw-bad" points="0,0 9,4.5 0,9"/></marker>
+  </defs>
+
+  <text class="t-s c-key" x="20" y="24">켜야 하는 순서</text>
+
+  <rect class="b-key" x="20" y="36" width="200" height="78" rx="6"/>
+  <text class="t-h c-key" x="38" y="62">① Business Role</text>
+  <text class="t-xs" x="38" y="82">사용자에게 역할 할당</text>
+  <text class="m-s" x="38" y="102">PFCG · SU01 · SAP_BR_*</text>
+
+  <path class="ln-key" d="M220 75 H265" marker-end="url(#d3k)"/>
+
+  <rect class="b-key" x="270" y="36" width="200" height="78" rx="6"/>
+  <text class="t-h c-key" x="288" y="62">② 카탈로그 · 타일</text>
+  <text class="t-xs" x="288" y="82">타일 + 타깃 매핑</text>
+  <text class="m-s" x="288" y="102">/UI2/FLPCM_CONF</text>
+
+  <path class="ln-key" d="M470 75 H515" marker-end="url(#d3k)"/>
+
+  <rect class="b-key" x="520" y="36" width="200" height="78" rx="6"/>
+  <text class="t-h c-key" x="538" y="62">③ OData 서비스</text>
+  <text class="t-xs" x="538" y="82">FES에서 등록 (BES 구현)</text>
+  <text class="m-s" x="538" y="102">/IWFND/MAINT_SERVICE</text>
+
+  <path class="ln-key" d="M720 75 H765" marker-end="url(#d3k)"/>
+
+  <rect class="b-key" x="770" y="36" width="200" height="78" rx="6"/>
+  <text class="t-h c-key" x="788" y="62">④ ICF 노드</text>
+  <text class="t-xs" x="788" y="82">SAPUI5 리소스 (BSP)</text>
+  <text class="m-s" x="788" y="102">SICF · /sap/bc/ui5_ui5/…</text>
+
+  <text class="t-s c-bad" x="20" y="146">안 켜면 이렇게 보인다</text>
+
+  <path class="ln-bad" d="M120 152 V174" marker-end="url(#d3b)"/>
+  <path class="ln-bad" d="M370 152 V174" marker-end="url(#d3b)"/>
+  <path class="ln-bad" d="M620 152 V174" marker-end="url(#d3b)"/>
+  <path class="ln-bad" d="M870 152 V174" marker-end="url(#d3b)"/>
+
+  <rect class="b-bad" x="20" y="176" width="200" height="96" rx="6"/>
+  <text class="t-xs c-bad" x="38" y="200">타일이 아예 안 보임</text>
+  <text class="t-xs" x="38" y="220">App Finder에도 없음</text>
+  <text class="t-xs" x="38" y="240">→ 역할 할당부터 확인</text>
+  <text class="t-xs" x="38" y="260">→ SU01 · PFCG</text>
+
+  <rect class="b-bad" x="270" y="176" width="200" height="96" rx="6"/>
+  <text class="t-xs c-bad" x="288" y="200">타일은 있는데 열리지</text>
+  <text class="t-xs c-bad" x="288" y="218">않음 · 인텐트 없음</text>
+  <text class="t-xs" x="288" y="240">→ 타깃 매핑 누락</text>
+  <text class="t-xs" x="288" y="260">→ 카탈로그 할당 확인</text>
+
+  <rect class="b-bad" x="520" y="176" width="200" height="96" rx="6"/>
+  <text class="t-xs c-bad" x="538" y="200">화면은 뜨는데 데이터</text>
+  <text class="t-xs c-bad" x="538" y="218">오류 · OData 403/404</text>
+  <text class="t-xs" x="538" y="240">→ 서비스 미등록</text>
+  <text class="t-xs" x="538" y="260">→ 별칭 · 처리모드 확인</text>
+
+  <rect class="b-bad" x="770" y="176" width="200" height="96" rx="6"/>
+  <text class="t-xs c-bad" x="788" y="200">UI 리소스 404</text>
+  <text class="t-xs c-bad" x="788" y="218">흰 화면 · 로딩 정지</text>
+  <text class="t-xs" x="788" y="240">→ ICF 노드 비활성</text>
+  <text class="t-xs" x="788" y="260">→ SICF 에서 Activate</text>
+
+  <rect class="b-ok" x="20" y="296" width="950" height="104" rx="8"/>
+  <text class="t-h c-ok" x="40" y="320">대량으로 한 번에 켜는 도구</text>
+  <text class="t-s" x="40" y="344">SAP_FIORI_CONTENT_ACTIVATION — 비즈니스 역할 단위로 ①~④ 전부 (SAP_BR* 한정 · 1회 100개 이하 · 샌드박스)</text>
+  <text class="t-s" x="40" y="366">SAP_FIORI_FCM_CATALOG_ACTIVATION — 카탈로그 단위로 ③④ (Gateway 서비스 + ICF 노드)</text>
+  <text class="t-s" x="40" y="388">SAP_GATEWAY_ACTIVATE_ODATA_SERV = ③만 · SAP_BASIS_ACTIVATE_ICF_NODES = ④만 (둘 다 STC01)</text>
+
+  <text class="t-xs" x="20" y="428">Hub 배포라면 ③은 FES에서 등록하고 OData 구현과 클래식 앱용 ICF 노드는 BES에 있다 — 두 시스템을 다 봐야 한다.</text>
+  <text class="t-xs" x="20" y="444">Fact Sheet 앱은 ①~④에 더해 검색 커넥터(ESH_COCKPIT)까지 있어야 열린다.</text>
+</svg>
+<figcaption><span class="fno">그림 3</span>앱 활성화 경로와 증상 대응. 증상만 보면 <b>어느 층이 꺼졌는지</b>가 먼저 좁혀진다.</figcaption>
+</figure>
+
+<h3>SAP_FIORI_CONTENT_ACTIVATION — 역할 단위 일괄 활성화</h3>
+
+<p>SAP이 제공하는 카탈로그·비즈니스 역할로 FLP 콘텐츠를 자동 활성화할 때 쓰는 task list입니다. 하는 일 세 가지:</p>
+
+<div class="step"><span class="n">1</span><p>선택한 비즈니스 역할 기준으로 <b>모든 Fiori 앱을 활성화</b> — Gateway 서비스와 ICF 노드를 포함해서</p></div>
+<div class="step"><span class="n">2</span><p>권한 프로파일을 포함한 <b>작동 가능한 템플릿 역할</b> 생성</p></div>
+<div class="step"><span class="n">3</span><p>(선택) 테스트 사용자 생성 — 역할당 1명</p></div>
+
+<div class="note warn">
+  <div class="t">Caution — 고르는 순간 사고가 난다</div>
+  <p>· 실행 전 SAP Note <code>2686456</code> 최신 버전 적용.<br>
+     · 선택 가능한 것은 네임스페이스 <code>SAP_BR*</code>의 SAP 역할<b>만</b>이다.<br>
+     · 역할을 많이 고르면 <b>반드시 백그라운드 모드</b>로 시작한다. 한 번에 <span class="bad">100개를 넘겨서는 안 된다</span>.<br>
+     · 일부 역할은 비즈니스 기능 스위치가 필요해 <span class="bad">task list 덤프를 유발</span>한다. 전제조건이 충족되고 그 시스템의 의도된 범위에 맞는 역할만 고른다.</p>
+</div>
+
+<p>테스트 사용자 생성(<b>Create Users with generated Business Roles (SU01)</b>)을 켜면 명명 규칙은 <code>&lt;P&gt;&lt;INDEX&gt;_&lt;AA&gt;&lt;BB&gt;&lt;CC&gt;</code>입니다. <code>&lt;P&gt;</code>는 접두사, <code>&lt;INDEX&gt;</code>는 선택 테이블에서의 위치, 뒤는 역할명 <code>&lt;AA*&gt;_&lt;BB*&gt;_&lt;CC*&gt;</code>에서 따옵니다.</p>
+
+<pre><code>&lt;P&gt; = T , &lt;INDEX&gt; = 142 , 역할 = SAP_BR_AP_MANAGER_AU
+  →  테스트 사용자 ID = T142_APMAAU</code></pre>
+
+<h3>트랜잭션 앱 구성 — 두 갈래뿐</h3>
+
+<p>구성은 FES와 BES 양쪽에서 이루어지고, 실제로 할 일은 <b>SAPUI5 서비스 활성화</b>와 <b>Gateway 서비스 등록</b> 둘뿐입니다. 앱별로 어떤 SAPUI5 앱과 어떤 OData 서비스가 필요한지는 <b>SAP Fiori apps reference library</b>가 앱마다 알려 줍니다(분석형·Fact Sheet 앱에도 적용되지만 그쪽은 추가 단계가 더 있습니다).</p>
+
+<p>SAPUI5 앱은 ABAP에서 <b>BSP를 컨테이너로</b> 제공됩니다. ICF에 노드가 두 개 생기지만 <span class="key">런타임에는 <code>ui5_ui5</code> 하위 노드만 쓰입니다.</span> 필수 구성 단계는 <code>SICF</code>로 ICF 서비스를 켜는 것 하나이고, 나머지 옵션은 보통 Launchpad에서 처리합니다.</p>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>할 일</th><th>도구</th><th>제약</th></tr></thead>
+<tbody>
+<tr><td>ICF 서비스 활성화</td><td><code>SICF</code></td><td class="wrap">여러 노드를 한 번에 켜려면 <code>STC01</code>의 <code>SAP_BASIS_ACTIVATE_ICF_NODES</code></td></tr>
+<tr><td>Gateway 서비스 등록</td><td class="wrap"><code>/IWFND/MAINT_SERVICE</code> (FES → BES)</td><td class="wrap">여러 서비스를 한 번에 등록하려면 <code>SAP_GATEWAY_ACTIVATE_ODATA_SERV</code></td></tr>
+<tr><td>Gateway 서비스 등록 (대안)</td><td class="wrap"><code>SEGW</code> (BES → FES)</td><td class="wrap"><span class="bad">한 번에 서비스 하나만</span> 가능 — SEGW는 유지보수가 아니라 개발용 도구다</td></tr>
+</tbody>
+</table>
+</div>
+
+<p>등록 과정에서 리포지토리 오브젝트가 여러 개 생성됩니다. 이걸 <b>로컬 오브젝트</b>로 둘지 개발 패키지에 둘지가 갈림길입니다 — <span class="hl">개발 패키지에 넣으면 운송요청이 필요하고, 그래야 이 등록을 다른 시스템으로 운송할 수 있습니다.</span> 로컬 오브젝트로 만들면 그 시스템에서만 살아 있습니다.</p>
+
+<h4>앱 참조 — launchpad content manager</h4>
+
+<p>S/4HANA 1809 SPS03에서 카탈로그 대량 관리를 위해 도입됐습니다. 모든 카탈로그의 타일·타깃 매핑, 또는 역할과 그 카탈로그를 한눈에 보고, 전체 카탈로그 복사나 다른 카탈로그의 타일 참조를 쉽게 할 수 있습니다. designer와 마찬가지로 구성용 <code>/UI2/FLPCM_CONF</code>와 커스터마이징용 <code>/UI2/FLPCM_CUST</code>로 나뉩니다.</p>
+
+<h3>Fact Sheet 앱과 Fiori Search</h3>
+
+<p>Fact Sheet는 핵심 오브젝트의 맥락 정보와 핵심 사실을 보여 주고, 타일에서 세부로 드릴다운하거나 관련 Fact Sheet 사이를 오갑니다. 거기서 트랜잭션 앱으로 넘어가거나 백엔드에 직접 접근해 SAP GUI · Web Dynpro로 문서를 열 수도 있습니다.</p>
+
+<p>구성 요건은 트랜잭션 앱과 같되 <b>하나가 더 붙습니다</b> — FES에서 ICF 노드 활성화, FES에서 BES의 Gateway 서비스 등록, 그리고 <span class="key">검색 모델용 검색 커넥터 생성</span>.</p>
+
+<div class="step"><span class="n">일괄</span><p><code>SAP_ESH_INITIAL_SETUP_WRK_CLIENT</code> — ICF 서비스 활성화 + HANA 연결 설정 + Fact Sheet 앱 검색 커넥터 생성</p></div>
+<div class="step"><span class="n">보충</span><p>위에서 안 된 것은 <code>SAP_ESH_CREATE_INDEX_SC</code>로 커넥터를 만든다</p></div>
+<div class="step"><span class="n">수동</span><p>설정은 <code>ESH_IMG</code>, 검색 커넥터는 <code>ESH_COCKPIT</code></p></div>
+<div class="step"><span class="n">마지막</span><p>트랜잭션 앱과 동일하게 Gateway 서비스를 등록한다</p></div>
+
+<div class="note">
+  <div class="t">🔰 초보자 설명 — "Model data is currently being fetched from another client"</div>
+  <p><code>ESH_COCKPIT</code> 실행 시 이 메시지가 나올 수 있습니다. 고장이 아니라 <b>검색 모델 데이터가 참조 클라이언트 000에서 실제 클라이언트로 복제되는 중</b>이라 그렇습니다. 잠시 기다렸다 다시 들어가면 됩니다 (SAP Note <code>3278473</code>).</p>
+</div>
+
+<h4>CDS 기반 검색 커넥터</h4>
+
+<p>ABAP CDS 뷰는 S/4HANA 모든 오브젝트 페이지의 기반이고, 이 CDS 뷰가 HANA enterprise search와 통합되면 <b>CDS 기반 ES 커넥터</b>가 생성됩니다. 검색 모델 기반 커넥터와 마찬가지로 connector administration cockpit에서 관리합니다. 1809부터 관리용 Fiori 앱이 따로 제공됩니다.</p>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>앱</th><th>앱 ID</th><th>기능</th></tr></thead>
+<tbody>
+<tr><td>Analyze Query Log</td><td><code>F2571</code></td><td class="wrap">검색 중 수집된 사용자 활동 로그를 막대 차트·테이블로 평가</td></tr>
+<tr><td>Define Search Behavior (Synonyms)</td><td><code>F2700</code></td><td class="wrap">검색 구성 표시, 동의어·불용어 목록 생성, 설정의 where-used 목록</td></tr>
+<tr><td>Fine-Tune (Search) Ranking</td><td><code>F2777</code></td><td class="wrap">랭킹 요소·부스트 생성·편집, 시뮬레이션으로 즉시 효과 확인</td></tr>
+<tr><td>Manage Searchable Business Objects</td><td><code>F3036</code></td><td class="wrap">검색 커넥터의 기술적 세부사항 · 상태(Active/Inactive) · 활성화 로그</td></tr>
+</tbody>
+</table>
+</div>
+
+<p><b>Manage Search Models</b> 앱은 사용 가능한 CDS 기반 검색 모델 전체를 상태와 무관하게 표로 보여 주고, 각 모델의 기반 CDS 뷰 · 필드 · 랭킹 · 뷰 간 관계 · 결과 미리보기까지 들어가 볼 수 있게 합니다. 셸 헤더의 검색창은 커넥터 목록을 띄우며, <span class="key">결과 데이터의 구조(필드 · 위치 · 형식)는 검색 커넥터에서 정의</span>됩니다.</p>
+
+<div class="note warn">
+  <div class="t">ATO 설정이 먼저 필요한 앱이 있다</div>
+  <p>일부 Fiori 앱은 사용 전 <b>Adaptation Transport Organizer(ATO)</b> 구성이 필요합니다 — <b>Manage Search Models</b>도 그중 하나입니다. 어떤 앱이 ATO를 요구하는지는 앱별 구현 정보를 봐야 하고, ATO 자체는 SAP Note <code>2283716</code>을 참고합니다.</p>
+</div>
+
+<h4>중복 검색 커넥터</h4>
+
+<p>설명(description)이 같은 활성 커넥터가 둘 이상이면 FLP가 드롭다운에 <b>duplicate</b>와 기술명을 붙여 보여 줍니다. 여기서 기술명을 읽는 법:</p>
+
+<pre><code>Bank  duplicate  S4Q100~BANK_H~        ← _H  = 전통적 ESH 기반 커넥터
+Banks duplicate  CD$ALL~ESH_U_BANK~    ← CD  = CDS 기반 커넥터</code></pre>
+
+<p>처리 방법은 둘입니다 — <b>커넥터 하나를 비활성화</b>하거나 <b>설명을 바꾸는 것</b>(SAP Note <code>3007113</code>). 전통 검색 모델과 CDS 뷰의 알려진 동등 관계 목록은 SAP Note <code>3122697</code>에 있습니다.</p>
+
+<h3>클래식 애플리케이션 — 백엔드 카탈로그 복제</h3>
+
+<p>클래식 앱(ABAP 트랜잭션 · Web Dynpro ABAP)은 BES에서 실행되지만 FES에 추가 구성이 필요합니다.</p>
+
+<div class="step"><span class="n">1</span><p>BES에서 Web Dynpro ABAP용 <b>ICF 노드 활성화</b></p></div>
+<div class="step"><span class="n">2</span><p>FES에서 BES로 가는 <b>HTTPS · RFC 연결</b> 정의</p></div>
+<div class="step"><span class="n">3</span><p><b>Back-End 카탈로그(BEC)를 FES로 복제</b></p></div>
+
+<p>BEC는 <code>/UI2/FLPAM</code>(Web Dynpro 앱 <code>SUI_TM_MM_APP</code> 실행, 대안으로 <code>MM_APP</code>)에서 확인합니다. 솔루션 영역의 시맨틱 오브젝트·액션 목록이 여기서 유지보수되고, ABAP 트랜잭션·Web Dynpro 앱의 내비게이션 타깃을 제공합니다. 고객도 같은 트랜잭션에서 <b>Catalog ID에 없는 이름을 입력하면</b> 생성 여부를 묻는 팝업으로 자기 BEC를 만들 수 있습니다.</p>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>대상</th><th>유지보수 뷰 / 규칙</th></tr></thead>
+<tbody>
+<tr><td>SAP 제공 BEC의 별칭</td><td><code>/UI2/V_ALIASCAT</code></td></tr>
+<tr><td>고객 BEC의 별칭</td><td><code>/UI2/VC_ALIASCAT</code></td></tr>
+<tr><td>논리적 시스템 별칭</td><td class="wrap"><code>/UI2/V_SYSALIAS</code> — SAP의 BEC가 쓰는 별칭이 채워져 제공된다</td></tr>
+<tr><td>별칭 → 별칭 매핑</td><td class="wrap"><code>/UI2/V_ALIASMAP</code> — 여러 별칭이 같은 시스템을 가리킬 때. <b>S/4HANA는 모든 솔루션이 한 시스템이므로 별칭 전부를 하나로 매핑할 수 있다</b></td></tr>
+<tr><td>연결 명명 규칙</td><td class="wrap">별칭마다 <code>&lt;alias&gt;_RFC</code>와 <code>&lt;alias&gt;_HTTPS</code>를 생성 (HTTP도 가능하나 HTTPS 권장)</td></tr>
+</tbody>
+</table>
+</div>
+
+<p>두 연결의 역할이 다릅니다 — <span class="key">HTTP(S)는 런타임에 브라우저가 클래식 앱에 접근하는 경로, RFC는 BEC를 FES로 복제하는 경로</span>입니다. 복제 트랜잭션은 셋이고 전부 FES에서 호출하며, 모두 <b>전체/델타 복제와 Test Mode</b>를 고를 수 있습니다.</p>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>트랜잭션</th><th>범위</th></tr></thead>
+<tbody>
+<tr><td><code>/UI2/APPDESC_GET</code></td><td class="wrap">선택한 비즈니스 카탈로그가 참조하는 모든 BEC·replicable 카탈로그</td></tr>
+<tr><td><code>/UI2/APPDESC_GET_ALL</code></td><td class="wrap">모든 시스템 별칭의 모든 BEC·replicable 카탈로그</td></tr>
+<tr><td><code>/UI2/APPDESC_GET_DEV</code></td><td class="wrap">선택한 시스템 별칭의 선택한 카탈로그만</td></tr>
+</tbody>
+</table>
+</div>
+
+<h4>App Finder 안의 SAP Easy Access Menu</h4>
+
+<p>FES의 SAP_UI 7.50 SP04부터, App Finder에서 <b>SAP 메뉴와 사용자 메뉴</b>를 열어 SAP GUI · Web Dynpro 앱을 골라 홈페이지에 추가할 수 있습니다. 전제는 Gateway 서비스 <code>/UI2/EASY_ACCESS_MENU</code>(SAP 표준 메뉴)와 <code>/UI2/USER_MENU</code>(역할 기반 사용자 메뉴) 등록이고, 이 둘은 <code>SAP_FIORI_FOUNDATION_S4</code>의 <b>Activate Gateway OData Services Foundation</b> task가 처리합니다.</p>
+
+<p>활성화 방법은 둘입니다.</p>
+
+<div class="step"><span class="n">FLP 구성</span><p><code>APPFINDER_EASYACCESSMENU_SAPMENU=true</code> · <code>APPFINDER_EASYACCESSMENU_USERMENU=true</code> · <code>FLP_EAM_ALIASES=&lt;별칭 목록&gt;</code>(예: <code>FIORI_MENU</code>). 레벨은 cross-client <code>/UI2/FLP_SYS_CONF</code> 또는 클라이언트별 <code>/UI2/FLP_CUS_CONF</code></p></div>
+<div class="step"><span class="n">타깃 매핑</span><p>BES 하나당 카탈로그 1개에 타깃 매핑 2개(ABAP 트랜잭션용 · Web Dynpro용)를 <b>같은 제목으로</b> 만든다</p></div>
+
+<div class="note warn">
+  <div class="t">타깃 매핑 방식의 함정</div>
+  <p>· <b>Application 필드는 비워 둘 수 없다</b> — "dummy" 같은 임의 값이라도 넣어야 한다.<br>
+     · 반대로 <b>System Alias 필드는 비워 두어야 한다.</b><br>
+     · 파라미터 <code>sap-ui2-wd-app-id</code> · <code>sap-ui2-tcode</code>의 값은 정규식 <code>.*</code>이며, FLP가 타일을 만들 때 실제 앱·트랜잭션 값으로 채운다.<br>
+     · SAP은 별칭 <code>FIORI_MENU</code>를 쓰는 카탈로그 <code>/UI2/CLASSICAL_GUI_MENU</code>를 제공한다. <span class="bad">Obsolete로 표시되어 있으나 S/4HANA 2023 FPS01 기준으로는 정상 작동</span>한다 — 신규 구성에 이걸 전제로 깔지는 않는다.<br>
+     · App Finder에서 SAP 메뉴 접근 시 오류가 나면 <b>BES에서</b> 리포트 <code>/UI2/EAM_BUILD_CACHE</code>를 실행한다.</p>
+</div>
+
+</div>
+
+
+<!-- ══════════ LESSON 4 ══════════ -->
+<div class="lesson" id="l4">
+<h2><span class="no">LESSON 4</span>In-App Help와 알림(Notification)</h2>
+
+<p><span class="tag">Unit 20</span><span class="tag">레슨 2개</span>Configuring In-App Help · Configuring Notifications</p>
+
+<h3>SAP Companion — 도움말은 SAP 시스템 밖에 있다</h3>
+
+<p><b>SAP Enable Now</b>는 성과 지원·학습 자료·문서 콘텐츠를 만들고 전달하는 제품이고, 그 구성요소인 <b>SAP Companion</b>이 컨텍스트 기반 사용자 지원을 담당합니다. 애플리케이션을 벗어나지 않고 현재 화면 위에 정보를 얹어 주는 방식이며, <span class="key">Fiori Launchpad의 In-App Help도 이 SAP Companion 기술 기반</span>입니다.</p>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>시나리오</th><th>제공 범위</th></tr></thead>
+<tbody>
+<tr><td>Standard Content</td><td>앱을 위한 SAP 표준 콘텐츠</td></tr>
+<tr><td>Extended Content</td><td class="wrap">SAP 표준 콘텐츠 + <b>표준 커스터마이징 · 사용자 정의 콘텐츠 추가</b></td></tr>
+<tr><td>Custom Content</td><td>사용자 정의 콘텐츠만 추가</td></tr>
+</tbody>
+</table>
+</div>
+
+<p>사용자가 Open Help를 누르면 FLP 컨텍스트에 따라 <b>Recommended Learning</b>(컨텍스트 기반)이나 <b>Learning Center</b>(컨텍스트 비의존)가 열립니다.</p>
+
+<p>구성에서 중요한 전제가 하나 있습니다. <span class="hl">도움말 콘텐츠("content server")와 렌더링 로직("script server")은 SAP 시스템 밖의 웹 서버에 있습니다.</span> SAP이 운영하는 서버를 참조하거나 자체 서버를 세울 수 있고, FES가 직접 접근하거나 Web Dispatcher를 통해 접근합니다. 다음 경우에는 <b>Web Dispatcher 사용이 필수</b>입니다.</p>
+
+<ul>
+  <li>SAP_UI 릴리스가 <b>7.55 SP02 미만</b>인 경우 (SAP Note <code>3022494</code>)</li>
+  <li>FES가 지정된 웹 서버에 <b>네트워크로 접근할 수 없는</b> 경우</li>
+</ul>
+
+<p>필수가 아니어도, In-App Help 부하를 SAP 시스템 밖에 두고 싶으면 Web Dispatcher를 쓰는 편이 낫습니다.</p>
+
+<h4>구성 방법 두 가지</h4>
+
+<div class="step"><span class="n">FLP 구성</span><p><code>SAP_FIORI_FOUNDATION_S4</code>의 <b>Configure Help Settings (SHELP_CONFIG)</b> task가 기본 설정으로 <code>SHELP_CONFIG</code>를 실행한다. 이 트랜잭션은 <b>백엔드 설정(→ <code>SR13</code>에 전파)</b>과 <b>프런트엔드 In-App Help 설정(→ <code>/UI2/FLP_CUS_CONF</code>에 전파)</b>을 자동 구성한다. <code>SHELP_CONFIG</code>는 <code>HELP_CONFIG</code>의 후속이다</p></div>
+<div class="step"><span class="n">타깃 매핑</span><p>Shell-plugin 인텐트에 대한 타깃 매핑을 최종 사용자가 쓰는 카탈로그에 만든다. <b>라우팅 규칙이 제대로 구성된 Web Dispatcher가 필요</b>하다</p></div>
+
+<p>수동 유지보수 시 레벨은 늘 같습니다 — cross-client <code>/UI2/FLP_SYS_CONF</code>, 클라이언트별 <code>/UI2/FLP_CUS_CONF</code>.</p>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>필드 / 오브젝트</th><th>값</th></tr></thead>
+<tbody>
+<tr><td>Semantic Object</td><td><code>Shell</code></td></tr>
+<tr><td>Action</td><td><code>plugin</code></td></tr>
+<tr><td>Application Type</td><td>SAPUI5 Fiori App</td></tr>
+<tr><td>Title</td><td>In-App Help Plugin</td></tr>
+<tr><td>URL</td><td><code>/resources/sap/dfa/help/utils/adapters/fiori</code></td></tr>
+<tr><td>ID</td><td><code>sap.dfa.help.utils.adapters.fiori</code></td></tr>
+<tr><td>Information</td><td>User Assistance Plugin</td></tr>
+<tr><td>Device Types</td><td>Desktop / Tablet / Phone</td></tr>
+<tr><td>Parameters</td><td class="wrap"><code>product</code>(기본값 <code>SAP_S4HANA_ON-PREMISE</code>) · <code>version</code>(기본값 <code>2023.latest</code>) · <code>editor</code>(기본값 <code>false</code>)</td></tr>
+</tbody>
+</table>
+</div>
+
+<p>표준 콘텐츠를 사용자에게 열어 주려면 <code>WEB_ASSISTANT_HELP_PLUGIN</code>에 <code>LEARNING_APP_BACKEND_URL = https://education.hana.ondemand.com/education</code> · <code>LEARNING_APP_WORKSPACE = s4</code>를 설정합니다.</p>
+
+<div class="note warn">
+  <div class="t">확인 필요 — VERSION 값</div>
+  <p><code>VERSION = 2023.latest</code>는 <b>해당 릴리스의 최신 게시본</b>으로 연결됩니다. 특정 FPS(예: S/4HANA 2023 FPS02)의 문서로 고정하려면 SAP Note <code>2954479</code>를 봐야 합니다. 어느 쪽이 맞는지는 시스템의 실제 릴리스를 확인한 뒤 정합니다.</p>
+</div>
+
+<h4>Web Dispatcher 연동</h4>
+
+<pre><code>wdisp/system_&lt;number&gt; = SID=&lt;SID1&gt;, EXTSRV=https://cp.hana.ondemand.com,
+    SRCURL=/sap/dfa/help/, SRCSRV=*:*, PROXY=&lt;proxy&gt;:&lt;port&gt;, STANDARD_COOKIE_FILTER=OFF
+wdisp/system_&lt;number&gt; = SID=&lt;SID2&gt;, EXTSRV=https://xray.hana.ondemand.com,
+    SRCURL=/resources/sap/dfa/help/, SRCSRV=*:*, PROXY=&lt;proxy&gt;:&lt;port&gt;, STANDARD_COOKIE_FILTER=OFF
+icm/HTTP/mod_0 = PREFIX=/, FILE=$(DIR_PROFILE)/redirect.txt</code></pre>
+
+<div class="note warn">
+  <div class="t">Caution — 번호와 SID</div>
+  <p>· <code>wdisp/system_</code> 뒤의 번호는 <b>애플리케이션 서버에 쓰는 번호보다 작아야</b> 합니다. 컨텍스트 기반 사용자 지원 규칙이 애플리케이션 서버 규칙보다 앞에 와야 하기 때문입니다.<br>
+     · <code>SID</code>는 <b>시스템 ID와 같으면 안 됩니다.</b><br>
+     · <code>redirect.txt</code>에는 HSTS 비활성화 설정과 content/script server용 <code>RegRewriteRawUrl</code> 규칙이 SID별 조건문으로 들어가며, 여기 쓰는 <code>&lt;SID&gt;</code>는 프로파일의 것과 동일해야 합니다.<br>
+     · 자체 웹 서버를 쓰면 <code>cp.hana.ondemand.com</code>(content) · <code>xray.hana.ondemand.com</code>(script) URL을 자기 값으로 바꿉니다.</p>
+</div>
+
+<h3>알림(Notification) — Hub 쪽 구성</h3>
+
+<p>Launchpad는 <code>SAP_GWFND</code>의 일부인 <b>SAP Gateway Notification Channel</b>에서 알림을 소비합니다. <span class="bad">알림은 Launchpad에서 기본적으로 꺼져 있고</span>, 관련 UI 요소도 보이지 않습니다. 알림 센터는 <b>사용자 역할별로</b> 켤 수 있고, 알림은 SAP Workflow 또는 ABAP notification framework 기반의 <b>알림 프로바이더</b>가 생성합니다. 알림에서 quick action을 제공하거나 해당 주제의 앱을 바로 띄울 수도 있습니다.</p>
+
+<div class="step"><span class="n">1</span><p><b>OData V4 활성화</b> — <code>SICF</code>에서 <code>/sap/opu/odata4</code>가 활성이어야 한다 (<code>SAP_GW_FIORI_ERP_ONE_CLNT_SETUP</code>의 <b>Activate HTTP Services for NW Gateway (SICF)</b> task가 처리)</p></div>
+<div class="step"><span class="n">2</span><p><b>서비스 그룹 게시</b> — FES의 <code>/IWFND/V4_ADMIN</code>에서 시스템 별칭 <code>LOCAL</code>로 <code>/IWNGW/NOTIFICATION</code>을 게시한다. 게시는 <span class="key">순수한 구성 작업이라 ABAP 리포지토리 오브젝트를 만들지 않는다</span> — 라이프사이클 아티팩트가 생기지 않는다. 게시된 서비스 그룹의 서비스만 소비자가 호출할 수 있다 (<code>SAP_FIORI_FOUNDATION_S4</code>의 <b>Publish Service Groups Foundation</b> task)</p></div>
+<div class="step"><span class="n">3</span><p><b>APC WebSocket</b> — 알림은 ABAP Push Channels를 쓴다. <code>SICF</code>에서 <code>/sap/bc/apc/iwngw/notification_push_apc</code>가 활성이어야 하고, <code>SPRO</code> → ABAP Platform → Notification Channel → Notification Channel Hub → Administration → Push Channel Settings → Activate and Maintain Push Channels에서 푸시 채널 ID <code>SAP_WEBSOCKET</code>을 유지보수·활성화한다</p></div>
+<div class="step"><span class="n">4</span><p><b>FLP에서 켜기</b> — <code>NOTIFICATIONS=true</code> · <code>NOTIFICATIONS_UI=true</code> (<code>/UI2/FLP_SYS_CONF</code> 또는 <code>/UI2/FLP_CUS_CONF</code>)</p></div>
+
+<p>타깃 매핑 방식(Shell-reconfigure 인텐트)을 쓸 때 조정하는 파라미터:</p>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>파라미터</th><th>의미</th></tr></thead>
+<tbody>
+<tr><td class="wrap"><code>services/Notifications/config/enabled</code></td><td class="wrap">Notification UShell 서비스 활성화. 기본값 <code>false</code></td></tr>
+<tr><td class="wrap"><code>services/Notifications/config/serviceUrl</code></td><td class="wrap">Notification OData 서비스 루트 URL — 호스트명 + 게시된 서비스 그룹 + 리포지토리 ID + 서비스명 + 버전의 조합</td></tr>
+<tr><td class="wrap"><code>services/Notifications/config/pollingIntervalInSeconds</code></td><td class="wrap"><b>WebSocket이 우선</b>이고, 브라우저가 WebSocket을 못 맺을 때만 이 간격(기본 60초)으로 폴백 폴링한다</td></tr>
+</tbody>
+</table>
+</div>
+
+<div class="note">
+  <div class="t">🔰 초보자 설명 — 표준 카탈로그로 빠르게</div>
+  <p>SAP은 알림 활성화용 타깃 매핑이 들어 있는 기본 카탈로그 <code>/UI2/CONFIG_NOTIFICATION</code>을 제공합니다. 이걸 사용자 역할에 할당하면 Launchpad 알림을 빠르게 구성할 수 있습니다.</p>
+</div>
+
+<h3>알림 — Provider(BES) 쪽 구성</h3>
+
+<p>BES의 알림 게이트웨이는 <b>자기 시스템 별칭(SAP origin)을 FES로 보내야</b> 합니다. 그래야 FES가 BES의 오퍼레이션을 역으로 호출할 수 있습니다 — 휴가 신청 승인을 FES에서 누르면 실제 승인은 BES에서 일어나야 하니까요. 그리고 알림 전송 자체는 <b>RFC</b>로 이루어지고, 안정적 전달을 위해 <b>bgRFC 아웃바운드 큐</b>를 씁니다.</p>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>할 일</th><th>SPRO 경로 (ABAP Platform → Notification Channel → Provider Enablement →)</th><th>트랜잭션</th></tr></thead>
+<tbody>
+<tr><td>백엔드 별칭</td><td class="wrap">Configuration → Connection Settings → Enter the Backend System Alias</td><td><code>/IWNGW/BEP_SET_ALIAS</code></td></tr>
+<tr><td>허브 RFC 목적지</td><td class="wrap">Configuration → Connection Settings → Enter the Notification Hub RFC destination</td><td><code>/IWNGW/BEP_SET_HUB_D</code></td></tr>
+<tr><td>bgRFC 목적지 생성</td><td class="wrap">Configuration → Connection Settings → Create bgRFC Destination (<code>IWNGW_BGRFC</code>)</td><td><code>SM59</code></td></tr>
+<tr><td>bgRFC 인바운드 등록</td><td class="wrap">Configuration → Connection Settings → Register RFC Destination for Background Processing (<code>IWNGW_BEP_OUT_BGRFC</code>, 큐 접두사 <code>Q</code>)</td><td><code>SBGRFCCONF</code></td></tr>
+<tr><td>프로바이더 등록</td><td class="wrap">Administration → Notification Provider Settings → Register Notification Providers</td><td><code>/IWNGW/BEP_NPREG</code></td></tr>
+<tr><td>프로바이더 활성화</td><td class="wrap">Administration → Notification Provider Settings → Manage Notification Providers</td><td><code>/IWNGW/VB_REG_P</code></td></tr>
+</tbody>
+</table>
+</div>
+
+</div>
+
+
+<!-- ══════════ LESSON 5 ══════════ -->
+<div class="lesson" id="l5">
+<h2><span class="no">LESSON 5</span>SAPconnect와 SMTP — 메일이 안 나갈 때</h2>
+
+<p><span class="tag">Unit 21</span><span class="tag">레슨 2개</span>Setting Up Communication with SAPconnect · Setting Up Communication with SMTP</p>
+
+<h3>언제 이걸 알아야 하는가</h3>
+
+<p><b>"프로그램에서 메일이 안 나갑니다."</b> 배치 프로그램을 돌린 사람이 가장 자주 들고 오는 문의이고, 개발자 쪽에서 제일 자주 오진하는 문의이기도 합니다. 프로그램은 성공 리턴을 받았으니 소스에는 문제가 없어 보이는데, 받는 쪽에는 아무것도 안 갑니다.</p>
+
+<p>이유는 단순합니다. <span class="key">ABAP 프로그램의 "보내기"는 실제 발송이 아니라 큐에 넣는 것</span>이기 때문입니다. 실제 발송은 별도의 발신 작업이 나중에 합니다. 그래서 확인해야 할 지점이 프로그램 밖에 최소 네 군데 더 있고, 그 순서를 알면 원인이 5분 안에 좁혀집니다.</p>
+
+<h3>메시지 흐름 — BCS · PPF · Output Control</h3>
+
+<p>ABAP 기반 시스템에는 메시지를 만드는 경로가 여럿입니다. 중심에 있는 것이 <b>Business Communication Services(BCS)</b>로, 애플리케이션 안에서 내부·외부 메시지 발송을 통합하게 해 주고 <span class="key">발신·수신 제어와 광범위한 상태 처리</span>를 담당합니다. 애플리케이션 오브젝트에 대한 모든 발신 정보가 BCS에 있습니다.</p>
+
+<p>애플리케이션은 BCS를 직접 부르거나, 먼저 <b>Post Processing Framework(PPF)</b>를 거칩니다. PPF는 특정 조건(배송전표 인쇄, 오더 확인서 팩스, 승인 프로세스 트리거)에 대해 액션을 생성하는 통일 인터페이스이며 <b>message control의 후속</b>입니다. BCS는 Smart Forms(및 SAPscript), PDF 기반 Print Forms(Adobe)에서도 씁니다. 수동 작성은 <b>Business Workplace</b>(<code>SBWP</code>, 구 SAP Office)입니다.</p>
+
+<p>S/4HANA는 여기에 새 출력 관리(<b>SAP S/4HANA Output Control</b>)를 더했습니다. SD Output Control · FI Correspondence · FI-CA Print Workbench · CRM Post-Processing의 후속이 될 예정이지만 <span class="bad">기존 프레임워크도 여전히 쓸 수 있고, 새 출력 관리 사용이 필수는 아닙니다.</span> 기본 서비스(인쇄 · 폼 렌더링 · 이메일 발송) 위에 파라미터 결정 · 첨부파일 출력 · 출력 이력을 더한 구조이고, <b>Form Data Provider</b>(CDS + Gateway 기반 동적 데이터 인터페이스)와 <b>Output Forms</b>(Adobe 렌더링으로 PDF · PCL · Postscript 생성)가 짝을 이룹니다. 상세는 SAP Note <code>2228611</code> · <code>2791338</code> · <code>2470711</code> · <code>3097507</code>.</p>
+
+<h3>SAPconnect — 외부 통신의 중앙 인터페이스</h3>
+
+<p>SAPconnect는 팩스 · 문자(페이저 · SMS) · 이메일 · X.400, 프린터 전송, 시스템 간 전송을 지원하는 중앙 인터페이스입니다. 인터넷과는 <b>ICM의 SMTP 플러그인</b>으로 직접 연결합니다. BCS가 외부 메시지를 SAPconnect로 넘기는 구조입니다.</p>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>트랜잭션</th><th>용도</th></tr></thead>
+<tbody>
+<tr><td><code>SOADM</code></td><td class="wrap">SAPconnect 관리. AS ABAP 7.02 이상 필요 — <b>권장</b></td></tr>
+<tr><td><code>SCOT</code></td><td class="wrap">SOADM에 해당하며 Settings → SMTP Connection → Outbound Messages → SMTP Nodes로 바로 진입 — <b>권장</b></td></tr>
+<tr><td><code>SCON</code></td><td class="wrap">모든 통신 유형을 지원하지만 <span class="bad">오래된 방식</span>. SMTP · HTTP 이외의 통신 유형에만 쓴다. SAPconnect용 <b>RFC 목적지 사용은 deprecated</b>이며, 외부 통신 시스템이 HTTP·SMTP를 제공하지 않아 RFC가 필요한 경우에만 SCON으로 구성한다 (SAP Note <code>1236270</code>)</td></tr>
+</tbody>
+</table>
+</div>
+
+<p>발송 과정은 세 단계입니다.</p>
+
+<div class="step"><span class="n">1</span><p>메시지가 <b>Web Flow 항목 · Business Workplace · 애플리케이션</b>에 의해 생성된다</p></div>
+<div class="step"><span class="n">2</span><p>선택된 통신 유형과 <b>큐에 저장된 주소 영역</b>을 기준으로 메시지가 노드에 할당된다</p></div>
+<div class="step"><span class="n">3</span><p>발신 프로세스 <b>리포트 <code>RSCONN01</code></b>(백그라운드에서 주기적으로 실행되어야 함)이 큐에서 메시지를 읽어 SMTP 플러그인으로 넘긴다</p></div>
+
+<figure class="figwrap">
+<svg class="dgm" viewBox="0 0 1000 420" role="img" aria-label="SAPconnect SMTP 발송 흐름 도해. ABAP 프로그램이 BCS를 거쳐 SAPconnect 큐에 메시지를 넣고 RSCONN01 발신 작업이 ICM SMTP 플러그인을 통해 메일 서버로 보내며, 메일이 안 나갈 때는 큐 적재·발신 작업·노드 라우팅·ICM 포트·메일 서버 순으로 확인한다.">
+  <defs>
+    <marker id="d4k" markerWidth="9" markerHeight="9" refX="7" refY="4.5" orient="auto">
+      <polygon class="arw-key" points="0,0 9,4.5 0,9"/></marker>
+  </defs>
+
+  <rect class="b" x="20" y="40" width="170" height="70" rx="6"/>
+  <text class="t" x="38" y="68">ABAP 프로그램</text>
+  <text class="t-s" x="38" y="90">CBO · SBWP · 표준</text>
+
+  <path class="ln-key" d="M190 75 H210" marker-end="url(#d4k)"/>
+
+  <rect class="b-key" x="215" y="40" width="170" height="70" rx="6"/>
+  <text class="t c-key" x="233" y="68">BCS</text>
+  <text class="t-s" x="233" y="90">PPF · Output Control</text>
+
+  <path class="ln-key" d="M385 75 H405" marker-end="url(#d4k)"/>
+
+  <rect class="b-key" x="410" y="40" width="170" height="70" rx="6"/>
+  <text class="t c-key" x="428" y="68">SAPconnect</text>
+  <text class="t-s" x="428" y="90">큐 + 노드(주소 영역)</text>
+
+  <path class="ln-key" d="M580 75 H600" marker-end="url(#d4k)"/>
+  <text class="m-s c-key" x="560" y="30">RSCONN01 (주기 배치)</text>
+
+  <rect class="b-key" x="605" y="40" width="170" height="70" rx="6"/>
+  <text class="t c-key" x="623" y="68">ICM</text>
+  <text class="t-s" x="623" y="90">SMTP 플러그인</text>
+
+  <path class="ln-key" d="M775 75 H795" marker-end="url(#d4k)"/>
+
+  <rect class="b-ok" x="800" y="40" width="170" height="70" rx="6"/>
+  <text class="t c-ok" x="818" y="68">메일 서버 (MTA)</text>
+  <text class="t-s" x="818" y="90">sendmail 등</text>
+
+  <rect class="b-bad" x="20" y="146" width="950" height="216" rx="8"/>
+  <text class="t-h c-bad" x="40" y="172">메일이 안 나갈 때 — 이 순서로 본다</text>
+  <path class="ln-d" d="M40 182 H950"/>
+
+  <text class="t-s c-bad" x="40" y="206">① 큐에 들어갔나</text>
+  <text class="t-s" x="250" y="206">프로그램이 성공해도 큐에 없으면 BCS 호출 자체가 실패한 것</text>
+  <text class="m-s" x="760" y="206">SOST · SCOT 발신 개요</text>
+
+  <text class="t-s c-bad" x="40" y="238">② 발신 작업이 도나</text>
+  <text class="t-s" x="250" y="238">RSCONN01 이 주기 배치로 걸려 있지 않으면 큐에 계속 쌓인다</text>
+  <text class="m-s" x="760" y="238">SCOT ▸ Settings ▸ Send Jobs</text>
+
+  <text class="t-s c-bad" x="40" y="270">③ 노드가 잡히나</text>
+  <text class="t-s" x="250" y="270">수신자 주소가 SMTP 노드의 주소 영역에 안 걸리면 라우팅 실패</text>
+  <text class="m-s" x="760" y="270">SCOT 라우팅 테스트</text>
+
+  <text class="t-s c-bad" x="40" y="302">④ ICM 이 열려 있나</text>
+  <text class="t-s" x="250" y="302">SMTP 플러그인 포트가 없거나 ICM 이 죽어 있으면 여기서 끝난다</text>
+  <text class="m-s" x="760" y="302">SMICM · icm/server_port_xx</text>
+
+  <text class="t-s c-bad" x="40" y="334">⑤ 메일 서버가 받나</text>
+  <text class="t-s" x="250" y="334">릴레이 거부 · TLS 불일치. 상태별로 걸러 재발송할 수 있다</text>
+  <text class="m-s" x="760" y="334">SCOT 트레이스 · 재발송</text>
+
+  <text class="t-xs c-bad" x="20" y="390">SAPconnect 설정은 대부분 클라이언트 종속이다 — 다른 클라이언트에서 되는 것이 근거가 되지 않는다.</text>
+  <text class="t-xs" x="20" y="408">발신 작업은 SMTP 가 활성화된 애플리케이션 서버에서만 스케줄링된다 — 모든 AS 에서 SMTP 를 켜 두는 이유.</text>
+</svg>
+<figcaption><span class="fno">그림 4</span>SAPconnect SMTP 발송 흐름과 점검 순서. 프로그램이 성공 리턴했다는 것은 <b>①까지만</b> 보장한다.</figcaption>
+</figure>
+
+<h4>문제 해결 도구</h4>
+
+<ul>
+  <li><b>라우팅 테스트</b> — 노드 결정 오류가 수신자 주소 때문인지 확인. 지정 주소로 어떤 노드가 결정되는지, 팩스·페이징 번호가 수신자 번호 조정 규칙대로 변환되는지 본다</li>
+  <li><b>트레이스</b> — 수신·발신 메시지 각각 활성화 가능</li>
+  <li><b>상태별 평가</b> — 전송 오류가 있는 문서를 전부 표시해 재발송. 발송 시간 · 통신 방법 · 발송 상태로 범위를 좁히고, 문서별 <b>전체 발송 이력</b>도 볼 수 있다</li>
+</ul>
+
+<h3>SMTP 구성 — ICM 프로파일 파라미터</h3>
+
+<p>SMTP는 ICM이 직접 지원하므로 커넥터·게이트웨이 같은 <b>외부 컴포넌트 없이</b> SMTP 호환 메일 서버와 메일을 주고받을 수 있습니다.</p>
+
+<pre><code>rdisp/start_icman   = true                        " 시스템 시작 시 ICM 자동 기동
+exe/icman           = &lt;ICM 실행파일 경로&gt;
+icm/server_port_&lt;xx&gt; = PROT=SMTP,PORT=&lt;port&gt;      " 수신용 TCP/IP 포트. 수신 안 하면 0</code></pre>
+
+<div class="note">
+  <div class="t">🔰 초보자 설명 — 최신 커널에서는 파라미터가 하나 사라졌다</div>
+  <p>SAP Kernel 7.72 이상에서는 <code>rdisp/start_icman</code>이 <b>더 이상 존재하지 않고</b>, 인스턴스가 항상 ICM과 함께 뜹니다 (SAP Note <code>2560792</code>). 옛 문서를 보고 이 파라미터를 찾다가 없다고 당황할 일이 아닙니다.</p>
+</div>
+
+<p>보안·용량 관련 옵션도 같은 파라미터에 붙습니다.</p>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>파라미터 / 옵션</th><th>의미</th></tr></thead>
+<tbody>
+<tr><td><code>TLS</code></td><td class="wrap"><code>icm/server_port_&lt;xx&gt; = PROT=SMTP,PORT=&lt;port&gt;,TLS=2</code>면 클라이언트가 TLS로 암호화해야 하고, 아니면 연결이 취소된다</td></tr>
+<tr><td><code>AUTHMECHANISMS</code></td><td>수신 메일 인증</td></tr>
+<tr><td><code>AUTHUSERS</code></td><td>권한 있는 AS ABAP 사용자 정의</td></tr>
+<tr><td><code>is/SMTP/virt_host_&lt;xx&gt;</code></td><td class="wrap">메일 수신용 가상 호스트. 단일 클라이언트만 수신하면 기본값 <code>is/SMTP/virt_host_0 = *:*;</code>로 충분하고, <b>여러 클라이언트가 수신자면 클라이언트마다 가상 호스트</b>를 만든다</td></tr>
+<tr><td><code>icm/SMTP/context_quota</code></td><td class="wrap">전체 컨텍스트 중 SMTP가 쓸 비율(%). <code>20</code>이면 20%까지만 메일에 쓰고 나머지를 HTTP(S)에 남긴다. 초과 요청은 ICM이 거부한다</td></tr>
+<tr><td><code>icm/HTTP(S)/context_quota</code></td><td class="wrap">같은 방식의 HTTP(S)용 할당량. 전체 상한은 <code>rdisp/tm_max_no</code></td></tr>
+</tbody>
+</table>
+</div>
+
+<h3>수신 방향과 MTA</h3>
+
+<p>이메일이 발송되면 먼저 <b>MTA</b>(sendmail 같은 프로그램)에 도달합니다. MTA는 메일을 분석해 로컬 사용자(MUA)에게 주거나 다른 MTA로 전달합니다. 여기서 반드시 기억할 한 줄:</p>
+
+<div class="note warn">
+  <div class="t">SAPconnect는 MTA가 아니다</div>
+  <p>SAPconnect는 <b>자신에게 향하지 않은 수신 메일을 다른 메일 서버로 자동 전달할 수 없습니다.</b> "SAP을 메일 중계로 쓸 수 있느냐"는 요구가 들어오면 여기서 끊어야 합니다.</p>
+</div>
+
+<p>발신 방향은 AS ABAP 7.02부터 <b>한 클라이언트에서 만든 메일을 여러 메일 서버로</b> 보낼 수 있고, SMTP 노드 정의에서 메일 서버의 호스트 주소와 포트를 지정합니다(SAP Note <code>2348016</code>). 수신 방향은 임의 개수의 메일 서버로부터 받을 수 있으며, <span class="key">각 클라이언트가 <code>SICF</code>에서 구성된 별도의 가상 메일 서버(호스트명 · 포트)로 접근</span>합니다. 시스템과 클라이언트를 지정하는 가장 좋은 방법은 <b>클라이언트마다 별도 서브도메인</b>을 쓰고, 메일 서버 라우팅 규칙으로 호스트명·포트에 할당하는 것입니다.</p>
+
+<p>팩스·문자도 SMTP로 교환할 수 있는데, 이 경우 <b>이메일로 패킹</b>됩니다. 수신 시 프로바이더는 시스템 도메인이 포함된 주소(예: <code>FAX=+1212541234@crm-prod.company.com</code>)로 메일을 보냅니다.</p>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>약어</th><th>설명</th></tr></thead>
+<tbody>
+<tr><td>POP</td><td class="wrap">Post Office Protocol. 상시 연결을 보장 못 하는 시스템에서도 수신 가능하게 한다. POP3는 서버 메시지를 삭제·유지·즉시 삭제 중 고를 수 있고, <b>계층형 메일박스·필터는 프로토콜이 제공하지 않아</b> 클라이언트 기능이나 IMAP이 필요하다</td></tr>
+<tr><td>IMAP</td><td class="wrap">서버에서 메일을 처리하게 하는 프로토콜. 서버에 폴더(원격 메일박스)를 만들어 분류하고, <b>필요할 때만 전송</b>하도록 설계돼 사용자가 받을 데이터를 고를 수 있다</td></tr>
+<tr><td>SMTP</td><td class="wrap">서버 간 이메일 교환 표준. <b>메일 클라이언트는 발신에만 쓰고 수신에는 쓰지 않는다</b></td></tr>
+<tr><td>MIME</td><td class="wrap">바이너리 데이터를 인터넷 메일에 담기 위한 인코딩 확장. 멀티파트 메일 · 바이너리 첨부 · HTML 메일을 지원</td></tr>
+</tbody>
+</table>
+</div>
+
+<h3>관리와 권한</h3>
+
+<p><code>SCOT</code>에서 통신 유형 Internet(SMTP 이메일)용 SAPconnect를 구성하고, <b>Business Communication Administration → Administration → System State</b> 뷰부터 시작합니다. 발신 프로세스 주기 스케줄링은 <b>Settings → Send Jobs</b>입니다.</p>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>대상</th><th>권한</th></tr></thead>
+<tbody>
+<tr><td>외부 통신 시스템</td><td class="wrap">시스템 사용자로 로그온하며, 권한은 프로파일 <code>S_A.SCON</code>에 있다</td></tr>
+<tr><td>SAPconnect 관리자</td><td class="wrap">시스템 사용자 권한 + <code>S_TABU_DIS</code>로 검사되는 테이블 유지보수 권한. 역할 <code>SAP_BC_SRV_COM_ADMIN</code> · <code>SAP_BC_SRV_GBT_ADMIN</code>에 포함</td></tr>
+</tbody>
+</table>
+</div>
+
+<p>보안 메일이 필요하면 SAPconnect에 통합된 <b>S/MIME</b>으로 서명·암호화 발송과 수신 복호화·검증이 가능합니다. 조합은 <code>SCOT</code> → Business Communication Administration → Settings → Outbound Messages → Settings의 <b>Signature &amp; Encryption</b> 탭에서 고릅니다. Secure Email Proxy 같은 타사 제품으로 대체할 수도 있습니다.</p>
+
+<div class="note ok">
+  <div class="t">📌 개인 E2E 프로젝트와의 연결점 — ZPRICE_CHECK의 알림 경로</div>
+  <p>CBO 3종 중 <code>ZPRICE_CHECK</code>는 정보레코드가(<code>EINE-NETPR</code>)와 이동평균가(<code>MBEW-VERPR</code>)의 괴리를 <b>알림만 내고 끝내는</b> 설계입니다 — 회계 영향이 있는 처리는 자동화하지 않는다는 원칙 때문에 전기도, 마스터 수정도 하지 않습니다. 그러면 남는 질문이 "그 알림을 무엇으로 내보내느냐"인데, <b>표준 경로가 이 LESSON의 SAPconnect</b>입니다.</p>
+  <p>설계 시 이 노트에서 그대로 가져올 것 세 가지:</p>
+  <p>· <b>발송은 BCS로.</b> <code>CL_BCS</code> 계열을 쓰고 <code>SO_NEW_DOCUMENT_SEND_API1</code> 같은 구형 FM은 피합니다. 전표를 BAPI로 만드는 원칙과 같은 이유 — 표준이 제공하는 상태 처리를 버리지 않기 위해서입니다.<br>
+     · <b>"보냈다"를 성공으로 기록하지 않는다.</b> 그림 4의 ①까지만 보장되므로, CBO 테이블 상태필드는 <span class="key">큐 적재 = P(처리중)</span>로 두고 <code>SOST</code> 결과를 확인한 뒤에야 <span class="key">H(완료)</span>로 넘깁니다. 발송 실패를 조용히 삼키면 "괴리 알림이 안 왔다"는 사고가 그대로 지나갑니다.<br>
+     · <b>수신자를 하드코딩하지 않는다.</b> 구매그룹·자재그룹(<code>CHKN</code> · <code>RICE</code> · <code>SHAK</code> · <code>PROT</code> · <code>PBAR</code>)별 담당자를 CBO 테이블이나 표준 조직 데이터에서 읽습니다. 담당자 한 명의 메일 주소가 소스에 박히면 운영 이관 시점에 반드시 문제가 됩니다.</p>
+</div>
+
+<div class="note warn">
+  <div class="t">확인 필요 — 프로젝트 서버의 메일 환경</div>
+  <p>렌탈 서버에 실제로 SMTP 노드가 구성되어 있는지, 외부로 나가는 25/587 포트가 열려 있는지 확인되지 않았습니다. <code>SCOT</code>에서 SMTP 노드 존재 여부와 <code>SMICM</code>에서 <code>PROT=SMTP</code> 포트를 먼저 확인하고, 외부 발송이 불가능하면 <b>수신자를 SAP 내부 사용자(<code>SBWP</code> 수신)로 두는 구성</b>으로 범위를 줄입니다 — 알림 로직 검증에는 그것으로 충분합니다.</p>
+</div>
+
+</div>
+
+
+<!-- ══════════ APPENDIX ══════════ -->
+<div class="lesson" id="lx">
+<h2><span class="no">APPENDIX</span>정리 · 반드시 기억할 것</h2>
+
+<h3>한 장 요약</h3>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>질문</th><th>답</th></tr></thead>
+<tbody>
+<tr><td>S/4HANA 권장 배포는</td><td class="wrap"><b>embedded FES.</b> hub는 Business Suite·혼합용이고, FES 2023이 hub로 쓸 수 있는 마지막 버전</td></tr>
+<tr><td>FES 2023만 따로 올릴 수 있나</td><td class="wrap"><b>없다.</b> S/4HANA 2023의 일부로만 설치된다 — 전체 시스템 업그레이드가 필요</td></tr>
+<tr><td>백엔드 OData 요청의 인증은</td><td class="wrap">FES에서 초기 인증 1회, 이후 백엔드는 <b>신뢰 RFC</b>라 추가 인증 없음</td></tr>
+<tr><td>인터넷 노출에 못 쓰는 SSO는</td><td class="wrap"><b>Kerberos/SPNego</b>(발급 시스템이 사내망). 로그온 티켓은 <b>같은 DNS 도메인</b>이어야 함</td></tr>
+<tr><td>앱 하나를 살리는 순서</td><td class="wrap">Business Role → 카탈로그·타일 → OData 서비스(<code>/IWFND/MAINT_SERVICE</code>) → ICF 노드(<code>SICF</code>)</td></tr>
+<tr><td>타일이 아예 안 보인다</td><td class="wrap">역할·카탈로그 할당 문제. <b>그룹에만 있고 카탈로그 권한이 없으면 안 보인다</b></td></tr>
+<tr><td>화면은 뜨는데 데이터가 없다</td><td class="wrap">Gateway 서비스 미등록 또는 별칭·처리모드 문제</td></tr>
+<tr><td>역할 단위 일괄 활성화</td><td class="wrap"><code>SAP_FIORI_CONTENT_ACTIVATION</code> — <code>SAP_BR*</code> 한정, <b>1회 100개 이하</b></td></tr>
+<tr><td>업그레이드 후 옛 화면이 나온다</td><td class="wrap">cache buster. <code>/UI5/APP_INDEX_CALCULATE</code> 배치 예약, 필요 시 <code>/UI2/INVALIDATE_CLIENT_CACHES</code></td></tr>
+<tr><td>알림이 안 뜬다</td><td class="wrap"><code>/sap/opu/odata4</code> ICF · 서비스 그룹 <code>/IWNGW/NOTIFICATION</code> 게시 · APC <code>SAP_WEBSOCKET</code> · <code>NOTIFICATIONS=true</code></td></tr>
+<tr><td>메일이 안 나간다</td><td class="wrap"><code>SOST</code> 큐 적재 → <code>RSCONN01</code> 배치 → 노드 라우팅 → ICM SMTP 포트 → 메일 서버, 이 순서</td></tr>
+<tr><td>SAPconnect로 메일 중계가 되나</td><td class="wrap"><b>안 된다.</b> SAPconnect는 MTA가 아니다</td></tr>
+</tbody>
+</table>
+</div>
+
+<div class="note warn">
+  <div class="t">반드시 지킬 것</div>
+  <p>· Enterprise Search·Content Activation task list는 <b>백그라운드로, 업무 시간을 피해</b> 돌린다. 메모리를 크게 먹고 수 시간 간다.<br>
+     · <code>SAP_FIORI_CONTENT_ACTIVATION</code>에서 역할을 <b>한 번에 100개 넘게 고르지 않는다.</b> 전제조건이 안 맞는 역할은 덤프를 낸다.<br>
+     · Gateway 서비스 등록 오브젝트를 <b>로컬 오브젝트로 만들지 않는다.</b> 개발 패키지 + 운송요청이어야 다른 시스템으로 넘어간다.<br>
+     · Web Dispatcher 뒤에서 X.509를 쓸 때 <b>헤더의 인증서를 무조건 신뢰하지 않는다.</b> <code>icm/trusted_reverse_proxy_&lt;n&gt;</code>로 프록시를 등록한다.<br>
+     · <b>"프로그램이 성공 리턴했다"를 메일 발송 성공으로 쓰지 않는다.</b> 큐에 넣은 것까지만 보장된다.<br>
+     · SAPconnect 설정은 대부분 <b>클라이언트 종속</b>이다. 다른 클라이언트에서 되는 것은 근거가 아니다.</p>
+</div>
+
+<h3>참고</h3>
+
+<ul>
+  <li>원본: 노션 <b>SAP Learning Hub</b> → Technical Implementation and Operation I → 노트 <b>5-1 ~ 9-1</b> (TADM10 Unit 17~21, 레슨 15개)</li>
+  <li>앞 노트: <b>TADM10 U16</b> HTTP 통신 — ICM · ICF · Gateway · Web Dispatcher. 이 노트의 ICF 노드·Web Dispatcher 이야기는 그 위에 얹혀 있다</li>
+  <li>이 노트가 <b>TADM10 저니의 마지막 구간</b>이다</li>
+  <li>주요 SAP Note: <code>3336823</code>(FES 2023 RIN) · <code>2902673</code>(Rapid Activation 개요) · <code>2712785</code>(FOUNDATION_S4) · <code>2686456</code>(CONTENT_ACTIVATION) · <code>3324574</code>(SPACES 중단) · <code>2626107</code>(ESH task list) · <code>2289865</code>(Analytics 구성) · <code>3007113</code>(중복 커넥터) · <code>2560792</code>(start_icman 폐지)</li>
+</ul>
+
+</div>
+
+</div>
+<script src="../../assets/hub.js" defer></script>
+</body>
+</html>

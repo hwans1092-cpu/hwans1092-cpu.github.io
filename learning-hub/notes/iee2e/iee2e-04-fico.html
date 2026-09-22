@@ -1,0 +1,900 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>FI/CO 개관 — G/L · 매입채무 · 매출채권 · 자산 · 간접비</title>
+<meta name="description" content="Exploring End-to-End Business Processes in SAP Business Suite Unit 4 정리. FI와 CO의 분업, Universal Journal, G/L Account Type, 매입채무·매출채권 흐름, 자산회계, 병행회계 원장, 간접비 관리까지 FI 전체 지도.">
+<link rel="icon" href="../../assets/favicon.svg">
+<link rel="stylesheet" href="../../assets/notes-paper.css">
+<style>
+/* ── 이 노트 전용: 도해(SVG) 스타일 ─────────────────────────── */
+.dgm{display:block; width:100%; height:auto;}
+.dgm text{font-family:"Malgun Gothic","맑은 고딕","Apple SD Gothic Neo",sans-serif; fill:#1e1e1e;}
+.dgm .t-h{font-size:15px; font-weight:700;}
+.dgm .t{font-size:13px;}
+.dgm .t-s{font-size:11.5px; fill:#555;}
+.dgm .t-xs{font-size:10.5px; fill:#6B7280;}
+.dgm .m{font-family:"D2Coding","Consolas",monospace; font-size:12px;}
+.dgm .m-s{font-family:"D2Coding","Consolas",monospace; font-size:10.5px;}
+.dgm .c-key{fill:#4338CA;} .dgm .c-bad{fill:#B91C1C;} .dgm .c-ok{fill:#047857;}
+.dgm .b{fill:#FFFFFF; stroke:#C7CBD6; stroke-width:1.2;}
+.dgm .b-key{fill:#EEF0FB; stroke:#4338CA; stroke-width:1.4;}
+.dgm .b-bad{fill:#FEF2F2; stroke:#B91C1C; stroke-width:1.3;}
+.dgm .b-ok{fill:#ECFDF5; stroke:#047857; stroke-width:1.3;}
+.dgm .b-mut{fill:#F3F4F6; stroke:#D1D5DB; stroke-width:1.1;}
+.dgm .b-hl{fill:#FEF08A; stroke:#CA8A04; stroke-width:1.2;}
+.dgm .b-ghost{fill:none; stroke:#9AA3B2; stroke-width:1.1; stroke-dasharray:5 4;}
+.dgm .ln{stroke:#7C8697; stroke-width:1.4; fill:none;}
+.dgm .ln-key{stroke:#4338CA; stroke-width:1.8; fill:none;}
+.dgm .ln-bad{stroke:#B91C1C; stroke-width:1.6; fill:none;}
+.dgm .ln-ok{stroke:#047857; stroke-width:1.6; fill:none;}
+.dgm .ln-d{stroke:#9AA3B2; stroke-width:1.2; stroke-dasharray:4 4; fill:none;}
+.dgm .arw{fill:#7C8697;} .dgm .arw-key{fill:#4338CA;}
+.dgm .arw-bad{fill:#B91C1C;} .dgm .arw-ok{fill:#047857;}
+.figwrap{background:#FAFAFE; border:1px solid var(--rule); border-radius:6px;
+  padding:18px 16px 10px; margin:22px 0;}
+.figwrap figcaption{margin-top:12px; padding-top:10px; border-top:1px solid var(--rule);}
+</style>
+</head>
+<body>
+<div class="crumb"><a href="../../index.html">← 자료실 홈</a> · <a href="../../journey.html?j=iee2e">E2E 저니</a> · IEE2E 04 FI/CO 개관</div>
+<div class="sheet">
+
+<div class="doc-head">
+  <div class="kicker">LEARNING HUB · IEE2E 04</div>
+  <h1>FI/CO 개관 — G/L · 매입채무 · 매출채권 · 자산 · 간접비</h1>
+  <div class="sub">
+    Learning Journey <b>Exploring End-to-End Business Processes in SAP Business Suite</b> · Unit 4 · 레슨 8개 · Beginner<br>
+    출처: 노션 <b>SAP Learning Hub</b> 노트 4-1 ~ 4-6 변환
+  </div>
+</div>
+
+<div class="lead">
+  <p><b>결론부터.</b> SD에서 출고하든 MM에서 입고하든, 그 거래가 회계에 어떻게 남을지는 <span class="hl">G/L 계정 마스터의 Account Type 하나</span>가 먼저 결정합니다. 그 다음은 전부 자동입니다 — 보조원장에 찍으면 조정계정이 따라 찍히고, 1차 원가 계정이면 원가센터를 안 넣는 한 전기 자체가 막힙니다.</p>
+  <p>이 노트는 FI 축의 <b>전체 지도</b>입니다. G/L을 가운데 놓고 매입채무·매출채권·자산이 어떻게 붙는지, CO가 어디서 갈라졌다가 Universal Journal에서 어떻게 다시 합쳐지는지를 한 번에 봅니다. 개별 설정값(전표유형·지급프로그램·독촉·결산·자산클래스)은 <a href="../fi/s4f12-core-settings.html">FI 저니 노트</a>에 이미 깊게 있으므로, 여기서는 <span class="key">어디에 무엇이 있는지</span>만 정확히 잡습니다.</p>
+</div>
+
+<div class="toc">
+  <h4>목차</h4>
+  <ol>
+    <li><a href="#l1">FI와 CO — 분업, 그리고 Universal Journal</a></li>
+    <li><a href="#l2">매입채무(AP) — 구매에서 지급까지</a></li>
+    <li><a href="#l3">매출채권(AR) — 판매에서 수금까지</a></li>
+    <li><a href="#l4">자산회계 — 자산 하나, 평가는 여러 개</a></li>
+    <li><a href="#l5">병행회계 — 원장(Ledger)이 전표 헤더에 있다</a></li>
+    <li><a href="#l6">간접비 관리 — 원가센터 · 활동배분 · 정산</a></li>
+  </ol>
+</div>
+
+
+<!-- ══════════ LESSON 1 ══════════ -->
+<div class="lesson" id="l1">
+<h2><span class="no">LESSON 1</span>FI와 CO — 분업, 그리고 Universal Journal</h2>
+
+<p><span class="tag">Unit 4</span><span class="tag">레슨 3개</span>Identifying the Basics of Financial and Management Accounting · G/L Basic Functions · G/L Integration Aspects</p>
+
+<h3>언제 이걸 알아야 하는가</h3>
+
+<p>FI 쪽에서 제일 자주 올라오는 문의가 <b>"이 계정으로 전기가 안 됩니다"</b>입니다. 메시지는 대개 이렇게 뜹니다 — <code>Account 65100000 requires an account assignment relevant to cost accounting</code>. 사용자는 금액도 맞고 계정도 맞는데 왜 막히냐고 합니다.</p>
+
+<p>답은 그 계정의 <span class="key">Account Type</span>에 있습니다. 그 계정이 <b>Primary Costs or Revenue</b>로 정의돼 있으면 CO 배정 오브젝트(원가센터 등)가 없는 전기는 시스템이 거부합니다. 설명이 아니라 하드 룰이고, 배치 업로드든 수기 입력이든 우회할 수 없습니다.</p>
+
+<p>그래서 이 레슨은 "FI가 뭐고 CO가 뭐다"라는 개론이 아니라, <b>계정 설계 하나가 이후 전기·화면·리포팅을 어디까지 결정하는가</b>를 보는 레슨입니다.</p>
+
+<h3>FI는 밖으로, CO는 안으로</h3>
+
+<ul>
+  <li><b>FI (Financial Accounting)</b> — 주주·세무당국·채권자 같은 <b>외부</b> 이해관계자에게 법적 요건에 맞춰 보고. 총계정원장(G/L)이 중심이고 <b>AR · AP · 자산회계</b>가 보조원장으로 붙는다</li>
+  <li><b>CO (Management Accounting)</b> — 회사 <b>내부</b> 의사결정용. 원가요소회계 → 간접비 관리 / 제품원가관리 → 마진 분석으로 흐른다</li>
+</ul>
+
+<p>핵심은 범위가 다르다는 점입니다. FI는 <b>재고 가치 · 비용 · 수익</b>을 다루지만, CO는 그중 <b>원가와 수익</b>만 다룹니다. 회사 본업과 무관한 거래(예: 기부금)는 FI에 비용으로 잡혀도 CO에는 아예 들어오지 않습니다.</p>
+
+<figure class="figwrap">
+<svg class="dgm" viewBox="0 0 1000 500" role="img" aria-label="FI와 CO의 분업 도해. FI는 총계정원장과 보조원장으로 외부 보고를, CO는 원가요소에서 마진분석까지 내부 관리를 담당하며, G/L 계정의 Account Type이 두 영역의 경계를 결정하고 결과는 Universal Journal 한 줄에 함께 기록된다.">
+  <defs>
+    <marker id="g1a" markerWidth="9" markerHeight="9" refX="7" refY="4.5" orient="auto">
+      <polygon class="arw" points="0,0 9,4.5 0,9"/></marker>
+    <marker id="g1k" markerWidth="9" markerHeight="9" refX="7" refY="4.5" orient="auto">
+      <polygon class="arw-key" points="0,0 9,4.5 0,9"/></marker>
+    <marker id="g1o" markerWidth="9" markerHeight="9" refX="7" refY="4.5" orient="auto">
+      <polygon class="arw-ok" points="0,0 9,4.5 0,9"/></marker>
+  </defs>
+
+  <rect class="b-ok" x="20" y="14" width="450" height="46" rx="6"/>
+  <text class="t-h c-ok" x="42" y="36">FI · Financial Accounting</text>
+  <text class="t-s" x="42" y="52">외부 보고 — 주주 · 세무당국 · 채권자</text>
+
+  <rect class="b-key" x="530" y="14" width="450" height="46" rx="6"/>
+  <text class="t-h c-key" x="552" y="36">CO · Management Accounting</text>
+  <text class="t-s" x="552" y="52">내부 관리 — 부서 · 제품 · 프로젝트</text>
+
+  <rect class="b" x="20" y="76" width="450" height="42" rx="6"/>
+  <text class="t-h" x="42" y="103">General Ledger (G/L) — 총계정원장</text>
+
+  <path class="ln" d="M91 144 V120" marker-end="url(#g1a)"/>
+  <path class="ln" d="M245 144 V120" marker-end="url(#g1a)"/>
+  <path class="ln" d="M399 144 V120" marker-end="url(#g1a)"/>
+
+  <rect class="b" x="20" y="144" width="142" height="58" rx="6"/>
+  <text class="t-h" x="38" y="168">AR 매출채권</text>
+  <text class="t-xs" x="38" y="188">고객 거래</text>
+
+  <rect class="b" x="174" y="144" width="142" height="58" rx="6"/>
+  <text class="t-h" x="192" y="168">AP 매입채무</text>
+  <text class="t-xs" x="192" y="188">벤더 거래</text>
+
+  <rect class="b" x="328" y="144" width="142" height="58" rx="6"/>
+  <text class="t-h" x="346" y="168">자산회계</text>
+  <text class="t-xs" x="346" y="188">고정자산 거래</text>
+
+  <text class="t-s" x="26" y="222">보조원장에 전기 → 조정계정으로 G/L 자동 반영. 조정계정에는 수동 전기 불가</text>
+
+  <rect class="b" x="530" y="76" width="450" height="42" rx="6"/>
+  <text class="t-h" x="552" y="103">Cost Element Accounting — 1차 · 2차 원가요소</text>
+
+  <path class="ln-key" d="M639 118 V142" marker-end="url(#g1k)"/>
+  <path class="ln-key" d="M871 118 V142" marker-end="url(#g1k)"/>
+
+  <rect class="b-key" x="530" y="144" width="218" height="58" rx="6"/>
+  <text class="t-h c-key" x="548" y="168">Overhead Cost</text>
+  <text class="t-xs" x="548" y="188">간접비 — 원가센터 기준</text>
+
+  <rect class="b-key" x="762" y="144" width="218" height="58" rx="6"/>
+  <text class="t-h c-key" x="780" y="168">Product Cost</text>
+  <text class="t-xs" x="780" y="188">제품원가 — 계획 · 원가객체</text>
+
+  <path class="ln-key" d="M639 202 V220" marker-end="url(#g1k)"/>
+  <path class="ln-key" d="M871 202 V220" marker-end="url(#g1k)"/>
+
+  <rect class="b-key" x="530" y="222" width="450" height="40" rx="6"/>
+  <text class="t-h c-key" x="552" y="248">Margin Analysis — 수익성 분석</text>
+
+  <path class="ln" d="M245 232 V282" marker-end="url(#g1a)"/>
+  <path class="ln-key" d="M755 262 V282" marker-end="url(#g1k)"/>
+
+  <rect class="b-hl" x="20" y="284" width="960" height="60" rx="6"/>
+  <text class="t-h" x="42" y="308">경계를 정하는 것은 G/L 계정 마스터의 Account Type 하나다</text>
+  <text class="m-s" x="42" y="330">Balance Sheet · Cash/Bank Recon · Nonoperating · Primary Costs or Revenue · Secondary Costs</text>
+
+  <path class="ln-ok" d="M500 344 V366" marker-end="url(#g1o)"/>
+
+  <rect class="b-ok" x="150" y="368" width="700" height="78" rx="6"/>
+  <text class="t-h c-ok" x="176" y="394">Universal Journal (ACDOCA)</text>
+  <text class="t-s" x="176" y="416">FI-GL · FI-AA · CO · 마진분석 · 자재원장이 한 줄(line item)에 함께</text>
+  <text class="t-s" x="176" y="436">FI ↔ CO 조정(reconciliation) 작업 자체가 사라진다</text>
+
+  <rect class="b-ghost" x="20" y="456" width="960" height="34" rx="6"/>
+  <text class="t-s" x="42" y="478">coding block — 원가센터 · 이익센터 · 세그먼트 · WBS가 같은 전표 라인에 함께 담긴다. 그래서 재무제표에서 원천 전표까지 바로 내려간다.</text>
+</svg>
+<figcaption><span class="fno">그림 1</span>FI와 CO의 분업. 갈라지는 지점은 Account Type, 다시 합쳐지는 지점은 Universal Journal.</figcaption>
+</figure>
+
+<h3>G/L Account Type 5종 — 이 표가 이 노트에서 제일 중요하다</h3>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>Account Type</th><th>기능</th><th>CO 관련</th></tr></thead>
+<tbody>
+<tr><td>Balance Sheet Account</td><td class="wrap">대차대조표에만 반영되는 계정의 잔액</td><td>없음</td></tr>
+<tr><td>Cash / Bank Recon.</td><td class="wrap">FI 대차대조표 보고 전용. 은행 계좌를 단일 조정계정으로 관리</td><td>없음</td></tr>
+<tr><td>Nonoperating Expense or Income</td><td class="wrap">본업과 무관한 활동(예: 기부)의 손익계산서 계정. <b>원가요소/수익요소가 생성되지 않는다</b></td><td>없음</td></tr>
+<tr><td><span class="key">Primary Costs or Revenue</span></td><td class="wrap">급여·판매비·<b>출고전기(goods issue)</b> 같은 영업 비용·수익. 시스템이 대응 원가요소를 자동 생성</td><td><span class="bad">CO 배정 필수</span></td></tr>
+<tr><td>Secondary Costs</td><td class="wrap">내부 활동배부·간접비 배부·정산에서 발생하는 2차 원가. G/L 계정으로 정의되지만 <b>CO 안에서만 전기 가능</b></td><td>CO 전용</td></tr>
+</tbody>
+</table>
+</div>
+
+<div class="note warn">
+  <div class="t">Account Type은 나중에 못 바꾼다</div>
+  <p>실무 설계 실수가 가장 잦은 지점이 <span class="bad">Balance Sheet 계정을 Primary Costs로 잡거나 그 반대로 잡는 것</span>입니다. 계정에 전기 이력이 쌓이고 나면 Account Type 변경은 사실상 불가능합니다 — 계정 설계 초기에 확정해야 합니다.</p>
+  <p>Nonoperating 계정은 Controlling Data 탭이 통째로 비어 있고, Primary Costs 계정은 Controlling Area · Cost Element Category가 필수로 채워집니다. 설정 하나가 <b>화면 구성 자체</b>를 바꿉니다.</p>
+</div>
+
+<h3>계정과목표(COA)와 마스터 3영역</h3>
+
+<p>계정과목표는 회사코드 여러 개가 공유할 수 있습니다(강의 예시 <code>YCOA</code>를 회사코드 <code>1010</code>/<code>1710</code>/<code>2310</code>이 공유). 공유가 가능한 이유는 마스터 레코드가 <b>3영역으로 분리</b>돼 있기 때문입니다.</p>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>영역</th><th>내용</th></tr></thead>
+<tbody>
+<tr><td>Chart of Accounts Area</td><td class="wrap">모든 회사코드 공통 — 계정번호, 계정명, Account Group, Alternative G/L Account(그룹 COA 매핑)</td></tr>
+<tr><td>Company-Code-Specific</td><td class="wrap">회사코드마다 다를 수 있는 것 — 통화, 조정계정 지정, 미결항목관리, Field Status Group, 자동전기 전용 여부</td></tr>
+<tr><td>Controlling-Area-Specific</td><td class="wrap">Cost Element Category, Record Quantity, 내부 측정단위. <b>Primary/Secondary 유형에만 필요</b></td></tr>
+</tbody>
+</table>
+</div>
+
+<p>계정과목표 자체는 세 가지 역할로 나뉩니다 — 일상 전기에 쓰는 <b>Operating COA</b>(회사코드에 필수 배정), 그룹 리포팅용 <b>Group COA</b>, 국가 법정 보고용 <b>Country-specific COA</b>. 그룹 전체가 하나의 COA를 쓰면 회사코드를 넘나드는 원가관리가 가능하지만 각국 담당자는 자국 계정표로 일할 수 없고, 반대로 하면 그 반대가 됩니다.</p>
+
+<h3>회사코드 영역에서 실제로 문제를 일으키는 필드</h3>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>필드</th><th>왜 중요한가</th></tr></thead>
+<tbody>
+<tr><td><span class="key">Reconciliation Account</span></td><td class="wrap">이 계정을 조정계정으로 지정. 고객/벤더에 전기하면 시스템이 자동으로 여기 같이 찍는다. <b>수동 전기 불가</b> — SD·MM이 FI로 연결되는 실제 통로</td></tr>
+<tr><td>Open Item Management</td><td class="wrap">청산 전까지 open으로 남기는 계정. <b>GR/IR 계정</b>·은행청산계정 등. 은행계좌·재고계정·조정계정에는 쓸 수 없다</td></tr>
+<tr><td>Field Status Group</td><td class="wrap">전기 시 어떤 필드가 숨김/필수/선택인지. "이 필드가 왜 안 보이지"의 답</td></tr>
+<tr><td>Accounts for Automatic Posting Only</td><td class="wrap">세액·현금할인·환차손익처럼 시스템이 붙이는 라인 전용. 수동 전기 차단</td></tr>
+<tr><td>Balances in Local Currency Only</td><td class="wrap">여러 통화 라인을 환차손익 없이 정리하는 청산계정용. <span class="bad">AR·AP 조정계정에는 설정 금지</span></td></tr>
+</tbody>
+</table>
+</div>
+
+<div class="note">
+  <div class="t">더 깊은 설정은 FI 저니 노트로</div>
+  <p>전표유형·번호구간·전기키·Field Status Variant·미결항목 처리의 실제 IMG 경로와 값은 <a href="../fi/s4f12-core-settings.html"><b>S4F12 Customizing Core Settings in FI</b></a>에 정리돼 있습니다. 이 노트는 "그게 어디에 붙는 개념인지"까지만 다룹니다.</p>
+</div>
+
+<h3>Universal Journal · Document Splitting</h3>
+
+<p>Universal Journal은 FI와 CO 거래를 함께 기록하는 <b>단일 진실 공급원</b>입니다. 예전처럼 FI 장부와 CO 장부를 따로 두고 사람이 맞춰보는 작업(reconciliation)이 없어집니다. 공식 문서는 이 구조가 주는 효과를 넷으로 정리합니다 — 유연한 재무제표 분석, 다차원 리포팅, 실시간 수익성 분석, 규제 대응 용이.</p>
+
+<p><b>Document Splitting</b>은 세그먼트·이익센터 같은 차원 기준으로 라인아이템을 자동 분할하고, 그 차원 기준으로 전표 잔액을 0으로 맞춥니다. 벤더 인보이스가 <code>Vendor 100 / Expense(세그먼트1) 40 / Expense(세그먼트2) 60</code>으로 들어오면 Payables도 40 / 60으로 쪼개집니다 — 세그먼트별 완전한 대차대조표가 가능해지는 이유입니다.</p>
+
+<div class="note">
+  <div class="t">🔰 초보자 설명 — 왜 이게 대단한 개념인가</div>
+  <p>옛 방식에서는 "회계팀 장부"와 "관리팀 장부"를 따로 쓰다가 숫자가 안 맞으면 사람이 대조했습니다. Universal Journal은 애초에 <b>하나의 표</b>에 FI 정보와 CO 정보를 같이 적어 그 대조 작업 자체를 없앤 것입니다.</p>
+  <p>Document Splitting은 "인보이스 한 장인데 부서별로 재무제표를 보고 싶다"는 요구를 자동 처리합니다. 사람이 채무 100을 40/60으로 나눠 적을 필요 없이, 비용 라인에 이미 붙어 있는 부서 정보를 보고 시스템이 채무도 같은 비율로 쪼갭니다.</p>
+</div>
+
+<div class="note warn">
+  <div class="t">확인 필요 — 이 코스의 전제 시스템</div>
+  <p>강의는 <b>S/4HANA Cloud Public Edition</b> 기준이라 Controlling Area가 <code>A000</code> 하나뿐이고 이 구성은 변경되지 않습니다. 온프레미스는 Controlling Area를 복수로 둘 수 있고, 회사코드 배정·통화·회계연도 변형 규칙도 다르게 잡힙니다.</p>
+  <p>계정번호(<code>21100000</code>, <code>12100000</code>, <code>65100000</code> 등)도 전부 Best Practice 콘텐츠 값입니다. <span class="bad">실제 시스템(winerp01 / MEP)의 CL04 계정번호는 <code>FS00</code>·<code>Manage Chart of Accounts</code>에서 확정할 것.</span></p>
+</div>
+
+<div class="note ok">
+  <div class="t">📌 개인 E2E 프로젝트와의 연결점</div>
+  <p>개인 프로젝트(회사코드 <b>CL04</b>, 벤더 사입 → 재판매)에서 이 레슨이 직접 걸리는 자리는 셋입니다.</p>
+  <p>① <b>재고계정</b> — 자재그룹 <code>CHKN</code>/<code>RICE</code>/<code>SHAK</code>/<code>PROT</code>/<code>PBAR</code>는 평가클래스를 거쳐 <code>OBYC</code>의 <code>BSX</code>로 재고계정에 매핑됩니다. 이 계정은 <b>Balance Sheet Account</b>여야 하고, 미결항목관리를 걸면 안 됩니다.<br>
+  ② <b>매출원가(COGS)</b> — SD 출고(이동유형 601) 시 찍히는 계정은 <b>Primary Costs or Revenue</b>입니다. 그래야 이익센터·세그먼트로 원가가 따라갑니다. 여기가 비어 있으면 나중에 온도군별(냉동/냉장/실온) 손익 드릴다운이 불가능해집니다.<br>
+  ③ <b>GR/IR 계정</b> — 입고는 됐는데 벤더 송장이 아직 안 온 상태를 open으로 남기는 계정입니다. CBO <code>ZGATE_INSPECT</code>가 찾는 "송장 미발생 건"이 바로 이 계정의 미결항목과 같은 대상입니다.</p>
+  <p>이동평균가(<b>V</b>)를 쓰기로 했으므로 <code>MBEW-VERPR</code>가 재고 금액의 원천이고, <code>ZPRICE_CHECK</code>가 비교하는 <code>EINE-NETPR</code> vs <code>MBEW-VERPR</code> 괴리는 결국 <b>재고 대차대조표 금액의 신뢰도 문제</b>입니다. 그래서 이 CBO를 자동 보정이 아니라 <span class="hl">알림까지만</span>으로 설계한 것이 맞습니다.</p>
+</div>
+
+</div>
+
+
+<!-- ══════════ LESSON 2 ══════════ -->
+<div class="lesson" id="l2">
+<h2><span class="no">LESSON 2</span>매입채무(AP) — 구매에서 지급까지</h2>
+
+<p><span class="tag">Unit 4</span><span class="tag">레슨 1개</span>Managing Accounts Payable — Business Partner · 벤더 인보이스 · 출금과 클리어링</p>
+
+<h3>Business Partner — 벤더도 고객도 같은 오브젝트</h3>
+
+<p>S/4HANA에서 벤더 마스터는 <b>Business Partner</b>로 관리합니다. 데이터는 두 층으로 나뉩니다.</p>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>영역</th><th>레벨</th><th>내용</th></tr></thead>
+<tbody>
+<tr><td>General Data</td><td>클라이언트</td><td class="wrap">주소·통제 데이터·은행 정보·담당자. <b>회사코드 구분 없이 전사 공통</b></td></tr>
+<tr><td>Financial Accounting Data</td><td>회사코드</td><td class="wrap">조정계정, 지급방법, 서신 정보, VAT</td></tr>
+</tbody>
+</table>
+</div>
+
+<p>여러 회사코드에 납품하는 벤더라도 마스터를 회사코드마다 새로 만들 필요가 없는 이유가 이 분리입니다. 각 회사코드는 자기 Company Code 화면에서 자기 데이터만 추가하면 됩니다.</p>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>Business Partner Role</th><th>쓰임</th></tr></thead>
+<tbody>
+<tr><td>Customer</td><td class="wrap">영업(SD) 관점 거래처</td></tr>
+<tr><td>Supplier</td><td class="wrap">구매(MM) 관점 거래처 — Source-to-Pay</td></tr>
+<tr><td>FI Customer (FLCU00)</td><td class="wrap">재무회계 매출채권 거래처</td></tr>
+<tr><td>FI Vendor (FLVN00)</td><td class="wrap">재무회계 매입채무 거래처 — 회사코드 레벨 FI 데이터를 유지하려면 필수</td></tr>
+</tbody>
+</table>
+</div>
+
+<div class="note">
+  <div class="t">🔰 초보자 설명 — 벤더가 고객도 되는 경우</div>
+  <p>레슨이 직접 낸 확인 문제입니다. "기존 공급업체가 이제 우리 고객도 된다면?" → <b>새 Business Partner를 만들지 않습니다.</b> 기존 레코드에 Role만 추가합니다. 하나의 Business Partner가 여러 Role을 동시에 가질 수 있고, General Data는 Role과 무관하게 공통으로 쓰입니다.</p>
+</div>
+
+<h3>벤더 인보이스가 전표가 되는 구조</h3>
+
+<p>실습은 구매부서를 거치지 않는 예외적 소액 구매(프린터 카트리지 €1,000)를 다룹니다. <code>Create Incoming Invoices</code>에서 벤더·금액·G/L 계정 <code>65100000</code>(Office Supplies)·원가센터 <code>10101801</code>을 넣고 전기하면 이렇게 갈라집니다.</p>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>라인</th><th>계정</th><th>차대</th><th>누가 넣나</th></tr></thead>
+<tbody>
+<tr><td>벤더</td><td class="wrap">보조원장 — Posting Key <code>31</code>(Invoice)</td><td>대변</td><td>사람</td></tr>
+<tr><td>조정계정</td><td class="wrap"><code>21100000</code> Trade Payables Domestic</td><td>대변</td><td><span class="key">시스템 자동</span></td></tr>
+<tr><td>비용</td><td class="wrap"><code>65100000</code> Office Supplies + 원가센터</td><td>차변</td><td>사람</td></tr>
+<tr><td>세금</td><td class="wrap"><code>12600000</code> Input Tax — 세율 0%(V0)여도 라인은 생긴다</td><td>—</td><td>시스템 자동</td></tr>
+</tbody>
+</table>
+</div>
+
+<p>여기서 확인되는 것이 둘입니다. 첫째, <b>조정계정은 사람이 못 찍습니다</b> — 벤더 앞으로 찍으면 시스템이 뒤에서 같이 찍습니다. 둘째, 인보이스 입력 화면의 G/L 라인에 원가센터 칸이 노출된 것은 화면 변형(<code>Z_WITH_COST_CENTER</code>) 때문이고, 그 배경은 LESSON 1의 <b>Primary Costs 계정은 CO 배정 필수</b> 규칙입니다.</p>
+
+<h3>AP와 AR은 같은 그림의 위아래다</h3>
+
+<figure class="figwrap">
+<svg class="dgm" viewBox="0 0 1000 420" role="img" aria-label="매입채무와 매출채권 흐름 도해. 위쪽은 구매오더에서 입고 송장검증 매입채무 지급으로, 아래쪽은 판매오더에서 출고 청구 매출채권 수금으로 이어지며, 가운데 조정계정이 양쪽을 총계정원장에 자동 연결한다.">
+  <defs>
+    <marker id="g2a" markerWidth="9" markerHeight="9" refX="7" refY="4.5" orient="auto">
+      <polygon class="arw-key" points="0,0 9,4.5 0,9"/></marker>
+    <marker id="g2o" markerWidth="9" markerHeight="9" refX="7" refY="4.5" orient="auto">
+      <polygon class="arw-ok" points="0,0 9,4.5 0,9"/></marker>
+    <marker id="g2d" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto">
+      <polygon class="arw" points="0,0 8,4 0,8"/></marker>
+  </defs>
+
+  <text class="t-h c-key" x="20" y="34">AP — 구매 → 매입채무 → 지급  (MM 접점)</text>
+
+  <rect class="b" x="20" y="46" width="150" height="58" rx="6"/>
+  <text class="t-h" x="36" y="70">구매오더</text>
+  <text class="m-s" x="36" y="90">ME21N</text>
+  <path class="ln-key" d="M170 75 H182" marker-end="url(#g2a)"/>
+
+  <rect class="b" x="188" y="46" width="150" height="58" rx="6"/>
+  <text class="t-h" x="204" y="70">입고 GR 101</text>
+  <text class="t-xs" x="204" y="90">GR/IR 미결항목 발생</text>
+  <path class="ln-key" d="M338 75 H350" marker-end="url(#g2a)"/>
+
+  <rect class="b" x="356" y="46" width="150" height="58" rx="6"/>
+  <text class="t-h" x="372" y="70">송장검증</text>
+  <text class="m-s" x="372" y="90">MIRO</text>
+  <path class="ln-key" d="M506 75 H518" marker-end="url(#g2a)"/>
+
+  <rect class="b-key" x="524" y="46" width="176" height="58" rx="6"/>
+  <text class="t-h c-key" x="540" y="70">매입채무 미결항목</text>
+  <text class="t-xs" x="540" y="90">벤더 계정 · Posting Key 31</text>
+  <path class="ln-key" d="M700 75 H712" marker-end="url(#g2a)"/>
+
+  <rect class="b" x="718" y="46" width="176" height="58" rx="6"/>
+  <text class="t-h" x="734" y="70">지급 · 출금</text>
+  <text class="m-s" x="734" y="90">F-53 / 지급프로그램</text>
+
+  <path class="ln-key" d="M560 104 V150" marker-end="url(#g2a)"/>
+  <path class="ln-d" d="M806 104 V130 H660 V110" marker-end="url(#g2d)"/>
+  <text class="t-xs" x="676" y="126">클리어링 → cleared</text>
+
+  <rect class="b-ok" x="20" y="152" width="960" height="64" rx="6"/>
+  <text class="t-h c-ok" x="42" y="176">G/L — 조정계정(Reconciliation Account) : 수동 전기 불가, 보조원장 전기 시 자동 반영</text>
+  <text class="m-s" x="42" y="198">21100000  Trade Payables Domestic   (Account Type K = Vendor)</text>
+  <text class="m-s" x="530" y="198">12100000  Trade Receivables Domestic  (Account Type D = Customer)</text>
+
+  <path class="ln-ok" d="M560 270 V220" marker-end="url(#g2o)"/>
+  <path class="ln-d" d="M806 270 V248 H660 V266" marker-end="url(#g2d)"/>
+  <text class="t-xs" x="676" y="244">클리어링 → cleared</text>
+
+  <text class="t-h c-ok" x="20" y="252">AR — 판매 → 매출채권 → 수금  (SD 접점)</text>
+
+  <rect class="b" x="20" y="272" width="150" height="58" rx="6"/>
+  <text class="t-h" x="36" y="296">판매오더</text>
+  <text class="m-s" x="36" y="316">VA01</text>
+  <path class="ln-ok" d="M170 301 H182" marker-end="url(#g2o)"/>
+
+  <rect class="b" x="188" y="272" width="150" height="58" rx="6"/>
+  <text class="t-h" x="204" y="296">출고 PGI 601</text>
+  <text class="t-xs" x="204" y="316">재고 감소 · 매출원가</text>
+  <path class="ln-ok" d="M338 301 H350" marker-end="url(#g2o)"/>
+
+  <rect class="b" x="356" y="272" width="150" height="58" rx="6"/>
+  <text class="t-h" x="372" y="296">청구</text>
+  <text class="m-s" x="372" y="316">VF01 → FI 자동</text>
+  <path class="ln-ok" d="M506 301 H518" marker-end="url(#g2o)"/>
+
+  <rect class="b-key" x="524" y="272" width="176" height="58" rx="6"/>
+  <text class="t-h c-key" x="540" y="296">매출채권 미결항목</text>
+  <text class="t-xs" x="540" y="316">고객 계정 · 수익은 P&amp;L로</text>
+  <path class="ln-ok" d="M700 301 H712" marker-end="url(#g2o)"/>
+
+  <rect class="b" x="718" y="272" width="176" height="58" rx="6"/>
+  <text class="t-h" x="734" y="296">입금 · 수금</text>
+  <text class="m-s" x="734" y="316">F-28 / 은행이체</text>
+
+  <rect class="b-ghost" x="20" y="346" width="960" height="58" rx="6"/>
+  <text class="t-s" x="42" y="370">AP 인보이스는 대부분 MM 송장검증에서, AR 인보이스는 대부분 SD 청구에서 자동으로 넘어온다. 수동 입력은 예외 케이스다.</text>
+  <text class="t-s" x="42" y="392">AR에만 있는 것 — 독촉(Dunning) · 연체채권 모니터링 · 대손충당금. 받아내야 하는 쪽이라 회수 리스크 관리가 따로 붙는다.</text>
+</svg>
+<figcaption><span class="fno">그림 2</span>AP와 AR은 방향만 반대인 같은 구조. MM·SD가 FI로 들어오는 통로는 둘 다 조정계정이다.</figcaption>
+</figure>
+
+<h3>지급과 클리어링</h3>
+
+<div class="step"><span class="n">STEP 1</span><p><code>Post Outgoing Payments</code>(클래식 <code>F-53</code>)에서 은행/현금 계정과 전표유형 <code>KZ</code>(Vendor payment)를 지정</p></div>
+<div class="step"><span class="n">STEP 2</span><p>벤더를 입력하고 <b>Show Items</b>로 미결항목 목록을 연다</p></div>
+<div class="step"><span class="n">STEP 3</span><p>지울 인보이스를 고르면 <b>Items to Be Cleared</b>로 넘어가고 잔액이 0이 된다</p></div>
+<div class="step"><span class="n">STEP 4</span><p>전기 — 현금계정 대변 / 조정계정 차변은 <b>시스템이 자동 구성</b>. 사람이 정하는 건 "어느 미결항목을 지울 것인가"뿐</p></div>
+<div class="step"><span class="n">STEP 5</span><p>인보이스(<code>KR</code>)와 지급(<code>KZ</code>) 두 전표가 서로의 Clearing Journal Entry 컬럼에 상호 참조되고 둘 다 Cleared 상태가 된다</p></div>
+
+<p>일상적으로는 지급프로그램이 주기 실행으로 자동 지급하고, 현금으로 이미 지급이 끝난 예외 건만 이렇게 수동 클리어링합니다. 앱 묶음으로는 <code>Clear Outgoing Payments</code>(수동) · <code>Clear Open Items</code>(자동) · <code>Reset Cleared Items</code>(되돌리기)가 있습니다.</p>
+
+<div class="note warn">
+  <div class="t">숫자가 안 맞아 보이는 두 가지 함정</div>
+  <p>· <b>Baseline Date</b>가 만기 계산의 기준입니다. 인보이스일 02.10 / 전기일 03.10처럼 하루 어긋나면 지급조건이 <code>0001</code>(즉시)일 때 조회 시점에 이미 <b>Overdue</b>로 뜹니다. 버그가 아닙니다.<br>
+  · <code>Display Line Items in General Ledger</code>는 기본적으로 <b>당해 회계연도의 일부 기간만</b> 필터링해 보여줍니다. 그래서 라인아이템 합계가 대차대조표 누적 잔액과 다를 수 있습니다 — <span class="hl">리포트마다 기본 조회 기간이 다르다</span>는 것을 먼저 의심해야 합니다.</p>
+</div>
+
+<div class="note">
+  <div class="t">🔰 초보자 설명 — One-Time Account</div>
+  <p>어쩌다 한 번 거래하는 곳까지 정식 벤더 마스터를 만들면 마스터 DB만 불어납니다. One-Time Account는 공용 계정 하나를 두고 이름·주소·은행정보를 <b>전표 입력 시점에만</b> 적는 방식입니다. 전용 Account Group이 필요하고, 국내/해외 조정계정이 나뉘어 있으면 One-Time 계정도 그만큼 나눠 만들어야 합니다.</p>
+</div>
+
+<div class="note">
+  <div class="t">자동지급 · 독촉의 실제 설정은 FI 저니 노트로</div>
+  <p>지급프로그램(<code>F110</code>) 설정, 지급방법, 지급차단, 독촉 절차의 IMG 값은 <a href="../fi/s4f13-additional.html"><b>S4F13 FI 추가 설정 — 자동지급 · 독촉 · 특수G/L</b></a>에 있습니다. 여기서는 "AP 프로세스 어디쯤에 그게 붙는가"만 잡으면 됩니다.</p>
+</div>
+
+<div class="note ok">
+  <div class="t">📌 개인 E2E 프로젝트와의 연결점 — AP 축 전체</div>
+  <p>프로젝트의 매입 흐름은 그림 2의 윗줄 그대로입니다.</p>
+  <p><code>ME21N</code> 구매오더 → 플랜트 <b>GATE</b>에 <b>GR 101</b> 입고 → <b>STOR</b>로 <b>301</b> 이관 → <code>MIRO</code> 송장검증 → 벤더 매입채무 미결항목 → 지급.</p>
+  <p>여기서 CBO <code>ZGATE_INSPECT</code>가 서는 자리가 정확히 <b>GR(101)과 STOR 이관(301) 사이</b>입니다. 차이가 나는데 아직 <span class="key">송장이 발생하지 않은 건</span>만 <b>122</b>로 반품하도록 한 설계는 회계적으로 타당합니다 — 송장이 이미 전기됐다면 매입채무와 조정계정에 이미 금액이 잡혀 있어서, 재고만 되돌리면 <b>GR/IR 계정에 잔액이 남습니다</b>. 그 상태를 CBO가 조용히 만들면 안 됩니다.</p>
+  <p>그래서 판정 기준은 "재고 차이"가 아니라 <b>GR/IR 미결항목이 아직 살아 있는가</b>여야 합니다. 벤더 마스터는 Business Partner + <code>FLVN00</code>(FI Vendor) + <code>Supplier</code> Role 두 개를 함께 유지하면 MM 구매와 FI 매입채무가 한 레코드로 붙습니다.</p>
+</div>
+
+</div>
+
+
+<!-- ══════════ LESSON 3 ══════════ -->
+<div class="lesson" id="l3">
+<h2><span class="no">LESSON 3</span>매출채권(AR) — 판매에서 수금까지</h2>
+
+<p><span class="tag">Unit 4</span><span class="tag">레슨 1개</span>Managing Accounts Receivable — FI Customer · 값 흐름 3단계 · 클리어링과 회수 리스크</p>
+
+<h3>AP를 뒤집으면 AR이다 — 딱 하나만 빼고</h3>
+
+<p>매출채권도 Business Partner로 관리하고, Role <code>FLCU00</code>(FI Customer)를 배정하면 General Data + 회사코드 레벨 FI 데이터를 만들 수 있습니다. 구조가 AP와 동일하므로 레슨 자체가 "AP를 먼저 보고 오라"고 권합니다.</p>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>회사코드 레벨 필드</th><th>내용</th><th>AP에도 있나</th></tr></thead>
+<tbody>
+<tr><td>Reconciliation account</td><td class="wrap"><code>12100000</code> Trade Receivables Domestic — Account Type <b>D</b>(Customer)</td><td>있다 (K = Vendor)</td></tr>
+<tr><td>Payment terms</td><td class="wrap">고객이 언제까지 지급해야 하는지</td><td>있다</td></tr>
+<tr><td><span class="key">Dunning terms</span></td><td class="wrap">연체 인보이스에 독촉장을 보내는 규칙 (예: <code>1001</code> Four-level dunning notice)</td><td><span class="bad">없다 — AR 고유</span></td></tr>
+</tbody>
+</table>
+</div>
+
+<p>재무제표상 위치도 정확히 대칭입니다. 매입채무 <code>21100000</code>은 <b>LIABILITIES → C.Payables → 4.Accounts payable</b>에, 매출채권 <code>12100000</code>은 <b>ASSETS → B.Current assets → II.Receivables → 1.Accounts receivable</b>에 잡힙니다. 둘 다 잔존만기 1년 미만 구간입니다.</p>
+
+<h3>값 흐름 3단계</h3>
+
+<div class="step"><span class="n">STEP 1</span><p><b>Business Partner 생성</b> — Role FI Customer, 회사코드 데이터에 조정계정 필수 배정</p></div>
+<div class="step"><span class="n">STEP 2</span><p><b>인보이스 전기</b> — SD 청구에서 <span class="key">자동으로</span> 넘어온다. 고객 계정에 미결항목 생성 + 조정계정 자동 갱신 + 대차를 맞추기 위해 수익이 P&amp;L 계정에 함께 전기</p></div>
+<div class="step"><span class="n">STEP 3</span><p><b>지급 수령</b> — 은행이체 금액이 고객 계정에 전기되고 조정계정이 갱신된 뒤, 인보이스와 지급이 모두 <b>cleared</b>로 바뀐다</p></div>
+
+<p>AP와 결정적으로 다른 점이 여기 있습니다. AP 실습은 수동 인보이스 입력이었지만, <b>AR 인보이스는 대부분 SD 청구에서 자동으로 들어옵니다.</b> 그래서 레슨도 AR의 통합 테스트는 Lead-to-Cash 프로세스에서 다루고, 이 레슨은 마스터 데이터와 미결항목 구조에만 집중합니다.</p>
+
+<h3>클리어링 2종</h3>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>유형</th><th>언제</th><th>누가</th></tr></thead>
+<tbody>
+<tr><td>Posting with clearing</td><td class="wrap">고객이 금액과 참조번호를 정확히 맞춰 입금 → 전기 순간 잔액 0</td><td>시스템</td></tr>
+<tr><td>Account clearing</td><td class="wrap">금액 불일치, 참조번호 누락 등으로 자동 매칭 실패</td><td><span class="bad">사람이 직접 매칭</span></td></tr>
+</tbody>
+</table>
+</div>
+
+<h3>AR에만 있는 회수 리스크 관리</h3>
+
+<p>매입채무는 우리가 갚을 돈이라 통제가 되지만, 매출채권은 고객이 갚아야 할 돈이라 그렇지 않습니다. 그래서 AR 쪽에만 전용 앱군이 발달해 있습니다 — <b>Overdue Receivables</b>(연체 채권), <b>Dunning Level Distribution</b>(독촉 단계 분포), <b>Days Sales Outstanding</b>(회전일수), <b>Doubtful Accounts Valuation · Allowance for Doubtful Accounts</b>(대손충당금 평가·설정), <b>Overdue Receivables by Risk Class</b>.</p>
+
+<div class="note warn">
+  <div class="t">고객 계정은 삭제 전에 반드시 차단, 차단 전에 반드시 미결항목 정리</div>
+  <p>순서가 뒤집히면 복구가 어렵습니다. <span class="bad">미결항목이 남아 있는 상태로 계정을 차단하면 그 미결항목을 이후에 클리어링할 수 없습니다.</span></p>
+  <p>차단 방식은 세 가지 — ① 중앙 차단(전기 + 주문처리 모두), ② 전기만 차단, ③ Payment block / Dunning block 필드로 지급·독촉만 개별 차단. SD가 구축돼 있으면 Posting / Order / Delivery / Invoicing block까지 세분화됩니다.</p>
+</div>
+
+<div class="note">
+  <div class="t">🔰 초보자 설명 — 왜 삭제가 아니라 차단부터인가</div>
+  <p>더 이상 거래하지 않는 고객이라도 과거 전표 이력(감사 추적)은 남아 있어야 하므로 마스터를 바로 지울 수 없습니다. "아무도 여기 전기하지 못하게 막아두는" 차단을 먼저 하고, 실제 삭제는 아카이빙이라는 별도 절차로 갑니다.</p>
+</div>
+
+<div class="note">
+  <div class="t">독촉(Dunning) 설정은 FI 저니 노트로</div>
+  <p>독촉 절차·독촉 단계·독촉 지역·양식 배정 같은 실제 Customizing은 <a href="../fi/s4f13-additional.html"><b>S4F13</b></a>에 있습니다.</p>
+</div>
+
+<div class="note ok">
+  <div class="t">📌 개인 E2E 프로젝트와의 연결점 — AR 축 전체</div>
+  <p>프로젝트의 판매 흐름은 그림 2의 아랫줄입니다. <code>VA01</code> 판매오더 → <b>FEFO 배치결정</b>으로 유통기한 빠른 배치 선택 → <code>VL01N</code> 출고, PGI(601) → <code>VF01</code> 청구 → <b>매출채권 미결항목</b> → 수금.</p>
+  <p>PGI와 청구는 회계적으로 성격이 다릅니다. <b>PGI</b>는 재고 감소 + 매출원가 인식이고 매출채권은 생기지 않습니다. <b>청구를 저장하는 순간</b>에야 고객 채권 차변 / 매출 대변이 잡히고 조정계정이 움직입니다. 개인 프로젝트에서 "매출이 안 잡힌다"는 상황이 나오면 PGI가 아니라 <span class="key">청구 전기 여부</span>부터 봐야 합니다.</p>
+  <p>고객 마스터는 Business Partner에 <code>Customer</code>(SD) + <code>FLCU00</code>(FI Customer) Role을 함께 유지합니다. 벤더 사입 → 재판매 모델이라 <b>같은 거래처가 벤더이면서 고객인 경우</b>가 실제로 생길 수 있는데, 그때는 새 BP를 만들지 않고 Role만 추가합니다.</p>
+  <p>독촉·대손충당금은 개인 프로젝트 범위 밖으로 둡니다 — 단일 회사코드 CL04에 가상 고객 몇 건이라 독촉 단계를 구성해도 검증할 데이터가 없습니다. <b>범위에서 뺀 이유를 이렇게 기록해 두는 것</b>까지가 설계입니다.</p>
+</div>
+
+</div>
+
+
+<!-- ══════════ LESSON 4 ══════════ -->
+<div class="lesson" id="l4">
+<h2><span class="no">LESSON 4</span>자산회계 — 자산 하나, 평가는 여러 개</h2>
+
+<p><span class="tag">Unit 4</span><span class="tag">레슨 1개</span>Managing Asset Accounting — 라이프사이클 · Asset Class · Depreciation Area · 취득 3옵션</p>
+
+<h3>고정자산 라이프사이클 4단계</h3>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>단계</th><th>내용</th></tr></thead>
+<tbody>
+<tr><td>1. 마스터 레코드 생성</td><td class="wrap">General Master Data(설명·원가센터 배정·활성화일·실사 데이터·벤더/제조사) + Asset Value Data(감가상각키·내용연수·경과 내용연수·상각 시작일·잔존가치)</td></tr>
+<tr><td>2. 취득 (Acquisition)</td><td class="wrap">외부 취득 3가지 — 매입채무 연동 / 투자프로젝트 + 건설중자산 / PO 미참조 비연동 2단계</td></tr>
+<tr><td>3. 감가상각</td><td class="wrap"><b>Ordinary</b>(정상 사용에 따른 계획된 감소) / <b>Unplanned</b>(파손 등 이례적·영구적 감소) / <b>Special</b>(세법 근거, 실제 마모와 무관)</td></tr>
+<tr><td>4. 폐기 (Retirement)</td><td class="wrap"><b>매각</b> — 시스템이 처분손익 자동 계산 / <b>Scrapping</b> — 대금 없이 제거, 남은 순장부가액 전액을 손실로 전기</td></tr>
+</tbody>
+</table>
+</div>
+
+<h3>Asset Class — 분류값 하나가 계정결정과 통제를 동시에 한다</h3>
+
+<p>모든 자산은 반드시 하나의 Asset Class에 배정되고, 그 클래스가 두 가지를 한꺼번에 결정합니다.</p>
+
+<ul>
+  <li><b>Account determination</b> — 마스터에 Account Determination Key(실습 <code>160020</code>)를 배정. 이 키가 취득·감가상각·처분에 쓸 <span class="key">모든 G/L 계정</span>을 미리 물고 있다</li>
+  <li><b>Control parameters &amp; default values</b> — 계획 내용연수, 감가상각 방식(정액/정률 등)의 기본값. 마스터에서 개별 조정 가능</li>
+</ul>
+
+<p>여기에 자산번호 채번과 마스터 데이터 레이아웃 통제까지 붙습니다. 실습에서는 Asset Class <code>2000</code>(Machinery Equipment), 원가센터 <code>10101301</code>, 감가상각키 <code>LINK</code>(정액법), 내용연수 5년으로 자산 <code>20000005-0</code>을 만듭니다.</p>
+
+<h3>Depreciation Area — 같은 자산, 기준마다 다른 값</h3>
+
+<p>자산 하나에 상각영역 여러 개가 동시에 존재합니다 — 실습 기준 <code>01</code> Book Depreciation / <code>15</code> Local Tax / <code>32</code> IFRS. 상업적·세무적·그룹 평가 목적이 다르기 때문이고, 그래서 감가상각 통제 파라미터는 <b>항상 Depreciation Area 레벨</b>에서 표시됩니다.</p>
+
+<div class="note">
+  <div class="t">🔰 초보자 설명 — 같은 자산인데 자본화 금액까지 다를 수 있다</div>
+  <p>공식 문서 예시: 인보이스 총액 10,200(취득원가 10,000 + 운송비 200). IFRS는 부대비용까지 취득원가에 넣으라고 보므로 <b>10,200 전액 자본화</b>, 어떤 로컬 기준은 운송비를 그 해 비용으로 처리하므로 <b>10,000만 자본화</b>합니다.</p>
+  <p>즉 물리적으로 같은 기계 한 대의 장부가액이 원장마다 다릅니다. 이 문제를 푸는 메커니즘이 Depreciation Area이고, 그 총계정원장 버전이 다음 레슨의 <b>병행원장</b>입니다.</p>
+</div>
+
+<h3>외부 취득 3옵션</h3>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>옵션</th><th>방식</th><th>권장</th></tr></thead>
+<tbody>
+<tr><td>1. AP 연동</td><td class="wrap">자산 취득을 벤더 인보이스와 통합해 한 번에 전기. PO 참조 유무 모두 가능</td><td><span class="good">SAP 권장</span> — 입력 노력·불일치 리스크 감소</td></tr>
+<tr><td>2. 투자프로젝트 + AuC</td><td class="wrap">먼저 투자 프로젝트로 전기(건설중자산) 후 완성 자산으로 정산(Event-Based Settlement)</td><td>자본화와 AP를 분리하고 싶을 때</td></tr>
+<tr><td>3. 비연동 2단계</td><td class="wrap">인보이스는 AP에, 자산 취득은 FI-AA에 — 같은 청산계정을 써서 잔액 0으로 만난다</td><td class="wrap">소량만. <span class="bad">청산계정에 미결항목관리 적용 불가</span></td></tr>
+</tbody>
+</table>
+</div>
+
+<p>실습(옵션 1)의 전표 구성이 이렇습니다 — Posting Key <code>31</code>로 벤더 대변 10,000, Posting Key <code>70</code>으로 자산 차변 10,000. 자산 라인에는 <span class="key">Transaction Type</span>(<code>100</code> External asset acquisition)을 반드시 추가로 지정합니다.</p>
+
+<div class="note warn">
+  <div class="t">Transaction Type을 빼먹으면 자산이력명세서가 틀어진다</div>
+  <p>TType은 단순 분류값이 아니라 <b>이 전기가 Asset History Sheet의 어느 칸에 나타날지</b>를 결정하는 필수 부가 계정배정입니다. 대차대조표 합계는 맞는데 명세서의 취득/폐기/이전 구분이 이상하다면 여기부터 봅니다.</p>
+</div>
+
+<div class="note">
+  <div class="t">자산회계 구성의 실제는 FI 저니 노트로</div>
+  <p>Chart of Depreciation, 자산클래스 정의, 계정결정 · 화면레이아웃 · 번호구간, 감가상각키 구성, 자산 거래유형은 <a href="../fi/s4f17-asset-accounting.html"><b>S4F17 Configuring Asset Accounting</b></a>에 전부 있습니다. 이 노트는 "FI 지도에서 자산회계가 어디에 앉는가"까지만 다룹니다.</p>
+</div>
+
+<div class="note ok">
+  <div class="t">📌 개인 E2E 프로젝트와의 연결점</div>
+  <p>프로젝트는 벤더 사입 → 재판매 트레이딩 모델이라 <b>고정자산 거래가 없습니다.</b> 자산회계는 구성 범위에서 뺍니다.</p>
+  <p>다만 가져갈 설계 패턴이 하나 있습니다. Asset Class가 <b>"분류값 하나 → 계정결정 + 통제 파라미터"</b>를 동시에 하는 구조는, MM에서 <b>자재그룹 → 평가클래스 → <code>OBYC</code> 계정결정</b>이 하는 일과 정확히 같은 설계입니다. 프로젝트에서 <code>CHKN</code>·<code>RICE</code>·<code>SHAK</code>·<code>PROT</code>·<code>PBAR</code>를 자재그룹으로 나눈 이유가 단순 분류가 아니라 <span class="hl">계정결정을 가르기 위해서</span>라면, 그 갈래를 자재그룹 설계 시점에 확정해야 합니다 — 자산에서 Account Type을 나중에 못 바꾸는 것과 같은 이유입니다.</p>
+</div>
+
+</div>
+
+
+<!-- ══════════ LESSON 5 ══════════ -->
+<div class="lesson" id="l5">
+<h2><span class="no">LESSON 5</span>병행회계 — 원장(Ledger)이 전표 헤더에 있다</h2>
+
+<p><span class="tag">Unit 4</span><span class="tag">레슨 1개</span>Introducing Ledgers for Parallel Accounting — 0L / 2L / 3L · Ledger Group</p>
+
+<h3>왜 같은 거래를 여러 번 기록하는가</h3>
+
+<p>다국적 그룹은 연결 대차대조표를 IFRS로 만들면서, 각 법인은 자국 회계원칙으로 개별 재무제표도 만들어야 합니다. 그런데 충당금 전입이나 외화환산 같은 거래는 <b>적용 기준에 따라 금액 자체가 달라집니다</b>. 연금충당금이 로컬 GAAP으로는 3,000 EUR, IFRS로는 5,000 EUR인 식입니다.</p>
+
+<p>SAP의 답은 <b>Ledger Solution</b>입니다. 총계정원장 안에 여러 개의 원장을 병행 관리하고, 원장별로 별도의 재무제표를 만듭니다. 병행회계용 원장은 언제나 <b>완전한 구성과 완전한 전기 정보를 갖춘 Standard Ledger</b>입니다.</p>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>원장</th><th>성격</th><th>기준</th></tr></thead>
+<tbody>
+<tr><td><code>0L</code></td><td class="wrap">필수 <b>선도원장(leading ledger)</b> — 회사코드의 회계연도 변형을 강제한다</td><td>보통 로컬 GAAP</td></tr>
+<tr><td><code>2L</code></td><td class="wrap">선택적 그룹원장</td><td>IFRS</td></tr>
+<tr><td><code>3L</code></td><td class="wrap">선택적 그룹원장</td><td>US GAAP</td></tr>
+</tbody>
+</table>
+</div>
+
+<p>가능한 조합은 <code>0L</code> 단독 / <code>0L+2L</code> / <code>0L+3L</code>입니다. 다만 병행회계를 실제로 쓴다면 SAP는 <span class="key">선도원장 0L에 그룹(국제) 기준을 두고, 비선도원장에 로컬 기준을 두라</span>고 권장합니다 — 가장 자주 쓰는 리포팅 기준을 선도원장에 놓는 편이 관리에 유리하기 때문입니다.</p>
+
+<figure class="figwrap">
+<svg class="dgm" viewBox="0 0 1000 460" role="img" aria-label="병행회계 도해. 같은 사실 하나를 회계원칙별로 다른 금액으로 기록하기 위해, 원장이 전표 헤더의 필드이므로 전표를 두 장으로 끊어 각각 0L과 2L 원장에 전기하고 원장별로 별도의 재무제표를 만든다.">
+  <defs>
+    <marker id="g3a" markerWidth="9" markerHeight="9" refX="7" refY="4.5" orient="auto">
+      <polygon class="arw-key" points="0,0 9,4.5 0,9"/></marker>
+  </defs>
+
+  <rect class="b-hl" x="330" y="14" width="340" height="54" rx="6"/>
+  <text class="t-h" x="354" y="38">같은 사실 하나 — 연금충당금</text>
+  <text class="t-s" x="354" y="56">회계원칙이 다르면 금액이 다르다</text>
+
+  <path class="ln-key" d="M420 68 V96 H230 V124" marker-end="url(#g3a)"/>
+  <path class="ln-key" d="M580 68 V96 H770 V124" marker-end="url(#g3a)"/>
+
+  <rect class="b-key" x="80" y="126" width="300" height="106" rx="6"/>
+  <text class="t-h c-key" x="102" y="152">전표 1 (Journal Entry)</text>
+  <text class="m" x="102" y="178">Ledger Group : 0L</text>
+  <text class="m" x="102" y="200">G/L 24031100   3,000 EUR</text>
+  <text class="t-xs" x="102" y="220">로컬 GAAP 기준 계산값</text>
+
+  <rect class="b-key" x="620" y="126" width="300" height="106" rx="6"/>
+  <text class="t-h c-key" x="642" y="152">전표 2 (Journal Entry)</text>
+  <text class="m" x="642" y="178">Ledger Group : 2L</text>
+  <text class="m" x="642" y="200">G/L 24031100   5,000 EUR</text>
+  <text class="t-xs" x="642" y="220">IFRS 기준 계산값</text>
+
+  <rect class="b-ghost" x="394" y="126" width="212" height="106" rx="6"/>
+  <text class="t-s" x="412" y="154">계정은 같다.</text>
+  <text class="t-s" x="412" y="176">원장이 전표 헤더</text>
+  <text class="t-s" x="412" y="196">필드이기 때문에</text>
+  <text class="t-s c-bad" x="412" y="218">전표를 두 장 끊는다</text>
+
+  <path class="ln-key" d="M230 232 V262" marker-end="url(#g3a)"/>
+  <path class="ln-key" d="M770 232 V262" marker-end="url(#g3a)"/>
+
+  <rect class="b" x="80" y="264" width="300" height="48" rx="6"/>
+  <text class="t-h" x="102" y="294">원장 0L — 선도원장 (필수)</text>
+
+  <rect class="b" x="620" y="264" width="300" height="48" rx="6"/>
+  <text class="t-h" x="642" y="294">원장 2L — 그룹원장 (IFRS)</text>
+
+  <rect class="b-ghost" x="394" y="264" width="212" height="112" rx="6"/>
+  <text class="t-s c-key" x="412" y="290">Ledger Group 지정 →</text>
+  <text class="t-s" x="412" y="310">그 원장에만 전기</text>
+  <text class="t-s c-key" x="412" y="338">지정하지 않으면 →</text>
+  <text class="t-s" x="412" y="358">모든 원장에 동시 전기</text>
+
+  <path class="ln-key" d="M230 312 V342" marker-end="url(#g3a)"/>
+  <path class="ln-key" d="M770 312 V342" marker-end="url(#g3a)"/>
+
+  <rect class="b-ok" x="80" y="344" width="300" height="46" rx="6"/>
+  <text class="t-h c-ok" x="102" y="373">로컬 재무제표</text>
+
+  <rect class="b-ok" x="620" y="344" width="300" height="46" rx="6"/>
+  <text class="t-h c-ok" x="642" y="373">IFRS 재무제표</text>
+
+  <rect class="b-ghost" x="20" y="406" width="960" height="42" rx="6"/>
+  <text class="t-s" x="42" y="432">자산회계의 Depreciation Area 01 / 15 / 32도 같은 원리다 — 자산 한 대를 회계기준별로 따로 평가한다. 원장 레벨 병행회계의 자산 버전.</text>
+</svg>
+<figcaption><span class="fno">그림 3</span>병행회계의 실제 메커니즘. 원장이 전표 헤더 필드라서 전표가 갈라진다.</figcaption>
+</figure>
+
+<h3>Ledger Group</h3>
+
+<p>여러 Standard Ledger를 묶어 한 번의 전기로 동시에 갱신하는 오브젝트입니다(예: 그룹 <code>LI</code> = 2L + 3L). 모든 원장은 자기 이름과 같은 원장 그룹을 자동으로 갖고 있어서, 격리 전기를 할 때는 그 자동 원장 그룹을 지정하면 됩니다.</p>
+
+<h4>실습으로 증명된 것</h4>
+
+<div class="step"><span class="n">STEP 1</span><p><code>Post General Journal Entries</code>에서 <b>Ledger Group: 0L</b> 지정 → 비용 <code>61060000</code> 차변 1,000(원가센터 지정) / 부채 <code>24031100</code> 대변 1,000 전기</p></div>
+<div class="step"><span class="n">STEP 2</span><p>대차대조표를 Ledger <b>0L</b>로 조회 → LIABILITIES → B.Provisions에 <b>-1,000 EUR</b> 확인</p></div>
+<div class="step"><span class="n">STEP 3</span><p>같은 계정·같은 조건에서 Ledger 필터만 <b>2L</b>로 변경 → <span class="bad">No results found</span>. 2L 입장에서는 <b>없는 거래</b>다</p></div>
+
+<div class="note warn">
+  <div class="t">Ledger Group 지정 여부가 결과를 완전히 가른다</div>
+  <p>이 실습(0L 명시 지정)과 LESSON 6의 활동배분 실습(Ledger Group 미지정)을 <b>같이 봐야</b> 정확합니다. 지정하면 그 원장에만 격리 전기되고, 지정하지 않으면 관련된 모든 원장에 동시 전기됩니다. 같은 CO 거래라도 결과가 다릅니다.</p>
+</div>
+
+<div class="note">
+  <div class="t">🔰 초보자 설명 — 왜 "선도원장"이 하나는 있어야 하나</div>
+  <p>선도원장은 그 회사코드의 <b>회계연도 변형(Fiscal Year Variant)을 결정하는 기준</b>입니다. 비선도원장은 회사코드별로 다른 회계연도 변형을 가질 수 있지만, 선도원장 기준은 회사코드 전체에 강제됩니다. Controlling Area가 배정된 회사코드들에 공통 계정과목표·회계연도 변형·통화를 강제하는 것과 같은 계열의 규칙입니다.</p>
+</div>
+
+<div class="note">
+  <div class="t">원장 정의와 회계원칙 배정의 실제 설정</div>
+  <p>원장 정의, 원장 그룹, 회계원칙 배정, FSV를 회계원칙별로 배정하는 구성은 <a href="../fi/s4f12-core-settings.html"><b>S4F12</b></a>의 원장 파트에 있습니다.</p>
+</div>
+
+<div class="note ok">
+  <div class="t">📌 개인 E2E 프로젝트와의 연결점</div>
+  <p>프로젝트는 <b>회사코드 CL04 단일 · 선도원장 0L 단독</b>으로 갑니다. 병행원장은 쓰지 않습니다. 법인이 하나뿐이라 두 번째 기준으로 마감할 대상 자체가 없고, 원장을 늘리면 결산·검증 대상만 두 배가 됩니다.</p>
+  <p>다만 <span class="key">전표 헤더에 원장 필드가 있다</span>는 사실은 알고 있어야 합니다. 프로젝트의 모든 자동 전표(PGI 601, GR 101, 송장검증, ZBATCH_ZONE의 311 이동)는 Ledger Group을 지정하지 않으므로 <b>모든 관련 원장에 동시 전기</b>됩니다 — 단일 원장 환경에서는 차이가 없지만, 나중에 원장을 추가하는 순간 이 전표들이 전부 양쪽에 찍힌다는 뜻입니다.</p>
+  <p>재고평가를 이동평균가(<b>V</b>)로 잡은 것도 원장 관점에서 보면 <b>"평가 기준이 하나뿐"</b>이라는 전제 위에 서 있습니다. 병행회계를 도입하면 같은 출고 거래라도 원장별로 다른 평가금액이 필요해질 수 있습니다.</p>
+</div>
+
+</div>
+
+
+<!-- ══════════ LESSON 6 ══════════ -->
+<div class="lesson" id="l6">
+<h2><span class="no">LESSON 6</span>간접비 관리 — 원가센터 · 활동배분 · 정산</h2>
+
+<p><span class="tag">Unit 4</span><span class="tag">레슨 1개</span>Processing Plan and Actual Data in Overhead Cost Controlling</p>
+
+<h3>왜 간접비가 점점 중요해지는가</h3>
+
+<p>SAP 공식 문서가 숫자로 밝혀둔 배경이 있습니다. 전체 원가에서 간접비가 차지하는 비중은 1950년대 <b>25~30%</b> 수준에서 오늘날 <b>50%</b>를 넘고, 업종에 따라 <b>80%</b>까지 갑니다. 자동화가 진행될수록 직접 배부되는 생산원가 대신 간접비 비중이 커지고, 서비스 조직은 애초에 원가 대부분이 간접비이기 때문입니다.</p>
+
+<h3>원가센터와 활동유형</h3>
+
+<ul>
+  <li><b>Cost Center</b> — 간접비를 집계하는 <b>책임 영역</b>(Finance / Sales / Procurement / Marketing…). 반드시 하나의 <b>Cost Center Hierarchy</b> 노드에 배정되며, 동시에 회사코드 · 이익센터 · Functional Area와 연결된다. <span class="bad">계층 노드 자체에는 전기 불가</span> — 리포팅 요약·그룹 선택용</li>
+  <li><b>Activity Type</b> — 원가센터가 다른 오브젝트에 활동을 제공할 때 원가 배분의 <b>추적 기준</b>. Machine Hours, Personnel Hours, Repair Hours 등. 활동유형마다 제공 원가센터와 <b>계획 가격</b>을 지정해야 배분이 작동한다</li>
+  <li><b>Secondary Cost Account</b> — 활동유형 하나에 1:1로 붙는 2차원가계정(실습 <code>94312000</code> Repair Hours, Account Group <code>SECC</code>). <span class="key">FI 전표로는 전기 불가, CO 앱을 통해서만 움직인다</span></li>
+</ul>
+
+<h3>계획 사이클 6단계</h3>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>단계</th><th>내용</th></tr></thead>
+<tbody>
+<tr><td>1. Sales Planning</td><td class="wrap">판매 수량 결정 — 예: 내년 10,000대</td></tr>
+<tr><td>2. SOP</td><td class="wrap">재고를 뺀 생산 수요 결정 — 예: 8,000대를 PP로 전달</td></tr>
+<tr><td>3. Production Planning</td><td class="wrap">생산오더 + 필요 활동수량 계산 (인건시간 2,700H, 기계시간 1,300H)</td></tr>
+<tr><td>4. Cost Center / Activity Type</td><td class="wrap">계획 비용 ÷ 계획 활동량 = <b>활동가격</b>. 예: 100만 EUR ÷ 20,000H = <b>50 EUR/시간</b></td></tr>
+<tr><td>5. Material Cost Estimate</td><td class="wrap">제조원가(COGM) = 재료비 + 생산비 / 매출원가(COGS) = COGM + 판관비·관리간접비</td></tr>
+<tr><td>6. Profit Planning</td><td class="wrap">수익·판매공제·비용 계산. 목표 마진 미달이면 1단계부터 다시</td></tr>
+</tbody>
+</table>
+</div>
+
+<h3>실적 — 활동배분과 정산</h3>
+
+<figure class="figwrap">
+<svg class="dgm" viewBox="0 0 1000 290" role="img" aria-label="간접비 흐름 도해. FI와 MM에서 발생한 1차 원가가 원가센터 또는 WBS 요소에 배정되고, 원가센터는 직접 활동배분으로, WBS는 정산으로 수신자에게 넘어가 모든 간접비 오브젝트의 잔액이 0이 되는 것이 목표다.">
+  <defs>
+    <marker id="g4a" markerWidth="9" markerHeight="9" refX="7" refY="4.5" orient="auto">
+      <polygon class="arw-key" points="0,0 9,4.5 0,9"/></marker>
+    <marker id="g4o" markerWidth="9" markerHeight="9" refX="7" refY="4.5" orient="auto">
+      <polygon class="arw-ok" points="0,0 9,4.5 0,9"/></marker>
+  </defs>
+
+  <rect class="b" x="20" y="58" width="190" height="80" rx="6"/>
+  <text class="t-h" x="38" y="84">1차 원가 발생</text>
+  <text class="t-s" x="38" y="104">FI · MM · 급여</text>
+  <text class="m-s" x="38" y="126">Primary Costs 계정</text>
+
+  <path class="ln-key" d="M210 84 H240 V56" marker-end="url(#g4a)"/>
+  <path class="ln-key" d="M210 112 H240 V144" marker-end="url(#g4a)"/>
+
+  <rect class="b-key" x="248" y="24" width="210" height="64" rx="6"/>
+  <text class="t-h c-key" x="266" y="50">Cost Center</text>
+  <text class="t-s" x="266" y="72">부서 = 책임 영역</text>
+
+  <rect class="b-key" x="248" y="112" width="210" height="64" rx="6"/>
+  <text class="t-h c-key" x="266" y="138">WBS Element</text>
+  <text class="t-s" x="266" y="160">프로젝트 · 캠페인</text>
+
+  <path class="ln-key" d="M458 56 H512" marker-end="url(#g4a)"/>
+  <path class="ln-key" d="M458 144 H512" marker-end="url(#g4a)"/>
+
+  <rect class="b" x="520" y="24" width="250" height="64" rx="6"/>
+  <text class="t-h" x="538" y="48">Direct Activity Allocation</text>
+  <text class="m-s" x="538" y="68">수량 × 계획가격 = 금액</text>
+  <text class="t-xs" x="538" y="82">송신자 대변 · 수신자 차변</text>
+
+  <rect class="b" x="520" y="112" width="250" height="64" rx="6"/>
+  <text class="t-h" x="538" y="136">Settlement (정산)</text>
+  <text class="t-s" x="538" y="156">사전정의 규칙 — 예: 50 / 50</text>
+
+  <path class="ln-ok" d="M770 56 H820 V64" marker-end="url(#g4o)"/>
+  <path class="ln-ok" d="M770 144 H820 V136" marker-end="url(#g4o)"/>
+
+  <rect class="b-ok" x="800" y="66" width="180" height="68" rx="6"/>
+  <text class="t-h c-ok" x="818" y="92">수신자 오브젝트</text>
+  <text class="t-s" x="818" y="112">송신자 잔액은</text>
+  <text class="t-h c-ok" x="818" y="128">정확히 0</text>
+
+  <rect class="b-ghost" x="20" y="206" width="960" height="66" rx="6"/>
+  <text class="t-s" x="42" y="230">배분·정산에 쓰이는 계정은 2차원가계정(Account Type Secondary Costs) — 예 94312000. FI 전표로는 전기 불가, CO 앱을 통해서만 움직인다.</text>
+  <text class="t-s" x="42" y="254">1차 원가는 FI 전표(예: SA), 2차 원가는 CO 전표(Journal Entry Type CO). 그래도 둘 다 같은 Universal Journal에 남는다.</text>
+</svg>
+<figcaption><span class="fno">그림 4</span>간접비의 종착점은 "모든 간접비 오브젝트가 fully credited" — 송신자 잔액 0.</figcaption>
+</figure>
+
+<h4>Direct Activity Allocation</h4>
+
+<p>송신자 원가센터 <code>10101322</code>(Internal Services)가 수신자 <code>10101401</code>(Quality Management)에 수리 3시간을 제공한 케이스입니다. 계획 요율이 <b>€50.00/시간</b>이므로 시스템이 <b>3 × 50 = 150 EUR</b>을 자동 계산하고, 배분 계정 <code>94312000</code>으로 <span class="bad">송신자 −150(대변)</span> / <span class="good">수신자 +150(차변)</span>이 찍힙니다. 전표유형은 <code>CO</code>(Secondary Cost), 거래유형 <code>RKL</code>(Actual Activity Allocation).</p>
+
+<div class="note warn">
+  <div class="t">이 전기는 원장 두 개(0L, 3L)에 동시에 찍혔다</div>
+  <p>Ledger Group을 지정하지 않았기 때문입니다. LESSON 5의 실습은 <code>0L</code>을 명시해 한 원장에만 격리 전기됐습니다. <span class="hl">같은 CO 거래라도 Ledger Group 지정 여부에 따라 결과가 갈립니다</span> — 두 실습을 붙여 봐야 정확히 이해됩니다.</p>
+</div>
+
+<h4>WBS Element와 정산</h4>
+
+<p>부서(원가센터)가 아니라 <b>프로젝트 단위</b>로 비용을 모아야 할 때 씁니다. WBS는 비용·수익을 담는 바구니이고, 구매·판매·재무 전표에 이 WBS를 배정하면 채워집니다. 실습의 무역박람회 예시가 명확합니다.</p>
+
+<div class="step"><span class="n">STEP 1</span><p><b>정산규칙 사전 정의</b> — WBS <code>I-TF9991</code>에 Marketing 50% / Sales 50%. <span class="key">실제 비용 발생 전에 미리 정해둔다</span></p></div>
+<div class="step"><span class="n">STEP 2</span><p><b>비용 전기</b> — 일반 G/L 전표로 <code>61003000</code>(Travel Expense Hotel) 차변 800, 계정배정 영역의 <b>WBS Element</b>에 <code>I-TF9991</code>. 이건 <b>FI 전표(1차원가)</b>다</p></div>
+<div class="step"><span class="n">STEP 3</span><p><b>정산 실행</b> — <code>Run Settlement - Actual</code>에서 기간·원장 지정 후 실행 → Marketing 400 / Sales 400</p></div>
+<div class="step"><span class="n">STEP 4</span><p><b>확인</b> — WBS 라인아이템에서 초기 차변 800이 대변 400+400으로 상계되어 잔액 <b>정확히 0</b></p></div>
+
+<p>원가센터와 WBS는 <b>같은 자리에 들어가는 대체 가능한 계정배정 오브젝트</b>입니다. 다만 성격이 갈립니다 — WBS로의 직접 비용 전기는 FI 전표(1차원가), 원가센터 간 활동배분은 CO 전표(2차원가)입니다.</p>
+
+<div class="note">
+  <div class="t">🔰 초보자 설명 — 거래기반 배분 vs 기간기반 배분</div>
+  <p>Direct Activity Allocation은 거래가 일어난 그 순간 전기되는 <b>거래기반</b> 배분입니다. 반면 분산(distribution) · 배부(assessment) · 간접활동배분은 월말 결산 시점에 일괄 실행되는 <b>기간기반</b> 배분입니다. 둘 다 "원가를 어디에 귀속시킬 것인가"를 다루지만 타이밍이 다릅니다.</p>
+</div>
+
+<div class="note">
+  <div class="t">기간말 결산의 실제 순서는 FI 저니 노트로</div>
+  <p>통계키수치 → 재배치 → 주기적 배분 → 분할(Splitting) → 차이 분석 → CO-FI 재조정으로 이어지는 결산 순서와 그 구성은 <a href="../fi/s4f15-financial-closing.html"><b>S4F15 Configuring the Financial Closing</b></a>에 있습니다.</p>
+</div>
+
+<div class="note ok">
+  <div class="t">📌 개인 E2E 프로젝트와의 연결점</div>
+  <p>프로젝트에서 CO는 <b>최소 구성</b>으로 갑니다 — 활동유형·활동가격·WBS 정산은 만들지 않습니다. 생산·외주가공이 없어서 배분할 제조 간접비가 아예 없고, 검증할 데이터도 없습니다.</p>
+  <p>대신 반드시 잡아야 하는 것이 둘입니다.<br>
+  ① <b>원가센터 1개 이상</b> — 매출원가 계정이 Primary Costs 유형이면 CO 배정 없이는 전기가 막힙니다. CL04에 관리용 원가센터를 최소 하나는 만들어야 <code>MIRO</code>·PGI가 돌아갑니다.<br>
+  ② <b>이익센터 설계</b> — 온도군(냉동/냉장/실온)이나 자재그룹 단위로 손익을 보고 싶다면 이익센터를 그 축으로 나눠야 합니다. 나중에 붙이는 건 어렵습니다. 이미 전기된 전표에는 소급되지 않기 때문입니다.</p>
+  <p>"임시 오브젝트에 비용을 모았다가 사전정의 규칙대로 배분한다"는 정산 패턴 자체는 <code>ZBATCH_ZONE</code>이 <b>정상 SLoc → 임박 SLoc</b>으로 재고를 옮기는 구조와 발상이 같습니다 — 한쪽은 원가, 한쪽은 재고 수량일 뿐입니다. 다만 <span class="hl">311 이동은 재고 금액을 바꾸지 않는 저장위치 간 이동</span>이라 회계 영향이 없고, 정산은 회계 영향이 있습니다. 그래서 311은 자동화해도 되고 회계 영향이 있는 처리는 자동화하지 않는다는 프로젝트 원칙이 여기서 갈립니다.</p>
+</div>
+
+</div>
+
+
+<!-- ══════════ APPENDIX ══════════ -->
+<div class="lesson" id="lx">
+<h2><span class="no">APPENDIX</span>정리 · 반드시 기억할 것</h2>
+
+<h3>한 장 요약</h3>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>질문</th><th>답</th></tr></thead>
+<tbody>
+<tr><td>FI와 CO의 범위 차이</td><td class="wrap">FI는 재고가치·비용·수익, CO는 그중 <b>원가와 수익만</b>. 본업 무관 거래는 CO에 안 온다</td></tr>
+<tr><td>그 경계를 정하는 것</td><td class="wrap">G/L 계정 마스터의 <b>Account Type</b>. 전기 이력이 쌓이면 변경 불가</td></tr>
+<tr><td>원가센터 없이 전기가 막히는 이유</td><td class="wrap">그 계정이 <b>Primary Costs or Revenue</b>라서. 배치든 수기든 우회 불가</td></tr>
+<tr><td>FI ↔ CO 조정 작업</td><td class="wrap">없다. <b>Universal Journal(ACDOCA)</b>에 한 줄로 같이 기록된다</td></tr>
+<tr><td>SD·MM이 FI로 들어오는 통로</td><td class="wrap"><b>조정계정(Reconciliation Account)</b>. 보조원장에 찍으면 자동, 수동 전기는 불가</td></tr>
+<tr><td>AP와 AR의 차이</td><td class="wrap">방향만 반대. AR에만 <b>독촉(Dunning)</b>·연체 모니터링·대손충당금이 붙는다</td></tr>
+<tr><td>AR 인보이스는 어디서 오나</td><td class="wrap">대부분 <b>SD 청구에서 자동</b>. AP는 대부분 MM 송장검증에서 자동</td></tr>
+<tr><td>매출채권이 잡히는 시점</td><td class="wrap">PGI가 아니라 <b>청구 저장 시점</b></td></tr>
+<tr><td>자산 하나에 평가가 여러 개인 이유</td><td class="wrap"><b>Depreciation Area</b> 01/15/32 — 상업·세무·IFRS. 자본화 금액까지 달라질 수 있다</td></tr>
+<tr><td>병행회계가 동작하는 메커니즘</td><td class="wrap">원장이 <b>전표 헤더 필드</b>라서 전표를 두 장으로 끊는다</td></tr>
+<tr><td>Ledger Group을 안 넣으면</td><td class="wrap">관련된 <b>모든 원장에 동시 전기</b>된다</td></tr>
+<tr><td>간접비 관리의 종착점</td><td class="wrap">모든 간접비 오브젝트가 fully credited — <b>송신자 잔액 0</b></td></tr>
+<tr><td>2차원가계정의 제약</td><td class="wrap">G/L 계정으로 정의되지만 <b>CO 안에서만 전기 가능</b>. FI 전표로는 못 찍는다</td></tr>
+</tbody>
+</table>
+</div>
+
+<div class="note warn">
+  <div class="t">반드시 지킬 것</div>
+  <p>· <b>Account Type은 계정 설계 시점에 확정한다.</b> 전기 이력이 쌓이면 못 바꾼다 — 가장 흔한 설계 사고 지점이다.<br>
+     · <b>조정계정에 수동 전기하지 않는다.</b> 애초에 막혀 있고, 뚫으려 하면 보조원장과 G/L이 어긋난다.<br>
+     · <b>AR·AP 조정계정에 Balances in Local Currency Only를 켜지 않는다.</b> 미결항목관리도 조정계정에는 쓰지 않는다.<br>
+     · <b>고객/벤더 계정은 미결항목부터 정리하고 차단한다.</b> 순서를 뒤집으면 남은 미결항목을 영영 클리어링할 수 없다.<br>
+     · <b>자산 전기에 Transaction Type을 빼먹지 않는다.</b> 합계는 맞아도 자산이력명세서가 틀어진다.<br>
+     · <b>리포트 숫자가 안 맞으면 기본 조회 기간부터 의심한다.</b> 라인아이템 화면과 대차대조표의 기본 범위가 다르다.<br>
+     · <b>계정번호·회사코드·Controlling Area는 하드코딩하지 않는다.</b> 이 노트의 값은 전부 강의 콘텐츠 값이다.</p>
+</div>
+
+<div class="note warn">
+  <div class="t">확인 필요 — 실제 시스템에서 확정할 것</div>
+  <p>· 이 노트의 모든 계정번호(<code>21100000</code> <code>12100000</code> <code>65100000</code> <code>24031100</code> <code>94312000</code> 등)는 SAP Best Practice 콘텐츠 값이다. <b>CL04의 실제 계정번호는 <code>FS00</code> / Manage Chart of Accounts에서 확인</b>.<br>
+     · Controlling Area가 <code>A000</code> 하나뿐이라는 것은 <b>S/4HANA Cloud Public Edition 전제</b>다. 온프레미스(winerp01 / MEP)는 다르다 — <code>OKKP</code>에서 확인.<br>
+     · 원장 구성(0L 단독 여부), Depreciation Area 번호 체계, 이익센터 활성화 여부는 실제 시스템에서 확인 후 설계서에 반영할 것.</p>
+</div>
+
+<h3>참고</h3>
+
+<ul>
+  <li>원본: 노션 <b>SAP Learning Hub</b> → IEE2E → 4-1 ~ 4-6 (Exploring End-to-End Business Processes in SAP Business Suite, Unit 4 레슨 8개)</li>
+  <li>더 깊은 FI 노트: <a href="../fi/s4f12-core-settings.html"><b>S4F12</b></a> 핵심설정(조직단위·원장·전표통제) · <a href="../fi/s4f13-additional.html"><b>S4F13</b></a> 자동지급·독촉·특수G/L · <a href="../fi/s4f15-financial-closing.html"><b>S4F15</b></a> 결산마감 · <a href="../fi/s4f17-asset-accounting.html"><b>S4F17</b></a> 자산회계 구성</li>
+  <li>이 노트는 <b>개관</b>이다. 겹치는 주제는 위 FI 저니 노트가 기준이고, 여기서는 전체 배치와 연결만 잡는다</li>
+</ul>
+
+</div>
+
+</div>
+<script src="../../assets/hub.js" defer></script>
+</body>
+</html>

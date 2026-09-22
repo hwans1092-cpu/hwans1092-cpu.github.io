@@ -1,0 +1,453 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>S46001 가용성확인(ATP) — 누적 ATP 수량과 BOP</title>
+<meta name="description" content="SAP Learning Hub의 Performing the Availability Check(S46001) 노트. ATP 체크 흐름, 누적 ATP 수량 계산 원리와 숫자 예시, Scope of Check, Backorder Processing(BOP)의 Segment와 Confirmation Strategy.">
+<link rel="icon" href="../../assets/favicon.svg">
+<link rel="stylesheet" href="../../assets/notes-paper.css">
+<style>
+/* ── 이 노트 전용: 도해(SVG) 스타일 ─────────────────────────── */
+.dgm{display:block; width:100%; height:auto;}
+.dgm text{font-family:"Malgun Gothic","맑은 고딕","Apple SD Gothic Neo",sans-serif; fill:#1e1e1e;}
+.dgm .t-h{font-size:15px; font-weight:700;}
+.dgm .t{font-size:13px;}
+.dgm .t-s{font-size:11.5px; fill:#555;}
+.dgm .t-xs{font-size:10.5px; fill:#6B7280;}
+.dgm .m{font-family:"D2Coding","Consolas",monospace; font-size:12px;}
+.dgm .m-s{font-family:"D2Coding","Consolas",monospace; font-size:10.5px;}
+.dgm .c-key{fill:#4338CA;} .dgm .c-bad{fill:#B91C1C;} .dgm .c-ok{fill:#047857;}
+.dgm .b{fill:#FFFFFF; stroke:#C7CBD6; stroke-width:1.2;}
+.dgm .b-key{fill:#EEF0FB; stroke:#4338CA; stroke-width:1.4;}
+.dgm .b-bad{fill:#FEF2F2; stroke:#B91C1C; stroke-width:1.3;}
+.dgm .b-ok{fill:#ECFDF5; stroke:#047857; stroke-width:1.3;}
+.dgm .b-mut{fill:#F3F4F6; stroke:#D1D5DB; stroke-width:1.1;}
+.dgm .b-hl{fill:#FEF08A; stroke:#CA8A04; stroke-width:1.2;}
+.dgm .b-ghost{fill:none; stroke:#9AA3B2; stroke-width:1.1; stroke-dasharray:5 4;}
+.dgm .ln{stroke:#7C8697; stroke-width:1.4; fill:none;}
+.dgm .ln-key{stroke:#4338CA; stroke-width:1.8; fill:none;}
+.dgm .ln-bad{stroke:#B91C1C; stroke-width:1.6; fill:none;}
+.dgm .ln-ok{stroke:#047857; stroke-width:1.6; fill:none;}
+.dgm .ln-d{stroke:#9AA3B2; stroke-width:1.2; stroke-dasharray:4 4; fill:none;}
+.dgm .arw{fill:#7C8697;} .dgm .arw-key{fill:#4338CA;}
+.dgm .arw-bad{fill:#B91C1C;} .dgm .arw-ok{fill:#047857;}
+.figwrap{background:#FAFAFE; border:1px solid var(--rule); border-radius:6px;
+  padding:18px 16px 10px; margin:22px 0;}
+.figwrap figcaption{margin-top:12px; padding-top:10px; border-top:1px solid var(--rule);}
+</style>
+</head>
+<body>
+<div class="crumb"><a href="../../index.html">← 자료실 홈</a> · <a href="../../journey.html?j=sd">SD 저니</a> · S46001 가용성확인(ATP)</div>
+<div class="sheet">
+
+
+<div class="doc-head">
+  <div class="kicker">LEARNING HUB · S46001</div>
+  <h1>가용성확인(ATP) — 누적 ATP 수량과 백오더 처리</h1>
+  <div class="sub">
+    Learning Journey <b>Implementing Sales in SAP S/4HANA Cloud Private Edition</b> · Course 2 / S46001 · 3 Unit · 5 레슨 · Beginner<br>
+    출처: 노션 <b>SAP Learning Hub</b> 노트 2-1 ~ 2-2 변환
+  </div>
+</div>
+
+<div class="lead">
+  <p><b>결론부터.</b> ATP가 보는 것은 <span class="bad">현재 재고가 아닙니다.</span> <span class="hl">요건일 시점의 "누적 ATP 수량"</span>입니다 — 그 날짜까지 쌓인 재고와 입고예정의 합계에서, 이미 다른 오더가 예약해 간 몫을 뺀 수치입니다.</p>
+  <p>그래서 재고 조회 화면에 100개가 찍혀 있어도 확정이 안 될 수 있고, 반대로 지금 재고가 0인데 확정이 잡히기도 합니다. 이 차이를 모르면 <b>"재고 있는데 왜 오더가 안 잡히냐"</b>는 문의에 답할 수 없습니다.</p>
+</div>
+
+<div class="toc">
+  <h4>목차</h4>
+  <ol>
+    <li><a href="#l1">ATP 체크란 — 확정 스케줄라인만 납품된다</a></li>
+    <li><a href="#l2">누적 ATP 수량 — 계산 원리와 숫자 예시</a></li>
+    <li><a href="#l3">BOP — 이미 잡힌 확정을 재배분한다</a></li>
+    <li><a href="#lx">정리 · 반드시 기억할 것</a></li>
+  </ol>
+</div>
+
+
+<!-- ══════════ LESSON 1 ══════════ -->
+<div class="lesson" id="l1">
+<h2><span class="no">LESSON 1</span>ATP 체크란 — 확정 스케줄라인만 납품된다</h2>
+
+<p><span class="tag">Unit 1</span><span class="tag">레슨 1개</span>Running an Available-to-Promise (ATP) Check</p>
+
+<h3>언제 이걸 알아야 하는가</h3>
+
+<p><b>"오더는 저장됐는데 납품이 안 만들어집니다"</b> — 가장 흔한 원인이 <span class="key">미확정 스케줄라인</span>입니다. 오더 저장과 확정은 별개입니다. 확정되지 않은 스케줄라인은 존재하되 납품 대상이 아닙니다.</p>
+
+<h3>ATP와 aATP</h3>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>배포 방식</th><th>aATP</th><th>비고</th></tr></thead>
+<tbody>
+<tr><td>Cloud Public Edition</td><td class="wrap">항상 활성화</td><td class="wrap">Basic / Advanced 두 solution process로 구분 제공. 체크는 ATP 수량 + 제품할당 2가지만</td></tr>
+<tr><td>Private Edition · On-Premise</td><td class="wrap">별도 라이선스</td><td class="wrap">활성화해야 aATP 기능 사용 가능</td></tr>
+</tbody>
+</table>
+</div>
+
+<p>이 코스는 On-Premise + aATP 활성화 환경 기준이지만, <span class="hl">배포 방식과 무관하게 가용성확인의 핵심 개념은 동일합니다.</span></p>
+
+<h3>가용성확인 흐름</h3>
+
+<figure class="figwrap">
+<svg class="dgm" viewBox="0 0 1000 380" role="img" aria-label="ATP 체크 흐름 도해. 요청자재·수량·납기일에서 역산 스케줄링으로 자재가용일을 구하고, 그 시점 누적 ATP 수량과 비교해 확정·부분확정·미확정으로 갈린다.">
+  <defs>
+    <marker id="aa" markerWidth="9" markerHeight="9" refX="7" refY="4.5" orient="auto">
+      <polygon class="arw-key" points="0,0 9,4.5 0,9"/></marker>
+    <marker id="ab" markerWidth="9" markerHeight="9" refX="7" refY="4.5" orient="auto">
+      <polygon class="arw-bad" points="0,0 9,4.5 0,9"/></marker>
+    <marker id="ao" markerWidth="9" markerHeight="9" refX="7" refY="4.5" orient="auto">
+      <polygon class="arw-ok" points="0,0 9,4.5 0,9"/></marker>
+  </defs>
+
+  <rect class="b" x="20" y="20" width="220" height="86" rx="6"/>
+  <text class="t-h" x="40" y="44">판매문서 아이템 입력</text>
+  <text class="t-s" x="40" y="66">요청자재 · 요청수량</text>
+  <text class="t-s" x="40" y="86">요청납기일</text>
+
+  <path class="ln-key" d="M240 63 H286" marker-end="url(#aa)"/>
+
+  <rect class="b-key" x="294" y="20" width="230" height="86" rx="6"/>
+  <text class="t-h c-key" x="314" y="44">스케줄링 (역산)</text>
+  <text class="t-s" x="314" y="66">요청납기일에서 거꾸로 계산</text>
+  <text class="t-s" x="314" y="86">→ <tspan class="t-h">자재 가용일</tspan> = 요건일</text>
+
+  <path class="ln-key" d="M524 63 H570" marker-end="url(#aa)"/>
+
+  <rect class="b-hl" x="578" y="20" width="250" height="86" rx="6"/>
+  <text class="t-h" x="598" y="44">누적 ATP 수량과 비교</text>
+  <text class="t-s" x="598" y="66">배송 플랜트 기준</text>
+  <text class="t-s" x="598" y="86">요청수량 ≤ 누적 ATP ?</text>
+
+  <path class="ln-ok"  d="M700 106 V140 H260 V172" marker-end="url(#ao)"/>
+  <path class="ln-key" d="M703 106 V172" marker-end="url(#aa)"/>
+  <path class="ln-bad" d="M706 106 V140 H900 V172" marker-end="url(#ab)"/>
+
+  <rect class="b-ok" x="80" y="174" width="360" height="96" rx="6"/>
+  <text class="t-h c-ok" x="102" y="198">충족 — 확정(confirmed)</text>
+  <text class="t-s" x="102" y="220">아이템 확정 + 그 수량만큼 누적 ATP 차감</text>
+  <text class="t-s" x="102" y="240">= 이 수요에 <tspan class="t-h">예약</tspan>, 다른 요구는 못 쓴다</text>
+  <text class="t-s c-ok" x="102" y="260">확정 스케줄라인만 납품 가능</text>
+
+  <rect class="b" x="524" y="174" width="358" height="96" rx="6"/>
+  <text class="t-h" x="546" y="198">일부만 충족 — 부분확정</text>
+  <text class="t-s" x="546" y="220">확정 가능한 수량만 먼저 확정</text>
+  <text class="t-s" x="546" y="240">오더아이템 하나에 스케줄라인이</text>
+  <text class="t-s" x="546" y="260">여러 줄 생길 수 있다</text>
+
+  <path class="ln-bad" d="M900 140 V300" marker-end="url(#ab)"/>
+  <rect class="b-bad" x="524" y="296" width="358" height="66" rx="6"/>
+  <text class="t-h c-bad" x="546" y="320">미래에도 수량 없음 — 미확정</text>
+  <text class="t-s" x="546" y="342">unconfirmed 스케줄라인 · <tspan class="c-bad">납품 불가</tspan></text>
+
+  <rect class="b-ghost" x="20" y="296" width="484" height="66" rx="6"/>
+  <text class="t-s" x="42" y="320">불충족이면 요건일 <tspan class="t-h">이후</tspan> 누적 ATP를 찾아 <tspan class="c-key">납품제안</tspan>을 만든다.</text>
+  <text class="t-s" x="42" y="342">자동 체크가 실패하면 Review Availability Check Result 화면으로 분기.</text>
+</svg>
+<figcaption><span class="fno">그림 1</span>ATP 체크 흐름. 자동 백그라운드 체크가 성공하면 사용자는 체크가 일어난 줄도 모르고 요청대로 확정된다.</figcaption>
+</figure>
+
+<div class="note">
+  <div class="t">🔰 초보자 설명 — ATP 체크를 한 줄로</div>
+  <p>"이 날짜까지 이 물건을 이 수량만큼 준비해 둘 수 있는가"를 자동 검사하는 것입니다. 충분하면 조용히 예약이 잡히고, 모자라면 <b>언제는 되는지</b> 대안을 제시합니다.</p>
+</div>
+
+</div>
+
+
+<!-- ══════════ LESSON 2 ══════════ -->
+<div class="lesson" id="l2">
+<h2><span class="no">LESSON 2</span>누적 ATP 수량 — 계산 원리와 숫자 예시</h2>
+
+<p><span class="tag">Unit 2</span><span class="tag">레슨 2개</span>이 코스의 핵심 이론. 원 강의 1시간 35분 분량</p>
+
+<h3>어느 레벨에서 체크하는가</h3>
+
+<p>가용성확인은 기본적으로 <b>플랜트 / 저장위치 레벨</b>에서 수행됩니다(저장위치 체크가 비활성화되지 않은 경우). 판매문서에서 플랜트는 아래 우선순위로 자동 결정됩니다.</p>
+
+<div class="step"><span class="n">1순위</span><p><b>Customer-Material Info Record</b> — 고객·자재 조합에 지정된 플랜트</p></div>
+<div class="step"><span class="n">2순위</span><p><b>Ship-to Party의 고객마스터</b></p></div>
+<div class="step"><span class="n">3순위</span><p><b>자재마스터</b></p></div>
+
+<div class="note warn">
+  <div class="t">판매문서와 납품문서의 체크 레벨이 다르다</div>
+  <p>판매문서에서는 <b>저장위치가 자동 결정되지 않습니다</b> — 수동으로 지정한 경우에만 그 레벨까지 체크합니다.<br>
+     납품문서에서는 보통 저장위치가 자동 결정되므로 <span class="hl">항상 저장위치 레벨까지 체크</span>합니다.</p>
+  <p>요건이 참조하는 레벨(플랜트만 / 플랜트+저장위치) 중 <b>누적 ATP 수량이 더 적은 쪽</b>이 최종 결과를 결정합니다. 오더에서는 확정됐는데 납품에서 막히는 건 대개 이 차이입니다.</p>
+</div>
+
+<p>자재가 원래 플랜트에 없을 때, aATP 비활성화 환경에서는 수동으로 다른 플랜트를 넣어야 하고, aATP 활성화 환경에서는 <b>Alternative-Based Confirmation(ABC)</b>이 다른 플랜트를 자동 대체할 수 있습니다.</p>
+
+<h3>자재 가용일 — 역산과 순산</h3>
+
+<div class="step"><span class="n">STEP 1</span><p>요청납기일에서 <b>역산(backward scheduling)</b>해 자재가용일(= 요건일)을 구한다</p></div>
+<div class="step"><span class="n">STEP 2</span><p>그 날짜가 오늘이거나 미래이고 그날 자재가 있으면 → <span class="good">요청날짜 그대로 확정</span></p></div>
+<div class="step"><span class="n">STEP 3</span><p>역산 결과가 과거이거나 그날 자재가 없으면 → <b>순산(forward scheduling)</b>으로 가능한 다음 날짜를 찾는다</p></div>
+
+<p>스케줄링이 비활성화된 경우에는 <code>요청납기일 = 자재가용일</code>로 간주합니다.</p>
+
+<h3>누적 ATP 수량 계산 로직</h3>
+
+<div class="note warn">
+  <div class="t">이 계산은 하드코딩이다</div>
+  <p>누적 ATP 수량 계산 로직 자체는 <span class="bad">Customizing으로 바꿀 수 없습니다.</span> 바꿀 수 있는 건 <b>무엇을 계산에 넣을지</b>(<code>Scope of Check</code>)뿐입니다 — 어떤 재고 종류, 어떤 입고, 어떤 요구를 포함할지.</p>
+</div>
+
+<p>자재가용일에서 <b>과거 방향으로</b> 재고와 입고예정 건을 합산해 누적치를 만듭니다. 충분하면 확정하고 그 수량만큼 누적치를 깎습니다(예약). 불충분하면 미래 방향으로 훑어 납품제안을 만듭니다.</p>
+
+<h4>숫자 예시 — 자재 <code>T-ATP100</code>, 플랜트 <code>1010</code>, 저장위치 <code>101A</code></h4>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>재고 · 입고</th><th>수량</th><th>ATP 계산 포함 여부</th></tr></thead>
+<tbody>
+<tr><td>무제한사용재고</td><td>80</td><td class="wrap"><span class="good">항상 포함</span></td></tr>
+<tr><td>품질검사재고(QI)</td><td>20</td><td class="wrap"><span class="bad">제외</span> — 이 예시의 Scope of Check에 포함 설정이 없음</td></tr>
+<tr><td>구매오더 1 (1010 / 101A)</td><td>60</td><td class="wrap">납기 2023.06.30 · 저장위치 있음</td></tr>
+<tr><td>구매오더 2 (1010, 저장위치 없음)</td><td>40</td><td class="wrap">납기 2023.07.31 · <b>플랜트 단위 계산에만</b> 들어간다</td></tr>
+</tbody>
+</table>
+</div>
+
+<figure class="figwrap">
+<svg class="dgm" viewBox="0 0 1000 440" role="img" aria-label="누적 ATP 수량 막대 도해. 확정 전에는 오늘 80, 6월 30일 이후 140, 7월 31일 이후 180이며, 70개 오더가 확정된 뒤에는 10, 70, 110으로 줄어든다.">
+  <defs>
+    <marker id="ta" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto">
+      <polygon class="arw-bad" points="0,0 8,4 0,8"/></marker>
+  </defs>
+
+  <text class="t-h c-key" x="20" y="28">확정 전 — 플랜트 1010 기준 누적 ATP</text>
+
+  <rect class="b-key" x="120" y="132" width="260" height="48"/>
+  <text class="m" x="230" y="124" text-anchor="middle">80</text>
+  <rect class="b-key" x="380" y="96" width="320" height="84"/>
+  <text class="m" x="540" y="88" text-anchor="middle">140</text>
+  <rect class="b-key" x="700" y="72" width="240" height="108"/>
+  <text class="m" x="820" y="64" text-anchor="middle">180</text>
+
+  <line class="ln" x1="120" y1="180" x2="960" y2="180"/>
+  <text class="t-s" x="120" y="198">오늘</text>
+  <text class="t-s" x="380" y="198">06.30  (구매오더 1 · +60)</text>
+  <text class="t-s" x="700" y="198">07.31  (구매오더 2 · +40)</text>
+
+  <line class="ln-d" x1="520" y1="52" x2="520" y2="192" stroke="#B91C1C"/>
+  <text class="t-s c-bad" x="528" y="46">자재가용일 07.10 — 요청 70개</text>
+  <text class="t-s c-bad" x="528" y="216">이 시점 누적 ATP = 140 ≥ 70 → 요청대로 확정</text>
+
+  <path class="ln-bad" d="M540 224 V250" marker-end="url(#ta)"/>
+
+  <text class="t-h c-key" x="20" y="272">확정 후 — 과거에서 가까운 재고부터 차감</text>
+
+  <rect class="b-mut" x="120" y="354" width="260" height="6"/>
+  <text class="m-s" x="230" y="346" text-anchor="middle">10</text>
+  <rect class="b-mut" x="380" y="318" width="320" height="42"/>
+  <text class="m-s" x="540" y="310" text-anchor="middle">70</text>
+  <rect class="b-mut" x="700" y="294" width="240" height="66"/>
+  <text class="m-s" x="820" y="286" text-anchor="middle">110</text>
+
+  <line class="ln" x1="120" y1="360" x2="960" y2="360"/>
+  <text class="t-s" x="120" y="378">오늘</text>
+  <text class="t-s" x="380" y="378">06.30</text>
+  <text class="t-s" x="700" y="378">07.31</text>
+
+  <rect class="b-ghost" x="20" y="394" width="940" height="34" rx="6"/>
+  <text class="t-s" x="42" y="416">무제한사용재고 80에서 70을 차감 → 10만 남는다. <tspan class="c-bad">선착순 배분</tspan> — 먼저 들어온 요구가 먼저 ATP를 소모한다.</text>
+</svg>
+<figcaption><span class="fno">그림 2</span>누적 ATP 수량의 시간축 누적과 확정 후 차감. 저장위치(101A)까지 보면 구매오더 2가 빠져 06.30 이후가 140에서 멈춘다.</figcaption>
+</figure>
+
+<div class="note">
+  <div class="t">🔰 초보자 설명 — 이 그림을 한 줄로</div>
+  <p>"지금 재고 80 + 6월말 입고 60 + 7월말 입고 40"을 시간순으로 <b>쌓아 올린 막대그래프</b>입니다. 새 요청이 오면 <b>필요한 날짜까지 쌓인 합계</b>가 충분한지 보고, 충분하면 확정하면서 그 이후 막대를 깎아냅니다.</p>
+</div>
+
+<h3>가용성 판단에 쓸 앱 — 하나뿐이다</h3>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>앱</th><th>누적 ATP 표시</th><th>판정</th></tr></thead>
+<tbody>
+<tr><td>Availability Overview</td><td><span class="good">O</span></td><td class="wrap"><span class="hl">가용성 판단의 올바른 도구</span></td></tr>
+<tr><td>Monitor Stock/Requirements List</td><td><span class="bad">X</span></td><td class="wrap">재고·요구 현황만 — 가용성 판단 불가</td></tr>
+<tr><td>Stock: Single Material</td><td><span class="bad">X</span></td><td class="wrap">현재 재고만 — <b>이미 예약된 재고인지 구분이 안 된다</b></td></tr>
+<tr><td>Check Material Coverage</td><td><span class="bad">X</span></td><td class="wrap">부적합</td></tr>
+</tbody>
+</table>
+</div>
+
+<div class="note warn">
+  <div class="t">"재고 있는데 왜 안 잡히냐"의 정체</div>
+  <p>재고 조회 앱은 <b>예약된 몫을 구분해 보여주지 않습니다.</b> 화면에 100개가 보여도 그중 90개가 다른 오더에 확정되어 있으면 실제 가용은 10개입니다. 판단은 반드시 <code>Availability Overview</code>로 합니다.</p>
+</div>
+
+<h3>납품협정과 요구이전</h3>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>설정</th><th>레벨</th><th>동작</th></tr></thead>
+<tbody>
+<tr><td>전량납품</td><td>헤더</td><td class="wrap">한 아이템이라도 미확정이면 <b>오더 전체가 대기</b></td></tr>
+<tr><td>부분납품 허용</td><td>아이템</td><td class="wrap">확정된 아이템부터 먼저 납품</td></tr>
+</tbody>
+</table>
+</div>
+
+<p>MRP로 계획되는 자재는 고객요구가 MRP에 반영되어, 부족분이 자동으로 구매요청이나 계획오더로 이어질 수 있습니다(계획 전략은 자재·플랜트별 지정).</p>
+
+<div class="note warn">
+  <div class="t">새 입고가 잡혀도 기존 오더는 저절로 좋아지지 않는다</div>
+  <p>입고가 대량으로 새로 확보돼도 <span class="bad">기존 오더는 재확인되지 않습니다.</span> 이것이 다음 LESSON의 BOP가 필요한 이유입니다.</p>
+  <p>예외로 Private Edition·On-Premise에서 aATP를 켜면 <b>Supply Creation-Based Confirmation(SBC)</b>으로 PP/DS와 연동해 수요 발생 즉시 계획오더·구매요청을 만들어 바로 확정할 수 있습니다. 이 경우 BOP가 필요 없습니다.</p>
+</div>
+
+<p>재고보충리드타임(Replenishment Lead Time) 포함 체크는 자재계획이 <b>주기적으로 수행될 때만</b> 의미가 있습니다. 그렇지 않으면 리드타임 종료 다음날로 확정된 요구가 리드타임 기간 안으로 들어가 재고부족을 만들고, 납품문서 생성이 막히는 문제가 생깁니다.</p>
+
+<div class="note ok">
+  <div class="t">📌 개인 E2E 프로젝트와의 연결점</div>
+  <p>프로젝트에서 판매오더 저장 시 자동으로 잡히는 확정 수량이 이 로직의 결과입니다. 특히 저장위치를 <b>온도군 × 정상·임박 6개</b>로 쪼개 뒀기 때문에, 저장위치 레벨 체크가 켜지면 <span class="key">정상 SLoc과 임박 SLoc의 누적 ATP가 따로 계산</span>됩니다.</p>
+  <p>CBO <code>ZBATCH_ZONE</code>이 정상 → 임박으로 311 이동을 걸면 정상 SLoc의 ATP가 그만큼 줄어듭니다. <b>이미 확정된 오더가 있는 배치를 옮기면 확정이 깨질 수 있다</b>는 뜻이라, 이동 대상 선정에서 확정 여부를 봐야 합니다.</p>
+</div>
+
+</div>
+
+
+<!-- ══════════ LESSON 3 ══════════ -->
+<div class="lesson" id="l3">
+<h2><span class="no">LESSON 3</span>BOP — 이미 잡힌 확정을 재배분한다</h2>
+
+<p><span class="tag">Unit 3</span><span class="tag">레슨 2개</span>Backorder Processing</p>
+
+<h3>BOP가 필요한 이유 3가지</h3>
+
+<div class="step"><span class="n">이유 1</span><p><b>ATP 상황 변화가 반영되지 않는다.</b> 오더 저장 후 입고예정이 당겨져도 시스템이 알아서 재체크해 확정을 개선해 주지 않는다</p></div>
+<div class="step"><span class="n">이유 2</span><p><b>선착순 배분의 한계.</b> 요구는 입력 순서대로 체크된다 — 나중에 들어온 <span class="hl">우선순위 높은 오더가 확정을 못 받을 수 있다</span></p></div>
+<div class="step"><span class="n">이유 3</span><p><b>계획 입고가 뒤로 밀렸을 때.</b> 그 입고를 근거로 잡힌 확정이 비현실적인 채로 남는다</p></div>
+
+<h3>aATP에서의 BOP — Segment와 Confirmation Strategy</h3>
+
+<div class="note warn">
+  <div class="t">구 트랜잭션은 못 쓴다</div>
+  <p>aATP가 활성화된 자재는 <code>CO06</code> · <code>V_RA</code> · <code>V_V2</code>를 <span class="bad">사용할 수 없습니다.</span> 새 Fiori 앱으로 자동 BOP를 처리합니다.</p>
+</div>
+
+<ul>
+  <li><b>Segment</b> — 어떤 요구를 고르고 어떤 순서로 우선순위를 매길지 정의한 묶음. 세그먼트 안에서 <span class="key">앞순위일수록 확정 확률이 높다</span></li>
+  <li><b>Confirmation Strategy</b> — 각 요구가 실행 중 어떻게 처리될지 결정하는 전략</li>
+</ul>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>전략</th><th>동작</th><th>결과 방향</th></tr></thead>
+<tbody>
+<tr><td>Win</td><td class="wrap">요청대로 완전 확정 (과거일이면 즉시)</td><td><span class="good">개선만</span></td></tr>
+<tr><td>Gain</td><td class="wrap">최소한 현재 확정은 유지하고, 가능하면 개선</td><td><span class="good">개선 또는 유지</span></td></tr>
+<tr><td>Improve</td><td class="wrap">현재 확정 유지를 시도하면서 개선도 시도 — <b>손실 가능성 있음</b></td><td>혼합</td></tr>
+<tr><td>Redistribute</td><td class="wrap">더 좋아질 수도, 같을 수도, 나빠질 수도 있음</td><td>혼합</td></tr>
+<tr><td>Fill</td><td class="wrap">추가 수량이나 더 빠른 날짜는 못 얻음</td><td>유지 또는 악화</td></tr>
+<tr><td>Lose</td><td class="wrap">현재 확정을 <b>상실</b>하고 미확정 처리</td><td><span class="bad">악화</span></td></tr>
+<tr><td>Skip</td><td class="wrap">현재 확정 그대로 두고 가용성확인 대상에서 제외</td><td>불변</td></tr>
+</tbody>
+</table>
+</div>
+
+<figure class="figwrap">
+<svg class="dgm" viewBox="0 0 1000 300" role="img" aria-label="BOP 재배분 도해. Lose 전략으로 일반 고객 세그먼트의 확정을 풀어 누적 ATP를 늘리고, Win 또는 Improve 전략으로 우선 고객 세그먼트에 재배분한다.">
+  <defs>
+    <marker id="ba" markerWidth="9" markerHeight="9" refX="7" refY="4.5" orient="auto">
+      <polygon class="arw-bad" points="0,0 9,4.5 0,9"/></marker>
+    <marker id="bo" markerWidth="9" markerHeight="9" refX="7" refY="4.5" orient="auto">
+      <polygon class="arw-ok" points="0,0 9,4.5 0,9"/></marker>
+  </defs>
+
+  <rect class="b-bad" x="20" y="40" width="270" height="94" rx="6"/>
+  <text class="t-h c-bad" x="42" y="66">Segment A — 일반 고객</text>
+  <text class="t-s" x="42" y="90">전략 <tspan class="t-h">Lose</tspan></text>
+  <text class="t-s" x="42" y="112">기존 확정 해제 → 수량을 풀어낸다</text>
+
+  <path class="ln-bad" d="M290 87 H384" marker-end="url(#ba)"/>
+
+  <rect class="b-hl" x="392" y="40" width="216" height="94" rx="6"/>
+  <text class="t-h" x="414" y="66">누적 ATP 수량</text>
+  <text class="t-s" x="414" y="90">풀린 수량만큼 증가</text>
+  <text class="t-s" x="414" y="112">재배분 가능 상태</text>
+
+  <path class="ln-ok" d="M608 87 H702" marker-end="url(#bo)"/>
+
+  <rect class="b-ok" x="710" y="40" width="270" height="94" rx="6"/>
+  <text class="t-h c-ok" x="732" y="66">Segment B — 우선 고객</text>
+  <text class="t-s" x="732" y="90">전략 <tspan class="t-h">Win</tspan> 또는 <tspan class="t-h">Improve</tspan></text>
+  <text class="t-s" x="732" y="112">우선 배정 · 확정 개선</text>
+
+  <path class="ln-d" d="M155 134 V176 H500 V176"/>
+  <path class="ln-d" d="M845 134 V176 H500"/>
+  <rect class="b-key" x="330" y="178" width="340" height="52" rx="6"/>
+  <text class="t-h c-key" x="352" y="202">BOP Variant</text>
+  <text class="t-s" x="352" y="222">어떤 세그먼트를 어떤 전략으로 실행할지 묶은 것</text>
+
+  <rect class="b-ghost" x="20" y="244" width="960" height="42" rx="6"/>
+  <text class="t-s" x="42" y="264">백그라운드 작업으로 스케줄링해 실행하고, 결과는 <tspan class="m-s">Monitor BOP Run</tspan> 앱으로 확인한다.</text>
+  <text class="t-s" x="42" y="280">즉 BOP는 새 재고를 만들어 내는 게 아니라, <tspan class="c-bad">있는 수량의 주인을 바꾸는</tspan> 작업이다.</text>
+</svg>
+<figcaption><span class="fno">그림 3</span>Lose로 회수하고 Win/Improve로 재배분하는 BOP의 기본 운용 패턴.</figcaption>
+</figure>
+
+<div class="note">
+  <div class="t">🔰 초보자 설명 — BOP를 한 줄로</div>
+  <p>이미 입력된 오더들을 <b>재검토</b>해서 더 중요한 고객에게 재고를 다시 배정하는 작업입니다. VIP 고객이 늦게 주문해 일반 고객이 재고를 선점했다면, 일반 고객 확정을 풀고(<b>Lose</b>) VIP에게 우선 배정(<b>Win</b>)합니다.</p>
+</div>
+
+<h3>실행 결과 분석</h3>
+
+<p>강의는 두 시나리오로 결과를 읽습니다 — ① 오더 입력 이후 입고예정에 변화가 없는 상황, ② 충분한 입고가 새로 확보되어 모든 항목을 확정할 수 있는 상황.</p>
+
+<div class="note ok">
+  <div class="t">📌 개인 E2E 프로젝트와의 연결점</div>
+  <p>프로젝트에서 BOP까지 가지는 않지만, <b>"재고가 모자랄 때 어떤 오더를 먼저 채울 것인가"</b>라는 문제의식은 같습니다. 특히 유통기한 임박 재고를 쓰는 FEFO 배치결정과 결합하면 "누구에게 임박 재고를 줄 것인가"라는 같은 형태의 우선순위 문제가 생깁니다.</p>
+</div>
+
+</div>
+
+
+<!-- ══════════ APPENDIX ══════════ -->
+<div class="lesson" id="lx">
+<h2><span class="no">APPENDIX</span>정리 · 반드시 기억할 것</h2>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>질문</th><th>답</th></tr></thead>
+<tbody>
+<tr><td>ATP가 보는 수치</td><td class="wrap">현재 재고가 아니라 <b>요건일 시점의 누적 ATP 수량</b></td></tr>
+<tr><td>납품 가능한 스케줄라인</td><td class="wrap"><b>확정(confirmed)</b>된 것만</td></tr>
+<tr><td>계산 로직을 바꿀 수 있나</td><td class="wrap">못 바꾼다. <code>Scope of Check</code>로 <b>무엇을 넣을지</b>만 조정</td></tr>
+<tr><td>플랜트 결정 우선순위</td><td class="wrap">Cust-Mat Info Record → Ship-to 고객마스터 → 자재마스터</td></tr>
+<tr><td>오더 OK / 납품 NG의 원인</td><td class="wrap">납품은 저장위치 레벨까지 체크한다 — 더 적은 쪽이 이긴다</td></tr>
+<tr><td>가용성 판단 앱</td><td class="wrap"><code>Availability Overview</code> 하나뿐</td></tr>
+<tr><td>입고가 늘면 확정이 좋아지나</td><td class="wrap">저절로는 안 된다 → <b>BOP</b> (또는 aATP의 SBC)</td></tr>
+</tbody>
+</table>
+</div>
+
+<div class="note warn">
+  <div class="t">반드시 지킬 것</div>
+  <p>· 재고 조회 화면으로 가용성을 판단하지 않는다 — 예약분이 구분되지 않는다.<br>
+     · aATP 자재에 <code>CO06</code> · <code>V_RA</code> · <code>V_V2</code>를 쓰지 않는다.<br>
+     · BOP는 수량을 <b>만들지 않는다.</b> 누군가의 확정을 빼앗아 주는 작업이므로 영향 범위를 먼저 본다.</p>
+</div>
+
+<h3>참고</h3>
+
+<ul>
+  <li>원본: 노션 <b>SAP Learning Hub</b> → Implementing Sales → 2-1 ~ 2-2 (Learning Hub 레슨 본문 5개 정리)</li>
+  <li>앞 노트: <b>S46000</b> Sales Essentials · 이어지는 노트: <b>S46050</b> Sales 기본 Customizing</li>
+</ul>
+
+</div>
+
+</div>
+<script src="../../assets/hub.js" defer></script>
+</body>
+</html>

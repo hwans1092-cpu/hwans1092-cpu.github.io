@@ -1,0 +1,1489 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>S4F15 Configuring the Financial Closing — 결산마감 구성</title>
+<meta name="description" content="SAP Learning Hub의 Configuring the Financial Closing in SAP S/4HANA(S4F15) 노트. 월결산·연말결산 순서, 재무제표버전, 자산·재고 결산, 외화평가와 재분류, 발생관리, 원장그룹, 전기기간 관리, 결산콕핏, 회사간거래 조정(IXMR).">
+<link rel="icon" href="../../assets/favicon.svg">
+<link rel="stylesheet" href="../../assets/notes-paper.css">
+<style>
+/* ── 이 노트 전용: 도해(SVG) 스타일 ─────────────────────────── */
+.dgm{display:block; width:100%; height:auto;}
+.dgm text{font-family:"Malgun Gothic","맑은 고딕","Apple SD Gothic Neo",sans-serif; fill:#1e1e1e;}
+.dgm .t-h{font-size:15px; font-weight:700;}
+.dgm .t{font-size:13px;}
+.dgm .t-s{font-size:11.5px; fill:#555;}
+.dgm .t-xs{font-size:10.5px; fill:#6B7280;}
+.dgm .m{font-family:"D2Coding","Consolas",monospace; font-size:12px;}
+.dgm .m-s{font-family:"D2Coding","Consolas",monospace; font-size:10.5px;}
+.dgm .c-key{fill:#4338CA;} .dgm .c-bad{fill:#B91C1C;} .dgm .c-ok{fill:#047857;}
+.dgm .b{fill:#FFFFFF; stroke:#C7CBD6; stroke-width:1.2;}
+.dgm .b-key{fill:#EEF0FB; stroke:#4338CA; stroke-width:1.4;}
+.dgm .b-bad{fill:#FEF2F2; stroke:#B91C1C; stroke-width:1.3;}
+.dgm .b-ok{fill:#ECFDF5; stroke:#047857; stroke-width:1.3;}
+.dgm .b-mut{fill:#F3F4F6; stroke:#D1D5DB; stroke-width:1.1;}
+.dgm .b-hl{fill:#FEF08A; stroke:#CA8A04; stroke-width:1.2;}
+.dgm .b-ghost{fill:none; stroke:#9AA3B2; stroke-width:1.1; stroke-dasharray:5 4;}
+.dgm .ln{stroke:#7C8697; stroke-width:1.4; fill:none;}
+.dgm .ln-key{stroke:#4338CA; stroke-width:1.8; fill:none;}
+.dgm .ln-bad{stroke:#B91C1C; stroke-width:1.6; fill:none;}
+.dgm .ln-ok{stroke:#047857; stroke-width:1.6; fill:none;}
+.dgm .ln-d{stroke:#9AA3B2; stroke-width:1.2; stroke-dasharray:4 4; fill:none;}
+.dgm .arw{fill:#7C8697;} .dgm .arw-key{fill:#4338CA;}
+.dgm .arw-bad{fill:#B91C1C;} .dgm .arw-ok{fill:#047857;}
+.figwrap{background:#FAFAFE; border:1px solid var(--rule); border-radius:6px;
+  padding:18px 16px 10px; margin:22px 0;}
+.figwrap figcaption{margin-top:12px; padding-top:10px; border-top:1px solid var(--rule);}
+</style>
+</head>
+<body>
+<div class="crumb"><a href="../../index.html">← 자료실 홈</a> · <a href="../../journey.html?j=fi">FI 저니</a> · S4F15 결산마감 구성</div>
+<div class="sheet">
+
+<div class="doc-head">
+  <div class="kicker">LEARNING HUB · S4F15</div>
+  <h1>결산마감 구성 — 마감 절차 · 평가 · 결산콕핏</h1>
+  <div class="sub">
+    Learning Journey <b>Implementing Financial Accounting in SAP S/4HANA</b> · Course 3 / S4F15 · 13 hr+ · 9 Unit · 19 레슨<br>
+    출처: 노션 <b>SAP Learning Hub</b> 노트 3-1 ~ 3-9 변환
+  </div>
+</div>
+
+<div class="lead">
+  <p><b>결론부터.</b> 결산은 프로그램 목록이 아니라 <span class="hl">순서</span>입니다. 무엇을 먼저 닫고 무엇을 나중에 닫는가 — 이 한 가지가 틀리면 나머지 프로그램을 아무리 정확히 돌려도 총계정원장 잔액이 맞지 않습니다.</p>
+  <p>이 코스는 그 순서를 먼저 세우고(Unit 1), 자산·재고·채권채무·손익 각 영역이 그 순서 어디에 들어가는지를 채운 뒤, 마지막에 <b>결산콕핏(FCC)</b>으로 그 순서 자체를 시스템에 등록합니다. 개별 트랜잭션을 외우는 게 아니라 <span class="key">"이 전기는 왜 지금이고, 왜 다음 달 1일에 반전되는가"</span>를 설명할 수 있게 되는 것이 목표입니다.</p>
+</div>
+
+<div class="toc">
+  <h4>목차</h4>
+  <ol>
+    <li><a href="#l1">결산 순서 — 월결산과 연말결산의 뼈대</a></li>
+    <li><a href="#l2">재무제표 — 재무제표버전과 리포팅 옵션</a></li>
+    <li><a href="#l3">고정·유동자산 — 감가실행 · 실지재고 · GR/IR · 재고평가</a></li>
+    <li><a href="#l4">채권·채무 — 잔액확인 · 외화평가 · 가치조정 · 재분류</a></li>
+    <li><a href="#l5">손익 — 매출원가회계 · 발생/이연 · Accruals Management</a></li>
+    <li><a href="#l6">원장그룹별 전기 — 병행회계와 확장원장</a></li>
+    <li><a href="#l7">기술·조직·문서 결산 — 잔액이월 · 전기기간 · 감사증적 · 문서분할</a></li>
+    <li><a href="#l8">결산콕핏(FCC) — 템플릿 · 태스크리스트 · 종속성</a></li>
+    <li><a href="#l9">회사간거래 조정(IXMR)</a></li>
+  </ol>
+</div>
+
+
+<!-- ══════════ LESSON 1 ══════════ -->
+<div class="lesson" id="l1">
+<h2><span class="no">LESSON 1</span>결산 순서 — 월결산과 연말결산의 뼈대</h2>
+
+<p><span class="tag">Unit 1</span><span class="tag">레슨 1개</span>Explaining the Periodic Closing Process</p>
+
+<h3>언제 이걸 알아야 하는가</h3>
+
+<p>결산 기간에 가장 많이 받는 문의가 <b>"G/L 잔액이 서브레저랑 안 맞습니다"</b>입니다. 프로그램을 잘못 돌린 게 아니라 <span class="key">닫는 순서를 역전시킨</span> 경우가 대부분입니다 — 자산(FI-AA)이나 매입채무를 열어 둔 채로 총계정원장을 먼저 잠그면, 나중에 서브레저에서 들어온 전표가 G/L에 반영되지 못합니다.</p>
+
+<p>그래서 이 코스의 첫 레슨이 <b>순서</b>입니다. 개별 프로그램은 뒤 Unit에서 다루지만, 그것들이 어느 칸에 들어가는지는 여기서 정해집니다.</p>
+
+<h3>전체 순서</h3>
+
+<figure class="figwrap">
+<svg class="dgm" viewBox="0 0 1000 510" role="img" aria-label="월결산과 연말결산의 작업 순서 도해. 사전결산에서 기술적 마감과 FI·MM·HR·SD 전기를 끝내고, 관리결산에서 CO 배부 후 기간을 잠갔다가 조정전기를 위해 다시 열며, 대외보고 결산에서 외화평가와 최종마감을 한다. 연말에는 잔액이월과 실지재고조사 등이 추가되고, 모든 서브레저는 총계정원장보다 먼저 마감되어야 한다.">
+  <defs>
+    <marker id="fc1a" markerWidth="9" markerHeight="9" refX="7" refY="4.5" orient="auto">
+      <polygon class="arw-key" points="0,0 9,4.5 0,9"/></marker>
+  </defs>
+
+  <text class="t-s c-key" x="30" y="24">월결산(Month-End) — 매 기간 반복</text>
+
+  <rect class="b-key" x="30" y="40" width="290" height="46" rx="6"/>
+  <text class="t-h c-key" x="50" y="62">① 사전결산 Preclosing</text>
+  <text class="t-xs" x="50" y="78">전월 마지막 날부터 시작</text>
+
+  <rect class="b" x="355" y="40" width="290" height="46" rx="6"/>
+  <text class="t-h" x="375" y="62">② 관리결산 Managerial</text>
+  <text class="t-xs" x="375" y="78">CO 배부 · 재계정지정</text>
+
+  <rect class="b" x="680" y="40" width="290" height="46" rx="6"/>
+  <text class="t-h" x="700" y="62">③ 대외보고 결산</text>
+  <text class="t-xs" x="700" y="78">External Reporting</text>
+
+  <path class="ln-key" d="M320 63 H351" marker-end="url(#fc1a)"/>
+  <path class="ln-key" d="M645 63 H676" marker-end="url(#fc1a)"/>
+
+  <rect class="b-mut" x="30" y="96" width="290" height="176" rx="6"/>
+  <text class="t-s" x="50" y="122">기술 · FI 신규 회계기간 오픈</text>
+  <text class="t-s" x="50" y="144">기술 · MM 전월 마감</text>
+  <text class="t-s" x="50" y="166">기술 · FI 서브레저 마감</text>
+  <text class="t-s" x="50" y="188">기술 · G/L 예비마감</text>
+  <text class="t-s" x="50" y="210">FI · 발생/이연 · 반복전기</text>
+  <text class="t-s" x="50" y="232">MM · GR/IR · 자재재평가</text>
+  <text class="t-s" x="50" y="254">HR 급여 · SD 고객납품 출고</text>
+
+  <rect class="b-mut" x="355" y="96" width="290" height="176" rx="6"/>
+  <text class="t-s" x="375" y="122">CO 배부(Allocation)</text>
+  <text class="t-s" x="375" y="144">CO 재계정지정(Reposting)</text>
+  <text class="t-s" x="375" y="166">이전 회계기간 잠금</text>
+  <text class="t-s" x="375" y="188">조정전기 위해 G/L 재오픈</text>
+  <text class="t-xs c-bad" x="375" y="226">※ 한 번 닫았다가</text>
+  <text class="t-xs c-bad" x="375" y="244">조정 목적으로 다시 여는 구간</text>
+
+  <rect class="b-mut" x="680" y="96" width="290" height="176" rx="6"/>
+  <text class="t-s" x="700" y="122">FI · 외화 미결항목 평가</text>
+  <text class="t-s" x="700" y="144">기술 · 이전 기간 최종 마감</text>
+  <text class="t-s" x="700" y="166">FI/CO · 세무 보고서</text>
+  <text class="t-s" x="700" y="188">FI/CO · 자산이력명세서</text>
+  <text class="t-s" x="700" y="210">FI/CO · 대내 관리보고서</text>
+
+  <text class="t-s c-ok" x="30" y="302">연말결산(Year-End) — 위 월결산에 아래가 더 붙는다</text>
+
+  <rect class="b-ok" x="30" y="312" width="940" height="126" rx="6"/>
+  <text class="t-h c-ok" x="52" y="338">사전결산 추가 (구 회계연도 마지막 기간)</text>
+  <text class="t-s" x="52" y="360">FI 신년도 첫 기간 오픈 + 중앙 잔액이월 → MM 실지재고조사 → PP/CO 제품원가추정 갱신</text>
+  <text class="t-s" x="52" y="380">→ MM 저가법·LIFO/FIFO 평가 → AA 자산평가·투자지원 → FI 고객/벤더 잔액확인</text>
+  <text class="t-h c-ok" x="52" y="406">대외보고 추가</text>
+  <text class="t-s" x="52" y="428">GR/IR 분석 → 채권/채무 재분류 → 전년도↔신년도 조정 → AR/AP·G/L 구년도 최종마감 → 보고서</text>
+
+  <rect class="b-bad" x="30" y="454" width="940" height="42" rx="6"/>
+  <text class="t" x="52" y="480">철칙 — 모든 서브레저(AR · AP · FI-AA)는 G/L 보다 먼저 마감. 역전하면 잔액 불일치 (SAP Note 619969)</text>
+</svg>
+<figcaption><span class="fno">그림 1</span>월결산 3구간과 연말결산 추가분. 관리결산에서 한 번 잠갔다가 조정전기를 위해 다시 여는 구간이 순서 이해의 핵심이다.</figcaption>
+</figure>
+
+<h3>사전결산활동 — 영역별로 무엇을 하는가</h3>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>영역</th><th>활동</th></tr></thead>
+<tbody>
+<tr><td>기술적(Technical)</td><td class="wrap">FI 신규 회계기간 오픈, MM 전월 마감, FI 서브레저 마감, G/L 예비마감(Preliminary Close)</td></tr>
+<tr><td>FI</td><td class="wrap">구매오더 발생액(Accrual) 처리, 수동 발생/이연 입력, 반복전기 처리, 매출채권 대손비용 처리</td></tr>
+<tr><td>MM</td><td class="wrap">GR/IR 정산계정 유지, 자재 재평가 전기</td></tr>
+<tr><td>HR</td><td class="wrap">급여비용 전기</td></tr>
+<tr><td>SD</td><td class="wrap">고객납품 출고 전기</td></tr>
+</tbody>
+</table>
+</div>
+
+<div class="note">
+  <div class="t">🔰 초보자 설명 — 왜 서브레저를 총계정원장보다 먼저 마감할까</div>
+  <p>서브레저(매출채권·매입채무·자산 등 세부장부)는 총계정원장에 숫자를 공급하는 <b>원천</b>입니다. 세부장부가 열려 있는데 총계정원장을 먼저 잠그면, 나중에 세부장부로 들어온 전표가 총계정원장에 반영되지 않아 두 장부가 어긋납니다. 항상 <span class="hl">작은 장부 먼저, 큰 장부 나중</span>입니다.</p>
+</div>
+
+<div class="note ok">
+  <div class="t">📌 개인 E2E 프로젝트와의 연결점</div>
+  <p>회사코드 <b>CL04</b> 하나만 쓰는 프로젝트라도 이 순서는 그대로 적용됩니다. 특히 <b>GATE → STOR 이관(301)</b>이 걸린 건들이 기간 경계에 남아 있으면 GR/IR과 재고가 동시에 어긋나므로, <code>ZGATE_INSPECT</code>는 <span class="key">월 마감 전</span>에 돌려서 미처리 건을 먼저 털어내는 것이 순서상 맞습니다. 그림 1의 <b>MM · GR/IR</b> 칸이 그 자리입니다.</p>
+</div>
+
+</div>
+
+
+<!-- ══════════ LESSON 2 ══════════ -->
+<div class="lesson" id="l2">
+<h2><span class="no">LESSON 2</span>재무제표 — 재무제표버전과 리포팅 옵션</h2>
+
+<p><span class="tag">Unit 2</span><span class="tag">레슨 2개</span>Managing Financial Statements · Using SAP S/4HANA Reporting Options</p>
+
+<h3>재무제표버전(Financial Statement Version)</h3>
+
+<p>구조화된 잔액리스트·계획·드릴다운 리포팅에 쓰이는 <b>계정 계층구조</b>입니다. 세무당국용·내부용·외부용처럼 <span class="key">목적별로 여러 버전</span>을 정의하고, 사업영역·세그먼트·이익센터·회사코드 레벨로 추가 세분화할 수 있습니다.</p>
+
+<p>버전 하나를 구성하는 것: 포함할 항목과 순서·계층구조 / 항목 설명텍스트 / 관련 계정과목표와 개별 계정 / 표시할 합계.</p>
+
+<h4>필수 특수항목(Special Items)</h4>
+
+<p>모든 버전에 반드시 들어가야 하는 항목입니다 — <b>Assets · Liabilities and Equity · Net result: Profit · Net result: Loss · Profit and Loss Results · Not Assigned</b>.</p>
+
+<div class="note warn">
+  <div class="t">주석(Notes) 항목과 순손익 계산의 관계</div>
+  <p>순이익/순손실은 <span class="hl">자산·부채 항목에 배정된 계정에서만</span> 산출됩니다. 주석(Notes) 항목이나 미배정(Not Assigned) 계정에 속한 계정은 계산에서 제외됩니다. 특정 계정을 손익결과 계산에서 빼고 싶으면 주석용 고정항목으로 재배정하면 됩니다.</p>
+</div>
+
+<h3>Manage Global Hierarchies 앱</h3>
+
+<p>S/4HANA <b>1809</b>부터 도입된, 여러 오브젝트유형의 계층구조를 한 진입점에서 관리하는 앱입니다. 코스트센터·이익센터·기능영역·G/L계정 계층, Group Reporting용 계층을 만들 수 있습니다.</p>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>기능</th><th>내용</th></tr></thead>
+<tbody>
+<tr><td>상태관리</td><td class="wrap">Draft ↔ Active. 활성화해야 리포팅에 반영된다</td></tr>
+<tr><td>유효기간</td><td class="wrap">계층ID별로 상이한 유효기간. 새 유효기간으로 복사 가능(조직개편 시). 활성화할 때 <b>기간 중복 여부를 시스템이 검사</b></td></tr>
+<tr><td>시간종속성</td><td class="wrap"><span class="bad">최상위 노드에만</span> 유지 가능. 하위노드(예: FSV 유형의 G/L계정)에는 적용되지 않고 기준일(Key Date) 필드로 기간을 참조</td></tr>
+<tr><td>가져오기/내보내기</td><td class="wrap">스프레드시트 임포트/익스포트, 기존 계층 복사, 변경로그, 다국어 노드텍스트</td></tr>
+<tr><td>확장</td><td class="wrap">계층노드·G/L계정에 시맨틱태그 배정, 리포팅기반 재분류용 <b>에이징속성</b>, 커스텀 확장성</td></tr>
+</tbody>
+</table>
+</div>
+
+<div class="note warn">
+  <div class="t">Further Reading — 통합 없음</div>
+  <p>Manage Global Hierarchies 앱으로 만든 계층구조와 해당 S/4HANA 애플리케이션 내부 계층구조 사이에는 <span class="bad">통합(Integration)이 없습니다.</span> 같은 이름이라도 자동으로 동기화되지 않습니다.</p>
+</div>
+
+<h4>생성 방법</h4>
+
+<div class="step"><span class="n">수동</span><p>앱에서 (+) → Type 필드에서 <b>Financial Statement Version</b> 선택 → 필수데이터 입력 → Create</p></div>
+<div class="step"><span class="n">복사</span><p>기존 버전 선택 → Copy → <b>New Hierarchy</b> 옵션 → 4자리 계층ID와 필수데이터 입력 → Create</p></div>
+
+<h4>계층레벨 작업</h4>
+
+<p>각 레벨에 항목을 배정하면 시스템이 항목별 합계/소계를 계산합니다. <b>최하위 레벨</b>에 계정명·잔액이 표시될 계정을 배정합니다. 서브노드/계정 우측 (+) 아이콘으로 추가하고, "…" 메뉴의 <b>Fast Entry</b>로 여러 건을 한 번에 입력합니다.</p>
+
+<h4>변동잔액 은행계좌 — Account Group Assignment by Balance</h4>
+
+<p>계정그룹의 합산 잔액이 차변/대변 어느 쪽에 표시될지를 결정합니다. 차변 전용 항목 / 대변 전용 항목 / <span class="key">양쪽 모두</span>(차변이든 대변이든 항상 여기 표시 — 대부분의 은행계좌가 여기 해당) 세 가지입니다.</p>
+
+<h3>클래식 재무제표버전(OB58 / FSE2)과의 관계</h3>
+
+<p>클래식 버전은 S/4HANA에서도 계속 쓸 수 있지만 <span class="bad">Fiori 리포팅에서 즉시 사용할 수는 없습니다.</span> 두 가지 길이 있습니다.</p>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>방법</th><th>내용</th><th>제약</th></tr></thead>
+<tbody>
+<tr><td>Import Hierarchy</td><td class="wrap">클래식 버전을 Manage Global Hierarchies로 가져와 계속 유지관리</td><td class="wrap">클래식 리포트(<code>RFBILA00</code> 등)는 이 버전을 쓸 수 없다. <code>HRRP*</code> → 클래식 <code>T011</code> 역방향 가져오기 불가</td></tr>
+<tr><td>Replicate</td><td class="wrap">클래식 버전을 <code>HRRP*</code> 테이블로 복제해 런타임 계층 생성. 백엔드 <code>HRRP_REP</code> / <code>FINS_REPLICATION_HIER_N</code>, Fiori <b>Replicate Runtime Hierarchy</b> <code>F1478</code></td><td class="wrap">SAP Note 3064994 · 3064950 참고</td></tr>
+</tbody>
+</table>
+</div>
+
+<h3>리포팅 옵션 — Embedded Analytics · CDS · SAC</h3>
+
+<p><b>SAP S/4HANA Embedded Analytics</b>는 거래와 분석을 결합해 실시간 트랜잭션 데이터로 운영 리포팅을 합니다. 사용자 역할은 셋 — IT 사용자(CDS뷰·앱·계획기능 개발) / 애널리틱스 키유저(쿼리·보고서·KPI·대시보드 생성) / 애널리틱스 최종사용자(소비·분석).</p>
+
+<p><b>CDS 뷰</b>는 S/4HANA의 트랜잭션·마스터데이터 테이블 기반 <span class="key">가상데이터모델(VDM)</span>로 표현됩니다. ABAP 레이어에서 개발·확장되고, 시스템이 HANA에 SQL 런타임뷰를 생성해 <b>DB 레이어 안에서</b> 읽기·변환을 수행합니다.</p>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>도구</th><th>무엇을 하는가</th></tr></thead>
+<tbody>
+<tr><td class="wrap">Balance Sheet / Income Statement - Multidimensional</td><td class="wrap">운영·로컬·글로벌 계정과목표로 B/S·P/L 표시. 특정 G/L계정이나 고객/공급업체 라인아이템으로 드릴다운, Excel·PDF 내보내기</td></tr>
+<tr><td>SAP Analytics Cloud</td><td class="wrap">HANA Cloud Platform 기반 셀프서비스 분석. BI · 예측 · 계획을 통합. 애플리케이션 데이터는 회사 HANA DB에, BI/계획/예측 기능은 클라우드에 저장(SaaS)</td></tr>
+<tr><td>Digital Boardroom</td><td class="wrap">당해/전년 재무현황 실시간. 성장(Growth) · 수익성(Profitability) · 유동성(Liquidity) 주제별 FI KPI를 기본제공 형태로 표시</td></tr>
+</tbody>
+</table>
+</div>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>환경</th><th>SAC 연결 방식</th></tr></thead>
+<tbody>
+<tr><td class="wrap">SAP HANA On-Premise 사용</td><td class="wrap">브라우저로 SAC 호출, 리버스프록시로 회사데이터 접근 — <b>데이터는 회사 내부에 유지되고 브라우저 밖으로 나가지 않는다</b></td></tr>
+<tr><td class="wrap">Non-SAP-HANA</td><td class="wrap">데이터가 클라우드로 <span class="bad">복제되어 회사 네트워크를 벗어난다</span></td></tr>
+</tbody>
+</table>
+</div>
+
+<div class="note">
+  <div class="t">🔰 초보자 설명 — CDS 뷰와 SAC는 왜 필요할까</div>
+  <p>전통적 리포트는 "어제까지의 데이터"를 배치로 집계해 보여주는 경우가 많았습니다. CDS 뷰는 HANA 안에서 직접 실시간 계산하므로 <b>"지금 이 순간"</b>의 재무상태를 조회할 수 있습니다. SAC는 여기에 예측·시각화·계획을 얹어 대시보드 하나로 회사 상황을 보게 합니다.</p>
+</div>
+
+</div>
+
+
+<!-- ══════════ LESSON 3 ══════════ -->
+<div class="lesson" id="l3">
+<h2><span class="no">LESSON 3</span>고정·유동자산 — 감가실행 · 실지재고 · GR/IR · 재고평가</h2>
+
+<p><span class="tag">Unit 3</span><span class="tag">레슨 2개</span>Executing Closing Activities Within Asset Accounting · Managing Closing Activities in Materials Management</p>
+
+<h3>자산회계(FI-AA) 연말결산 3단계</h3>
+
+<div class="step"><span class="n">STEP 1</span><p>자산회계의 회계연도 변경은 <b>총계정원장(FI-GL)의 중앙 잔액이월 프로그램</b>으로 수행된다 — FI-AA 자체 프로그램이 아니다</p></div>
+<div class="step"><span class="n">STEP 2</span><p>실지재고조사 수행 및 조정사항 전기 → <b>감가상각전기실행</b>이 총계정원장에 감가상각을 전기</p></div>
+<div class="step"><span class="n">STEP 3</span><p><b>자산이력명세서(Asset History Sheet)</b> 생성</p></div>
+
+<p>연말결산 요건은 <b>법적요건</b>(세무당국이 요구하는 준비)과 <b>기술적·조직적 요건</b>(회계조직 지원을 위해 기술적으로 필요한 준비)으로 나뉩니다. 결산 프로세스는 국가별로 다를 수 있습니다.</p>
+
+<h4>감가상각전기 프로그램</h4>
+
+<p>Fiori 앱 <b>Schedule Asset Accounting Jobs</b>로 접근합니다. 기록 가능 항목: 정상(장부·원가회계) 감가상각 / 특별세무감가상각(준비금 배분·상각) / 특별상각(수동계획 상각 포함) / 귀속이자(Imputed Interest) / 취득·제작원가의 재평가.</p>
+
+<ul>
+  <li>FI 계정과 추가 계정지정오브젝트에 <b>직접 전기</b>된다</li>
+  <li>테스트런에서 잠긴 코스트센터 등 오류를 오류리스트로 표시한다</li>
+  <li>전기는 <span class="key">하나의 실제 CO 계정지정오브젝트에만</span> 가능. 추가 통계적 전기는 다른 오브젝트에도 가능</li>
+  <li>감가상각값을 변경하면 <b>감가상각전기를 재실행</b>해야 한다</li>
+</ul>
+
+<h4>회계연도 변경(Fiscal Year Change)</h4>
+
+<p>시스템은 G/L 잔액이월을 <span class="key">FI-AA 서브레저의 신규 회계연도 생성</span>으로 인식합니다. 이월 시 구 회계연도 자산가치가 누적 이월되고, 이후 신규 회계연도 기준일로 자산전기가 가능해지면서 <b>동시에 구 회계연도 전기도 계속 가능</b>합니다.</p>
+
+<div class="note warn">
+  <div class="t">Further Reading</div>
+  <p>구 회계연도의 <b>마지막 기간 이전</b>에는 회계연도를 변경할 수 없습니다.</p>
+</div>
+
+<h4>자산이력명세서</h4>
+
+<p>결산에서 가장 중요하고 포괄적인 보고서로, 대차대조표처럼 국가별 요건에 따라 여러 버전을 만듭니다. 각 버전의 히스토리시트 그룹: <b>회계연도 초 장부가액 · 취득 · 처분 · 재계정지정 · 감가상각 · 회계연도 말 장부가액</b>.</p>
+
+<h3>실지재고조사(Physical Inventory) 3가지</h3>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>방법</th><th>설명</th></tr></thead>
+<tbody>
+<tr><td>연속재고조사</td><td class="wrap">회계연도 내내 실사, 모든 자재는 연중 <b>최소 1회</b> 실사</td></tr>
+<tr><td>정기재고조사</td><td class="wrap">대차대조표 기준일에 전체 실사. <span class="bad">실사 중 창고 전체가 자재이동 차단</span></td></tr>
+<tr><td>순환재고조사</td><td class="wrap">일정 주기로 실사. 자재별 <b>순환카운트지시자</b>에 따라 주기 결정</td></tr>
+</tbody>
+</table>
+</div>
+
+<p>실사수량은 자재마스터에 새 수량으로 입력되고, 시스템기록수량과의 차이는 MM에서 전기됩니다. 재고감소 시 FI 전기는 <code>(차) 실지재고차이비용 / (대) 재고가치조정</code>.</p>
+
+<h3>GR/IR — 3단계와 결산일의 잔액</h3>
+
+<figure class="figwrap">
+<svg class="dgm" viewBox="0 0 1000 430" role="img" aria-label="GR/IR 3단계와 결산일 잔액 처리 도해. 구매오더는 FI 전기가 없고 입고에서 GR/IR 대변, 인보이스에서 GR/IR 차변이 발생하며, 결산일 잔액이 0이 아니면 인보이스만 있는 건은 자산측, 배송만 된 건은 부채측으로 조정계정에 전기한 뒤 다음 기간 첫날 자동 반전된다.">
+  <defs>
+    <marker id="fc2a" markerWidth="9" markerHeight="9" refX="7" refY="4.5" orient="auto">
+      <polygon class="arw" points="0,0 9,4.5 0,9"/></marker>
+    <marker id="fc2b" markerWidth="9" markerHeight="9" refX="7" refY="4.5" orient="auto">
+      <polygon class="arw-bad" points="0,0 9,4.5 0,9"/></marker>
+    <marker id="fc2c" markerWidth="9" markerHeight="9" refX="7" refY="4.5" orient="auto">
+      <polygon class="arw-ok" points="0,0 9,4.5 0,9"/></marker>
+  </defs>
+
+  <rect class="b-mut" x="30" y="30" width="260" height="84" rx="6"/>
+  <text class="t-h" x="50" y="56">① 구매오더</text>
+  <text class="t-s" x="50" y="78">MM 에서만 처리된다</text>
+  <text class="t-s c-bad" x="50" y="100">FI 전기 없음</text>
+
+  <path class="ln" d="M290 72 H326" marker-end="url(#fc2a)"/>
+
+  <rect class="b-key" x="330" y="30" width="300" height="84" rx="6"/>
+  <text class="t-h c-key" x="350" y="56">② 입고 GR</text>
+  <text class="m-s" x="350" y="78">차) 재고 · 소비    대) GR/IR</text>
+  <text class="t-s" x="350" y="100">MM 자재문서 + FI 문서 동시 생성</text>
+
+  <path class="ln" d="M630 72 H666" marker-end="url(#fc2a)"/>
+
+  <rect class="b-key" x="670" y="30" width="300" height="84" rx="6"/>
+  <text class="t-h c-key" x="690" y="56">③ 인보이스 IR</text>
+  <text class="m-s" x="690" y="78">차) GR/IR         대) 벤더</text>
+  <text class="t-s" x="690" y="100">②③ 순서는 바뀔 수 있다</text>
+
+  <path class="ln" d="M480 114 V140" marker-end="url(#fc2a)"/>
+  <path class="ln" d="M820 114 V128 H660 V140" marker-end="url(#fc2a)"/>
+
+  <rect class="b-hl" x="330" y="142" width="340" height="56" rx="6"/>
+  <text class="t-h" x="352" y="168">결산일 GR/IR 잔액 ≠ 0</text>
+  <text class="t-s" x="352" y="188">구매오더 항목 레벨로 분석한다</text>
+
+  <path class="ln-bad" d="M420 198 V214 H250 V230" marker-end="url(#fc2b)"/>
+  <path class="ln-bad" d="M580 198 V214 H750 V230" marker-end="url(#fc2b)"/>
+
+  <rect class="b-bad" x="40" y="232" width="420" height="88" rx="6"/>
+  <text class="t-h c-bad" x="62" y="258">인보이스 O · 배송 X</text>
+  <text class="t-s" x="62" y="280">벤더에 대한 채권 성격</text>
+  <text class="t-s" x="62" y="302">→ 대차대조표 자산측에 별도 표시</text>
+
+  <rect class="b-bad" x="540" y="232" width="420" height="88" rx="6"/>
+  <text class="t-h c-bad" x="562" y="258">배송 O · 인보이스 X</text>
+  <text class="t-s" x="562" y="280">벤더에 대한 채무 성격</text>
+  <text class="t-s" x="562" y="302">→ 대차대조표 부채측에 별도 표시</text>
+
+  <path class="ln-ok" d="M250 320 V336 H495"/>
+  <path class="ln-ok" d="M750 320 V336 H495"/>
+  <path class="ln-ok" d="M495 336 V348" marker-end="url(#fc2c)"/>
+
+  <rect class="b-ok" x="40" y="350" width="920" height="62" rx="6"/>
+  <text class="t-h c-ok" x="62" y="376">조정계정(Adjustment Account)에 전기 → 다음 기간 첫날 자동 반전</text>
+  <text class="t-s" x="62" y="398">그대로 두면 일상 업무에서 잘못된 결과를 낳는다. GR/IR 정산계정은 월 단위 유지가 권장된다.</text>
+</svg>
+<figcaption><span class="fno">그림 2</span>GR/IR 3단계와 결산일 잔액 분해. 자동반전이 붙는 이유는 이 전기가 보고 목적의 일시적 조정이기 때문이다.</figcaption>
+</figure>
+
+<h4>자동정리가 안 되는 경우</h4>
+
+<p>금액·가격이 일치하면 시스템이 자동 정리하지만, 다음은 수작업으로 남습니다 — 인보이스/입고 누락 / 금액 불일치 / 오래된 가격표로 생성된 구매오더 항목 / 잘못된 GR/IR 계정에 전기된 배송비. <span class="bad">이 예외처리가 기간마감을 지연시키는 대표적 요인</span>입니다.</p>
+
+<p>S/4HANA의 <b>Goods and Invoice Receipt Reconciliation</b>은 <b>Monitor GR/IR Account Reconciliation</b>과 <b>Intelligent Goods and Invoice Receipt Account Reconciliation</b> 앱으로 필요한 데이터를 한 화면에 모읍니다. 머신러닝 기반 제안서비스가 미매칭 항목의 다음 단계를 제안하고 <span class="key">우선순위값과 차이의 추정 근본원인</span>도 함께 제시합니다.</p>
+
+<h3>재고평가 3그룹</h3>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>그룹</th><th>평가 방식</th></tr></thead>
+<tbody>
+<tr><td>원자재·소모품·소비재 (RSC)</td><td class="wrap">주로 외부구매, <b>이동평균가</b> 관리 — 대차대조표 가치 = 현재 이동평균가 × 재고수량</td></tr>
+<tr><td>재공품 (WIP)</td><td class="wrap">주로 자체생산, <b>표준가</b> 평가 — <span class="bad">추가 조치 없이는 기준일 WIP 가치가 대차대조표에 나타나지 않는다</span></td></tr>
+<tr><td>제품 (FG)</td><td class="wrap">이미 생산되어 창고에 전기된 자체생산품 — 재고수량 × 제품 표준가</td></tr>
+</tbody>
+</table>
+</div>
+
+<h4>RSC 평가와 델타전기</h4>
+
+<p>대차대조표 평가방법은 현재시장가 기준 최저가결정(<code>RMNIWE00</code>), 이동률·보장범위 기준 최저가결정(<code>RMNIWE10</code> / <code>RMNIWE20</code>)이며 단독 또는 다단계 조합으로 씁니다. 비고속회전·장기보장 재고에는 비율 감가를 적용할 수 있습니다. 계정레벨 집계는 <code>MRN9</code>(Balance Sheet Values by Account).</p>
+
+<p><b>델타전기(Delta Posting)</b>는 대차대조표가치와 대차대조표계정 장부가치의 <span class="key">차이만</span> 자동 전기하며, 플랜트·이익센터·세그먼트·사업영역별 원자재재고 원배정을 포함합니다.</p>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>전제조건</th><th>내용</th></tr></thead>
+<tbody>
+<tr><td>Customizing</td><td class="wrap">MM → Valuation and Account Assignment → Balance Sheet Valuation Procedures → <b>Set Up Delta Run</b></td></tr>
+<tr><td>필수 배정</td><td class="wrap">문서유형·헤더텍스트 외에 <b>회계원칙(Accounting Principle)</b>과 MM 계정결정용 <b>계정수정자(Account Modifier)</b></td></tr>
+<tr><td>번호범위</td><td class="wrap">트랜잭션유형 <code>MY</code>용 자재원장문서 번호범위 설정</td></tr>
+<tr><td>계정결정</td><td class="wrap">MM 계정결정의 트랜잭션 <code>BSD</code>(델타대차대조표) · <code>UMD</code>(델타 상계전표)</td></tr>
+<tr><td>확인·반전</td><td class="wrap"><code>MRN9DELTA</code> (Delta Runs for Balance Sheet Valuation)</td></tr>
+</tbody>
+</table>
+</div>
+
+<p>회계원칙은 병행회계를 단순화하는 역할로 <b>원장그룹에 배정</b>되어, 해당 회계원칙 관련 문서는 대응 원장그룹의 원장에만 전기됩니다. 계정수정자 덕분에 한 기간에 <span class="key">여러 평가접근법(서로 다른 회계기준)으로 여러 번</span> 평가해 각각 별도 계정에 결과를 표시할 수 있습니다.</p>
+
+<h4>WIP · FG 평가</h4>
+
+<div class="step"><span class="n">WIP 1</span><p>기준일 기준 WIP를 계산해 사용할 WIP 가치 결정 — <b>실제원가법</b>(오더 실제원가 차변 − 부분납품 총대변) 또는 <b>목표원가법</b>(잔여수량 × 해당 거래의 계획원가) 중 선택. 어느 원가배분을 자본화할지는 Customizing에서 결정</p></div>
+<div class="step"><span class="n">WIP 2</span><p>생산오더 <b>정산(Settlement)</b>이 대차대조표에 WIP 가치를 표시하고 동시에 손익계산서에 재고변동을 전기</p></div>
+<div class="step"><span class="n">WIP 3</span><p>기준일 이후 생산오더가 최종 확인·정산되면 WIP가 취소되고 기준일 전기가 다음 기간에 반전 → 대차대조표에는 완제품 가치, 생산오더는 대변처리</p></div>
+<div class="step"><span class="n">FG</span><p>수량구조 기준 원가계산(<code>CK11N</code>) — 원가계산변형으로 세무/장부 재고원가계산 여부 결정 → 가치결정·가격갱신 → 자재마스터에 갱신된 표준가가 없으면 <code>MRN9</code>로 평가차이 전기</p></div>
+
+<div class="note">
+  <div class="t">🔰 초보자 설명 — RSC · WIP · FG를 왜 다르게 평가할까</div>
+  <p>원자재는 사온 가격(이동평균가)이 명확하지만, 만들다 만 재공품이나 완성품은 "얼마짜리인지"를 <b>원가계산으로 추정</b>해야 합니다. 그래서 재고 성격에 따라 시장가 대 표준원가로 방법이 갈리고, 특히 WIP는 "절반쯤 만든 물건의 가치"를 결산일에 별도로 계산해야 재무제표에 반영됩니다.</p>
+</div>
+
+<div class="note ok">
+  <div class="t">📌 개인 E2E 프로젝트와의 연결점</div>
+  <p>프로젝트는 <b>벤더 사입 → 재판매 트레이딩</b>이라 생산이 없습니다. 따라서 위 3그룹 중 <span class="key">RSC 하나만</span> 해당하고 WIP·FG는 대상 밖입니다 — 이동평균가(V)로 관리하기로 한 결정이 여기 그대로 맞습니다. 대신 <b>유통기한이 임박한 재고의 저가평가</b>는 개념적으로 "장기보장 재고 비율감가"와 같은 자리에 있습니다. <code>ZBATCH_ZONE</code>이 정상→임박 SLoc(1900/2900/3900)으로 옮겨 놓은 재고를 평가 대상으로 뽑아낼 수 있다는 뜻입니다. 다만 <b>평가 전기 자체는 자동화하지 않습니다</b> — 회계 금액에 직접 영향을 주므로 목록 제시까지만 합니다.</p>
+</div>
+
+</div>
+
+
+<!-- ══════════ LESSON 4 ══════════ -->
+<div class="lesson" id="l4">
+<h2><span class="no">LESSON 4</span>채권·채무 — 잔액확인 · 외화평가 · 가치조정 · 재분류</h2>
+
+<p><span class="tag">Unit 4</span><span class="tag">레슨 4개</span>Balance Confirmations · Foreign Currency Valuation · Value Adjustments · Regrouping</p>
+
+<h3>채권/채무 결산 4단계</h3>
+
+<div class="step"><span class="n">STEP 1</span><p>회계연도 초 총계정원장의 <b>중앙 잔액이월 프로그램</b> 실행 — 고객·벤더 잔액을 다음 회계연도로 이월(벤더/고객 계정 별도 실행도 가능)</p></div>
+<div class="step"><span class="n">STEP 2</span><p>구 회계연도 전기기간 차단, <b>결산전기용 특별기간 오픈</b></p></div>
+<div class="step"><span class="n">STEP 3</span><p>잔액확인 → 외화문서 평가 → 가치조정 → 채권 재분류</p></div>
+<div class="step"><span class="n">STEP 4</span><p>잔액확인 완료 후 <b>특별기간 마감</b></p></div>
+
+<h3>잔액확인서(Balance Confirmation)</h3>
+
+<p>가변적인 수의 고객·벤더에 대해 <b>회신카드(Reply Slip)</b>를 포함한 확인서가 자동 생성되고, <b>조정리스트</b>와 결과테이블도 함께 생성됩니다. 확인서·회신카드는 고객/벤더에게, 리스트는 통제센터(내부/외부 감사인)로 갑니다. 회신이 오면 조정리스트와 비교합니다.</p>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>항목</th><th>내용</th></tr></thead>
+<tbody>
+<tr><td>리포트</td><td class="wrap">고객 <code>SAPF130D</code> · 벤더 <code>SAPF130K</code> (PDF 양식은 <code>SAPF130D_PDF</code> / <code>SAPF130K_PDF</code>)</td></tr>
+<tr><td>지원 절차 3가지</td><td class="wrap">잔액확인(Balance Confirmation) · 잔액통지(Balance Notification) · 잔액요청(Balance Request)</td></tr>
+<tr><td>생성 리스트</td><td class="wrap">회사코드별 체크리스트·오류리스트(수신여부 검토용), 결과리스트(회신건수·총액)</td></tr>
+<tr><td>독촉</td><td class="wrap">연체된 잔액확인·조회에 대한 독촉장 인쇄 — 선택화면에 해당 고객/벤더와 기존 발행일·회신일 입력</td></tr>
+<tr><td>주소ID</td><td class="wrap">발송 주소ID를 임의 지정 가능(예: 내부감사부서용 별도 ID) → <span class="key">내부감사 관심 잔액만 별도 처리</span></td></tr>
+</tbody>
+</table>
+</div>
+
+<h3>외화평가 — 이 Unit의 핵심</h3>
+
+<p>재무제표 생성 전에 수행합니다. 대상은 두 가지 — <b>외화로 관리하는 대차대조표계정(G/L)</b>과 <b>외화로 전기된 미결항목(고객·벤더·G/L)</b>. 리포트 <code>FAGL_FCV</code>가 둘 다 평가하고, 생성된 전기문서는 <span class="key">다음 달 첫날 동일 프로그램으로 자동 반전</span>됩니다(평가영역과 무관하게 반전).</p>
+
+<figure class="figwrap">
+<svg class="dgm" viewBox="0 0 1000 440" role="img" aria-label="외화 미결항목 평가 도해. 인보이스 전기일 환율로 환산된 미결항목을 결산일 환율로 재평가해 차이를 외화평가비용과 외화조정계정에 전기하고, 다음 달 첫날 자동 반전한다. 조정계정은 직접 전기가 불가능하므로 별도 조정계정을 쓰며, 델타로직에서는 반전 없이 차액만 전기한다.">
+  <defs>
+    <marker id="fc3a" markerWidth="9" markerHeight="9" refX="7" refY="4.5" orient="auto">
+      <polygon class="arw-key" points="0,0 9,4.5 0,9"/></marker>
+  </defs>
+
+  <rect class="b-mut" x="30" y="30" width="215" height="92" rx="6"/>
+  <text class="t-h" x="48" y="56">① 전기일 · 인보이스</text>
+  <text class="m-s" x="48" y="80">USD 500 → EUR 600</text>
+  <text class="t-xs" x="48" y="102">입력 시점 환율로 환산</text>
+
+  <path class="ln-key" d="M245 76 H271" marker-end="url(#fc3a)"/>
+
+  <rect class="b-key" x="275" y="30" width="215" height="92" rx="6"/>
+  <text class="t-h c-key" x="293" y="56">② 결산일 · 평가</text>
+  <text class="m-s" x="293" y="80">USD 500 → EUR 640</text>
+  <text class="t-xs" x="293" y="102">결산일 환율로 재평가</text>
+
+  <path class="ln-key" d="M490 76 H516" marker-end="url(#fc3a)"/>
+
+  <rect class="b-key" x="520" y="30" width="215" height="92" rx="6"/>
+  <text class="t-h c-key" x="538" y="56">③ 평가차이 전기</text>
+  <text class="m-s" x="538" y="80">차) 외화평가비용  40</text>
+  <text class="m-s" x="538" y="100">대) 외화조정계정  40</text>
+
+  <path class="ln-key" d="M735 76 H761" marker-end="url(#fc3a)"/>
+
+  <rect class="b-ok" x="765" y="30" width="205" height="92" rx="6"/>
+  <text class="t-h c-ok" x="783" y="56">④ 익월 1일 반전</text>
+  <text class="t-xs" x="783" y="80">FAGL_FCV 가 되돌린다</text>
+  <text class="t-xs" x="783" y="102">미결항목 원금은 그대로</text>
+
+  <rect class="b-bad" x="30" y="150" width="460" height="82" rx="6"/>
+  <text class="t-h c-bad" x="50" y="176">왜 조정계정인가</text>
+  <text class="t-s" x="50" y="198">조정계정(Recon. Account)에는 직접 전기할 수 없다.</text>
+  <text class="t-s" x="50" y="220">대차대조표에서 같은 라인에 표시되는 별도 계정에 전기한다.</text>
+
+  <rect class="b-ok" x="510" y="150" width="460" height="82" rx="6"/>
+  <text class="t-h c-ok" x="530" y="176">실현 환차는 언제 전기되나</text>
+  <text class="t-s" x="530" y="198">미결항목 정리(Clearing) 시점에 시스템이 자동 전기.</text>
+  <text class="t-s" x="530" y="220">평가는 미실현 금액이다 — 그래서 반드시 반전된다.</text>
+
+  <text class="t-s c-key" x="30" y="272">연말 평가를 다음 해에 반전할 수 없는 국가 → 델타전기로직(Delta Posting Logic)</text>
+
+  <rect class="b-ghost" x="30" y="284" width="940" height="134" rx="6"/>
+  <text class="t-h" x="52" y="312">델타로직에서 달라지는 것</text>
+  <text class="t-s" x="52" y="338">· 취소(반전) 전기가 없다 — 문서 1건만 전기된다</text>
+  <text class="t-s" x="52" y="360">· 다음 평가 때 환율이 그대로면 추가 전기 없음. 변동분만 재평가한다</text>
+  <text class="t-s" x="52" y="382">· 평가차이 이력은 테이블 FAGL_BSBW_HISTRY 에 쌓인다</text>
+  <text class="t-s" x="52" y="404">· 설정 경로: Valuate → Activate Delta Logic (테이블뷰 V_FAGL_FCV_DELTA)</text>
+</svg>
+<figcaption><span class="fno">그림 3</span>미결항목 외화평가의 4단계와 델타로직. 평가는 미실현이라 반전되고, 실현 환차는 정리 시점에 따로 전기된다.</figcaption>
+</figure>
+
+<h4>평가방법(Valuation Method) 정의</h4>
+
+<p>평가실행이 작동하려면 FI <b>평가영역(Valuation Area)</b>을 입력해야 하고, 평가영역은 Customizing에서 정의하고 평가방법을 배정해야 합니다 — <span class="bad">실행 중에는 불가능합니다.</span></p>
+
+<ul>
+  <li>평가방법은 <b>최저가원칙 / 항상평가</b> 등 어떤 평가접근법을 쓸지 정의한다</li>
+  <li>환율차이 전기방식(문서유형), 환율결정 기준(환율유형)을 지정하며 <b>시간종속적</b>으로 유지 가능</li>
+  <li>잔액평가나 복수 신규G/L을 쓰면 <span class="key">평가영역–회계원칙 연결이 필수</span>. 단일원장의 미결항목평가만 한다면 필수는 아니다</li>
+  <li>경로: Financial Accounting → General Ledger Accounting → Periodic Processing → Valuate → <b>Define Valuation Methods</b></li>
+</ul>
+
+<div class="note warn">
+  <div class="t">헷갈리기 쉬운 두 가지</div>
+  <p>FI의 <b>평가영역(Valuation Area)</b>과 자산회계의 <b>감가상각영역(Depreciation Area)</b>은 다른 것입니다. 단순 로컬평가만 필요하면 평가영역은 1개만 정의하면 됩니다.</p>
+</div>
+
+<h4>원장접근법(Ledger Approach) 설정 순서</h4>
+
+<div class="step"><span class="n">1</span><p>리딩원장 외에 <b>최소 1개의 비리딩원장</b>이 있어야 한다</p></div>
+<div class="step"><span class="n">2</span><p>FI 원천 평가영역 정의 — … → <b>Define Valuation Areas</b></p></div>
+<div class="step"><span class="n">3</span><p>회계원칙 정의 — … Ledgers → Parallel Accounting → <b>Define Accounting Principles</b></p></div>
+<div class="step"><span class="n">4</span><p>평가영역에 회계원칙 배정 — <b>Assign Valuation Areas and Accounting Principles</b></p></div>
+<div class="step"><span class="n">5</span><p>회계원칙을 원장과 결합 — <b>Assign Accounting Principle to Ledger Groups</b></p></div>
+<div class="step"><span class="n">6</span><p>평가영역별 평가방법(최저가원칙/항상평가 등)을 Customizing에서 정의</p></div>
+
+<h4>계정결정과 번호범위</h4>
+
+<p>미결항목 기준 관리계정의 외화평가에서는 <span class="key">서브레저계정별 조정계정에 평가된 환차익/환차손 계정</span>을 정의해야 합니다. 경로: … → Foreign Currency Valuation → <b>Prepare Automatic Postings for Foreign Currency Valuation</b>. 원장솔루션에서는 여러 원장에 동일 계정이 전기되므로 <b>평가영역을 지정하지 않고(필드 공란)</b> 정의하면 충분합니다.</p>
+
+<p>평가실행ID 번호범위는 갱신실행을 내부 카운트하기 위해 필요하며 결과화면에도 실행번호가 표시됩니다. <span class="bad">클라이언트당 1개 구간만</span> 정의(번호 <code>01</code>, 최대한 크게) — 트랜잭션 <code>FAGL_FCV_SNRO</code>.</p>
+
+<h4>FAGL_FCV 부가 기능</h4>
+
+<ul>
+  <li>병렬 다이얼로그 프로세스로 데이터선택 가능, <b>데이터선택뿐 아니라 처리 자체도 병렬</b> 지원</li>
+  <li>테스트런은 로그로 저장 — Outputs / Technical Settings 탭에서 확인</li>
+  <li>시뮬레이션 실행 결과를 특정 <b>시뮬레이션 확장원장</b>에 리포팅용으로 전기 가능</li>
+</ul>
+
+<div class="note warn">
+  <div class="t">델타로직 — 실현환차의 두 번째 전기</div>
+  <p>G/L에서 외화문서를 정리할 때는 원 인보이스일자와 정리일자 간 금액차이를 실현환율차이로 항상 표시·전기합니다. 그런데 정리문서는 <b>모든 원장에 입력</b>되고 원장별로 실현차이가 다를 수 있어, 정확한 실현환차는 <span class="key">다음 외화평가실행 때 평가영역별로</span> <code>FAGL_BSBW_HISTRY</code>의 차액과 정리일 실제환율로 결정됩니다. 이 두 번째 전기의 전기일자는 평가실행일(보통 월말)입니다.<br>
+  "정리일자를 반전일자로 사용" 지시자는 기간이 닫혀 있으면 오류가 나고 배치입력세션에 저장되므로 <b>필요한 경우만</b> 씁니다.</p>
+</div>
+
+<h3>가치조정(Value Adjustment)</h3>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>옵션</th><th>방법</th></tr></thead>
+<tbody>
+<tr><td>개별가치조정</td><td class="wrap"><b>특수G/L거래 E</b>로 입력 — 고객계정에 입력되고 특수G/L계정 "채권개별가치조정"에 전기</td></tr>
+<tr><td>정률개별가치조정</td><td class="wrap">추가평가프로그램 <code>SAPF107V</code></td></tr>
+<tr><td>수동 정률조정</td><td class="wrap">조정액 산정 후 수동 G/L 전기 — <code>(차) 정률가치조정비용 / (대) 가치조정</code></td></tr>
+</tbody>
+</table>
+</div>
+
+<h4>부실채권 개별가치조정 이후</h4>
+
+<p>회수불능 또는 회수완료가 확인되면 <b>개별가치조정을 반전</b>합니다. 회수불능이 확정되면 고객계정에서 채권을 정리하고 <b>채권상각(Depreciation of Receivables)</b> 계정에 전기하며, 이때 <span class="key">판매세(Sales Tax)를 조정</span>합니다.</p>
+
+<h4>정률개별가치조정 SAPF107V 절차</h4>
+
+<div class="step"><span class="n">1</span><p>매출채권 구성에서 <b>평가조정키(Valuation Adjustment Key)</b>별 대손율(%)과 연체기간(일) 정의</p></div>
+<div class="step"><span class="n">2</span><p>계정결정테이블에서 부실채권용 <b>조정계정·대손비용계정</b> 설정</p></div>
+<div class="step"><span class="n">3</span><p>대상 <b>고객 마스터레코드에 평가조정키 배정</b></p></div>
+<div class="step"><span class="n">4</span><p>정기평가실행 → 평가제안 생성(수동수정 가능) → 동의하면 총계정원장으로 이체해 전기 생성. 시스템이 <span class="key">기준일 조정전기와 익일 반전전기를 자동 생성</span></p></div>
+
+<h3>재분류(Regrouping)</h3>
+
+<p>대차대조표에서 채권·채무는 별도 표시되어야 하는데, 일부 벤더가 기말에 <b>차변잔액</b>을 가질 수 있습니다. 이를 채권 섹션에 별도 그룹으로 표시해야 합니다. 일부 국가는 <b>잔여기간(Remaining Life)</b>별 그룹핑도 요구합니다.</p>
+
+<ul>
+  <li>두 재분류 모두 전용 프로그램이 수행하고, 일상업무에는 불필요하므로 <span class="key">다음 기간 첫날 자동 반전</span>된다</li>
+  <li>장기채무는 다른 계정으로 재계정지정된다</li>
+  <li>조정계정 직접전기 불가 원칙에 따라 <b>조정계정이 상계계정으로</b> 사용된다</li>
+</ul>
+
+<h4>FAGL_CL_REGROUP</h4>
+
+<p>채권/채무를 잔여기간별로 정렬하고 필요한 이체전기를 수행하며, 변경된 조정계정 같은 조정전기도 만듭니다. Customizing에서 <b>정렬방법(Sort Method)</b>을 정의할 때 재분류 대상 케이스를 선택하고, <span class="bad">이체전기가 생성되도록 정렬방법에서 관련 선택을 반드시 해야</span> 합니다.</p>
+
+<div class="note warn">
+  <div class="t">Further Reading</div>
+  <p>외화평가와 재분류는 법적요건에 따라 여러 방식으로 완료될 수 있고, 결과는 <b>재무제표버전별로 다른 계정</b>에 전기됩니다. 재분류프로그램은 연중 벤더의 조정계정이 변경된 경우에도 사용됩니다.</p>
+</div>
+
+<h4>리포팅 기반 재분류 — Manage Global Hierarchies</h4>
+
+<p>Manage Global Hierarchies가 관리하는 재무제표버전에서는 <b>재분류속성(Reclassification Attribute)</b>을 대차대조표 서브노드에 직접 배정할 수 있습니다. 그러면 대차대조표 리포트 실행 시 잔여기간에 따라 값이 표시되고 <span class="key">조정계정 전기가 불필요</span>합니다.</p>
+
+<div class="step"><span class="n">1</span><p>Customizing에서 <b>Aging Set</b> 정의 — General Ledger Accounting → Periodic Processing → Advanced Valuation in General Ledger Accounting → General Settings → <b>Define Aging Increments for Advanced Valuation</b> (Aging 카테고리 = <code>REC</code> Reclassification)</p></div>
+<div class="step"><span class="n">2</span><p>해당 재무제표버전의 <b>Hierarchy 탭</b>에서 Aging Set 배정</p></div>
+<div class="step"><span class="n">3</span><p>Aging Increments를 관련 대차대조표 서브노드에 배정</p></div>
+<div class="step"><span class="n">4</span><p>정렬 대상 G/L계정을 해당 서브노드에 추가</p></div>
+
+<div class="note warn">
+  <div class="t">대체가 아니라 대안이다</div>
+  <p>이 리포팅 기반 재분류는 <code>FAGL_CL_REGROUP</code>(Balance Sheet Supplement – OI-Analysis)을 <span class="bad">대체하지 않습니다.</span> <code>FAGL_CL_REGROUP</code>의 기말전기 실행 <b>전에</b> 잔여기간별 채권/채무를 리포팅하는 대안 옵션입니다.</p>
+</div>
+
+<h4>계열사 채권/채무 · 조정계정 변경</h4>
+
+<p>거래상대방이 고객이자 벤더이며 계열사(그룹 내 다른 회사코드)인 경우 — Non-SAP 시스템 절차는 ① 고객·벤더 마스터의 일반통제데이터 <b>Trading Partner</b> 필드에 동일 회사ID 정의 ② 마스터데이터에 계열사용 <b>대체 조정계정</b> 정의 ③ Customizing에서 이 특수조정계정 기준 조정계정 배정.</p>
+
+<p>회계연도 중 고객/벤더 마스터의 조정계정을 변경할 수 있습니다. 변경 수행 리포트는 기준일의 모든 채권을 <b>신규 조정계정 기준</b>으로 표시하며, 관련 지시자는 <code>FAGL_CL_REGROUP</code>의 <b>Parameters 탭</b>에 있습니다.</p>
+
+<div class="note">
+  <div class="t">🔰 초보자 설명 — 재분류는 왜 필요할까</div>
+  <p>평소에는 "이 벤더는 채무계정"으로 단순하게 관리하지만, 그 벤더에게 받을 돈이 생기면(차변잔액) 대차대조표에서는 채권 쪽에 보여줘야 정확합니다. 매일 재분류하면 번거로우니 <b>결산 시점에만 한 번 재분류하고 다음날 원상복구(반전)</b>합니다. 연중에는 편의 위주로 관리하고, 재무제표를 만드는 순간에만 잠깐 "정확한 모습"으로 바꾸는 셈입니다.</p>
+</div>
+
+<div class="note ok">
+  <div class="t">📌 개인 E2E 프로젝트와의 연결점</div>
+  <p>CL04는 현재 단일 통화·단일 원장 전제이므로 외화평가는 <b>대상이 없습니다</b>. 다만 <code>ZPRICE_CHECK</code>가 하는 일(<code>EINE-NETPR</code> 정보레코드가 vs <code>MBEW-VERPR</code> 이동평균가 괴리 <span class="key">알림</span>)은 이 Unit의 평가 로직과 설계 철학이 같습니다 — <b>차이를 찾아서 보여줄 뿐 스스로 전기하지 않는다.</b> 외화평가조차 자동 반전을 전제로 하는 이유가 "미실현 금액은 장부에 눌러두지 않는다"인 것과 같은 맥락입니다.</p>
+</div>
+
+</div>
+
+
+<!-- ══════════ LESSON 5 ══════════ -->
+<div class="lesson" id="l5">
+<h2><span class="no">LESSON 5</span>손익 — 매출원가회계 · 발생/이연 · Accruals Management</h2>
+
+<p><span class="tag">Unit 5</span><span class="tag">레슨 4개</span>Cost of Sales Accounting · Accruals and Deferrals · Manual Accruals · Purchase Order Accruals</p>
+
+<h3>손익계산서 작성방식 2가지</h3>
+
+<p>어느 쪽을 쓰든 <span class="key">영업결과는 동일</span>합니다. 법적요건으로 강제되거나, 법적 대안이 있으면 국제비교가능성 같은 사업적 기준으로 회사가 선택합니다.</p>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>방식</th><th>무엇과 무엇을 대응시키는가</th></tr></thead>
+<tbody>
+<tr><td>기간회계</td><td class="wrap">기간 <b>총산출</b>(매출 − 재고감소 또는 + 재고증가)과 기간 <b>총비용</b>(비용유형별 그룹핑 = 유사 비용계정끼리만 합산) — 생산요소별 비용배분 구조를 보여준다</td></tr>
+<tr><td>매출원가회계</td><td class="wrap">기간 <b>매출액</b>과 기간 <b>매출원가</b>. 비용을 유형이 아닌 <span class="hl">기능(생산·영업·관리·R&amp;D)</span>별로 그룹핑하고, 매출원가는 <b>출고 시점</b>에 결정된다</td></tr>
+</tbody>
+</table>
+</div>
+
+<h4>기능영역(Functional Area)</h4>
+
+<p>매출원가회계는 <span class="key">동일 비용계정에 전기된 비용을 서로 다른 보고서 항목으로 분리</span>하기 위해 기능영역이라는 조직단위를 씁니다 — 생산관련 인건비는 매출총이익에, 기타 목적 인건비는 총간접비 항목에 들어가는 식입니다.</p>
+
+<p>매출원가회계는 <b>유니버설저널(<code>ACDOCA</code>)의 일부</b>이며, 기능영역은 다음 우선순위로 채워집니다.</p>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>순서</th><th>도출 방식</th></tr></thead>
+<tbody>
+<tr><td>① 최우선</td><td class="wrap">수동입력</td></tr>
+<tr><td>②</td><td class="wrap">대체규칙(Substitution)으로 자동입력</td></tr>
+<tr><td>③</td><td class="wrap">손익계정 마스터레코드의 기능영역 자동복사</td></tr>
+<tr><td>④</td><td class="wrap">CO 오브젝트 마스터레코드의 기능영역 자동복사</td></tr>
+</tbody>
+</table>
+</div>
+
+<p>바람직한 설정은 <span class="hl">수동입력이 필요 없게</span> 만들고 CO 오브젝트·손익계정·대체규칙에서 자동 도출되게 하는 것입니다.</p>
+
+<h3>발생(Accruals)과 이연(Deferrals)</h3>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>구분</th><th>정의</th></tr></thead>
+<tbody>
+<tr><td>발생 Accruals</td><td class="wrap">재무적으로는 <b>당기</b>에 속하는 비용/수익인데, 인보이스 수취·발행 후에야 <b>후속기간</b>에 전기된다</td></tr>
+<tr><td>이연 Deferrals</td><td class="wrap">인보이스 수취·발행 시 <b>당기</b>에 전기되지만, 재무적으로는 (일부 또는 전부) <b>미래기간</b>에 속한다</td></tr>
+</tbody>
+</table>
+</div>
+
+<p>기본 동작은 같습니다 — 비용을 올바른 기간에 넣기 위해 발생/이연 문서를 입력한 뒤 <b>이후 단계에서 반전</b>합니다. 이때 <span class="key">원문서의 반전일자가 반전문서의 전기일자</span>가 됩니다.</p>
+
+<h4>예시 — 창고임대료</h4>
+
+<pre><code>12월 초  3개월치 선지급    (차) 입주비용 1500 / (대) 은행     1500
+12/31    1개월만 사용       (차) 선급비용 1000 / (대) 입주비용 1000
+ 1/ 1    반전               (차) 입주비용 1000 / (대) 선급비용 1000</code></pre>
+
+<p>7번째 기간에 수취·전기된 인보이스가 연중 사용되는 재화에 대한 것이라면, 120의 비용을 전 기간에 균등배분합니다 — 1~6기간은 각 10씩 발생전기, 인보이스 수취 후 남은 5개월에 50을 배분.</p>
+
+<h4>반복전기와 발생계정</h4>
+
+<p>매기 <b>정확히 같은 금액</b>이 같은 계정에 전기되는 발생은 <b>반복전기(Recurring Entry)</b> 프로그램이 적합합니다. 전기기록은 <code>비용 → 기타채무(또는 충당금)</code>이고, 발생을 수행하는 매 기간마다 그 계정의 대변잔액이 늘어납니다.</p>
+
+<div class="note warn">
+  <div class="t">기타채무인가 충당금인가</div>
+  <p>발생금액과 사유가 <b>확실하면 기타채무(Other Payables)</b>, 불확실해서 <b>추정만 가능하면 충당금(Provisions)</b>에 비용을 전기합니다. 계정 선택이 곧 금액의 확실성을 선언하는 것입니다.</p>
+</div>
+
+<h3>SAP S/4HANA Accruals Management</h3>
+
+<p>전통적 발생 프로세스의 문제는 데이터소스가 여러 곳으로 나뉘어 비일관적 수작업이 생긴다는 점입니다 — 높은 수작업 부담, 높은 오류율, 비투명·비감사가능성.</p>
+
+<p>Accruals Management는 발생금액을 자동 계산·검토·전기합니다. <b>Manual Accruals</b>의 계약형 데이터가 <b>Accrual Engine</b>으로 전달되고, 엔진이 처리 후 정기전기를 수행합니다(엔진을 직접 조작하는 게 아니라 애플리케이션 컴포넌트를 통해 간접 조작). <b>Purchase Order Accruals</b> 컴포넌트는 구매오더 발생을 자동 계산·전기합니다.</p>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>Accrual Engine 특성</th><th>내용</th></tr></thead>
+<tbody>
+<tr><td>G/L 통합</td><td class="wrap">총계정원장에 완전 통합, <b>모든 통화</b> 지원</td></tr>
+<tr><td>저장 위치</td><td class="wrap">전기결과는 <span class="key">유니버설저널 <code>ACDOCA</code>의 라인아이템으로만</span> 저장 — 별도 테이블이 아니다</td></tr>
+<tr><td>회계연도변형</td><td class="wrap">G/L 원장의 회계연도변형 지원</td></tr>
+<tr><td>반전</td><td class="wrap"><code>FB08</code>(개별) · <code>F.80</code>(대량) 표준 반전 지원, Reference Procedure = <code>ACES4</code>로 식별</td></tr>
+<tr><td>전기스키마</td><td class="wrap">고객정의 전기스키마로 2개 이상 라인아이템의 복잡한 전기도 가능</td></tr>
+</tbody>
+</table>
+</div>
+
+<h4>Manual Accruals — 2단계</h4>
+
+<div class="step"><span class="n">STEP 1</span><p><b>기초데이터 유지</b> — 계약형 마스터데이터를 <b>발생오브젝트(Accrual Object)</b>로 저장. 시간종속적이다</p></div>
+<div class="step"><span class="n">STEP 2</span><p><b>발생실행 정기시작</b> — 발생오브젝트 선별 → Accrual Engine이 <code>ACDOCA</code> 전기내역을 평가(이미 전기된 금액정보가 거기 있다) → 발생전기는 <span class="key">정규 FI 문서로만</span> 저장</p></div>
+
+<h4>발생오브젝트 생성</h4>
+
+<ul>
+  <li>각 발생항목을 발생오브젝트로 만들고 <b>발생항목유형(Accrual Item Type)</b>에 배정, 유효 시작·종료일 유지</li>
+  <li>오브젝트당 여러 발생항목 가능. 항목별로 금액·원장그룹·수량·<b>발생방법(Accrual Method)</b>·계정지정오브젝트 지정</li>
+  <li>총 발생금액을 일괄입력하면 <b>발생방법</b>이 개별기간 배분방식을 결정한다</li>
+  <li>Customizing에서 <b>개시전기(Opening Posting)</b> 수행 여부 정의 — 총발생액을 발생계정에 전기</li>
+  <li><span class="bad">발생오브젝트카테고리·오브젝트번호는 변경 불가</span></li>
+  <li>계산된 발생금액은 <b>Calculated Accruals</b> 탭에 표시. <code>ACACTREE02</code>에서 첨부파일·메모 추가, Excel 템플릿 업로드도 가능</li>
+  <li>시간종속이라 필드 변경 시 유효개시일 이후로 새 내용이 적용되고 이전 값은 이전 기간에 유효 — <b>각 변경이 새 시간구간을 만든다</b></li>
+</ul>
+
+<p>전기는 <code>ACEPOSTINGRUN</code>으로 수행하며 Manual Accruals는 Application Component 필드에 <code>ACAC</code>를 입력합니다. 하나의 저널엔트리가 여러 발생오브젝트의 전기를 포함할 수 있어 전체 반전이 부적절하면, <code>ACACTREE02</code>에서 <span class="key">특정 오브젝트 하나만 반전</span>할 수 있습니다.</p>
+
+<h3>Purchase Order Accruals</h3>
+
+<p>제3자(공급업체)에 대한 채무는 발생했으나 관련비용이 아직 전기되지 않은 경우 발생을 전기해야 하며, 통상 기간마감 결산활동입니다.</p>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>사용사례</th><th>발생 산출 방식</th></tr></thead>
+<tbody>
+<tr><td class="wrap">소모품/서비스 — 입고기록 없음</td><td class="wrap">구매오더항목의 <b>납품일정 기준</b>(과거 예정납품일 = 수령 간주) 또는 <b>정액법</b>(PO항목 총액을 시작~종료일에 선형배분)</td></tr>
+<tr><td class="wrap">소모품/서비스 — 비평가 입고</td><td class="wrap">수량은 시스템에 기록되나 비용은 미전기 상태</td></tr>
+<tr><td class="wrap">소모품 — 평가 입고 있음</td><td class="wrap">평가입고가 수량 × 순가격으로 비용을 전기하므로, <span class="key">입고 전기는 안 됐지만 자재는 이미 수령된 경우만</span> 발생 필요</td></tr>
+<tr><td class="wrap">서비스 — 서비스입력시트 전기</td><td class="wrap">정액법. 보통 납품일정이 없다(Lean Service 사용 시 시작/종료일 필드 표시, Product Type Group = 2)</td></tr>
+</tbody>
+</table>
+</div>
+
+<div class="note warn">
+  <div class="t">발생이 필요 없는 것</div>
+  <p>발생은 <b>향후 회계기간/연도에 발생할 것으로 예상되는 비용</b>에만 관련됩니다. 재고자산화될 제품(원자재)이나 고정자산(예: 노트북 — 감가상각으로 비용화)에는 통상 불필요합니다.</p>
+</div>
+
+<h4>프로세스 흐름 4단계</h4>
+
+<div class="step"><span class="n">① 이전</span><p>MM에서 구매오더(항목) 생성 시 발생관련성 판단, 관련되면 Accrual Engine에 발생(하위)오브젝트 생성. <b>오프라인</b>(<code>POAC_MM2ACE_TRANSFER</code> 또는 Schedule Accruals Jobs 앱의 잡템플릿) 또는 <b>온라인</b>(구매오더 생성 시점)</p></div>
+<div class="step"><span class="n">② 계산</span><p>시스템이 <b>계획비용</b>(납품일정 기준 "이미 수령된" 금액 → <code>PLNCST</code>)과 <b>실제비용</b>(이미 전기된 비용 → <code>ACTCST</code>)을 각각 계산하고, <span class="key">발생액 = 계획 − 실제(양수인 경우만)</span>를 <code>ACCRL</code>에 저장. 확인은 <code>POACTREE03</code> 또는 Fiori <b>Display Purchase Order Accruals</b></p></div>
+<div class="step"><span class="n">③ 검토/승인</span><p>기간말에 검토자가 제안금액 조정. 전제조건은 <code>ACEPROPOSALRUN</code> 또는 잡템플릿으로 제안금액 생성. 구매오더 소유자는 My Inbox 또는 <code>FACRARVWBU</code>, 컨트롤러는 <code>FACRARVWCO</code>. 승인은 <code>FACRAAPPRVGL</code>(G/L Accountant)로 <b>별도 수행</b>. 머신러닝이 제안금액 신뢰도를 판단 지원</p></div>
+<div class="step"><span class="n">④ 전기</span><p>Schedule Accruals Jobs 잡템플릿 또는 <code>ACEPOSTINGRUN</code>으로 기말 발생액 전기</p></div>
+
+<h4>발생항목유형 — 3단계 접근법</h4>
+
+<p>Accrual Engine이 계산할 각 금액마다 별도 발생항목유형을 Customizing에서 만들어야 합니다. 이론적으로는 하나로도 되지만 <span class="hl">계산의 투명성</span>을 위해 SAP는 3단계를 권장하고 표준으로 제공합니다 — <code>PLNCST</code>(계획비용) · <code>ACTCST</code>(실제비용) · <code>ACCRL</code>(계획 − 실제).</p>
+
+<h4>검토/승인 프로세스 설정</h4>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>항목</th><th>설정</th></tr></thead>
+<tbody>
+<tr><td>활성화 레벨</td><td class="wrap">회사코드 · 발생항목유형 · 원장그룹</td></tr>
+<tr><td>IMG 활동</td><td class="wrap">Item Type Settings for Ldrgrp incl. Repr. Ledger → <b>Review Active</b> · <b>Approval Required</b> 체크박스</td></tr>
+<tr><td>통화</td><td class="wrap"><span class="bad">통화유형 00(거래통화)에서만 검토 가능</span> — 다른 통화는 읽기전용</td></tr>
+<tr><td>워크플로우</td><td class="wrap">My Inbox 시나리오ID <code>WD78500077</code>. <b>Manage Workflows for PO Accruals Review</b> 앱으로 수신자·시작조건·단계순서 관리</td></tr>
+<tr><td>기간 제한</td><td class="wrap"><b>시간구간변형(Time Interval Variant)</b>으로 검토/승인 가능 기간을 회계기간별로 제한</td></tr>
+<tr><td>대상 유형</td><td class="wrap">검토/승인은 <span class="key"><code>PLNCST</code>에 대해서만</span> 활성화. 실제비용·발생 유형에는 활성화하지 않는다</td></tr>
+<tr><td>임계값</td><td class="wrap">상한 초과 → 검토/승인 필수 / 하한 미만 → 전기 안 함 / 둘 사이 → 자동 승인</td></tr>
+</tbody>
+</table>
+</div>
+
+<h4>구매오더항목 생명주기</h4>
+
+<p>구매오더 생성(당해 연도 납품예정일 포함) → 비평가입고 전기 → 발생오브젝트 자동생성 → 매 기간말 <b>정기전기 PP</b> → 발생종료 후 공급업체인보이스 전기 시 <b>사용액전기 UP</b>로 벤더인보이스에 추가 라인아이템 생성(온라인모드) → 연도말까지 최종인보이스 미전기면 잔여발생액 존재 → 신연도 초 컨트롤링이 수동으로 일부 <b>해제 RP</b> → 최종인보이스 전기 시 구매자가 <b>Final Invoice 지시자</b> 설정 → 시스템이 발생오브젝트 상태를 <code>F</code>(조기종료)로 바꾸고 잔여발생액 자동해제(<b>FP</b>) → 이 해제전기는 정기발생전기실행에서 수행.</p>
+
+<h4>전기스키마와 계정결정</h4>
+
+<ul>
+  <li>발생전기를 수행하는 각 발생항목유형은 <b>전기스키마</b>에 배정되어야 한다 (IMG: Define Posting Schema)</li>
+  <li>전기스키마는 라인수 · 라인별 심볼릭 G/L계정 · 라인유형을 정의한다</li>
+  <li>정기전기(PP)용 스키마는 반드시 <span class="key">라인유형 <code>9003</code></span>(대차대조표계정 = 발생계정)을 1개 포함해야 한다 — <b>다음 회계연도로 이월되어야 하기 때문</b>. 라인유형 <code>9000</code>(보통 비용계정)은 임의 계정 가능</li>
+  <li>SAP 표준 스키마: <code>SAP_ACE_PP</code>(정기) · <code>SAP_ACE_UP</code>(사용) · <code>SAP_ACE_RP</code>(해제)</li>
+  <li><b>Post Periodically</b> = 정기발생전기실행이 수행 / <b>Post Online</b> = 인보이스·입고 전기 시 추가 라인아이템 생성. <span class="good">둘 다 설정해도 이중전기는 발생하지 않는다</span></li>
+  <li><b>Post Deltas</b>(이전 기간 대비 차액만)는 UP·UL·FP·FL에 권장. 정기전기(PP)는 전액전기도 적절할 수 있다</li>
+  <li>계정결정은 <b>Create and Edit Basic Account Determination</b> 또는 BAdI <code>ES_ACE_DOCUMENT_ACCDET_CUST</code>. 심볼릭계정 <code>PER_ACCR_ACCNT</code>만 유지하면 되고 <span class="key">상계계정(비용계정)은 기본적으로 구매오더항목에서 가져온다</span></li>
+</ul>
+
+<div class="note warn">
+  <div class="t">Further Reading</div>
+  <p>SAP Note 2812479에 발생관리트랜잭션유형 <code>FL</code>(지연자동해제) · <code>RL</code>(지연수동해제) · <code>UL</code>(지연사용전기)의 전체 설정과 전기로직 상세가 있습니다.</p>
+</div>
+
+<div class="note ok">
+  <div class="t">📌 개인 E2E 프로젝트와의 연결점</div>
+  <p>Purchase Order Accruals의 구조가 <code>ZGATE_INSPECT</code>와 정확히 겹칩니다 — <b>물건은 들어왔는데(GR 101) 송장이 아직 없는 구간</b>을 어떻게 회계적으로 다룰 것인가가 둘의 공통 질문입니다. 표준은 "발생으로 비용을 잡고 인보이스가 오면 사용액전기로 상쇄"하고, 프로젝트 CBO는 "차이 건을 찾아 122 반품 대상으로 올린다"입니다.<br>
+  배울 점은 <b>③ 검토/승인 단계가 별도로 존재한다</b>는 것입니다. 계산(<code>ACEPROPOSALRUN</code>)과 전기(<code>ACEPOSTINGRUN</code>)가 분리되어 있고 그 사이에 사람이 들어갑니다. <code>ZGATE_INSPECT</code>의 상태필드 <b>W(대기) / P(처리) / H(보류)</b>가 바로 이 자리를 흉내 낸 것이며, 임계값 3구간(자동승인 / 검토필수 / 전기안함) 설계는 CBO에 그대로 가져올 만합니다.</p>
+</div>
+
+</div>
+
+
+<!-- ══════════ LESSON 6 ══════════ -->
+<div class="lesson" id="l6">
+<h2><span class="no">LESSON 6</span>원장그룹별 전기 — 병행회계와 확장원장</h2>
+
+<p><span class="tag">Unit 6</span><span class="tag">레슨 1개</span>Posting Ledger Group-Specific FI Documents</p>
+
+<h3>병행재무보고(Parallel Financial Reporting)</h3>
+
+<p>글로벌화된 채권자·거래상대방 환경에서는 로컬기준(예: US GAAP)만으로 부족하고 IAS/IFRS 같은 국제기준이 함께 요구됩니다. G/L에서 <b>계정기반 솔루션</b>으로 서로 다른 회계기준을 모델링할 수 있고, 서로 다른 <b>원장(Ledger)</b>에 다른 평가접근법을 저장하는 방식을 <span class="key">원장솔루션(Ledger Solution)</span>이라 합니다.</p>
+
+<div class="note warn">
+  <div class="t">이름이 비슷한 다른 것</div>
+  <p>원장솔루션은 <b>특수원장(FI-SL, Special Ledgers)</b>과 다른 개념입니다. 혼동하지 않도록 합니다.</p>
+</div>
+
+<p>리딩원장(Leading Ledger)에 <b>어떤 회계기준을 모델링할지</b>가 핵심 결정사항입니다. S/4HANA로 업그레이드하는 기존 고객은 <span class="bad">리딩뷰를 변경하지 않는 것이 권장</span>되며, 변경이 필요하면 반드시 별도 프로젝트로 다뤄야 합니다.</p>
+
+<h3>확장원장(Extension Ledger)</h3>
+
+<p><span class="hl">델타값만 저장하고 다른 원장을 참조하는</span> 유연한 조정·리포팅 메커니즘입니다. 대표 활용사례는 법정데이터(IFRS나 로컬GAAP) 위에 관리회계용 뷰를 얹는 것입니다.</p>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>특성</th><th>내용</th></tr></thead>
+<tbody>
+<tr><td>구성 부담</td><td class="wrap">마스터레코드 생성 외에 <b>추가 구성이 필요 없다</b></td></tr>
+<tr><td>데이터풋프린트</td><td class="wrap">여러 확장원장이 동일한 기저원장을 참조 가능. 델타값만 유지하므로 <span class="good">조정작업(Reconciliation)이 불필요</span></td></tr>
+<tr><td>저장 위치</td><td class="wrap">표준원장과 마찬가지로 <b>유니버설저널</b>에 저장</td></tr>
+<tr><td>회계기간</td><td class="wrap">자체 회계기간변형을 배정받을 수 있어 <span class="key">표준원장은 마감하고 확장원장은 열어 둔 상태</span>가 가능</td></tr>
+<tr><td>스택</td><td class="wrap">다른 (기저) 확장원장 위에 또 다른 확장원장을 쌓을 수 있다</td></tr>
+</tbody>
+</table>
+</div>
+
+<h3>원장그룹(Ledger Group) — 왜 만드는가</h3>
+
+<p>시나리오: US GAAP와 IAS/IFRS <b>양쪽 모두에 외화평가를 실행</b>해야 한다.</p>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>옵션</th><th>구성</th><th>효과</th></tr></thead>
+<tbody>
+<tr><td>옵션 1</td><td class="wrap">평가영역 2개 + 회계원칙 2개를 각각 원장에 연결</td><td class="wrap">외화평가를 <span class="bad">2번 실행</span> — 1회차는 <code>0L</code>, 2회차는 <code>L5</code>만 갱신</td></tr>
+<tr><td>옵션 2</td><td class="wrap">평가영역 1개(예: International) + 회계원칙 1개. 추가로 원장그룹(예: <code>L7</code> = <code>0L</code> + <code>L5</code>)을 정의해 신규 평가영역과 연결</td><td class="wrap">외화평가프로그램을 <span class="good">1회만 실행</span>하면 값이 <code>L7</code>에 속한 <code>0L</code>·<code>L5</code> 모두에 기록</td></tr>
+</tbody>
+</table>
+</div>
+
+<p>정의 경로: Financial Accounting → Financial Accounting Global Settings → Ledgers → Ledger → <b>Define Ledger Group</b>.</p>
+
+<h4>원장그룹의 성격</h4>
+
+<ul>
+  <li>작업을 단순화·가속화하는 <b>선택적 옵션</b> — 고객이 반드시 자체 원장그룹을 만들 필요는 없다</li>
+  <li>G/L의 각 원장마다 <span class="key">동일한 이름의 원장그룹이 자동 생성</span>되며 그 원장만 포함한다</li>
+  <li>문서는 <b>선택된 원장에만</b> 전기된다</li>
+  <li>원장그룹이 <span class="bad">비리딩원장으로만</span> 구성된 경우, 입력뷰(Entry View)용 문서유형을 해당 원장에 정의해야 한다 — 경로: … → Document → Document Types → <b>Define Document Types for Entry View in a Ledger</b></li>
+  <li>총계정원장뷰(General Ledger View)는 <b>원장별로 특정</b>된다</li>
+</ul>
+
+<div class="note">
+  <div class="t">🔰 초보자 설명 — 원장그룹은 왜 필요할까</div>
+  <p>한 회사가 US GAAP와 IFRS를 동시에 만족시켜야 하면 같은 거래를 두 잣대로 각각 기록해야 합니다. 원장그룹이 없으면 외화평가 같은 프로그램을 기준마다 한 번씩 돌려야 하지만, 여러 원장을 하나로 묶어 두면 <b>한 번 실행으로 묶인 원장 전부에 반영</b>됩니다. 여러 통장을 한 번의 이체로 채우는 것과 비슷한 편의 기능입니다.</p>
+</div>
+
+<div class="note ok">
+  <div class="t">📌 개인 E2E 프로젝트와의 연결점</div>
+  <p>CL04는 단일 회계기준이므로 비리딩원장을 만들 계획이 없습니다 — 이 Unit은 <b>개념 이해까지만</b>입니다. 다만 LESSON 3의 델타전기 전제조건에서 <b>회계원칙 → 원장그룹</b> 배정이 필수로 나왔던 것이 여기서 설명됩니다. 회계원칙은 결국 "이 문서를 어느 원장에 쓸 것인가"를 가리키는 포인터입니다.</p>
+</div>
+
+</div>
+
+
+<!-- ══════════ LESSON 7 ══════════ -->
+<div class="lesson" id="l7">
+<h2><span class="no">LESSON 7</span>기술·조직·문서 결산 — 잔액이월 · 전기기간 · 감사증적 · 문서분할</h2>
+
+<p><span class="tag">Unit 7</span><span class="tag">레슨 3개</span>Technical Steps · Balance Audit Trail · Document Splitting</p>
+
+<h3>언제 이걸 알아야 하는가</h3>
+
+<p>결산 기간에 두 번째로 많이 받는 문의가 <b>"전표가 안 들어갑니다"</b>입니다. 메시지는 대개 기간이 닫혀 있다는 내용인데, 정작 담당자는 <span class="key">"어제는 됐는데"</span>라고 말합니다.</p>
+
+<p>답은 셋 중 하나입니다 — 전기일자가 다른 기간으로 넘어갔거나, 계정유형별 행이 더 좁게 닫혀 있거나, CO 관련 전기라 <code>OKP1</code>이 함께 막고 있거나. 그림 4의 판단 순서대로 보면 대부분 3분 안에 끝납니다.</p>
+
+<h3>총계정원장 마감 6단계</h3>
+
+<div class="step"><span class="n">STEP 1</span><p>회계연도 초 <b>잔액이월 프로그램</b> 실행 — 총계정원장·고객·벤더·자산계정 잔액을 신규 회계연도로 이월 (<code>FAGLGVTR</code>)</p></div>
+<div class="step"><span class="n">STEP 2</span><p>구 회계연도 전기기간 차단, 결산전기용 <b>특별기간 오픈</b></p></div>
+<div class="step"><span class="n">STEP 3</span><p>외화문서 평가 → 발생 수행 → GR/IR 정산계정 분석 및 잔액 재분류</p></div>
+<div class="step"><span class="n">STEP 4</span><p>완료 후 <b>특별기간 마감</b></p></div>
+<div class="step"><span class="n">STEP 5</span><p>문서화 목적으로 <b>잔액감사증적</b> 실행 및 재무제표 생성</p></div>
+<div class="step"><span class="n">STEP 6</span><p>법정보고용 메시지 생성</p></div>
+
+<h3>잔액이월 — 대상별 처리</h3>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>대상</th><th>처리방식</th></tr></thead>
+<tbody>
+<tr><td class="wrap">대차대조표계정 · 고객 · 벤더</td><td class="wrap">단순 잔액이월. 기본설정으로 <b>모든 계정지정이 이전</b>된다. 리딩원장 G/L계정 이월 시 벤더·고객도 자동 이월되나 별도 실행도 가능(<code>SAPF010</code>)</td></tr>
+<tr><td class="wrap">손익계산서계정</td><td class="wrap"><b>이익잉여금계정</b>으로 이월. 경로: General Ledger Accounting → Master Data → G/L Accounts → Preparations → <b>Define Retained Earnings Account</b></td></tr>
+<tr><td class="wrap">고정자산계정</td><td class="wrap">G/L 관련 값과 <b>통계적 고정자산가치</b> 모두 이월. 자산별로 계정·원장레벨에서 이월값 기록. 동일계정으로 이월되며 <span class="key">모든 대표원장(Representative Ledger)</span>에 대해 실행 필요. <b>G/L 이월 성공 후에만</b> 자산회계 이월이 자동 수행되고, 신규연도 계획감가상각값 재계산이 자동 트리거된다(오류 시 수동 재실행)</td></tr>
+</tbody>
+</table>
+</div>
+
+<div class="note warn">
+  <div class="t">Further Reading</div>
+  <p>일반원칙으로 모든 서브레저(FI-AA 포함)는 <b>FI-G/L보다 먼저</b> 회계연도가 마감되어야 하며, 지키지 않으면 G/L 잔액에 심각한 불일치가 발생할 수 있습니다. 그림 1의 철칙과 같은 내용입니다.</p>
+</div>
+
+<h3>전기기간 관리 — "왜 전표가 안 들어가는가"</h3>
+
+<p>문서입력 시 지정한 <b>전기일자</b>로 어느 전기기간에 전기될지 결정되며, 전기기간은 <b>회계연도변형(Fiscal Year Variant)</b>으로 정의됩니다. 회계연도변형에서 정하는 것 — 회계연도 시작/종료, 정규전기기간 수(<code>01</code>~<code>16</code>), 특별기간 수(정규기간 선택 후 16까지 남은 만큼), 전기기간 길이.</p>
+
+<figure class="figwrap">
+<svg class="dgm" viewBox="0 0 1000 480" role="img" aria-label="전기기간 통제 도해. 전기기간변형이 여러 회사코드의 기간을 동시에 개폐하고, 계정유형별 행으로 기간을 더 좁힐 수 있으며, 구간1은 정규 사용자, 구간2는 권한그룹, 구간3은 CO에서 FI로의 전기에 쓰인다. 전표가 들어가지 않을 때는 전기일자, 플러스 행, 계정유형 행, 특별기간과 CO 기간잠금 순으로 확인한다.">
+  <defs>
+    <marker id="fc4a" markerWidth="9" markerHeight="9" refX="7" refY="4.5" orient="auto">
+      <polygon class="arw-key" points="0,0 9,4.5 0,9"/></marker>
+  </defs>
+
+  <rect class="b-key" x="30" y="30" width="230" height="56" rx="6"/>
+  <text class="t-h c-key" x="48" y="54">전기기간변형</text>
+  <text class="t-s" x="48" y="74">Posting Period Variant</text>
+
+  <path class="ln-key" d="M260 58 H296" marker-end="url(#fc4a)"/>
+
+  <rect class="b" x="300" y="30" width="230" height="56" rx="6"/>
+  <text class="t-h" x="318" y="54">회사코드 목록</text>
+  <text class="t-s" x="318" y="74">여러 회사를 동시에 개폐</text>
+
+  <rect class="b-mut" x="570" y="30" width="400" height="56" rx="6"/>
+  <text class="t-s" x="590" y="54">회계연도변형이 기간 수를 정한다</text>
+  <text class="t-s" x="590" y="74">정규 01~16 + 특별기간 (합쳐 최대 16)</text>
+
+  <text class="t-s c-key" x="30" y="118">계정유형 — 유형별로 오픈 기간을 따로 통제한다</text>
+
+  <rect class="b-hl" x="30" y="128" width="126" height="64" rx="5"/>
+  <text class="m" x="48" y="152">+</text>
+  <text class="t-s" x="48" y="176">전체 계정</text>
+
+  <rect class="b" x="166" y="128" width="126" height="64" rx="5"/>
+  <text class="m" x="184" y="152">A</text>
+  <text class="t-s" x="184" y="176">자산</text>
+
+  <rect class="b" x="302" y="128" width="126" height="64" rx="5"/>
+  <text class="m" x="320" y="152">D</text>
+  <text class="t-s" x="320" y="176">고객</text>
+
+  <rect class="b" x="438" y="128" width="126" height="64" rx="5"/>
+  <text class="m" x="456" y="152">K</text>
+  <text class="t-s" x="456" y="176">벤더</text>
+
+  <rect class="b" x="574" y="128" width="126" height="64" rx="5"/>
+  <text class="m" x="592" y="152">S</text>
+  <text class="t-s" x="592" y="176">총계정원장</text>
+
+  <rect class="b" x="710" y="128" width="126" height="64" rx="5"/>
+  <text class="m" x="728" y="152">M</text>
+  <text class="t-s" x="728" y="176">자재</text>
+
+  <rect class="b" x="846" y="128" width="124" height="64" rx="5"/>
+  <text class="m" x="864" y="152">V</text>
+  <text class="t-s" x="864" y="176">계약</text>
+
+  <rect class="b" x="30" y="212" width="300" height="76" rx="6"/>
+  <text class="t-h" x="50" y="238">구간 1</text>
+  <text class="t-s" x="50" y="260">정규 전기기간</text>
+  <text class="t-s" x="50" y="280">모든 사용자</text>
+
+  <rect class="b" x="350" y="212" width="300" height="76" rx="6"/>
+  <text class="t-h" x="370" y="238">구간 2</text>
+  <text class="t-s" x="370" y="260">특별기간 등 결산 전용</text>
+  <text class="t-s" x="370" y="280">권한그룹을 가진 사용자만</text>
+
+  <rect class="b" x="670" y="212" width="300" height="76" rx="6"/>
+  <text class="t-h" x="690" y="238">구간 3</text>
+  <text class="t-s" x="690" y="260">CO → FI 전기 전용</text>
+  <text class="t-s" x="690" y="280">비우면 구간 1·2 를 따른다</text>
+
+  <rect class="b-bad" x="30" y="308" width="940" height="152" rx="6"/>
+  <text class="t-h c-bad" x="52" y="336">왜 전표가 안 들어가는가 — 이 순서로 본다</text>
+  <text class="t-s" x="52" y="362">① 전기일자가 어느 기간인가 — 입력일이 아니라 전기일자(BUDAT)가 기준이다</text>
+  <text class="t-s" x="52" y="384">② 그 회사코드의 전기기간변형에서 '+' 행이 그 기간을 열어 두었나 (최대 오픈 폭)</text>
+  <text class="t-s" x="52" y="406">③ 해당 계정유형 행(A·D·K·S·M)이 더 좁히고 있지 않나 — 개별 행은 좁힐 수만 있다</text>
+  <text class="t-s" x="52" y="428">④ 특별기간이면 구간 2 + 권한그룹. CO 관련이면 OKP1(CO 기간잠금)도 같이 본다</text>
+  <text class="t-xs" x="52" y="450">FI(CO관련) 전기와 CO(FI관련) 전기는 FI 오픈기간과 CO 기간잠금 양쪽이 모두 필요하다</text>
+</svg>
+<figcaption><span class="fno">그림 4</span>전기기간 통제 구조와 장애 판단 순서. '+' 행이 상한을 정하고 개별 계정유형 행은 그 안에서 좁히기만 한다.</figcaption>
+</figure>
+
+<ul>
+  <li>전기기간테이블로 기간을 오픈·마감하며 <b>동시에 여러 기간</b>을 열어 둘 수 있다</li>
+  <li>첫 컬럼은 전기기간변형, 다음 컬럼은 계정유형</li>
+  <li><code>+</code> 행(전체계정 유효)이 <span class="key">최대 오픈기간 길이</span>를 결정하고, 개별 계정유형 행은 그 안에서 <b>더 제한</b>만 할 수 있다</li>
+  <li>S/4HANA에서 CO → FI 전기에는 <b>기간구간 3</b>이 사용된다. 비어 있으면 구간 1·2의 항목이 이 전기에도 유효하다</li>
+  <li>관련 트랜잭션: <code>FAGL_EHP4_T001B_COFI</code> (FI 오픈기간) · <code>OKP1</code> (CO 기간잠금)</li>
+</ul>
+
+<h3>잔액감사증적(Balance Audit Trail)</h3>
+
+<p>기간 시작 시점 잔액과 기간말까지의 계정 변동내역을 <b>컴팩트저널(Compact Journal)</b> 형태 리스트로 표시합니다. 목적은 두 가지 — 회계연도의 전기정보·문서상태 표시, 외부감사용 명세서 제공.</p>
+
+<div class="note warn">
+  <div class="t">아카이빙과의 순서</div>
+  <p>법규상 계정잔액을 관련 문서항목으로 언제든 입증할 수 있어야 하는데, 이는 <span class="bad">관련 문서가 시스템에 남아 있는 동안만</span> 가능합니다. 오래된 문서는 시스템 부하 경감을 위해 보통 아카이빙·삭제되므로, <span class="hl">문서를 아카이빙하기 전에 잔액감사증적을 먼저 실행</span>해야 합니다. 순서가 뒤집히면 되돌릴 수 없습니다.</p>
+</div>
+
+<h3>문서분할(Document Splitting)</h3>
+
+<p>문서분할의 <b>첫 번째 과업</b>은 대차대조표가 필요로 하는 모든 <b>분할특성(Splitting Characteristic)</b>을 관련 라인에 채워넣는 것입니다. 비용라인에 단일 계정지정만 있는 단순한 경우에도, 그 특성(예: 세그먼트)을 <span class="key">채무·세금 라인에도 전이</span>시킵니다.</p>
+
+<h4>운영 프로세스는 바뀌지 않는다</h4>
+
+<p>온라인검사로 처리되므로 문서입력 절차 자체는 그대로입니다. 세율 10%인 벤더인보이스를 입력할 때 사용자는 <b>벤더를 한 번만</b> 입력합니다. 하지만 세그먼트별 재무제표가 필요할 때 총계정원장의 채무는 해당 세그먼트 비중을 정확히 보고해야 하고, 동시에 FI-AP 서브레저에서 벤더 라인아이템을 조회하면 <span class="key">여전히 미결항목은 1건만</span> 존재해야 합니다.</p>
+
+<div class="note">
+  <div class="t">한 문장으로</div>
+  <p>문서분할은 <b>총계정원장에만 관련</b>되며, 서브레저 안에서는 보이지 않아도 됩니다. "G/L은 쪼개져 있고 AP는 한 건"이 정상 상태입니다.</p>
+</div>
+
+<h4>능동적 분할(Active Split)과 후속 프로세스</h4>
+
+<ul>
+  <li>분할특성 또는 <b>균형특성(Balancing Characteristic)</b>으로 정의된 엔티티는 <span class="key">계정지정이 없는 전기라인에 상속</span>된다 — 선택된 특성의 잔액이 0이 된다</li>
+  <li>벤더·세금 라인은 비용라인 기준으로 분할된다 (서로 다른 코스트센터 지정으로 같은 비용계정에 전기된 라인들)</li>
+  <li>후속 프로세스: 벤더인보이스가 3% 현금할인 적용해 지급될 때, 분할특성은 <b>지급문서의 전기라인에도 상속</b>되고 지급문서는 원 비용전기·벤더인보이스의 분할규칙에 따라 분할된다</li>
+  <li>라인아이템 표시에서 지급문서와 원 인보이스문서는 이전 릴리즈와 마찬가지로 <b>정리된(Cleared)</b> 항목으로 표시된다</li>
+</ul>
+
+<div class="note">
+  <div class="t">🔰 초보자 설명 — 문서분할이 왜 필요할까</div>
+  <p>벤더 인보이스 하나(세그먼트 A 8,000 + 세그먼트 B 2,000 = 10,000)를 받으면 사용자는 벤더행을 한 줄만 입력합니다. 하지만 세그먼트별 재무제표를 만들려면 "이 채무 10,000 중 A가 8,000, B가 2,000"이라는 정보가 필요합니다. 문서분할은 비용라인의 세그먼트 비중을 자동 계산해 <b>벤더·세금 라인에도 같은 비율로 나눠 붙여</b> 줍니다. 덕분에 입력은 간단하면서 세그먼트별로 항상 잔액이 0인 재무제표가 나옵니다.</p>
+</div>
+
+<div class="note ok">
+  <div class="t">📌 개인 E2E 프로젝트와의 연결점</div>
+  <p>전기기간 관리는 프로젝트에서 <b>가장 먼저 걸릴 IMG 구성</b>입니다. CL04의 전기기간변형에 <code>+</code> 행만 열어 두고 <code>D</code>·<code>K</code>·<code>S</code>·<code>M</code> 행을 만들지 않으면 MM 입고(<code>M</code>)와 SD 청구(<code>D</code>)가 같은 폭으로 열립니다 — 처음에는 그게 편하지만, <b>MM만 먼저 닫고 FI를 열어 두는</b> 그림 1의 사전결산 순서를 재현할 수 없습니다. 최소한 <code>M</code> 행은 따로 두는 것이 이 코스의 순서를 실습해 보기에 맞습니다.<br>
+  문서분할은 세그먼트·이익센터를 쓰지 않으면 체감되지 않으므로 <b>이번 범위에서는 제외</b>하고 개념만 남깁니다.</p>
+</div>
+
+</div>
+
+
+<!-- ══════════ LESSON 8 ══════════ -->
+<div class="lesson" id="l8">
+<h2><span class="no">LESSON 8</span>결산콕핏(FCC) — 템플릿 · 태스크리스트 · 종속성</h2>
+
+<p><span class="tag">Unit 8</span><span class="tag">레슨 1개</span>Managing the Financial Closing Cockpit</p>
+
+<h3>FCC는 무엇인가</h3>
+
+<p>결산처럼 복잡한 프로세스를 구성하는 <b>트랜잭션·프로그램 실행을 위한 구조화된 인터페이스</b>입니다. 회사코드 같은 단일 조직구조 내 프로세스뿐 아니라 <span class="key">여러 조직구조에 걸친 시나리오</span>도 지원합니다. 모든 결산이해관계자가 자기 태스크에 접근·실행하거나, 자동예약된 태스크를 모니터링하고 상태·이슈를 보고합니다.</p>
+
+<h4>FCC가 적합한 경우</h4>
+
+<ul>
+  <li>활동이 주기적으로 반복될 때</li>
+  <li>담당자가 여러 명일 때</li>
+  <li>활동이 <b>고정된 시간순서 또는 종속관계</b>로 결정되는 프로세스 안에서 수행될 때</li>
+  <li>관련자 전원을 위한 공유·통일 인터페이스가 필요할 때</li>
+  <li>모든 주기적 활동의 상태가 문서화·투명화되어야 할 때</li>
+  <li>결산태스크가 <b>추후 점검을 위해</b> 문서화되어야 할 때</li>
+</ul>
+
+<h3>구성 6단계와 종속성</h3>
+
+<figure class="figwrap">
+<svg class="dgm" viewBox="0 0 1000 440" role="img" aria-label="결산콕핏 구성 도해. 템플릿에서 태스크그룹과 태스크를 정의하고 종속성을 건 뒤 기준일을 가진 태스크리스트를 파생시키고 릴리즈해야 실행할 수 있으며, 종속성은 잔액이월에서 서브레저 마감, 외화평가, 재분류, 재무제표 순의 선행관계를 강제한다.">
+  <defs>
+    <marker id="fc5a" markerWidth="9" markerHeight="9" refX="7" refY="4.5" orient="auto">
+      <polygon class="arw-key" points="0,0 9,4.5 0,9"/></marker>
+    <marker id="fc5b" markerWidth="9" markerHeight="9" refX="7" refY="4.5" orient="auto">
+      <polygon class="arw" points="0,0 9,4.5 0,9"/></marker>
+  </defs>
+
+  <rect class="b-key" x="30" y="30" width="290" height="60" rx="6"/>
+  <text class="t-h c-key" x="50" y="54">① 템플릿 Template</text>
+  <text class="t-s" x="50" y="76">결산 프로세스 구조 · 조직계층</text>
+
+  <path class="ln-key" d="M320 60 H346" marker-end="url(#fc5a)"/>
+
+  <rect class="b" x="350" y="30" width="290" height="60" rx="6"/>
+  <text class="t-h" x="370" y="54">② 태스크그룹</text>
+  <text class="t-s" x="370" y="76">여러 템플릿에서 재사용한다</text>
+
+  <path class="ln-key" d="M640 60 H666" marker-end="url(#fc5a)"/>
+
+  <rect class="b" x="670" y="30" width="300" height="60" rx="6"/>
+  <text class="t-h" x="690" y="54">③ 태스크 Task</text>
+  <text class="t-s" x="690" y="76">노트 · 트랜잭션 · 프로그램 · 잡</text>
+
+  <path class="ln-key" d="M820 90 V106 H175 V122" marker-end="url(#fc5a)"/>
+
+  <rect class="b" x="30" y="124" width="290" height="60" rx="6"/>
+  <text class="t-h" x="50" y="148">④ 종속성</text>
+  <text class="t-s" x="50" y="170">선행 태스크 관계를 정의한다</text>
+
+  <path class="ln-key" d="M320 154 H346" marker-end="url(#fc5a)"/>
+
+  <rect class="b" x="350" y="124" width="290" height="60" rx="6"/>
+  <text class="t-h" x="370" y="148">⑤ 태스크리스트</text>
+  <text class="t-s" x="370" y="170">기준일 · 회계연도 · 전기기간</text>
+
+  <path class="ln-key" d="M640 154 H666" marker-end="url(#fc5a)"/>
+
+  <rect class="b-ok" x="670" y="124" width="300" height="60" rx="6"/>
+  <text class="t-h c-ok" x="690" y="148">⑥ 릴리즈 Released</text>
+  <text class="t-s" x="690" y="170">이 상태라야 실행할 수 있다</text>
+
+  <text class="t-s c-key" x="30" y="216">종속성 — 선행이 끝나야 다음이 돈다 (FCLOCO 에서 크리티컬 패스로 표시)</text>
+
+  <rect class="b-mut" x="20" y="228" width="180" height="56" rx="5"/>
+  <text class="t-s" x="38" y="252">잔액이월</text>
+  <text class="m-s" x="38" y="272">FAGLGVTR</text>
+  <path class="ln" d="M200 256 H212" marker-end="url(#fc5b)"/>
+
+  <rect class="b-mut" x="216" y="228" width="180" height="56" rx="5"/>
+  <text class="t-s" x="234" y="252">서브레저 마감</text>
+  <text class="m-s" x="234" y="272">AR · AP · FI-AA</text>
+  <path class="ln" d="M396 256 H408" marker-end="url(#fc5b)"/>
+
+  <rect class="b-mut" x="412" y="228" width="180" height="56" rx="5"/>
+  <text class="t-s" x="430" y="252">외화평가</text>
+  <text class="m-s" x="430" y="272">FAGL_FCV</text>
+  <path class="ln" d="M592 256 H604" marker-end="url(#fc5b)"/>
+
+  <rect class="b-mut" x="608" y="228" width="180" height="56" rx="5"/>
+  <text class="t-s" x="626" y="252">재분류</text>
+  <text class="m-s" x="626" y="272">FAGL_CL_REGROUP</text>
+  <path class="ln" d="M788 256 H800" marker-end="url(#fc5b)"/>
+
+  <rect class="b-ok" x="804" y="228" width="180" height="56" rx="5"/>
+  <text class="t-s" x="822" y="252">재무제표 생성</text>
+  <text class="m-s" x="822" y="272">Balance Sheet</text>
+
+  <rect class="b-ghost" x="20" y="310" width="964" height="112" rx="6"/>
+  <text class="t-h" x="44" y="338">리스트뷰의 상세리스트에서 바로 열리는 것</text>
+  <text class="t-s" x="44" y="362">스풀요청(Spool Request) · 잡로그(Job Log) · 배치입력세션 · 상태변경</text>
+  <text class="t-s" x="44" y="384">자동 실행이든 수동 실행이든 동일하게 상태 · 이슈 · 로그가 남는다 — 엑셀 체크리스트와의 차이</text>
+  <text class="t-s" x="44" y="406">Smart Business 앱: 결산진행률 · 계획대비실적 · 결산지연 · 오류/누락/지연 태스크 리포팅</text>
+</svg>
+<figcaption><span class="fno">그림 5</span>FCC 구성 6단계와 종속성. 템플릿은 구조, 태스크리스트는 기준일이 박힌 실행본이며 릴리즈 전에는 돌지 않는다.</figcaption>
+</figure>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>단계</th><th>내용</th></tr></thead>
+<tbody>
+<tr><td>템플릿 생성</td><td class="wrap">결산프로세스용 통일 템플릿 생성, 전체 프로세스체인 예약</td></tr>
+<tr><td>태스크그룹 생성</td><td class="wrap">템플릿 간 유지보수·대량변경 지원. <b>동일/유사 태스크를 가진 여러 회사</b>를 커버</td></tr>
+<tr><td>태스크 생성</td><td class="wrap">조직구조 내 <b>시간순서 기반</b> 개별활동 정의, 트랜잭션·프로그램 구조화</td></tr>
+<tr><td>종속성 정의</td><td class="wrap">템플릿 내 프로그램의 선행 프로그램·트랜잭션 정의, 선행태스크관계로 순서 정의</td></tr>
+<tr><td>태스크리스트 생성</td><td class="wrap">템플릿에서 구체적 태스크리스트 파생(프로그램변형 파라미터 포함) — 템플릿을 태스크리스트로 전환</td></tr>
+<tr><td>태스크리스트 릴리즈</td><td class="wrap">구성된 태스크리스트를 애플리케이션으로 이관, 실행가능 상태로 유지</td></tr>
+</tbody>
+</table>
+</div>
+
+<h3>템플릿과 태스크리스트를 왜 분리하는가</h3>
+
+<p>템플릿은 <b>구조화된 프로세스 흐름</b>을 일반적으로 정의하고, 태스크리스트는 거기에 <b>구체적 파라미터값</b>(기준일·회계연도·전기기간)을 넣은 실행본입니다. 템플릿에서 생성된 태스크리스트는 선택변형의 <span class="key">시간 관련 프로그램 파라미터를 헤더정보 입력으로 자동 갱신</span>합니다 — 매달 변형을 손으로 고치지 않아도 되는 이유가 이것입니다.</p>
+
+<h4>템플릿 생성 절차</h4>
+
+<div class="step"><span class="n">1</span><p>Template/Task List → Create → <b>Create Template</b></p></div>
+<div class="step"><span class="n">2</span><p><b>10자리 기술키</b> 정의</p></div>
+<div class="step"><span class="n">3</span><p><b>Closing Hierarchy</b> 필드에서 조직계층 선택 — 조직구조에 따라 결산프로세스를 구성할 수 있다</p></div>
+<div class="step"><span class="n">4</span><p>설명 입력. 템플릿 헤더에 <b>시간종속 선택변수</b>가 표시된다</p></div>
+<div class="step"><span class="n">5</span><p>시스템이 선택된 계층 기준으로 시스템 내 모든 조직오브젝트(예: 회사코드가 배정된 관리회계영역)를 활용해 <b>템플릿 제안</b>을 생성</p></div>
+
+<p>템플릿 범위는 애플리케이션 측면이 아니라 <span class="hl">전체 프로세스와 관련 조직단위</span>를 반영해야 합니다. <b>태스크폴더</b>로 조직레벨을 하위구조로 배열할 수 있고, 조직레벨의 일반유지보수에서 하위폴더로 기본값을 저장할 수 있습니다.</p>
+
+<h4>태스크리스트 생성 절차</h4>
+
+<div class="step"><span class="n">1</span><p>Template/Task List → Open 에서 대상 템플릿 선택</p></div>
+<div class="step"><span class="n">2</span><p>Template/Task List → <b>Create Periodic Task List</b> — 템플릿과 동일한 이름의 태스크리스트가 생성된다</p></div>
+<div class="step"><span class="n">3</span><p><b>기준일(Key Date) · 회계연도 · 전기기간</b> 파라미터값 입력. 생성된 태스크리스트는 템플릿 아래 기준일별로 표시된다</p></div>
+<div class="step"><span class="n">4</span><p>선택한 <b>결산유형(Closing Type)</b>에 따라, 해당 유형의 태스크정의에서 허용된 활동만 템플릿에서 태스크리스트로 이관된다</p></div>
+<div class="step"><span class="n">5</span><p>애플리케이션에서 쓰기 전 <span class="bad">반드시 릴리즈</span> — Status 필드에서 <b>Released</b> 선택</p></div>
+
+<h3>태스크와 종속성</h3>
+
+<p>중앙 인터페이스는 트랜잭션 <code>FCLOCO</code> 또는 Fiori 앱 <b>Process Closing Tasks (Classic)</b>입니다. 여기서 필요한 트랜잭션이나 프로그램·플로우정의의 백그라운드 처리에 직접 접근합니다.</p>
+
+<p>태스크 유형: <b>노트(수동단계)</b> · 트랜잭션 · 프로그램 · <b>잡(프로그램 + 변형)</b> · 워크플로우 · Business Automation Enabler(구 SAP CPS) · 외부잡 · 원격태스크 · 타 SAP시스템의 태스크 · 타 SAP시스템의 자동화.</p>
+
+<p>태스크리스트템플릿에 포함된 프로그램·트랜잭션은 종종 비즈니스적/시스템적 종속관계를 가집니다. 이 선행관계는 구성의 <b>Dependencies 탭</b>에 표시되며, 관계를 입력하면 <span class="key">후속처리 시 올바른 순서가 적용되는지 검사</span>됩니다.</p>
+
+<div class="note warn">
+  <div class="t">컴플라이언스와 업무분담</div>
+  <p>결산프로세스는 대부분의 핵심 재무정보를 다루므로 FCC에서는 컴플라이언스가 중요합니다. 트랜잭션 <code>FCLOCOT</code>가 <b>그룹레벨 결산계획자</b>와 <b>로컬레벨 결산담당자</b> 간 업무분담을 지원하며, 이 트랜잭션으로는 <span class="bad">유지관리되는 결산템플릿 기준으로만</span> 태스크리스트를 생성할 수 있습니다.</p>
+</div>
+
+<div class="note">
+  <div class="t">🔰 초보자 설명 — FCC는 왜 필요할까</div>
+  <p>결산은 수십~수백 개의 트랜잭션과 프로그램을 정해진 순서대로, 여러 담당자가 나눠 실행하는 작업입니다. 엑셀 체크리스트로는 "누가 뭘 했는지, 순서가 맞는지, 지금 막힌 곳이 어딘지"를 알기 어렵습니다. FCC는 이 모든 태스크를 한 화면에서 <b>순서 · 담당자 · 종속관계 · 진행상태</b>와 함께 보여주는 결산 전용 프로젝트관리 도구입니다.</p>
+</div>
+
+<div class="note ok">
+  <div class="t">📌 개인 E2E 프로젝트와의 연결점</div>
+  <p>프로젝트에서 FCC를 구성할 계획은 없지만 <b>템플릿 ↔ 태스크리스트 분리</b>는 CBO 설계에 바로 씁니다. <code>ZBATCH_ZONE</code>·<code>ZGATE_INSPECT</code>·<code>ZPRICE_CHECK</code> 3본을 각각 손으로 돌리는 대신, "구조(무엇을 어떤 순서로)"와 "실행본(어느 기준일로)"을 나눠 두면 같은 발상이 됩니다.<br>
+  더 중요한 것은 <b>종속성</b>입니다. 프로젝트 CBO의 실행 순서를 ① <code>ZBATCH_ZONE</code> → ③ <code>ZPRICE_CHECK</code> → ② <code>ZGATE_INSPECT</code>로 못 박은 이유가 그림 5의 선행관계와 같은 성격입니다 — 재고를 옮기기 전에 가격 괴리를 보면 평가 기준이 흔들리기 때문입니다.</p>
+</div>
+
+</div>
+
+
+<!-- ══════════ LESSON 9 ══════════ -->
+<div class="lesson" id="l9">
+<h2><span class="no">LESSON 9</span>회사간거래 조정(IXMR)</h2>
+
+<p><span class="tag">Unit 9</span><span class="tag">레슨 1개</span>Intercompany Matching and Reconciliation (Overview)</p>
+
+<h3>배경</h3>
+
+<p>인수합병이 늘면서 법인·자회사 간 투명성 부족이 흔한 문제가 되었고, 법인 간 거래를 비용효율적으로 조정하기 어려워 <span class="bad">결산이 지연</span>됩니다. IXMR은 결산 <b>초기에</b> 회사간 차이를 미리 분석해 지연을 줄입니다.</p>
+
+<p>회사간 차이는 타이밍·통화 등 다양한 이유로 자주 발생하며, 이상적으로는 <span class="key">소스에서 바로 해소</span>되어야 합니다. 조정의 초점은 <b>매입채무(AP)와 매출채권(AR)</b>입니다.</p>
+
+<h4>핵심 기능</h4>
+
+<ul>
+  <li>유연한 매칭·조정규칙 정의, 조정프로세스의 높은 가시성</li>
+  <li>집계레벨·라인아이템레벨 매칭배정을 관리하는 Fiori 앱, 인앱 커뮤니케이션·워크플로우</li>
+  <li>자동 불일치조정, 실시간 조정·오류탐지, 사용자정의 조직차원 지원</li>
+  <li>매칭이 소스데이터(유니버설저널엔트리 또는 외부데이터)에 <b>직접 접근</b>하도록 설계되어 <span class="good">ETL 프로세스를 제거</span>할 수 있고, 매칭로직은 HANA에서 실행되어 대량데이터를 수분 내 처리</li>
+</ul>
+
+<h3>구성요소 — 매칭방법 · 조정케이스 · 표시그룹</h3>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>구성요소</th><th>역할</th></tr></thead>
+<tbody>
+<tr><td>매칭방법</td><td class="wrap">두 데이터셋 간 항목을 매칭하는 <b>매칭규칙의 집합</b>. 각 규칙은 필터로 데이터소스를 두 개의 <b>데이터슬라이스</b>로 좁힌다</td></tr>
+<tr><td>조정케이스</td><td class="wrap">매칭방법과 <span class="key">1:1 매핑</span>. 하나 이상의 <b>표시그룹</b>으로 구성되며 조정개요·잔액상세보고서의 필터·표시에 쓰인다</td></tr>
+<tr><td>표시그룹</td><td class="wrap">리딩단위 측 · 상대단위 측 <b>2면</b> + <b>공차설정</b>. 각 측이 데이터 서브셋의 금액을 합산한다</td></tr>
+</tbody>
+</table>
+</div>
+
+<h4>매칭 실행 순서</h4>
+
+<div class="step"><span class="n">1</span><p>슬라이스 설정 필터로 데이터를 읽는다</p></div>
+<div class="step"><span class="n">2</span><p>필터링된 데이터에 매칭규칙 표현식을 적용한다</p></div>
+<div class="step"><span class="n">3</span><p>각 슬라이스의 항목이 일치하면 <b>매칭배정번호</b>로 그룹핑된다</p></div>
+<div class="step"><span class="n">4</span><p>아직 일치하지 않은 데이터는 <span class="key">다음 매칭규칙의 대상</span>이 된다 — 규칙은 순차 적용된다</p></div>
+
+<p>매칭규칙은 <b>정확일치(Exact-Match) · 제안(Suggested) · 예외매칭(Exceptional-Match)</b> 패턴으로 유연하게 정의합니다. 매칭실행은 Fiori 앱에서 직접 트리거하거나 반복 백그라운드잡으로 예약하며, 결과는 테이블 <code>ICADOCM</code>에 저장됩니다.</p>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>데이터소스</th><th>용도</th></tr></thead>
+<tbody>
+<tr><td><code>SF_JOURNAL_ENTRIES_03</code></td><td class="wrap"><b>회계용</b> 회사간 저널엔트리 — <code>ACDOCA</code> 데이터를 회사·거래상대회사 등 엔티티쌍 기준으로 비교</td></tr>
+<tr><td><code>SF_JOURNAL_ENTRIES_02</code></td><td class="wrap"><b>연결용</b> 회사간 저널엔트리 — <code>ACDOCA</code>와 연결저널엔트리 <code>ACDOCU</code>를 연결단위·상대단위 기준으로 비교</td></tr>
+</tbody>
+</table>
+</div>
+
+<div class="note warn">
+  <div class="t">Behaves like master data 체크박스</div>
+  <p>매칭방법의 Attributes 섹션에서 체크하면 <b>마스터데이터</b>로 취급되어 운영시스템에서 직접 정의하거나 내보내기/가져오기로 전달합니다. 체크하지 않으면 <b>구성데이터</b>가 되어 전송요청으로 시스템 간 이전이 가능하지만, <span class="bad">변경은 원 조정케이스가 정의된 소스시스템에서만</span> 가능합니다. 운영 이관 방식이 갈리는 지점이라 처음에 결정해야 합니다.</p>
+</div>
+
+<h4>표시그룹의 두 측과 페어링</h4>
+
+<p>예: 리딩단위(회사)의 <b>AP</b>와 상대단위(거래상대회사)의 <b>AR</b>을 양측으로 하는 표시그룹, 그 반대(리딩 AR ↔ 상대 AP) 그룹도 정의 가능합니다. 세분화를 위해 서브그룹(예: 제품/서비스계정별 AR 세분화)을 둘 수도 있습니다.</p>
+
+<ul>
+  <li>여러 표시그룹을 만들면 <span class="bad">반드시 하나를 리딩표시그룹으로 지정</span>해야 한다 — Reconciliation Status Overview 앱의 전체잔액상태 계산 기준</li>
+  <li><b>리딩금액(Leading Amount)</b>은 조정상태보고서의 잔액계산과 이후 <b>상계차이(Elimination Difference)</b> 계산에 쓰인다</li>
+  <li>두 표시그룹을 <b>페어링</b>하면 조정잔액보고서에서 <span class="key">회사간 넷팅뷰</span>를 구성할 수 있다 — 그룹1이 (리딩=필터A, 상대=필터B)이면 그룹2는 (리딩=필터B, 상대=필터A)여야 한다</li>
+  <li>금액유형별 <b>공차금액/비율</b>을 지정하면, 회사와 거래상대회사 전기 간 차이가 공차와 비교되어 상태가 산출된다</li>
+</ul>
+
+<h3>앱과 조치</h3>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>앱</th><th>무엇을 하는가</th></tr></thead>
+<tbody>
+<tr><td class="wrap">Reconciliation Balances</td><td class="wrap">선택한 조정케이스 기준으로 조직단위와 상대단위의 <b>YTD·기간 금액 및 차이</b>를 특정 회계연도/기간으로 표시. 표시그룹이 페어링되어 있으면 <b>넷팅</b> 사용 가능</td></tr>
+<tr><td class="wrap">Manage Assignments - By Reconciliation Case</td><td class="wrap">매칭된 항목 조회 + 미매칭 항목 수동배정. 조정케이스 선택 → 필수필터(Display Group, Amount Field, Currency) → Go → <b>Auto Match</b>(모든 매칭규칙 순차 적용) → 하단 Assignments 테이블에서 배정번호 확인</td></tr>
+<tr><td class="wrap">Reconciliation Status Overview</td><td class="wrap">라인아이템레벨 <b>매칭상태</b>와 집계레벨 <b>조정상태</b> 모니터링. 상세아이콘(&gt;)으로 Reconciliation Balances로 이동</td></tr>
+<tr><td class="wrap">Define Matching Methods · Schedule Matching Runs</td><td class="wrap">매칭방법 정의, 매칭실행 예약</td></tr>
+</tbody>
+</table>
+</div>
+
+<div class="note warn">
+  <div class="t">미배정 건수가 예상과 다르게 나오는 이유</div>
+  <p>매칭상태는 <b>리딩표시그룹 기준</b>으로 계산됩니다. 리딩표시그룹이 AR→AP이면, 특정 회사의 미배정건수 = <span class="key">그 회사의 미배정 AR 전체 + 그 회사 거래상대방들의 미배정 AP 전체</span>입니다. Manage Assignments 앱의 <b>Leading Unit: Unassigned</b>와 <b>Partner Units: Unassigned</b> 테이블 항목의 합이며, <span class="bad">해당 회사의 AR+AP 전체 건수와는 다릅니다.</span><br>
+  또 상태 <code>00</code>(New)인 항목은 아직 매칭엔진이 처리하지 않은 것이라 집계에서 제외됩니다.</p>
+</div>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>조치</th><th>설명</th></tr></thead>
+<tbody>
+<tr><td>Assign</td><td class="wrap">매칭규칙이 적용되지 않는 건을 수동매칭 — 예: 통화가 달라 자동매칭은 안 되지만 실제로는 일치하는 항목에 배정번호 부여</td></tr>
+<tr><td>Add Note</td><td class="wrap">공개코멘트 + 선택적 기한. 상태가 <b>Note Added</b>로 변경, 기한초과 시 빨간색(배정항목로그에서만 확인)</td></tr>
+<tr><td>Send Notification</td><td class="wrap">선택 수신자에게 알림 + 선택적 기한. 상태가 <b>Notification Sent</b>로 변경, 수신자는 Fiori Launchpad 헤더바에서 수신</td></tr>
+<tr><td>Set to Done</td><td class="wrap">코멘트/알림이 처리되면 기한·초과알람 해제</td></tr>
+</tbody>
+</table>
+</div>
+
+<h4>자동조정 승인 워크플로우</h4>
+
+<p>자동조정을 사전승인받으려면 <b>사유코드에 워크플로우시나리오를 첨부</b>해야 합니다. 표준 시나리오 <code>WS78500087</code>이 편차조정승인용으로 제공되며, <b>Manage Workflows - Intercompany Variance Adjustment</b> 앱으로 정의합니다.</p>
+
+<div class="note">
+  <div class="t">🔰 초보자 설명 — IXMR은 왜 필요할까</div>
+  <p>그룹 내 A사가 B사에 물건을 팔면 A사 장부에는 "받을 돈"(AR), B사 장부에는 "줄 돈"(AP)이 기록됩니다. 연결재무제표에서는 이 내부거래를 상계해 지워야 하는데, 두 회사의 금액이나 시점이 미세하게 다르면(환율·타이밍) 딱 맞아떨어지지 않습니다. IXMR은 두 장부를 자동 비교해 <b>"여기는 일치, 여기는 확인 필요"</b>를 실시간으로 찾아 줍니다.</p>
+</div>
+
+<div class="note ok">
+  <div class="t">📌 개인 E2E 프로젝트와의 연결점</div>
+  <p>회사코드가 CL04 하나뿐이라 <b>회사간거래 자체가 없습니다</b> — 이 Unit은 실습 대상이 아닙니다. 다만 매칭 구조(두 데이터셋을 필터로 좁히고 → 규칙을 순차 적용하고 → 남은 건만 다음 규칙으로 넘기고 → 최종 미매칭은 사람에게)는 <code>ZGATE_INSPECT</code>가 GR(101)과 STOR 이관(301)을 대조하는 로직과 동일한 패턴입니다. <b>공차(Tolerance)</b> 개념 역시 수량 차이 허용범위로 가져올 수 있습니다.</p>
+</div>
+
+</div>
+
+
+<!-- ══════════ APPENDIX ══════════ -->
+<div class="lesson" id="lx">
+<h2><span class="no">APPENDIX</span>정리 · 반드시 기억할 것</h2>
+
+<h3>한 장 요약</h3>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>질문</th><th>답</th></tr></thead>
+<tbody>
+<tr><td>마감 순서의 철칙</td><td class="wrap">모든 서브레저(AR · AP · FI-AA)를 <b>G/L보다 먼저</b> 마감. 역전하면 잔액 불일치 (SAP Note 619969)</td></tr>
+<tr><td>월결산 3구간</td><td class="wrap">사전결산 → 관리결산(잠갔다가 조정용으로 재오픈) → 대외보고 결산</td></tr>
+<tr><td>연말에 추가되는 것</td><td class="wrap">잔액이월 · 실지재고조사 · 원가추정 갱신 · 저가법/LIFO/FIFO · 자산평가 · 잔액확인서</td></tr>
+<tr><td>재무제표버전 필수항목</td><td class="wrap">Assets / Liabilities and Equity / Net result: Profit / Net result: Loss / P&amp;L Results / Not Assigned</td></tr>
+<tr><td>순손익 계산에서 빠지는 것</td><td class="wrap">주석(Notes) 항목과 <b>미배정(Not Assigned)</b> 계정</td></tr>
+<tr><td>클래식 FSV를 Fiori로</td><td class="wrap">Import Hierarchy 또는 <code>HRRP*</code> 복제(<code>F1478</code>). <code>RFBILA00</code>은 새 계층을 못 쓴다</td></tr>
+<tr><td>FI-AA 회계연도 변경</td><td class="wrap">FI-AA 자체 프로그램이 아니라 <b>G/L 중앙 잔액이월</b>이 수행</td></tr>
+<tr><td>GR/IR 결산일 잔액</td><td class="wrap">인보이스만 → 자산측 / 배송만 → 부채측. 조정계정 전기 후 <b>익월 1일 자동반전</b></td></tr>
+<tr><td>재고평가 3그룹</td><td class="wrap">RSC = 이동평균가 / WIP = 표준가, 별도 계산 없으면 B/S에 안 나옴 / FG = 수량 × 표준가</td></tr>
+<tr><td>외화평가 프로그램</td><td class="wrap"><code>FAGL_FCV</code>. 대상은 외화 B/S계정 + 외화 미결항목. 익월 1일 자동반전</td></tr>
+<tr><td>왜 조정계정에 전기하나</td><td class="wrap">조정계정(Recon. Account)은 <b>직접 전기 불가</b>. B/S 같은 라인에 표시되는 별도 계정을 쓴다</td></tr>
+<tr><td>실현 환차 시점</td><td class="wrap">미결항목 <b>정리(Clearing)</b> 시. 평가는 미실현이라 반전된다</td></tr>
+<tr><td>델타로직이 필요한 때</td><td class="wrap">연말 평가를 다음 해에 반전할 수 없는 국가. 반전 없이 <b>차액만</b> 전기, 이력은 <code>FAGL_BSBW_HISTRY</code></td></tr>
+<tr><td>재분류 프로그램</td><td class="wrap"><code>FAGL_CL_REGROUP</code>. 정렬방법에서 <b>이체전기 생성 선택</b>을 해야 실제로 전기된다</td></tr>
+<tr><td>기능영역 도출 우선순위</td><td class="wrap">수동입력 → 대체규칙 → 손익계정 마스터 → CO오브젝트 마스터</td></tr>
+<tr><td>발생 vs 이연</td><td class="wrap">발생 = 당기 귀속인데 후속기간 전기 / 이연 = 당기 전기인데 미래기간 귀속</td></tr>
+<tr><td>발생액 계산식</td><td class="wrap">ACCRL = PLNCST(계획) − ACTCST(실제), <b>양수인 경우만</b></td></tr>
+<tr><td>검토/승인 대상 유형</td><td class="wrap"><code>PLNCST</code>에만 활성화. 통화유형 <code>00</code>에서만 검토 가능</td></tr>
+<tr><td>정기전기 스키마 필수 라인</td><td class="wrap">라인유형 <code>9003</code>(발생계정 = B/S계정) 1개 — 다음 연도로 이월되어야 하므로</td></tr>
+<tr><td>원장그룹의 이점</td><td class="wrap">평가프로그램을 <b>1회 실행</b>으로 묶인 모든 원장에 기록</td></tr>
+<tr><td>확장원장의 성격</td><td class="wrap"><b>델타값만</b> 저장. 자체 회계기간변형 배정 가능 → 표준원장 마감 상태에서도 열어 둘 수 있다</td></tr>
+<tr><td>전기기간 '+' 행의 의미</td><td class="wrap">최대 오픈 폭. 개별 계정유형 행은 <b>좁히기만</b> 할 수 있다</td></tr>
+<tr><td>기간구간 3</td><td class="wrap">CO → FI 전기 전용. 비어 있으면 구간 1·2를 따른다</td></tr>
+<tr><td>손익계정 잔액이월 대상</td><td class="wrap"><b>이익잉여금계정</b>(Define Retained Earnings Account)</td></tr>
+<tr><td>문서분할의 범위</td><td class="wrap"><b>총계정원장에만</b> 관련. 서브레저에서는 미결항목이 여전히 1건</td></tr>
+<tr><td>FCC 템플릿 vs 태스크리스트</td><td class="wrap">템플릿 = 구조 / 태스크리스트 = 기준일·회계연도·전기기간이 박힌 실행본. <b>릴리즈해야 실행</b></td></tr>
+<tr><td>IXMR 매칭 결과 저장</td><td class="wrap">테이블 <code>ICADOCM</code>. 상태 <code>00</code>(New)은 집계에서 제외</td></tr>
+</tbody>
+</table>
+</div>
+
+<h3>주요 트랜잭션·프로그램</h3>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>코드</th><th>용도</th></tr></thead>
+<tbody>
+<tr><td><code>FAGLGVTR</code></td><td class="wrap">잔액이월 프로그램 실행</td></tr>
+<tr><td><code>SAPF010</code></td><td class="wrap">고객·벤더 잔액이월 별도 실행</td></tr>
+<tr><td><code>FAGL_FCV</code></td><td class="wrap">외화평가 (B/S계정 + 미결항목)</td></tr>
+<tr><td><code>FAGL_FCV_SNRO</code></td><td class="wrap">평가실행ID 번호범위 — 클라이언트당 1구간</td></tr>
+<tr><td><code>FAGL_CL_REGROUP</code></td><td class="wrap">채권/채무 재분류 · 조정계정 변경 반영</td></tr>
+<tr><td><code>SAPF130D</code> / <code>SAPF130K</code></td><td class="wrap">고객/벤더 잔액확인서</td></tr>
+<tr><td><code>SAPF107V</code></td><td class="wrap">정률개별가치조정</td></tr>
+<tr><td><code>MRN9</code> / <code>MRN9DELTA</code></td><td class="wrap">계정레벨 B/S 재고가치 / 델타런 확인·반전</td></tr>
+<tr><td><code>CK11N</code></td><td class="wrap">수량구조 기준 제품원가계산</td></tr>
+<tr><td><code>ACACTREE02</code> / <code>POACTREE03</code></td><td class="wrap">발생오브젝트 (Manual / Purchase Order)</td></tr>
+<tr><td><code>ACEPROPOSALRUN</code> / <code>ACEPOSTINGRUN</code></td><td class="wrap">발생 제안금액 생성 / 발생 전기</td></tr>
+<tr><td><code>FACRARVWBU</code> / <code>FACRARVWCO</code> / <code>FACRAAPPRVGL</code></td><td class="wrap">PO 발생 검토(구매오더 소유자 / 컨트롤러) / 승인(G/L)</td></tr>
+<tr><td><code>FB08</code> / <code>F.80</code></td><td class="wrap">개별 / 대량 반전 (Reference Procedure <code>ACES4</code>)</td></tr>
+<tr><td><code>FAGL_EHP4_T001B_COFI</code> / <code>OKP1</code></td><td class="wrap">FI 오픈기간 / CO 기간잠금</td></tr>
+<tr><td><code>FCLOCO</code> / <code>FCLOCOT</code></td><td class="wrap">결산콕핏 실행 / 그룹·로컬 업무분담</td></tr>
+<tr><td><code>OB58</code> / <code>FSE2</code> / <code>RFBILA00</code></td><td class="wrap">클래식 재무제표버전 · 클래식 B/S 리포트</td></tr>
+<tr><td><code>HRRP_REP</code> / <code>FINS_REPLICATION_HIER_N</code></td><td class="wrap">클래식 FSV → 런타임 계층 복제</td></tr>
+</tbody>
+</table>
+</div>
+
+<div class="note warn">
+  <div class="t">반드시 지킬 것</div>
+  <p>· <b>서브레저를 G/L보다 먼저</b> 닫는다. 한 번 역전하면 조정에 며칠이 든다.<br>
+     · 평가·재분류 전기가 <b>다음 기간 첫날 반전되는지</b> 항상 확인한다. 반전이 빠지면 일상 업무 숫자가 틀어진다.<br>
+     · <b>문서를 아카이빙하기 전에</b> 잔액감사증적을 먼저 실행한다. 순서가 뒤집히면 되돌릴 수 없다.<br>
+     · 평가영역·평가방법은 <span class="bad">실행 중에 만들 수 없다.</span> Customizing에서 미리 정의한다.<br>
+     · FCC 태스크리스트는 <b>릴리즈</b>하지 않으면 돌지 않는다. "왜 안 도나요"의 첫 번째 확인 지점.<br>
+     · 발생 <b>계산</b>과 <b>전기</b>는 분리되어 있다. 금액이 회계에 닿기 전에 사람이 보는 단계를 없애지 않는다.</p>
+</div>
+
+<div class="note warn">
+  <div class="t">확인 필요 — 실제 시스템(winerp01 / MEP)에서 확정할 것</div>
+  <p>· <b>Manage Global Hierarchies 사용 가능 여부</b> — S/4HANA 1809 이상에서만 제공된다. 릴리즈를 먼저 확인하고, 없으면 <code>OB58</code>/<code>FSE2</code> 클래식 경로로 간다.<br>
+     · <b>Accruals Management 컴포넌트 활성화 여부</b> — Manual Accruals(<code>ACAC</code>)와 Purchase Order Accruals는 별도 활성화가 필요할 수 있다.<br>
+     · <b>IXMR 앱 제공 여부</b> — 회사간거래 조정 앱 묶음은 릴리즈·라이선스에 따라 갈린다.<br>
+     · <b>기간구간 3(CO→FI)의 실제 설정 상태</b> — 비어 있는지 채워져 있는지에 따라 CO 전기 차단 원인이 달라진다.<br>
+     · <b>FCC 제공 형태</b> — 클래식 FCC(<code>FCLOCO</code>)인지 Advanced Financial Closing(클라우드 서비스)인지 확인한다.<br>
+     이 노트의 화면 흐름은 Learning Hub 레슨 본문 기준이며, 캡처는 실제 시스템에서 확인한 뒤 넣는다.</p>
+</div>
+
+<h3>참고</h3>
+
+<ul>
+  <li>원본: 노션 <b>SAP Learning Hub</b> → Implementing Financial Accounting in SAP S/4HANA → 3-1 ~ 3-9 (Course 3 / S4F15, 9 Unit · 19 레슨). 다운로드 가능한 PDF가 없어 레슨 본문을 직접 정리한 자료다</li>
+  <li>같은 저니의 노트: <b>S4F12</b> 기본 Customizing · <b>S4F13</b> 추가 Customizing (여기서 만든 계정·조정계정·문서유형 위에 이 코스의 결산 절차가 얹힌다) · <b>S4F17</b> 자산회계 (LESSON 3의 감가실행·자산이력명세서가 거기서 상세히 다뤄진다)</li>
+  <li>MM 쪽 연관: <b>S4515</b> 송장검증(GR/IR의 반대편) · <b>S4510</b> 재고관리(실지재고조사)</li>
+  <li>SAP Note: 619969(서브레저 마감 순서) · 3064994 / 3064950(FSV 복제) · 2812479(발생 트랜잭션유형 FL/RL/UL)</li>
+</ul>
+
+</div>
+
+</div>
+<script src="../../assets/hub.js" defer></script>
+</body>
+
+</html>

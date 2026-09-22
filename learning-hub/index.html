@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>SAP Learning Hub 자료실</title>
+<meta name="description" content="노션 SAP Learning Hub 학습노트를 HTML 노트로 변환한 자료실. SD·FI·MM·PP·TADM10·IEE2E 6개 Learning Journey.">
+<link rel="icon" href="assets/favicon.svg">
+<link rel="stylesheet" href="assets/hub.css">
+</head>
+<body>
+
+<header class="top">
+  <div class="wrap">
+    <div class="kicker">SAP LEARNING HUB</div>
+    <h1>SAP Learning Hub 자료실</h1>
+    <div class="sub">
+      노션 <b>SAP Learning Hub</b>에 쌓아둔 Learning Journey 학습노트를 HTML 노트로 옮긴 자료실입니다.<br>
+      노션 페이지 <b>1 코스</b>가 HTML <b>노트 1건</b>이 되고, 코스 안의 Unit 묶음이 각각 <b>LESSON</b>이 됩니다.
+    </div>
+    <div class="stat-row">
+      <div class="st"><div class="n" data-stat="done">0</div><div class="l">변환된 노트</div></div>
+      <div class="st"><div class="n" data-stat="notes">0</div><div class="l">전체 노트</div></div>
+      <div class="st"><div class="n" data-stat="pages">0</div><div class="l">노션 원본 페이지</div></div>
+      <div class="st"><div class="n">6</div><div class="l">Learning Journey</div></div>
+    </div>
+  </div>
+</header>
+
+<div class="wrap">
+  <div class="search">
+    <input type="text" placeholder="저니 · 코스코드 · 주제로 검색  (예: pricing, S4510, 재고, 권한)" autocomplete="off">
+    <div class="hint">코스 코드(S46200 · S4F12 · TADM10)나 한글 주제어로 바로 찾을 수 있습니다.</div>
+  </div>
+
+  <h2 class="sec">Learning Journey</h2>
+  <div class="jgrid" id="jgrid"></div>
+
+  <h2 class="sec">단독 문서</h2>
+  <div class="clist">
+    <a class="crow" href="notes/common/knowledge-map.html">
+      <div class="no">01</div>
+      <div class="ti"><span class="code">MAP</span>SAP S/4HANA 통합 지식맵 — 전체 정리·분류·심화</div>
+      <div class="hr">자료실 전체의 입구 · 노트 44건 링크</div>
+      <div class="stt done">변환 완료</div>
+    </a>
+    <a class="crow" href="notes/common/verify-checklist.html">
+      <div class="no">02</div>
+      <div class="ti"><span class="code">CHECK</span>확인 필요 체크리스트 — 실제 시스템에서 확정할 것</div>
+      <div class="hr">86줄 · winerp01 / MEP</div>
+      <div class="stt done">작업 문서</div>
+    </a>
+    <a class="crow" href="notes/common/fi-e2e-guide.html">
+      <div class="no">03</div>
+      <div class="ti"><span class="code">FI-E2E</span>FI End-to-End 프로세스 가이드</div>
+      <div class="hr">직접 작성한 문서</div>
+      <div class="stt done">변환 완료</div>
+    </a>
+  </div>
+</div>
+
+<footer class="bot">
+  <div class="wrap">SAP Learning Hub 자료실 · 원본: 노션 SAP Learning Hub · 최근 업데이트 2026-09-15 · <a href="../index.html" style="color:#4338CA;text-decoration:none;font-weight:700;">← SAP 학습 자료실로</a></div>
+</footer>
+
+<script src="assets/data.js"></script>
+<script src="assets/hub.js" defer></script>
+</body>
+</html>

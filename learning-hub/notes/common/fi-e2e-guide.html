@@ -1,0 +1,1223 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>FI End-to-End 프로세스 가이드 — 계정결정 · 반제 · 역분개</title>
+<meta name="description" content="직접 작성한 FI End-to-End 프로세스 가이드. 차변/대변과 전표구조부터 자동계정결정(조정계정·OBYC·VKOA·Special G/L), 반제, 역분개, P2P·O2C·월결산 흐름, 트랜잭션·테이블 총정리와 설계 체크리스트까지.">
+<link rel="icon" href="../../assets/favicon.svg">
+<link rel="stylesheet" href="../../assets/notes-paper.css">
+<style>
+/* ── 이 노트 전용: 도해(SVG) 스타일 ─────────────────────────── */
+.dgm{display:block; width:100%; height:auto;}
+.dgm text{font-family:"Malgun Gothic","맑은 고딕","Apple SD Gothic Neo",sans-serif; fill:#1e1e1e;}
+.dgm .t-h{font-size:15px; font-weight:700;}
+.dgm .t{font-size:13px;}
+.dgm .t-s{font-size:11.5px; fill:#555;}
+.dgm .t-xs{font-size:10.5px; fill:#6B7280;}
+.dgm .m{font-family:"D2Coding","Consolas",monospace; font-size:12px;}
+.dgm .m-s{font-family:"D2Coding","Consolas",monospace; font-size:10.5px;}
+.dgm .c-key{fill:#4338CA;} .dgm .c-bad{fill:#B91C1C;} .dgm .c-ok{fill:#047857;}
+.dgm .b{fill:#FFFFFF; stroke:#C7CBD6; stroke-width:1.2;}
+.dgm .b-key{fill:#EEF0FB; stroke:#4338CA; stroke-width:1.4;}
+.dgm .b-bad{fill:#FEF2F2; stroke:#B91C1C; stroke-width:1.3;}
+.dgm .b-ok{fill:#ECFDF5; stroke:#047857; stroke-width:1.3;}
+.dgm .b-mut{fill:#F3F4F6; stroke:#D1D5DB; stroke-width:1.1;}
+.dgm .b-hl{fill:#FEF08A; stroke:#CA8A04; stroke-width:1.2;}
+.dgm .b-ghost{fill:none; stroke:#9AA3B2; stroke-width:1.1; stroke-dasharray:5 4;}
+.dgm .ln{stroke:#7C8697; stroke-width:1.4; fill:none;}
+.dgm .ln-key{stroke:#4338CA; stroke-width:1.8; fill:none;}
+.dgm .ln-bad{stroke:#B91C1C; stroke-width:1.6; fill:none;}
+.dgm .ln-ok{stroke:#047857; stroke-width:1.6; fill:none;}
+.dgm .ln-d{stroke:#9AA3B2; stroke-width:1.2; stroke-dasharray:4 4; fill:none;}
+.dgm .arw{fill:#7C8697;} .dgm .arw-key{fill:#4338CA;}
+.dgm .arw-bad{fill:#B91C1C;} .dgm .arw-ok{fill:#047857;}
+.figwrap{background:#FAFAFE; border:1px solid var(--rule); border-radius:6px;
+  padding:18px 16px 10px; margin:22px 0;}
+.figwrap figcaption{margin-top:12px; padding-top:10px; border-top:1px solid var(--rule);}
+</style>
+</head>
+<body>
+<div class="crumb"><a href="../../index.html">← 자료실 홈</a> · 단독 문서 · FI End-to-End 프로세스 가이드</div>
+<div class="sheet">
+
+<div class="doc-head">
+  <div class="kicker">LEARNING HUB · 단독 문서</div>
+  <h1>FI End-to-End 프로세스 가이드 — 계정결정 · 반제 · 역분개</h1>
+  <div class="sub">
+    Learning Journey 소속이 아닌 <b>직접 작성한 가이드 문서</b> · 6장 구성<br>
+    출처: 노션 <b>SAP Learning Hub</b> → FI End-to-End 프로세스 가이드 1 ~ 6장 변환<br>
+    작성 목적: End-to-End 프로세스 회의 준비 — 기존 S4F12 / S4F13 / S4F15 / S4F17 · MM 자동계정결정 · SD 계정결정 노트를 한 줄기로 묶은 것
+  </div>
+</div>
+
+<div class="lead">
+  <p><b>결론부터.</b> FI를 "전표 찍는 모듈"로 보면 아무것도 설계할 수 없습니다. FI가 실제로 하는 일은 <span class="hl">SD·MM에서 실물이 움직인 사건을 어느 G/L 계정에 얼마로 옮겨 적을지 자동으로 결정하는 것</span>이고, 그 결정 규칙이 <code>OBYC</code>·<code>VKOA</code>·조정계정에 이미 심어져 있습니다.</p>
+  <p>그래서 이 가이드는 차변/대변 → 계정결정 → 반제 → 역분개 → E2E 흐름 순으로 쌓아 올립니다. 앞의 네 장은 "규칙이 어떻게 생겼나", 5장은 "그 규칙이 실제 거래에서 어떤 순서로 발동하나", 6장은 "그래서 우리가 무엇을 결정해야 하나"입니다.</p>
+</div>
+
+<div class="note">
+  <div class="t">📖 이 문서의 성격</div>
+  <p>강의 노트가 아니라 <b>회의 준비용으로 직접 쓴 1차 초안</b>입니다. 원문 자체가 "리뷰 후 실제 프로젝트(회사코드·계정과목표·업종 특성)에 맞게 구체화할 예정"이라고 밝히고 있으므로, 여기 적힌 값은 표준 동작 설명이지 확정된 설정값이 아닙니다.</p>
+</div>
+
+<div class="toc">
+  <h4>목차</h4>
+  <ol>
+    <li><a href="#l1">기초 개념 — 차변/대변 · 전표구조 · G/L 계정 마스터</a></li>
+    <li><a href="#l2">자동계정결정 총정리 — 조정계정 · OBYC · VKOA · Special G/L</a></li>
+    <li><a href="#l3">반제(Clearing) — 미결항목을 0으로 만드는 일</a></li>
+    <li><a href="#l4">역분개(Reversal) — 지우지 않고 되돌리는 법</a></li>
+    <li><a href="#l5">End-to-End 흐름 — P2P · O2C · 월결산 · Document Splitting</a></li>
+    <li><a href="#l6">트랜잭션 · 테이블 총정리와 설계 체크리스트</a></li>
+  </ol>
+</div>
+
+
+<!-- ══════════ LESSON 1 ══════════ -->
+<div class="lesson" id="l1">
+<h2><span class="no">LESSON 1</span>기초 개념 — 차변/대변 · 전표구조 · G/L 계정 마스터</h2>
+
+<p><span class="tag">원문 1장</span><span class="tag">FI·CO 역할분담 · Universal Journal · 복식부기 · 전기키 · 전표구조 · 계정과목표</span></p>
+
+<h3>언제 이걸 알아야 하는가</h3>
+
+<p>가장 자주 걸리는 문의가 <b>"이 계정에 전기하려는데 원가센터를 입력하라고 막습니다"</b>입니다. 계정 설정을 만진 적이 없는데 갑자기 막히는 게 아니라, 그 계정이 <span class="key">Primary Costs or Revenue 유형</span>으로 만들어져 있어서 CO 오브젝트 없이는 전기가 원천 차단되는 것입니다.</p>
+
+<p>답은 <code>FS00</code>의 Account Type 한 줄에 있습니다. 그리고 이 값은 <span class="bad">전기 이력이 쌓인 뒤에는 바꾸기 어렵습니다</span> — 계정 설계 초기에 정해야 하는 이유가 여기 있습니다.</p>
+
+<h3>FI와 CO — 같은 데이터, 다른 렌즈</h3>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>구분</th><th>FI (Financial Accounting)</th><th>CO (Controlling / 관리회계)</th></tr></thead>
+<tbody>
+<tr><td>누구를 위한 것인가</td><td class="wrap">외부 이해관계자 — 주주 · 세무당국 · 채권자 · 감사인</td><td class="wrap">회사 내부 경영진 · 부서장</td></tr>
+<tr><td>산출물</td><td class="wrap">법정 재무제표 — 대차대조표(B/S), 손익계산서(P&amp;L)</td><td class="wrap">원가센터별 · 제품별 · 프로젝트별 손익 분석</td></tr>
+<tr><td>구성요소</td><td class="wrap">총계정원장(G/L) + 보조원장(매출채권 AR · 매입채무 AP · 자산회계 AA)</td><td class="wrap">원가요소회계 → 간접비관리(Cost Center) / 제품원가관리 → 수익성분석</td></tr>
+</tbody>
+</table>
+</div>
+
+<div class="note">
+  <div class="t">🔰 초보자 설명 — FI와 CO의 관계</div>
+  <p>FI는 "회사 전체의 공식 장부"이고, CO는 그 안의 비용·수익을 "어느 부서, 어느 제품 것인지" 잘게 쪼개서 다시 보는 내부관리용 렌즈입니다. 그래서 CO의 출발점인 원가요소회계는 FI에서 발생한 비용·수익 데이터를 그대로 이어받습니다 — 완전히 다른 데이터가 아니라 <b>같은 데이터를 다른 관점으로 보는 것</b>에 가깝습니다.</p>
+</div>
+
+<p>FI의 서브렛저(Subledger) 3종은 <b>AR(매출채권 — 받을 돈)</b> · <b>AP(매입채무 — 줄 돈)</b> · <b>자산회계(고정자산)</b>이며, 이들의 전기는 <span class="key">조정계정(Reconciliation Account)</span> 메커니즘으로 자동으로 G/L에도 반영됩니다(LESSON 2).</p>
+
+<h3>Universal Journal — 조정 작업 자체를 없앤 구조</h3>
+
+<p>과거에는 FI 장부와 CO 장부가 사실상 따로 관리되어, 숫자가 안 맞으면 사람이 일일이 조정(reconciliation)해야 했습니다. S/4HANA는 <span class="key">Universal Journal</span>(테이블 <code>ACDOCA</code>) 하나에 FI-GL · FI-AA · CO · 수익성분석 · Material Ledger 데이터를 전부 한 줄(라인아이템)로 통합해 그 조정 작업을 없앴습니다.</p>
+
+<ul>
+  <li>대차대조표 최상위 숫자에서 클릭 몇 번으로 원천 전표까지 완전 추적(full traceability) — 감사 관점에서 중요</li>
+  <li>Profit Center · Segment 등 어떤 차원으로도 재무제표 분할 조회(Document Splitting과 결합 시)</li>
+  <li>전표 자체에 시장 세그먼트 정보가 들어있어 실시간 수익성 분석 가능</li>
+</ul>
+
+<h3>복식부기와 전기키(Posting Key)</h3>
+
+<p>모든 전표는 <b>차변(Debit) 합 = 대변(Credit) 합</b>이어야 합니다. 차대가 안 맞으면 SAP는 전기 자체를 거부합니다.</p>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>계정 유형</th><th>차변(Debit)</th><th>대변(Credit)</th></tr></thead>
+<tbody>
+<tr><td>자산(Asset)</td><td class="wrap">증가</td><td class="wrap">감소</td></tr>
+<tr><td>부채(Liability)</td><td class="wrap">감소</td><td class="wrap">증가</td></tr>
+<tr><td>자본(Equity)</td><td class="wrap">감소</td><td class="wrap">증가</td></tr>
+<tr><td>수익(Revenue)</td><td class="wrap">감소(취소·환입)</td><td class="wrap">증가</td></tr>
+<tr><td>비용(Expense)</td><td class="wrap">증가</td><td class="wrap">감소(취소·환입)</td></tr>
+</tbody>
+</table>
+</div>
+
+<p>SAP는 각 라인아이템에 <span class="key">전기키(Posting Key, 2자리)</span>를 지정해 차변/대변과 계정유형을 동시에 통제합니다. 전기키는 <b>Client 레벨</b>에서 정의되어 전체 회사코드에 공통 적용됩니다.</p>
+
+<div class="keys">
+  <div class="keycard"><div class="kk">40 / 50</div><div class="kn">G/L 계정</div><div class="kd">차변 40 · 대변 50</div></div>
+  <div class="keycard"><div class="kk">01 / 11</div><div class="kn">고객(매출채권)</div><div class="kd">차변 01 · 대변 11</div></div>
+  <div class="keycard"><div class="kk">21 / 31</div><div class="kn">공급업체(매입채무)</div><div class="kd">차변 21 · 대변 31</div></div>
+</div>
+
+<p>G/L 계정이 <code>40</code>·<code>50</code> 두 개로 충분한 이유는, G/L 계정의 입력화면 통제를 <span class="key">Field Status Group</span>(계정 마스터에 지정)이 담당하기 때문입니다. 반면 하위원장(고객/공급업체) 계정은 Field Status Group이 없어 <b>전기키 자체가 입력화면을 구분하는 역할까지 겸하므로</b> 종류가 더 많습니다(선급금·특수G/L용 <code>09</code>·<code>19</code>·<code>29</code>·<code>39</code> 등 — LESSON 2).</p>
+
+<h3>전표(Document)의 구조</h3>
+
+<p>SAP는 <span class="key">문서 원칙(Document Principle)</span>을 따릅니다 — 모든 거래는 문서로 저장되며 아카이빙될 때까지 완전한 단위로 유지됩니다.</p>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>구분</th><th>내용</th></tr></thead>
+<tbody>
+<tr><td>Document Header</td><td class="wrap">전표 전체에 적용되는 정보 — 전표일자, 전기일자, Document Type, 문서번호, 회사코드, 회계연도</td></tr>
+<tr><td>Line Items</td><td class="wrap">최소 2개 ~ 최대 999개. 금액(차/대), 계정번호, 전기키, 원가센터 · 이익센터 · 텍스트 등</td></tr>
+</tbody>
+</table>
+</div>
+
+<p>하나의 문서는 <span class="hl">문서번호 + 회사코드 + 회계연도</span> 3가지로 고유하게 식별됩니다. 하나의 비즈니스 트랜잭션이 여러 문서(자재문서 + 회계문서)를 만들기도 하고, 회계 영향이 없는 문서(구매오더 자체)는 회계문서 없이 생성되기도 합니다.</p>
+
+<h4>전표유형(Document Type)의 3가지 기능</h4>
+
+<div class="step"><span class="n">① 구분</span><p>어떤 거래인지 식별한다 — 라인아이템 조회 시 구분 기준이 된다.</p></div>
+<div class="step"><span class="n">② 통제</span><p>어떤 계정유형(고객 / 공급업체 / 자산 / G·L)에 전기 가능한지 결정한다.</p></div>
+<div class="step"><span class="n">③ 채번</span><p>전표유형마다 번호범위(Number Range)가 배정되어 전표번호를 발번한다.</p></div>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>전표유형</th><th>용도</th></tr></thead>
+<tbody>
+<tr><td><code>AB</code></td><td class="wrap">전체 계정유형에 전기 가능한 범용 전표유형(수동 G/L 전기 등)</td></tr>
+<tr><td><code>RV</code></td><td class="wrap">SD 청구서(Billing)의 기본 전표유형</td></tr>
+<tr><td><code>RE</code></td><td class="wrap">MM 공급업체송장(Invoice Receipt)의 기본 전표유형</td></tr>
+<tr><td><code>KR</code></td><td class="wrap">공급업체 송장 수기 입력(대변 전기키 31)</td></tr>
+<tr><td><code>ZP</code></td><td class="wrap">지급프로그램(<code>F110</code>)이 자동 생성하는 전표유형</td></tr>
+<tr><td><code>SJ</code></td><td class="wrap">Cash Journal Document(현금출납장) — 별도 번호구간 사용</td></tr>
+</tbody>
+</table>
+</div>
+
+<p>FI 문서는 항상 <b>Entry View</b>(입력한 그대로)와 <b>General Ledger View</b>(문서분할 적용 시 Profit Center · Segment 등으로 쪼개진 뷰) 두 가지를 가집니다. Document Splitting이 비활성이면 두 뷰는 동일합니다(LESSON 5).</p>
+
+<h3>G/L 계정 마스터 — 계정 하나가 담는 정보</h3>
+
+<h4>Chart of Accounts 3종</h4>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>유형</th><th>용도</th><th>회사코드 배정</th></tr></thead>
+<tbody>
+<tr><td>Operating COA</td><td class="wrap">일상 전기에 사용. FI와 CO 둘 다 사용</td><td class="wrap"><b>필수</b> — 회사코드당 정확히 1개</td></tr>
+<tr><td>Group COA</td><td class="wrap">전사 그룹 연결(consolidation) 보고용</td><td class="wrap">선택 — Operating COA에 매핑용으로 추가 배정</td></tr>
+<tr><td>Country-specific COA</td><td class="wrap">특정 국가의 법정 보고 요건 충족용</td><td class="wrap">선택</td></tr>
+</tbody>
+</table>
+</div>
+
+<h4>중앙 조직 vs 분산 조직 — 회의에서 결정해야 할 질문</h4>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>방식</th><th>장점</th><th>단점</th></tr></thead>
+<tbody>
+<tr><td>중앙(Central)</td><td class="wrap">그룹 전체가 하나의 Operating COA 공유. 회사코드를 넘나드는 원가관리(CO) 가능, Consolidation 즉시 가능</td><td class="wrap">각국 회계담당자가 자국 고유 계정과목표로 작업 불가</td></tr>
+<tr><td>분산(Decentral)</td><td class="wrap">회사코드마다 자국 COA를 Operating COA로 사용. 담당자가 익숙한 COA로 작업 가능</td><td class="wrap"><span class="bad">회사코드 횡단 원가관리(CO) 불가능</span></td></tr>
+</tbody>
+</table>
+</div>
+
+<div class="note">
+  <div class="t">📖 Controlling Area 통합 조건</div>
+  <p>Controlling Area에 여러 회사코드를 묶어 회사코드 횡단 원가회계를 하려면, 그 회사코드들이 반드시 <b>동일한 Operating Chart of Accounts와 동일한 Fiscal Year Variant</b>를 사용해야 합니다. 단일 법인이면 지금은 고민할 필요가 적지만, 해외 소싱법인 등이 생기는 순간 이 결정이 향후 원가 분석 범위를 좌우합니다.</p>
+</div>
+
+<h4>계정 마스터의 3개 영역</h4>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>영역</th><th>내용</th></tr></thead>
+<tbody>
+<tr><td>Chart of Accounts Area</td><td class="wrap">전 회사코드 공통 — 계정번호 · 계정명 · 통제필드 · 연결필드(1회만 입력)</td></tr>
+<tr><td>Company Code Segment</td><td class="wrap">회사코드별 개별 입력 — 통화 · 세금 · <b>조정계정 여부</b> · 정렬키 · <b>필드상태그룹</b> · 주거래은행</td></tr>
+<tr><td>Controlling Area Segment</td><td class="wrap">Primary Costs/Revenue, Secondary Costs 유형 계정에만 필요 — Cost Element Category 등</td></tr>
+</tbody>
+</table>
+</div>
+
+<h4>G/L Account Type — 이 계정이 CO와 관련 있는가</h4>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>Account Type</th><th>기능</th><th>CO 연동</th></tr></thead>
+<tbody>
+<tr><td>Balance Sheet Account</td><td class="wrap">대차대조표에만 반영되는 잔액</td><td class="wrap">없음</td></tr>
+<tr><td>Cash Account</td><td class="wrap">은행 계좌를 단일 조정계정으로 관리(Bank Reconciliation Account)</td><td class="wrap">없음</td></tr>
+<tr><td>Non-operating Expense/Income</td><td class="wrap">본업과 무관한 활동(예: 기부)의 비용/수익</td><td class="wrap">없음 — 원가요소 미생성</td></tr>
+<tr><td><span class="key">Primary Costs or Revenue</span></td><td class="wrap">1차 원가/수익 — 급여, 판매비, 출고전기 등 영업비용</td><td class="wrap"><span class="bad">자동으로 원가요소 생성 → 전기 시 Cost Center 등 CO 오브젝트 필수</span></td></tr>
+<tr><td>Secondary Costs</td><td class="wrap">내부 원가배부 · 정산 등 조직 내부 가치흐름 전용</td><td class="wrap">CO 안에서만 전기(FI에 대응 계정 없음)</td></tr>
+</tbody>
+</table>
+</div>
+
+<div class="note">
+  <div class="t">🔰 초보자 설명 — 설계 실수가 가장 잦은 지점</div>
+  <p>FI는 "가게 전체 매출/비용 장부", CO는 "코너별(과일코너/정육코너) 손익 장부"입니다. 같은 지출이라도 어느 코너(원가센터) 것인지 알아야 CO에서 분석할 수 있습니다 — 그래서 Primary Costs/Revenue 계정은 전기 시점에 CO 배정이 없으면 시스템이 <b>아예 전기를 거부합니다(하드 룰)</b>. 실무 설계 실수 1위가 Balance Sheet Account를 Primary Costs로 잘못 지정하거나 그 반대이며, 전기 이력이 쌓인 뒤에는 Account Type을 바꾸기 어렵습니다.</p>
+</div>
+
+<div class="note ok">
+  <div class="t">📌 개인 E2E 프로젝트와의 연결점</div>
+  <p>프로젝트는 회사코드 <b>CL04</b> 단일 법인이므로 Operating COA는 하나로 충분하고, 중앙 vs 분산 논의는 해당 사항이 없습니다. 실제로 걸리는 건 <b>Account Type 지정</b> 쪽입니다 — 매출원가 계정(SD PGI 상대계정)과 재고 계정(MM BSX 대상)은 성격이 정반대인데, 매출원가를 Primary Costs로 두면 PGI 시점에 CO 오브젝트가 요구됩니다. 재고 계정은 Balance Sheet Account여야 합니다.</p>
+</div>
+
+<div class="note warn">
+  <div class="t">확인 필요</div>
+  <p>프로젝트에서 매출원가 계정에 원가센터 배정을 강제할지(Primary Costs) 여부는 정해지지 않았습니다. 실제 시스템(winerp01 / MEP)에서 <code>FS00</code> → Account Type과 Field Status Group을 확인한 뒤 확정할 것.</p>
+</div>
+
+</div>
+
+
+<!-- ══════════ LESSON 2 ══════════ -->
+<div class="lesson" id="l2">
+<h2><span class="no">LESSON 2</span>자동계정결정 총정리 — 조정계정 · OBYC · VKOA · Special G/L</h2>
+
+<p><span class="tag">원문 2장</span><span class="tag">이 가이드의 중심</span>계정결정 3층 구조 · 거래키 · Condition Technique 재사용 · 특수G/L</p>
+
+<h3>언제 이걸 알아야 하는가</h3>
+
+<p><b>"청구는 났는데 회계전표가 안 생깁니다"</b> — SD 쪽에서 가장 자주 올라오는 문의입니다. 원인은 대개 둘 중 하나입니다. 게시차단(Posting Block)이 걸려 있거나, <span class="key">VKOA 계정결정이 실패</span>했거나. 계정결정이 실패하면 회계문서는 <span class="bad">일부도 만들어지지 않습니다</span> — "전부 아니면 전무" 원칙입니다.</p>
+
+<p>MM 쪽 대응 증상은 <b>"입고가 안 잡힙니다"</b>이고, 원인은 <code>OBYC</code>에 해당 거래키 × 평가클래스 조합이 비어 있는 것입니다. 이 장은 그 두 규칙표가 어떤 축으로 짜여 있는지를 다룹니다.</p>
+
+<h3>왜 "자동" 계정결정이 필요한가</h3>
+
+<p>SD와 MM은 실물 거래(재화·서비스의 이동)를 다루고, FI는 그 거래의 돈의 흐름을 기록합니다. <span class="hl">창고에서 물건이 나가는 순간과 인보이스가 발행되는 순간이 다르기 때문에</span>, 시스템이 "언제 어떤 계정에 얼마를 기록할지"를 자동 연동해줘야 장부가 실시간으로 맞습니다. 담당자가 매번 계정번호를 골라 입력하면 느리고 오류도 잦습니다.</p>
+
+<figure class="figwrap">
+<svg class="dgm" viewBox="0 0 1000 430" role="img" aria-label="계정결정 3층 구조 도해. FI는 고객·공급업체 마스터의 조정계정으로, MM은 거래키와 평가클래스 조합인 OBYC로, SD는 조건기법 기반 VKOA로 각각 G/L 계정을 자동 결정하며, 선급금 등 특수거래는 특수G/L지시자가 대체 조정계정으로 돌린다.">
+  <defs>
+    <marker id="fa1" markerWidth="9" markerHeight="9" refX="7" refY="4.5" orient="auto">
+      <polygon class="arw-key" points="0,0 9,4.5 0,9"/></marker>
+    <marker id="fa2" markerWidth="9" markerHeight="9" refX="7" refY="4.5" orient="auto">
+      <polygon class="arw" points="0,0 9,4.5 0,9"/></marker>
+  </defs>
+
+  <text class="t-s c-key" x="20" y="22">거래가 발생하는 곳</text>
+  <text class="t-s" x="700" y="22">도착지</text>
+
+  <rect class="b" x="20" y="36" width="230" height="62" rx="6"/>
+  <text class="t-h" x="40" y="60">FI 하위원장 전기</text>
+  <text class="t-s" x="40" y="80">고객 / 공급업체 앞 전기</text>
+
+  <rect class="b" x="20" y="116" width="230" height="62" rx="6"/>
+  <text class="t-h" x="40" y="140">MM 재화이동 · 송장</text>
+  <text class="t-s" x="40" y="160">MIGO 101 · MIRO</text>
+
+  <rect class="b" x="20" y="196" width="230" height="62" rx="6"/>
+  <text class="t-h" x="40" y="220">SD 청구문서</text>
+  <text class="t-s" x="40" y="240">VF01 인보이스 · 메모</text>
+
+  <rect class="b" x="20" y="276" width="230" height="62" rx="6"/>
+  <text class="t-h" x="40" y="300">특수 거래</text>
+  <text class="t-s" x="40" y="320">선급금 · 환어음</text>
+
+  <path class="ln-key" d="M250 67 H326" marker-end="url(#fa1)"/>
+  <path class="ln-key" d="M250 147 H326" marker-end="url(#fa1)"/>
+  <path class="ln-key" d="M250 227 H326" marker-end="url(#fa1)"/>
+  <path class="ln-key" d="M250 307 H326" marker-end="url(#fa1)"/>
+
+  <rect class="b-key" x="330" y="36" width="330" height="62" rx="6"/>
+  <text class="t-h c-key" x="350" y="60">조정계정 (Reconciliation)</text>
+  <text class="t-s" x="350" y="80">BP 마스터 회사코드 세그먼트에 지정</text>
+
+  <rect class="b-key" x="330" y="116" width="330" height="62" rx="6"/>
+  <text class="t-h c-key" x="350" y="138">OBYC — 거래키 × 평가클래스</text>
+  <text class="m-s" x="350" y="157">BSX · WRX · PRD · KDM · GBB</text>
+  <text class="t-s" x="350" y="172">저장 테이블 T030</text>
+
+  <rect class="b-key" x="330" y="196" width="330" height="62" rx="6"/>
+  <text class="t-h c-key" x="350" y="218">VKOA — Condition Technique</text>
+  <text class="t-s" x="350" y="237">판매조직 · 고객계정그룹 · 자재계정그룹</text>
+  <text class="t-s" x="350" y="252">계정키 ERL · ERS · ERF</text>
+
+  <rect class="b-key" x="330" y="276" width="330" height="62" rx="6"/>
+  <text class="t-h c-key" x="350" y="300">특수G/L지시자 → 대체 조정계정</text>
+  <text class="m-s" x="350" y="320">전기키 09 · 19 · 29 · 39</text>
+
+  <path class="ln-key" d="M660 67 H740 V186" marker-end="url(#fa1)"/>
+  <path class="ln-key" d="M660 147 H740" marker-end="url(#fa1)"/>
+  <path class="ln-key" d="M660 227 H700 V200" marker-end="url(#fa1)"/>
+  <path class="ln-key" d="M660 307 H740 V240" marker-end="url(#fa1)"/>
+
+  <rect class="b-ok" x="744" y="116" width="236" height="110" rx="6"/>
+  <text class="t-h c-ok" x="766" y="146">G/L 계정</text>
+  <text class="t-s" x="766" y="168">ACDOCA 라인아이템으로</text>
+  <text class="t-s" x="766" y="186">자동 생성</text>
+  <text class="t-s" x="766" y="210">직접 전기 불가 계정 포함</text>
+
+  <rect class="b-bad" x="330" y="356" width="650" height="56" rx="6"/>
+  <text class="t-h c-bad" x="352" y="380">예외 — VAT(부가가치세) 계정</text>
+  <text class="t-s" x="352" y="399">SD 계정결정 로직에서 결정되지 않는다. FI Global Settings → Define Tax Accounts에 별도 지정.</text>
+
+  <rect class="b-ghost" x="20" y="356" width="292" height="56" rx="6"/>
+  <text class="t-s" x="42" y="380">네 경로 모두 최종 도착지는 G/L 계정이다.</text>
+  <text class="t-s" x="42" y="399">다른 건 "어떤 축으로 계정을 찾는가"뿐.</text>
+</svg>
+<figcaption><span class="fno">그림 1</span>계정결정 3층 구조 + 특수G/L. 모듈마다 검색 축이 다를 뿐, 도착지는 모두 G/L 계정이다.</figcaption>
+</figure>
+
+<h3>① FI — 조정계정(Reconciliation Account)</h3>
+
+<p>고객·공급업체 마스터레코드의 <b>회사코드 세그먼트</b>에 조정계정을 지정해두면, 고객/공급업체 앞으로 전기할 때마다 시스템이 뒤에서 자동으로 이 G/L 계정에도 같이 전기합니다. <span class="bad">조정계정에는 사람이 직접 전기할 수 없습니다</span> — 오직 하위원장 전기를 통해서만 간접적으로 채워집니다. 덕분에 서브레저를 뒤지지 않고도 총계정원장에서 바로 채권·채무 잔액을 볼 수 있습니다.</p>
+
+<p>조정계정은 하나의 Account Type(예: Receivables 또는 Payables)에만 유효합니다.</p>
+
+<h3>② MM — 자동계정결정(OBYC)</h3>
+
+<h4>결정 로직의 3가지 축</h4>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>축</th><th>무엇을 결정하는가</th></tr></thead>
+<tbody>
+<tr><td>조직레벨</td><td class="wrap">재화이동의 플랜트 → 회사코드 → 계정과목표. 플랜트의 평가영역(Valuation Area) → 평가그룹코드(회사코드/플랜트별 세분화)</td></tr>
+<tr><td>자재</td><td class="wrap">자재유형, 수량/가치 업데이트 여부, <span class="key">평가클래스(Valuation Class)</span> — 자재·자재유형별 계정지정 세분화의 핵심</td></tr>
+<tr><td>비즈니스트랜잭션</td><td class="wrap">이동유형(Movement Type) — <code>261</code>=생산오더용 자재출고, <code>551</code>=폐기 등. 입고/출고/이전기표 구분</td></tr>
+</tbody>
+</table>
+</div>
+
+<h4>거래키(Transaction/Event Key) — 계정결정의 "이름표"</h4>
+
+<p>회사마다 계정과목표가 다르므로, SAP는 구체적 계정번호 대신 <span class="key">거래키</span>라는 일반화된 이름표로 전기트랜잭션을 표시하고, 이 거래키를 계정과목표별로 실제 G/L 계정에 매핑합니다. 이 매핑표가 흔히 말하는 <code>OBYC</code> 설정이고, 저장소는 테이블 <code>T030</code>입니다.</p>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>거래키</th><th>명칭</th><th>용도</th></tr></thead>
+<tbody>
+<tr><td><code>BSX</code></td><td>재고전기</td><td class="wrap">평가입고 시 재고계정에 전기 — <b>항상 발생</b></td></tr>
+<tr><td><code>WRX</code></td><td>GR/IR청산계정</td><td class="wrap">평가입고의 상대전기 — 입고/인보이스입고 정산계정</td></tr>
+<tr><td><code>PRD</code></td><td>가격차이전기</td><td class="wrap">표준가 평가 자재에서 구매오더가격(또는 청구가격)이 표준가와 다를 때</td></tr>
+<tr><td><code>KDM</code></td><td>환율차이</td><td class="wrap">입고·청구서수령 시점 환율이 다른 외화 구매오더용</td></tr>
+<tr><td><code>EIN</code> / <code>EKG</code></td><td>구매계정 / 구매상대계정</td><td class="wrap">구매계정관리가 필요한 국가(프랑스 · 벨기에 등 법적요건)</td></tr>
+<tr><td><code>BSV</code> / <code>FRL</code> / <code>FRN</code></td><td>재고계정변경 / 외부용역 / 외부용역 부대비용</td><td class="wrap">위탁가공(Subcontracting) 전용</td></tr>
+</tbody>
+</table>
+</div>
+
+<h4>3-Way Match 전기 흐름 — 숫자로 보기</h4>
+
+<p>개당 EUR 12에 10개 수량 구매오더, 자재는 개당 EUR 10 <b>표준가</b>로 평가되는 경우:</p>
+
+<figure class="figwrap">
+<svg class="dgm" viewBox="0 0 1000 400" role="img" aria-label="3-Way Match 전기 예시 도해. 입고 시 재고는 표준가 100, GR·IR은 오더가 120으로 전기되고 차액 20이 가격차이 계정으로 빠지며, 송장 수령 시 GR·IR 120이 상계되고 청구액 110과의 차이 10이 다시 가격차이 계정으로 반대 전기된다.">
+  <defs>
+    <marker id="fb1" markerWidth="9" markerHeight="9" refX="7" refY="4.5" orient="auto">
+      <polygon class="arw-key" points="0,0 9,4.5 0,9"/></marker>
+  </defs>
+
+  <rect class="b-mut" x="20" y="18" width="960" height="40" rx="5"/>
+  <text class="t" x="40" y="44">PO: 10개 × EUR 12 = 120  ·  자재 표준가: 개당 EUR 10 → 평가액 100  ·  청구액: EUR 110 + 매입세 11</text>
+
+  <text class="t-h c-key" x="20" y="90">① 입고 (GR)</text>
+  <path class="ln-key" d="M20 98 H480" />
+
+  <rect class="b-ok" x="20" y="110" width="216" height="58" rx="5"/>
+  <text class="t" x="38" y="132">재고계정 <tspan class="m-s">BSX</tspan></text>
+  <text class="t-h c-ok" x="38" y="154">차변 100</text>
+  <text class="t-xs" x="140" y="154">표준가 기준</text>
+
+  <rect class="b-key" x="248" y="110" width="216" height="58" rx="5"/>
+  <text class="t" x="266" y="132">GR/IR 청산 <tspan class="m-s">WRX</tspan></text>
+  <text class="t-h c-key" x="266" y="154">대변 120</text>
+  <text class="t-xs" x="368" y="154">오더가 기준</text>
+
+  <rect class="b-bad" x="20" y="182" width="444" height="52" rx="5"/>
+  <text class="t" x="38" y="204">가격차이 <tspan class="m-s">PRD</tspan>  <tspan class="t-h c-bad">차변 20</tspan></text>
+  <text class="t-s" x="38" y="224">오더가격이 평가가격보다 높다 → 차액은 비용으로 계상</text>
+
+  <text class="t-h c-key" x="520" y="90">② 청구서 수령 (IR)</text>
+  <path class="ln-key" d="M520 98 H980" />
+
+  <rect class="b-key" x="520" y="110" width="216" height="58" rx="5"/>
+  <text class="t" x="538" y="132">GR/IR 청산 <tspan class="m-s">WRX</tspan></text>
+  <text class="t-h c-key" x="538" y="154">차변 120</text>
+  <text class="t-xs" x="640" y="154">입고분 상계</text>
+
+  <rect class="b" x="748" y="110" width="232" height="58" rx="5"/>
+  <text class="t" x="766" y="132">공급업체 조정계정</text>
+  <text class="t-h" x="766" y="154">대변 121</text>
+  <text class="t-xs" x="862" y="154">110 + 세금 11</text>
+
+  <rect class="b-bad" x="520" y="182" width="216" height="52" rx="5"/>
+  <text class="t" x="538" y="204">가격차이 <tspan class="m-s">PRD</tspan></text>
+  <text class="t-h c-bad" x="538" y="224">대변 10</text>
+
+  <rect class="b" x="748" y="182" width="232" height="52" rx="5"/>
+  <text class="t" x="766" y="204">매입세 계정</text>
+  <text class="t-h" x="766" y="224">차변 11</text>
+
+  <rect class="b-hl" x="20" y="256" width="960" height="54" rx="6"/>
+  <text class="t-h" x="42" y="280">GR/IR 청산계정이 ①과 ②를 잇는다 — 120 대변 / 120 차변으로 정확히 상쇄</text>
+  <text class="t-s" x="42" y="300">이 계정은 미결항목계정으로 유지되어, 모든 입고에 송장이 왔는지 · 모든 송장에 입고가 있었는지를 검증한다.</text>
+
+  <rect class="b-ghost" x="20" y="328" width="960" height="58" rx="6"/>
+  <text class="t-s" x="42" y="352">PRD는 <tspan class="m-s">표준가(S) 평가</tspan> 자재에서 발생한다. 이동평균가(V) 자재는 차액 처리 방식이 다르므로 같은 그림을 그대로 적용하면 안 된다.</text>
+  <text class="t-s" x="42" y="372">→ 아래 "확인 필요" 블록 참조.</text>
+</svg>
+<figcaption><span class="fno">그림 2</span>3-Way Match의 금액 흐름. 입고와 송장 사이를 GR/IR 청산계정이 잇고, 차액은 PRD로 빠진다.</figcaption>
+</figure>
+
+<div class="note warn">
+  <div class="t">확인 필요 — 평가방식에 따라 그림이 달라진다</div>
+  <p>위 예시는 원문이 <b>표준가(S) 평가</b>를 전제로 든 것입니다. 프로젝트는 <span class="key">이동평균가(V)</span>를 쓰기로 했으므로 오더가와 평가가의 차액이 어디로 가는지가 달라집니다. 실제 시스템(winerp01 / MEP)에서 자재 하나로 <code>MIGO</code> → <code>MIRO</code>를 태워 보고 <code>T030</code>의 어느 거래키가 실제로 발동하는지 확인한 뒤 확정할 것.</p>
+</div>
+
+<h4>평가클래스와 시뮬레이션</h4>
+
+<p>같은 자재유형(예: 원자재)이라도 자체생산인지 구매인지에 따라 다른 재고계정에 전기하고 싶을 수 있습니다. 이때 쓰는 것이 <span class="key">평가클래스(Valuation Class)</span>이며, 자재 마스터 회계뷰에서 자재별로 지정합니다. <b>계정범주참조(Account Category Reference)에 평가클래스를 하나만 배정하면</b> 계정결정 오류를 최소화할 수 있습니다.</p>
+
+<p>Configure Automatic Postings 활동에서 자재번호 또는 평가클래스를 입력해 <span class="hl">실제로 어느 G/L 계정에 전기될지 사전 시뮬레이션</span>할 수 있습니다 — 계정 설계 초기에 이 기능으로 매핑을 검증하는 것이 실무에서 매우 중요합니다.</p>
+
+<h3>③ SD — 수익계정결정(VKOA)</h3>
+
+<p>SD는 가격결정(Pricing)에 쓰던 것과 <b>동일한 조건기법(Condition Technique)</b>을 재사용해 계정을 결정합니다. 청구문서 생성 시 판매조직 · 계정그룹 · 자재그룹 같은 기준(Account Assignment Criteria)으로 매출 · 매출차감 계정을 자동 결정합니다.</p>
+
+<div class="note">
+  <div class="t">🔰 초보자 설명 — VKOA 한 줄 요약</div>
+  <p>"이 청구건의 매출을 어느 G/L 계정에 장부할지"를 판매조직 · 자재그룹 같은 기준으로 자동 결정해주는 <b>규칙표</b>가 VKOA입니다.</p>
+</div>
+
+<div class="note warn">
+  <div class="t">⚠️ VAT는 VKOA에서 결정되지 않는다</div>
+  <p>부가가치세 계정은 SD 계정결정 로직 밖에 있습니다. Customizing 경로 <b>Financial Accounting Global Settings → Tax on Sales/Purchases → Posting → Define Tax Accounts</b>에 별도 지정합니다. VKOA만 보고 "세금 계정이 왜 안 잡히지"를 찾으면 시간만 버립니다.</p>
+</div>
+
+<h4>SD → FI 전달 메커니즘</h4>
+
+<p>청구문서(인보이스 · 크레딧메모 · 데빗메모)가 FI로 전송되기 <b>전에는</b> 청구일 · 가격 · 계정결정 · 출력결정 데이터를 변경할 수 있습니다. 특정 청구유형에 <span class="key">게시차단(Posting Block)</span>을 설정하면 청구문서를 자동으로 FI에 전송하지 않고, 배포자가 릴리즈(승인)한 후에만 회계전표가 생성됩니다 — SD 청구문서 생성 → 인쇄 → FI 전달 순서로 성능 개선도 가능합니다.</p>
+
+<p><span class="bad">게시차단이 걸려있거나 계정결정 오류가 있으면 회계문서는 전혀 생성되지 않습니다</span>("전부 또는 전무" 원칙). FI에서 모든 SD 문서는 기본적으로 전표유형 <code>RV</code>를 받으며, 청구유형 Customizing에서 다른 전표유형을 지정할 수 있습니다.</p>
+
+<h4>참조번호(Reference Number) — SD 문서와 FI 문서의 연결고리</h4>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>번호유형</th><th>설명</th></tr></thead>
+<tbody>
+<tr><td><code>A</code></td><td class="wrap">고객참조번호(주문번호)</td></tr>
+<tr><td><code>B</code></td><td class="wrap">판매오더 번호</td></tr>
+<tr><td><code>C</code></td><td class="wrap">납품번호</td></tr>
+<tr><td><code>D</code></td><td class="wrap">외부 납품번호</td></tr>
+<tr><td><code>E</code></td><td class="wrap">청구문서번호</td></tr>
+<tr><td><code>F</code></td><td class="wrap">외부 납품번호(있으면), 없으면 납품번호</td></tr>
+</tbody>
+</table>
+</div>
+
+<p>이 참조번호는 나중에 입금을 SD 원본 문서와 매칭(반제)할 때 <span class="hl">핵심 단서</span>가 됩니다 — LESSON 3의 Assignment 필드와 연결되는 지점입니다.</p>
+
+<h3>④ Special G/L — "일반 채권·채무와 섞이면 안 되는" 거래</h3>
+
+<p>아직 재화·용역을 제공하지 않았는데 미리 받은 돈(선급금)은 회계적으로 부채에 가깝고, 일반 매출채권(이미 제공한 것에 대해 받을 돈)과는 성격이 정반대입니다. 재무제표에서 뒤섞이면 안 되므로, 서브레저 계정에 <span class="key">특수G/L지시자</span>로 계정지정을 하면 마스터의 기본 조정계정이 아니라 Customizing에서 별도 정의한 <b>대체조정계정</b>에 전기되어 별도 표시됩니다.</p>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>클래스</th><th>설명</th></tr></thead>
+<tbody>
+<tr><td>선급금(Down Payments)</td><td class="wrap">요청 · 수령 · 사용된 선급금 관리 — 독촉 · 지급프로그램과 통합</td></tr>
+<tr><td>환어음(Bills of Exchange)</td><td class="wrap">국가별 특수성 대응</td></tr>
+<tr><td>기타(Other)</td><td class="wrap">다양한 유형의 거래를 특수G/L기능으로 제어</td></tr>
+</tbody>
+</table>
+</div>
+
+<p>전기키는 표준시스템에서 <code>09</code> · <code>19</code> · <code>29</code> · <code>39</code>만 사용 가능하며, <b>특수G/L지시자를 항상 함께 입력</b>해야 합니다.</p>
+
+<h4>선급금 프로세스 — 구매 측 / 판매 측</h4>
+
+<div class="step"><span class="n">MM ①</span><p>구매오더 전기(선급금 정보 입력).</p></div>
+<div class="step"><span class="n">MM ②</span><p>Down Payment Monitor(<code>ME2DP</code>)로 선급금 전기.</p></div>
+<div class="step"><span class="n">MM ③</span><p>구매오더 참조로 입고 전기.</p></div>
+<div class="step"><span class="n">MM ④</span><p>벤더 인보이스를 구매오더 참조로 LIV 전기 → <b>선급금 존재 메시지</b>가 뜨고, 이 단계에서 상계 가능.</p></div>
+
+<p>판매 측은 영업오더에 선급금을 저장하면 지급기일에 선급금 요청이 고객에게 발송되고, 동시에 FI에 특수G/L지시자 <code>F</code>를 사용한 <b>메모항목</b>(거래수치를 갱신하지 않는 통계적 항목)으로 자동 전기됩니다. 입금되면 <code>A</code>로 매출채권 미결항목에 표시되고, 부분/최종 인보이스 시 특수조정계정에서 제거되어 고객 마스터의 정상조정계정으로 이체됩니다.</p>
+
+<h3>MM · SD와 FI의 3단계 연동 요약</h3>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>구분</th><th>1단계</th><th>2단계</th><th>3단계</th></tr></thead>
+<tbody>
+<tr><td>구매(MM)</td><td class="wrap">구매오더 생성 — MM 전용, <b>FI 전기 없음</b></td><td class="wrap">입고(GR) — 자재문서(재고 갱신) + FI 회계문서(재고/소비 차변, GR·IR 대변)</td><td class="wrap">인보이스입고(IR) — FI 문서(GR·IR 차변, 공급업체 대변)</td></tr>
+<tr><td>판매(SD)</td><td class="wrap">영업오더 생성 — <b>FI 전기 없음</b></td><td class="wrap">출하(PGI) — 출고문서(MM) + FI 회계문서(매출원가 차변, 재고 대변)</td><td class="wrap">청구(Billing) — 청구문서 + FI 회계문서(고객 차변, 매출 대변)</td></tr>
+</tbody>
+</table>
+</div>
+
+<p>두 흐름 모두 "실물이 움직이는 단계"와 "청구/인보이스가 생성되는 단계"가 분리되어 있고, 그 사이를 <b>GR/IR청산계정</b>(구매) 또는 <b>진행 중 재고평가</b>(판매)가 이어줍니다. 이 갭을 어떻게 관리할지가 LESSON 3의 핵심 소재입니다.</p>
+
+<div class="note ok">
+  <div class="t">📌 개인 E2E 프로젝트와의 연결점</div>
+  <p>프로젝트의 CBO <b>ZPRICE_CHECK</b>가 보는 것이 정확히 이 장의 소재입니다 — 정보레코드가(<code>EINE-NETPR</code>)와 이동평균가(<code>MBEW-VERPR</code>)의 괴리를 알림으로 띄우는 것인데, 그 괴리가 실제로 계정에 나타나는 자리가 <code>OBYC</code>의 <code>BSX</code>/<code>PRD</code>입니다.</p>
+  <p>계정결정 축은 자재그룹 <b>CHKN · RICE</b>(냉동·냉장)와 <b>SHAK · PROT · PBAR</b>(실온)를 어떤 평가클래스로 묶느냐로 갈립니다. 온도군별로 재고계정을 나눌지, 전부 한 계정으로 갈지가 이 문서에서 결정해야 할 항목입니다. 그리고 이 CBO는 <b>알림까지만</b> 하고 계정을 자동으로 고치지 않습니다 — 회계 영향 처리는 자동화하지 않는다는 프로젝트 원칙 그대로입니다.</p>
+</div>
+
+</div>
+
+
+<!-- ══════════ LESSON 3 ══════════ -->
+<div class="lesson" id="l3">
+<h2><span class="no">LESSON 3</span>반제(Clearing) — 미결항목을 0으로 만드는 일</h2>
+
+<p><span class="tag">원문 3장</span><span class="tag">미결항목관리 · 수동/자동반제 · 부분반제·잔액분할 · 환차이 · Tolerance Group</span></p>
+
+<h3>언제 이걸 알아야 하는가</h3>
+
+<p><b>"결산인데 GR/IR 계정에 잔액이 남아 있습니다"</b> — 월결산마다 반복되는 문의입니다. GR/IR 계정에 잔액이 남았다는 건 입고는 됐는데 송장이 안 왔거나, 송장은 왔는데 입고 처리가 안 된 건이 있다는 뜻입니다. 이 계정이 <span class="key">미결항목관리(Open Item Management)</span> 계정이기 때문에 그 상태가 보이는 것이고, 안 켜 뒀으면 아예 보이지도 않습니다.</p>
+
+<h3>미결항목(Open Item)이란</h3>
+
+<p>미결항목은 아직 완료되지 않은 거래입니다 — 아직 지급되지 않은 공급업체 송장, 아직 입금되지 않은 고객 청구서, 아직 인보이스가 도착하지 않은 입고 건(GR/IR) 등. <span class="key">반제(Clearing)</span>는 이런 미결항목의 잔액을 0으로 맞춰 "이 거래는 끝났다"고 표시하는 작업입니다. <b>미결항목이 남아있는 문서는 아카이빙할 수 없습니다.</b></p>
+
+<div class="note">
+  <div class="t">🔰 초보자 설명 — 체크리스트 지우기</div>
+  <p>공급업체에게 줄 돈 100만원이 미결항목으로 떠 있다가, 실제로 100만원을 송금하고 그 지급 건을 원래 미결항목과 짝지어(matching) 주면 둘 다 "완료(Cleared)" 상태가 됩니다. <b>금액이 정확히 상쇄(0)되어야 반제가 성립</b>합니다.</p>
+</div>
+
+<h4>어떤 계정에 미결항목관리를 켜는가</h4>
+
+<ul>
+  <li>은행청산계정(Bank Clearing Account)</li>
+  <li>GR/IR청산계정(입고/송장 대사)</li>
+  <li>급여청산계정(Payroll Clearing Account)</li>
+  <li>조정계정 — 단, 이건 하위원장의 미결항목 기능으로 <b>암묵적 관리</b>되며 계정 자체에 별도로 켤 필요 없음</li>
+</ul>
+
+<div class="note warn">
+  <div class="t">⚠️ 켤 수 없는 계정 · 켜는 타이밍</div>
+  <p>은행계좌 · 세금계정 · 원재료계정 · 재고계정에는 Open Item Management를 <b>사용할 수 없습니다</b>. 그리고 이 설정은 <span class="bad">계정 잔액이 0일 때만</span> 켜고 끌 수 있습니다 — 운영 중에 "지금부터 켜자"가 안 되는 항목이므로 계정 설계 시점에 결정해야 합니다.</p>
+</div>
+
+<h3>반제를 실행하는 3가지 방법</h3>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>방법</th><th>동작 방식</th><th>대표 사례</th></tr></thead>
+<tbody>
+<tr><td>Post with Clearing</td><td class="wrap">정리문서 금액을 입력하고 정리 대상 미결항목을 선택. 합계가 일치하면 자동 정리, 불일치하면 차액 전기 가능</td><td class="wrap">고객 입금 처리, 공급업체 지급 처리</td></tr>
+<tr><td>Account Clearing</td><td class="wrap">하나의 계정 내에서 합이 0이 되는 미결항목들을 시스템이 자동으로 찾아 정리</td><td class="wrap">은행 하위계정 · 정리계정, 데빗메모절차 합의, 공급업체 환불</td></tr>
+<tr><td>Automatic Clearing (<code>F.13</code>)</td><td class="wrap">회사코드 · 계정유형 · 계정번호 · 조정계정 · 통화 · 특수G/L지시자(및 최대 5개 사용자기준 추가)가 동일한 항목을 그룹화해, <b>그룹 내 잔액이 0이면</b> 자동 정리</td><td class="wrap">대량 반복 거래 — 예: GR/IR청산계정 일괄 정리</td></tr>
+</tbody>
+</table>
+</div>
+
+<p><b>F.13에서 제외되는 항목</b>: Noted Item(메모항목), 환어음 관련 특수G/L거래, 선수금, 원천징수세 항목. 선수금은 동일 금액의 선수금정리항목이 이미 전기된 경우에만 정리 가능합니다.</p>
+
+<h4>Assignment 필드 — 자동정리의 매칭 키</h4>
+
+<p>Assignment 필드는 마스터레코드의 <span class="key">Sort Key</span> 설정에 따라 자동으로 채워지며(최대 4개 필드 조합, 18자), 자동정리 프로그램이 "이 항목들이 같은 거래에 속한다"고 판단하는 매칭 기준이 됩니다. LESSON 2의 참조번호(<code>A</code>~<code>F</code>)와 연결되는 지점입니다 — SD 청구서와 FI 회계문서 간 역추적에도 이 필드를 씁니다.</p>
+
+<h3>수동 지급 프로세스</h3>
+
+<div class="step"><span class="n">STEP 1</span><p><b>지급헤더</b> — 문서일자 · 전표유형 · 회사코드 · 통화 · 환율.</p></div>
+<div class="step"><span class="n">STEP 2</span><p><b>은행데이터</b> — G/L 계좌 · 총지급액 · 은행수수료 · 가치일자.</p></div>
+<div class="step"><span class="n">STEP 3</span><p><b>미결항목선택</b> — 정리할 미결항목을 화면에서 선택.</p></div>
+
+<p>입력액과 배정액이 일치해야 전기 가능하며, 지급조건에 따라 현금할인이 자동 계산됩니다(허용한도 내에서 퍼센트나 절대값으로 수동 조정 가능). <b>Document → Simulate</b>로 차대변 일치를 사전 확인할 수 있습니다.</p>
+
+<p>잘못 정리된 항목은 <b>Reset Cleared Items</b> 앱(S/4HANA 1709+)으로 정리를 취소한 뒤 역분개·재입력합니다. 변경이력은 change document로 기록되고, 매출채권의 지급이력 · 신용한도가 자동 보정됩니다.</p>
+
+<h3>지급차이(Payment Difference) 처리 — 부분반제 vs 잔액분할</h3>
+
+<p>실제 입금액이 청구액과 정확히 일치하지 않는 경우가 많습니다(할인 협상, 부분 지급, 은행수수료 등). 이때 처리 방법을 결정하는 것이 <span class="key">Tolerance Group(허용한도그룹)</span>입니다.</p>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>Tolerance Group 종류</th><th>통제 대상</th></tr></thead>
+<tbody>
+<tr><td>Employee</td><td class="wrap">직원별 전기 상한액, 허용 지급차이</td></tr>
+<tr><td>G/L Account</td><td class="wrap">자동정리절차의 허용 지급차이</td></tr>
+<tr><td>Customer / Vendor (BP)</td><td class="wrap">정리 거래, 허용 지급차이 처리, 잔액항목(Residual Item) 전기, 지급통지서 허용한도</td></tr>
+</tbody>
+</table>
+</div>
+
+<p>지급차이가 자동 처리되려면 <b>직원 Tolerance Group과 고객/공급업체 Tolerance Group 양쪽 기준을 모두 충족</b>해야 하며(더 엄격한 쪽 적용), 모든 값은 현지통화 기준입니다.</p>
+
+<figure class="figwrap">
+<svg class="dgm" viewBox="0 0 1000 420" role="img" aria-label="지급차이 처리 분기 도해. 허용범위 안이면 현금할인 조정이나 상각으로 자동 처리되고, 초과하면 부분지급·잔액항목·사유코드 전기·상각 중 하나를 수동으로 선택해야 하며 부분지급은 원본을 미결로 남기고 잔액항목은 원본을 반제한 뒤 잔액만 새 문서로 만든다.">
+  <defs>
+    <marker id="fc1" markerWidth="9" markerHeight="9" refX="7" refY="4.5" orient="auto">
+      <polygon class="arw" points="0,0 9,4.5 0,9"/></marker>
+    <marker id="fc2" markerWidth="9" markerHeight="9" refX="7" refY="4.5" orient="auto">
+      <polygon class="arw-ok" points="0,0 9,4.5 0,9"/></marker>
+    <marker id="fc3" markerWidth="9" markerHeight="9" refX="7" refY="4.5" orient="auto">
+      <polygon class="arw-bad" points="0,0 9,4.5 0,9"/></marker>
+  </defs>
+
+  <rect class="b-key" x="350" y="18" width="300" height="52" rx="6"/>
+  <text class="t-h c-key" x="372" y="42">입금액 ≠ 청구액</text>
+  <text class="t-s" x="372" y="60">지급차이 발생</text>
+
+  <path class="ln" d="M500 70 V96" marker-end="url(#fc1)"/>
+  <rect class="b-hl" x="330" y="98" width="340" height="50" rx="6"/>
+  <text class="t-h" x="352" y="122">Tolerance Group 판정</text>
+  <text class="t-s" x="352" y="140">직원 + 고객/공급업체 — 엄격한 쪽 적용</text>
+
+  <path class="ln-ok" d="M400 148 V176 H200 V204" marker-end="url(#fc2)"/>
+  <path class="ln-bad" d="M600 148 V176 H700 V204" marker-end="url(#fc3)"/>
+  <text class="t-s c-ok" x="150" y="172">허용범위 내 → 자동</text>
+  <text class="t-s c-bad" x="640" y="172">허용범위 초과 → 수동</text>
+
+  <rect class="b-ok" x="20" y="206" width="360" height="74" rx="6"/>
+  <text class="t-h c-ok" x="42" y="230">현금할인 조정</text>
+  <text class="t" x="42" y="252">또는 특수계정 상각(write-off)</text>
+  <text class="t-s" x="42" y="270">사람 개입 없이 처리된다</text>
+
+  <rect class="b-bad" x="420" y="206" width="560" height="196" rx="6"/>
+  <text class="t-h c-bad" x="442" y="230">네 가지 중 선택</text>
+
+  <rect class="b" x="442" y="242" width="250" height="68" rx="5"/>
+  <text class="t-h" x="460" y="264">부분지급</text>
+  <text class="t-s" x="460" y="284">원본 문서를 모두 미결 유지</text>
+  <text class="t-s" x="460" y="300">원본과 지급이 별도 항목</text>
+
+  <rect class="b" x="706" y="242" width="254" height="68" rx="5"/>
+  <text class="t-h" x="724" y="264">잔액항목(Residual)</text>
+  <text class="t-s" x="724" y="284">원본과 지급을 반제하고</text>
+  <text class="t-s" x="724" y="300">잔액만 새 문서번호로 생성</text>
+
+  <rect class="b" x="442" y="320" width="250" height="68" rx="5"/>
+  <text class="t-h" x="460" y="342">사유코드 전기</text>
+  <text class="t-s" x="460" y="362">차이 사유를 코드화해</text>
+  <text class="t-s" x="460" y="378">별도 G/L 계정으로</text>
+
+  <rect class="b" x="706" y="320" width="254" height="68" rx="5"/>
+  <text class="t-h" x="724" y="342">상각(Write-off)</text>
+  <text class="t-s" x="724" y="362">수동으로 계정을 지정해</text>
+  <text class="t-s" x="724" y="378">차액을 비용 처리</text>
+
+  <rect class="b-ghost" x="20" y="300" width="360" height="102" rx="6"/>
+  <text class="t-s" x="42" y="324">허용한도를 넓게 잡으면 오차가 조용히 누적되고,</text>
+  <text class="t-s" x="42" y="344">좁게 잡으면 수작업이 폭증한다.</text>
+  <text class="t-s c-bad" x="42" y="370">→ 내부통제 정책 문제이지 기술 문제가 아니다.</text>
+  <text class="t-s" x="42" y="390">회의에서 숫자로 합의해야 할 항목.</text>
+</svg>
+<figcaption><span class="fno">그림 3</span>지급차이 처리 분기. 허용범위가 자동/수동을 가르고, 수동일 때 부분지급과 잔액항목은 원본 문서의 운명이 다르다.</figcaption>
+</figure>
+
+<p>잔액항목의 지급조건을 원본과 동일하게 할지 고정할지, 현금할인 부분지급 여부, 독촉단계(Dunning Level) 상한 등은 고객/공급업체 Tolerance Group에서 통제합니다.</p>
+
+<h3>환차이(Exchange Rate Differences)</h3>
+
+<p>외화로 발생한 미결항목을 반제할 때 환율이 변동해 있으면 환차이가 발생하며, 이는 <span class="key">실현손익(Realized Exchange Rate Differences)</span>으로 수익/비용 계정에 자동 전기됩니다. 결산 시점에도 미결항목의 환차이가 별도 비용/수익 계정으로 평가전기되며, <b>이미 평가된 항목을 나중에 반제할 때는</b> 재무상태표 조정계정을 리버스한 뒤 남은 차이를 실현환차이 계정으로 전기하는 2단계 로직이 적용됩니다.</p>
+
+<p>외화 미결항목 처리가 가능한 조정계정 · G/L계정에는 반드시 손익 계정을 배정해야 하며, 배정 단위는 전체통화 공통 / 통화유형별 / 통화별 / 통화×통화유형별 중 선택합니다.</p>
+
+<h3>정리 — "미결항목관리를 켤 계정의 범위"를 정하는 기준</h3>
+
+<ul>
+  <li>반제가 필요한 <b>"미완료 거래" 성격의 계정</b>(은행청산 · GR/IR · 급여청산 등)만 켜고, 단순 잔액 누적형 계정(재고 · 비용 등)에는 켜지 않는다</li>
+  <li>반제를 자동화(<code>F.13</code>)할 범위와, 사람이 매번 확인해야 하는 범위(고객 입금처럼 매칭 판단이 필요한 경우)를 구분해서 설계한다</li>
+  <li>지급차이 허용한도는 <b>회사 정책(내부통제) 문제</b>다 — 너무 넓으면 오차가 누적되고 너무 좁으면 수작업이 폭증한다</li>
+</ul>
+
+<div class="note ok">
+  <div class="t">📌 개인 E2E 프로젝트와의 연결점</div>
+  <p>CBO <b>ZGATE_INSPECT</b>가 바로 이 GR/IR 미결 구조 위에서 돕니다 — GATE 플랜트의 입고(<code>101</code>)와 STOR 이관(<code>301</code>)의 차이를 잡아, 그중 <span class="hl">송장이 아직 발생하지 않은 건</span>만 <code>122</code>로 반품하는 것이 설계입니다. "송장 미발생"의 실체가 곧 <b>GR/IR 청산계정에 남아 있는 미결항목</b>이므로, CBO의 판정 조건을 세울 때 이 계정의 미결 여부를 근거로 삼을 수 있습니다.</p>
+  <p>다만 <code>122</code> 반품은 재고와 금액을 모두 움직이는 처리입니다. 프로젝트 원칙상 <b>승인 대기(상태필드 W/P/H)</b>를 거친 뒤 실행하고, 전표는 직접 INSERT가 아니라 BAPI로 생성합니다. 장기 미결 GR/IR의 표준 정리 수단은 <code>MR11</code>이므로, CBO가 MR11 영역을 침범하지 않도록 경계를 그어야 합니다.</p>
+</div>
+
+</div>
+
+
+<!-- ══════════ LESSON 4 ══════════ -->
+<div class="lesson" id="l4">
+<h2><span class="no">LESSON 4</span>역분개(Reversal) — 지우지 않고 되돌리는 법</h2>
+
+<p><span class="tag">원문 4장</span><span class="tag">Normal Reversal vs Negative Posting · 사유코드 · 정리취소 후 역분개 · 대량역분개</span></p>
+
+<h3>언제 이걸 알아야 하는가</h3>
+
+<p><b>"전표를 잘못 올렸는데 삭제가 안 됩니다"</b> — 당연합니다. SAP는 문서 원칙을 따르므로 <span class="bad">한 번 전기된 전표는 삭제할 수 없습니다</span>(감사 추적성 보장). 반대 방향의 새 전표를 만들어 상쇄하는 것이 <span class="key">역분개(Reversal)</span>이고, 원본과 역분개 전표는 항상 서로 연결되어 어떤 전표가 어떤 전표를 취소했는지 추적됩니다.</p>
+
+<h3>두 가지 역분개 방식 — 거래액에 미치는 영향이 다르다</h3>
+
+<figure class="figwrap">
+<svg class="dgm" viewBox="0 0 1000 400" role="img" aria-label="일반역분개와 네거티브전기 비교 도해. 일반역분개는 반대편에 정식 전기를 하나 더 추가해 차변 총액과 대변 총액이 모두 늘어나고, 네거티브전기는 원래 있던 쪽에서 차감해 거래액이 전기 이전 상태로 복원된다.">
+  <defs>
+    <marker id="fd1" markerWidth="9" markerHeight="9" refX="7" refY="4.5" orient="auto">
+      <polygon class="arw" points="0,0 9,4.5 0,9"/></marker>
+  </defs>
+
+  <rect class="b-mut" x="20" y="18" width="960" height="40" rx="5"/>
+  <text class="t" x="40" y="44">원본 전표: 비용 100 차변 / 공급업체 100 대변 — 이것을 취소한다</text>
+
+  <text class="t-h" x="20" y="92">Normal Reversal Posting (일반역분개)</text>
+  <path class="ln" d="M20 100 H480"/>
+
+  <rect class="b" x="20" y="112" width="460" height="46" rx="5"/>
+  <text class="t" x="40" y="140">동작: 차변 ↔ 대변을 반대로 <b>정식 추가 전기</b></text>
+
+  <rect class="b" x="20" y="168" width="220" height="70" rx="5"/>
+  <text class="t-s" x="40" y="190">차변 총액</text>
+  <rect class="b-mut" x="40" y="198" width="90" height="22" rx="3"/>
+  <text class="m-s" x="52" y="214">원본 100</text>
+  <rect class="b-bad" x="134" y="198" width="90" height="22" rx="3"/>
+  <text class="m-s c-bad" x="146" y="214">역분개 100</text>
+  <text class="t-h c-bad" x="40" y="234">합계 200</text>
+
+  <rect class="b" x="260" y="168" width="220" height="70" rx="5"/>
+  <text class="t-s" x="280" y="190">대변 총액</text>
+  <rect class="b-mut" x="280" y="198" width="90" height="22" rx="3"/>
+  <text class="m-s" x="292" y="214">원본 100</text>
+  <rect class="b-bad" x="374" y="198" width="90" height="22" rx="3"/>
+  <text class="m-s c-bad" x="386" y="214">역분개 100</text>
+  <text class="t-h c-bad" x="280" y="234">합계 200</text>
+
+  <rect class="b-bad" x="20" y="248" width="460" height="52" rx="5"/>
+  <text class="t" x="40" y="270">잔액은 0이 되지만 <tspan class="t-h c-bad">거래액(Transaction Figures)은 증가</tspan>한다.</text>
+  <text class="t-s" x="40" y="290">전기건수·금액 추이 리포트에서 없던 볼륨이 잡힌다.</text>
+
+  <text class="t-h c-ok" x="520" y="92">Negative Posting (네거티브전기)</text>
+  <path class="ln-ok" d="M520 100 H980"/>
+
+  <rect class="b" x="520" y="112" width="460" height="46" rx="5"/>
+  <text class="t" x="540" y="140">동작: 반대로 전기하되 <b>원래 있던 쪽에서 차감</b></text>
+
+  <rect class="b" x="520" y="168" width="220" height="70" rx="5"/>
+  <text class="t-s" x="540" y="190">차변 총액</text>
+  <rect class="b-mut" x="540" y="198" width="90" height="22" rx="3"/>
+  <text class="m-s" x="552" y="214">원본 100</text>
+  <rect class="b-ok" x="634" y="198" width="90" height="22" rx="3"/>
+  <text class="m-s c-ok" x="648" y="214">− 100</text>
+  <text class="t-h c-ok" x="540" y="234">합계 0</text>
+
+  <rect class="b" x="760" y="168" width="220" height="70" rx="5"/>
+  <text class="t-s" x="780" y="190">대변 총액</text>
+  <rect class="b-mut" x="780" y="198" width="90" height="22" rx="3"/>
+  <text class="m-s" x="792" y="214">원본 100</text>
+  <rect class="b-ok" x="874" y="198" width="90" height="22" rx="3"/>
+  <text class="m-s c-ok" x="888" y="214">− 100</text>
+  <text class="t-h c-ok" x="780" y="234">합계 0</text>
+
+  <rect class="b-ok" x="520" y="248" width="460" height="52" rx="5"/>
+  <text class="t" x="540" y="270">거래액이 <tspan class="t-h c-ok">전기 이전 상태로 복원</tspan>된다.</text>
+  <text class="t-s" x="540" y="290">애초에 없었던 일처럼 잔액과 볼륨이 깨끗해진다.</text>
+
+  <rect class="b-hl" x="20" y="318" width="960" height="66" rx="6"/>
+  <text class="t-h" x="42" y="342">쓰려면 두 조건이 <tspan class="c-bad">동시에</tspan> 충족되어야 한다</text>
+  <text class="t" x="42" y="364">① 회사코드가 Negative Posting을 허용하도록 설정  ·  ② 사용하는 역분개 사유(Reversal Reason)도 허용하도록 설정</text>
+</svg>
+<figcaption><span class="fno">그림 4</span>일반역분개 vs 네거티브전기. 잔액은 둘 다 0이 되지만 거래액(볼륨)에 남는 흔적이 다르다.</figcaption>
+</figure>
+
+<div class="note">
+  <div class="t">🔰 초보자 설명 — 왜 이걸 구분하는가</div>
+  <p>일반역분개는 "반대 거래를 하나 더 추가해서 상쇄시키는" 방식이라 총 거래건수·거래금액 합계가 늘어납니다(장부 볼륨 관점에서는 두 배). 네거티브전기는 "원래 그 자리에서 마이너스로 빼주는" 방식이라 마치 애초에 없었던 일처럼 사라집니다. <b>리포트에서 총 전기건수·금액 추이를 볼 때 두 방식은 다른 그림을 보여줍니다.</b></p>
+</div>
+
+<p>Negative Posting은 단순 취소뿐 아니라 잘못된 계정에서 항목을 지우고 정확한 계정으로 재전기하는 <b>이관(전기수정) 작업</b>에도 씁니다 — 원래 계정에서는 네거티브전기로 깨끗이 지우고, 올바른 계정에는 새로 전기하는 방식입니다.</p>
+
+<div class="note">
+  <div class="t">📖 SD 청구서의 "Negative posting" 필드는 별개 개념</div>
+  <p>LESSON 2에서 다룬 SD 청구유형의 Negative posting 필드는 위 FI 역분개 로직과 <b>다른 개념</b>입니다. 표준 설정에서 취소·크레딧메모는 채권 계상과 반대쪽에 게시되는데, 이 필드를 켜면 같은 쪽에 게시되어 계정 잔액이 0으로 유지됩니다(표시 방식만 바뀌고 실제 FI 프로세스에는 영향 없음, 회사코드 테이블 <code>001</code>에서 허용되어야 적용).</p>
+</div>
+
+<h3>역분개가 막히는 경우</h3>
+
+<p>이미 <b>반제(Clearing)</b>된 항목이 포함된 문서는 역분개 전에 반드시 반제를 취소해야 합니다 — 반제된 상태에서 바로 역분개하면 미결/완료 상태 정합성이 깨지기 때문입니다.</p>
+
+<div class="step"><span class="n">STEP 1</span><p><b>Reset Cleared Items</b>(반제 취소)로 정리 상태를 되돌린다.</p></div>
+<div class="step"><span class="n">STEP 2</span><p>원본 전표를 <b>역분개</b>한다.</p></div>
+<div class="step"><span class="n">STEP 3</span><p>필요하면 올바른 내용으로 <b>재입력</b>한다.</p></div>
+
+<p>또한 <span class="bad">전기기간이 마감된 회계연도의 전표는 원칙적으로 역분개할 수 없습니다</span> — 마감된 기간에는 전기 자체가 차단되기 때문입니다(Posting Period Variant). 이 경우 특별기간(Special Period)을 열어 역분개하거나, 현재 열려있는 기간에 정정 전기를 하는 방식으로 처리합니다.</p>
+
+<h3>역분개 사유코드(Reversal Reason)</h3>
+
+<p>역분개 시 사유코드를 반드시 지정해야 하며, 이 사유코드가 두 가지를 통제합니다.</p>
+
+<ul>
+  <li><b>Negative Posting 허용 여부</b> — 회사코드 설정과 함께 둘 다 켜져 있어야 네거티브전기가 된다</li>
+  <li><b>감사 추적</b> — "왜 취소했는지"를 리포트에서 조회 가능하게 한다</li>
+</ul>
+
+<p>실무에서는 사유코드를 표준화(예: <code>01</code>=입력오류, <code>02</code>=금액오류, <code>03</code>=거래취소)해서 회계팀 내부 정책과 감사 대응 시 일관성을 유지하는 것이 일반적입니다.</p>
+
+<h3>대량 역분개(Mass Reversal)</h3>
+
+<p>여러 건을 한 번에 역분개해야 할 때는 <code>F.80</code>을 사용합니다. 결산 시 발생(Accrual)·이연(Deferral) 전표를 <b>다음 기간 초에 자동 역분개하도록 미리 스케줄링</b>해두는 것도 이 범주이며, FI Closing의 표준 패턴입니다.</p>
+
+<h3>회의에서 결정해야 할 정책 포인트</h3>
+
+<ul>
+  <li>우리 회사코드는 Negative Posting을 허용할 것인가, 항상 일반역분개만 쓸 것인가 — <span class="hl">거래액 리포트의 순수성이 중요한 조직이라면 Negative Posting을 권장</span></li>
+  <li>역분개 사유코드를 어떻게 표준화할 것인가(회계팀 내부 규정)</li>
+  <li>반제된 항목의 역분개 절차(Reset → Reverse → 재입력)를 실무 매뉴얼에 어떻게 반영할 것인가</li>
+  <li>마감된 기간의 오류를 발견했을 때의 처리 정책 — 특별기간 개방 <b>승인권자는 누구인가</b></li>
+</ul>
+
+<div class="note ok">
+  <div class="t">📌 개인 E2E 프로젝트와의 연결점</div>
+  <p>프로젝트에서 역분개는 <b>CBO 자동화 대상에서 제외</b>합니다. ZGATE_INSPECT의 <code>122</code> 반품은 역분개가 아니라 새로운 재고 이동이므로 이 장의 로직과 다릅니다 — 반품을 역분개로 처리하려는 유혹이 생기면 그건 설계 오류입니다.</p>
+  <p>회계 영향이 있는 처리는 자동화하지 않는다는 원칙에 따라, CBO는 <b>"역분개 대상 후보" 목록을 상태필드 W로 쌓아 두는 데까지</b>만 하고 실제 <code>FB08</code> 실행은 사람이 합니다.</p>
+</div>
+
+</div>
+
+
+<!-- ══════════ LESSON 5 ══════════ -->
+<div class="lesson" id="l5">
+<h2><span class="no">LESSON 5</span>End-to-End 흐름 — P2P · O2C · 월결산 · Document Splitting</h2>
+
+<p><span class="tag">원문 5장</span><span class="tag">앞 네 장이 실제 거래에서 어떤 순서로 발동하는가</span></p>
+
+<h3>언제 이걸 알아야 하는가</h3>
+
+<p>앞 네 장이 규칙의 생김새였다면 이 장은 <b>발동 순서</b>입니다. "이 거래의 회계전표가 왜 지금 안 생기고 나중에 생기는가"에 답하려면 이 순서를 알아야 합니다.</p>
+
+<h3>P2P (Procure-to-Pay, 구매 → 지급)</h3>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>단계</th><th>모듈</th><th>일어나는 일</th><th>FI 전기</th></tr></thead>
+<tbody>
+<tr><td>1. 구매오더(PO)</td><td>MM</td><td class="wrap">수량 · 가격 · 납기 확정</td><td class="wrap"><b>없음</b></td></tr>
+<tr><td>2. 입고(GR)</td><td>MM</td><td class="wrap">자재문서 생성, 재고 증가</td><td class="wrap">재고계정(<code>BSX</code>) 차변 / GR·IR청산(<code>WRX</code>) 대변, 필요시 <code>PRD</code></td></tr>
+<tr><td>3. 인보이스검증(IR)</td><td>MM/FI</td><td class="wrap">PO · 입고 · 인보이스 3자 대사</td><td class="wrap">GR·IR 차변(입고분 상계) / 공급업체 조정계정 대변 / 매입세 차변</td></tr>
+<tr><td>4. 지급실행(<code>F110</code>)</td><td>FI</td><td class="wrap">지급대상 미결항목 선정, 은행 데이터 생성</td><td class="wrap">공급업체 미결항목 반제 / 은행청산계정 전기(전표유형 <code>ZP</code>)</td></tr>
+<tr><td>5. 은행 명세 반영</td><td>FI</td><td class="wrap">실제 출금 확인</td><td class="wrap">은행청산계정 반제</td></tr>
+</tbody>
+</table>
+</div>
+
+<p>GR/IR청산계정이 2번과 3번 사이의 시간차를 담당하는 미결항목계정이며, 결산 시점에 <span class="hl">"입고했지만 인보이스가 안 온 건" 또는 "인보이스는 왔지만 입고 처리가 안 된 건"</span>이 남아있는지 점검하는 것이 표준 월결산 체크포인트입니다.</p>
+
+<p>선급금이 걸린 구매는 LESSON 2의 Special G/L 선급금 프로세스(PO 선급금 정보 → <code>ME2DP</code> 전기 → 입고 → 인보이스 시 상계)가 2~3단계 사이에 끼어듭니다.</p>
+
+<h3>O2C (Order-to-Cash, 수주 → 입금)</h3>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>단계</th><th>모듈</th><th>일어나는 일</th><th>FI 전기</th></tr></thead>
+<tbody>
+<tr><td>1. 영업오더</td><td>SD</td><td class="wrap">고객 · 품목 · 수량 · 가격 확정</td><td class="wrap"><b>없음</b></td></tr>
+<tr><td>2. 출하 / PGI</td><td>SD/MM</td><td class="wrap">납품문서 생성, 창고에서 재고 인출</td><td class="wrap">매출원가(COGS) 차변 / 재고계정 대변</td></tr>
+<tr><td>3. 청구(Billing)</td><td>SD</td><td class="wrap">청구문서 생성 · 인쇄 · 발송</td><td class="wrap">고객(매출채권) 차변 / 매출계정 대변(<code>VKOA</code>) / VAT 대변</td></tr>
+<tr><td>4. 입금</td><td>FI</td><td class="wrap">고객 입금 확인, 참조번호로 청구서 매칭</td><td class="wrap">고객 미결항목 반제 / 은행계정 전기</td></tr>
+</tbody>
+</table>
+</div>
+
+<p>3번에서 LESSON 2의 게시차단(Posting Block) 여부에 따라 FI 전표 생성 시점이 달라집니다. 4번에서는 참조번호(<code>A</code>~<code>F</code>)와 Assignment 필드가 "이 입금이 어느 청구서에 대한 것인지" 자동 매칭하는 데 핵심적으로 쓰입니다.</p>
+
+<p>선급금이 걸린 판매는 영업오더에 선급금 저장 → 선급금 요청(메모항목, 특수G/L <code>F</code>) → 선급금 입금(<code>A</code>) → 최종 인보이스 시 상계 순서로 2~3단계 사이에 추가됩니다.</p>
+
+<figure class="figwrap">
+<svg class="dgm" viewBox="0 0 1000 420" role="img" aria-label="P2P와 O2C의 회계 전기 시점 비교 도해. 두 흐름 모두 주문 단계에서는 FI 전기가 없고 실물이 움직이는 단계와 청구가 발생하는 단계가 분리되어 있으며 그 사이를 GR·IR 청산계정과 진행중 재고평가가 잇는다.">
+  <defs>
+    <marker id="fe1" markerWidth="9" markerHeight="9" refX="7" refY="4.5" orient="auto">
+      <polygon class="arw-key" points="0,0 9,4.5 0,9"/></marker>
+  </defs>
+
+  <text class="t-s c-key" x="20" y="22">P2P — 구매에서 지급까지</text>
+
+  <rect class="b-mut" x="20" y="34" width="168" height="56" rx="5"/>
+  <text class="t-h" x="40" y="58">① 구매오더</text>
+  <text class="t-s c-bad" x="40" y="78">FI 전기 없음</text>
+  <path class="ln-key" d="M188 62 H214" marker-end="url(#fe1)"/>
+
+  <rect class="b-key" x="218" y="34" width="190" height="56" rx="5"/>
+  <text class="t-h c-key" x="238" y="58">② 입고 GR</text>
+  <text class="t-s" x="238" y="78">BSX 차 / WRX 대</text>
+  <path class="ln-key" d="M408 62 H434" marker-end="url(#fe1)"/>
+
+  <rect class="b-key" x="438" y="34" width="190" height="56" rx="5"/>
+  <text class="t-h c-key" x="458" y="58">③ 송장검증 IR</text>
+  <text class="t-s" x="458" y="78">WRX 차 / 공급업체 대</text>
+  <path class="ln-key" d="M628 62 H654" marker-end="url(#fe1)"/>
+
+  <rect class="b-ok" x="658" y="34" width="150" height="56" rx="5"/>
+  <text class="t-h c-ok" x="678" y="58">④ 지급 F110</text>
+  <text class="t-s" x="678" y="78">미결 반제</text>
+  <path class="ln-key" d="M808 62 H834" marker-end="url(#fe1)"/>
+
+  <rect class="b-ok" x="838" y="34" width="142" height="56" rx="5"/>
+  <text class="t-h c-ok" x="858" y="58">⑤ 은행명세</text>
+  <text class="t-s" x="858" y="78">청산계정 반제</text>
+
+  <rect class="b-hl" x="218" y="102" width="410" height="42" rx="5"/>
+  <text class="t" x="240" y="128">GR/IR 청산계정이 ②와 ③의 시차를 잇는다 — 월결산 체크포인트</text>
+
+  <path class="ln" d="M20 168 H980"/>
+
+  <text class="t-s c-key" x="20" y="200">O2C — 수주에서 입금까지</text>
+
+  <rect class="b-mut" x="20" y="212" width="168" height="56" rx="5"/>
+  <text class="t-h" x="40" y="236">① 영업오더</text>
+  <text class="t-s c-bad" x="40" y="256">FI 전기 없음</text>
+  <path class="ln-key" d="M188 240 H214" marker-end="url(#fe1)"/>
+
+  <rect class="b-key" x="218" y="212" width="190" height="56" rx="5"/>
+  <text class="t-h c-key" x="238" y="236">② 출하 PGI</text>
+  <text class="t-s" x="238" y="256">COGS 차 / 재고 대</text>
+  <path class="ln-key" d="M408 240 H434" marker-end="url(#fe1)"/>
+
+  <rect class="b-key" x="438" y="212" width="190" height="56" rx="5"/>
+  <text class="t-h c-key" x="458" y="236">③ 청구 Billing</text>
+  <text class="t-s" x="458" y="256">고객 차 / 매출 대 VKOA</text>
+  <path class="ln-key" d="M628 240 H654" marker-end="url(#fe1)"/>
+
+  <rect class="b-ok" x="658" y="212" width="322" height="56" rx="5"/>
+  <text class="t-h c-ok" x="678" y="236">④ 입금 — 고객 미결 반제</text>
+  <text class="t-s" x="678" y="256">참조번호 A~F · Assignment 필드로 매칭</text>
+
+  <rect class="b-hl" x="218" y="280" width="410" height="42" rx="5"/>
+  <text class="t" x="240" y="306">진행중 재고평가가 ②와 ③의 시차를 잇는다</text>
+
+  <rect class="b-ghost" x="20" y="338" width="960" height="70" rx="6"/>
+  <text class="t-h" x="42" y="362">두 흐름의 공통 패턴 네 가지</text>
+  <text class="t-s" x="42" y="382">① 주문 단계는 FI 전기 없음  ② 실물 시점과 청구 시점이 분리, 그 사이를 미결항목계정이 연결</text>
+  <text class="t-s" x="42" y="400">③ 계정결정 실패하면 전기 자체가 안 된다 — 전부 아니면 전무  ④ 마지막은 항상 반제로 끝난다</text>
+</svg>
+<figcaption><span class="fno">그림 5</span>P2P와 O2C의 회계 전기 시점. 주문은 회계를 움직이지 않고, 실물과 청구 사이의 간격을 미결항목계정이 메운다.</figcaption>
+</figure>
+
+<h3>두 흐름의 공통 패턴</h3>
+
+<ul>
+  <li>"실물이 움직이는 시점"(입고/출고)과 "금전 청구가 발생하는 시점"(인보이스/청구)이 다르다 → 그 사이를 미결항목계정(GR/IR, 진행중 재고 등)이 이어준다</li>
+  <li>계정결정(LESSON 2)이 없으면 애초에 전기 자체가 안 된다 — <b>전부 또는 전무</b></li>
+  <li>마지막 단계는 항상 반제(LESSON 3)로 마무리된다 — 미결항목이 0이 되어야 그 거래가 "완료"</li>
+  <li>잘못된 단계가 있으면 역분개(LESSON 4)로 되돌린 뒤 재처리한다</li>
+</ul>
+
+<h3>월결산(Month-End Closing) 흐름 개관</h3>
+
+<p>P2P/O2C가 <b>거래(Transaction) 레벨</b> 흐름이라면, 월결산은 그 결과를 모아 재무제표로 마무리하는 <b>주기(Periodic) 레벨</b> 작업입니다.</p>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>순서</th><th>작업</th><th>핵심 내용</th></tr></thead>
+<tbody>
+<tr><td>1</td><td>기술적 · 조직적 결산활동</td><td class="wrap">잔액이월, 전기기간 관리(마감 예정 기간 닫기), 잔액감사증적</td></tr>
+<tr><td>2</td><td>채권/채무 결산</td><td class="wrap">잔액확인서, 외화평가(환차이 재평가 — LESSON 3), 개별/정율 가치조정(대손충당), 채권채무 재분류</td></tr>
+<tr><td>3</td><td>고정/유동자산 결산</td><td class="wrap">감가상각 실행, 자산이력명세서, 실지재고조사, <b>GR/IR계정 점검</b>, 재고평가</td></tr>
+<tr><td>4</td><td>손익 결산</td><td class="wrap">매출원가회계, 발생/이연(Accrual/Deferral) 전기 — 다음 기간 자동 역분개 스케줄링(LESSON 4)</td></tr>
+<tr><td>5</td><td>원장그룹별 전기</td><td class="wrap">병행회계(Leading/Non-Leading Ledger)별 조정 전표가 필요하면 Ledger Group 지정 전기</td></tr>
+<tr><td>6</td><td>회사간거래 조정</td><td class="wrap">회사코드 간 거래 잔액 매칭(Intercompany Reconciliation)</td></tr>
+<tr><td>7</td><td>재무제표 산출</td><td class="wrap">재무제표버전(FSV)으로 대차대조표 / 손익계산서 생성</td></tr>
+</tbody>
+</table>
+</div>
+
+<div class="note">
+  <div class="t">📖 참고 — 결산은 별도 코스가 있다</div>
+  <p>이 결산 흐름은 FI Learning Journey의 <a href="../fi/s4f15-financial-closing.html">S4F15 Configuring the Financial Closing</a>에서 상세히 다뤘습니다. 실제 결산 캘린더 · 태스크 오너 · 의존관계를 잡을 때는 <b>Financial Closing Cockpit</b>(템플릿 · 태스크그룹 · 태스크리스트 기반 결산관리 도구)을 쓰는 것이 표준입니다.</p>
+</div>
+
+<h3>Document Splitting — Segment/Profit Center별 재무제표가 필요한가</h3>
+
+<p>Document Splitting을 활성화하면 하나의 전표가 Profit Center · Segment 등 추가 차원 기준으로 자동 분할되어, General Ledger View에서는 <b>세그먼트별로도 완결된(차대가 맞는) 재무제표</b>를 만들 수 있습니다.</p>
+
+<p>예를 들어 공급업체 인보이스가 Vendor 100 / Expense(세그먼트1) 40 / Expense(세그먼트2) 60으로만 입력되어도, Document Splitting이 자동으로 Payables를 <span class="hl">세그먼트1 40 / 세그먼트2 60</span>으로 쪼개 반영합니다.</p>
+
+<div class="note warn">
+  <div class="t">되돌리기 어려운 결정</div>
+  <p>이 기능은 <b>Client 단위</b>로 켜고 회사코드별로 끌 수 있으며, 한 Client 내 모든 회사코드는 동일한 분할절차만 사용 가능합니다. 즉 <span class="bad">처음부터 그룹 전체 정책으로 결정</span>해야 하는 항목입니다. 사업 라인별(예: 냉동식품 vs 프로틴바) 손익을 나눠보고 싶다면 이 설계를 초기에 반영해야 나중에 라인별 드릴다운이 가능해집니다.</p>
+</div>
+
+<div class="note ok">
+  <div class="t">📌 개인 E2E 프로젝트와의 연결점</div>
+  <p>프로젝트 전체가 이 두 흐름 위에 얹혀 있습니다 — 벤더 사입이 P2P, 재판매가 O2C입니다. 원문이 예로 든 <b>냉동식품 vs 프로틴바</b> 라인 구분이 프로젝트의 자재그룹 구조와 그대로 겹칩니다: <code>CHKN</code> · <code>RICE</code>(냉동·냉장) vs <code>SHAK</code> · <code>PROT</code> · <code>PBAR</code>(실온).</p>
+  <p>온도군별 손익을 나눠 보려면 Document Splitting을 켜고 Profit Center를 온도군 단위로 설계해야 합니다. 다만 Client 단위 결정이므로 <b>지금 결정하지 않으면 나중에 못 켭니다</b>. 프로젝트 범위 대비 과한 설정일 수 있으니, "켜지 않는다"를 선택하더라도 그 이유를 문서에 남기는 편이 낫습니다.</p>
+</div>
+
+</div>
+
+
+<!-- ══════════ LESSON 6 ══════════ -->
+<div class="lesson" id="l6">
+<h2><span class="no">LESSON 6</span>트랜잭션 · 테이블 총정리와 설계 체크리스트</h2>
+
+<p><span class="tag">원문 6장</span><span class="tag">참고용 목록 + 회의 안건</span>앞 5장에서 언급된 것을 한 곳에 모은 참조 섹션</p>
+
+<h3>전표 입력 · 조회</h3>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>트랜잭션</th><th>용도</th></tr></thead>
+<tbody>
+<tr><td><code>FB50</code></td><td class="wrap">G/L 계정 전표 입력 (Fiori: Enter G/L Account Document)</td></tr>
+<tr><td><code>F-02</code> / <code>FB01</code></td><td class="wrap">일반 전표 입력(범용)</td></tr>
+<tr><td><code>FB03</code></td><td class="wrap">전표 조회</td></tr>
+<tr><td><code>FBL3N</code></td><td class="wrap">G/L 계정 라인아이템 리스트(미결/완료/전체)</td></tr>
+<tr><td><code>FAGLL03</code></td><td class="wrap">G/L 계정 라인아이템(신 G/L, Universal Journal 기반)</td></tr>
+<tr><td><code>FBL1N</code> / <code>FK10N</code></td><td class="wrap">공급업체 라인아이템 / 잔액 조회</td></tr>
+<tr><td><code>FBL5N</code> / <code>FD10N</code></td><td class="wrap">고객 라인아이템 / 잔액 조회</td></tr>
+<tr><td><code>FS00</code></td><td class="wrap">G/L 계정 마스터 생성 · 조회 · 변경</td></tr>
+<tr><td><code>FBN1</code></td><td class="wrap">문서번호범위 유지보수</td></tr>
+<tr><td><code>OB52</code></td><td class="wrap">전기기간(Posting Period) 관리</td></tr>
+</tbody>
+</table>
+</div>
+
+<h3>반제 · 역분개 · 지급/독촉</h3>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>트랜잭션</th><th>용도</th></tr></thead>
+<tbody>
+<tr><td><code>F-28</code></td><td class="wrap">고객 입금 처리(Post Incoming Payments)</td></tr>
+<tr><td><code>F-53</code></td><td class="wrap">공급업체 출금 처리(Post Outgoing Payments)</td></tr>
+<tr><td><code>F-32</code></td><td class="wrap">고객 계정 수동 반제(Clear Customer)</td></tr>
+<tr><td><code>F-44</code></td><td class="wrap">공급업체 계정 수동 반제(Clear Vendor)</td></tr>
+<tr><td><code>F-03</code></td><td class="wrap">G/L 계정 반제(Clear G/L Account)</td></tr>
+<tr><td><code>F.13</code></td><td class="wrap">자동정리프로그램(Automatic Clearing)</td></tr>
+<tr><td><code>MR11</code></td><td class="wrap">GR/IR 계정 유지보수 — 장기 미결 GR/IR 항목 정리</td></tr>
+<tr><td><code>FBRA</code> / Reset Cleared Items</td><td class="wrap">반제 취소(리셋) — Fiori 앱은 S/4HANA 1709+</td></tr>
+<tr><td><code>FB08</code></td><td class="wrap">개별 전표 역분개</td></tr>
+<tr><td><code>F.80</code></td><td class="wrap">대량 역분개(Mass Reversal)</td></tr>
+<tr><td><code>F110</code></td><td class="wrap">자동지급프로그램(Payment Run)</td></tr>
+<tr><td><code>F150</code></td><td class="wrap">독촉프로그램(Dunning Run)</td></tr>
+<tr><td><code>ME2DP</code></td><td class="wrap">선급금 모니터(Down Payment Monitor, MM)</td></tr>
+</tbody>
+</table>
+</div>
+
+<h3>계정결정 Customizing · MM/SD 연동</h3>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>트랜잭션</th><th>용도</th></tr></thead>
+<tbody>
+<tr><td><code>OBYC</code></td><td class="wrap">MM 자동계정결정 — 거래키별 G/L 계정 매핑</td></tr>
+<tr><td><code>VKOA</code></td><td class="wrap">SD 수익계정결정 — Condition Technique 기반</td></tr>
+<tr><td><code>OBXR</code> / <code>OBXY</code> 등</td><td class="wrap">특수G/L거래(선급금 등) 계정결정</td></tr>
+<tr><td><code>OBA7</code></td><td class="wrap">전표유형(Document Type) 정의</td></tr>
+<tr><td><code>ME21N</code></td><td class="wrap">구매오더 생성</td></tr>
+<tr><td><code>MIGO</code></td><td class="wrap">입고 처리(재화이동, Goods Movement)</td></tr>
+<tr><td><code>MIRO</code></td><td class="wrap">인보이스검증(Logistics Invoice Verification)</td></tr>
+<tr><td><code>VA01</code></td><td class="wrap">영업오더 생성</td></tr>
+<tr><td><code>VL01N</code></td><td class="wrap">납품(출하) 생성, 재화출고(PGI) 포함</td></tr>
+<tr><td><code>VF01</code></td><td class="wrap">청구문서(Billing) 생성</td></tr>
+</tbody>
+</table>
+</div>
+
+<h3>핵심 테이블</h3>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>테이블</th><th>내용</th></tr></thead>
+<tbody>
+<tr><td><code>BKPF</code></td><td class="wrap">회계문서 헤더 — 문서번호 · 회사코드 · 회계연도 · 전표유형 · 전기일자</td></tr>
+<tr><td><code>BSEG</code></td><td class="wrap">회계문서 라인아이템 — 계정 · 차대 · 금액 · 전기키. <b>클러스터 테이블로 대용량 조회 시 주의</b></td></tr>
+<tr><td><code>ACDOCA</code></td><td class="wrap">Universal Journal — S/4HANA의 단일 라인아이템 원장(FI+CO+AA+수익성분석 통합)</td></tr>
+<tr><td><code>BSIK</code> / <code>BSAK</code></td><td class="wrap">공급업체 미결(Open) / 완료(Cleared) 항목</td></tr>
+<tr><td><code>BSID</code> / <code>BSAD</code></td><td class="wrap">고객 미결 / 완료 항목</td></tr>
+<tr><td><code>BSIS</code> / <code>BSAS</code></td><td class="wrap">G/L 계정(미결항목관리 대상) 미결 / 완료 항목</td></tr>
+<tr><td><code>SKA1</code> / <code>SKB1</code> / <code>SKAT</code></td><td class="wrap">G/L 계정 마스터 — COA 세그먼트 / 회사코드 세그먼트 / 언어별 명칭</td></tr>
+<tr><td><code>KNA1</code> / <code>KNB1</code></td><td class="wrap">고객 마스터 — 일반 데이터 / 회사코드 세그먼트(조정계정 포함)</td></tr>
+<tr><td><code>LFA1</code> / <code>LFB1</code></td><td class="wrap">공급업체 마스터 — 일반 데이터 / 회사코드 세그먼트(조정계정 포함)</td></tr>
+<tr><td><code>T030</code></td><td class="wrap">자동계정결정 테이블 — 거래키 → G/L 계정 매핑, <code>OBYC</code>의 저장소</td></tr>
+<tr><td><code>EKKO</code> / <code>EKPO</code></td><td class="wrap">구매오더 헤더 / 품목</td></tr>
+<tr><td><code>MKPF</code> / <code>MSEG</code></td><td class="wrap">자재문서 헤더 / 라인아이템(입출고 이력)</td></tr>
+<tr><td><code>VBAK</code> / <code>VBAP</code></td><td class="wrap">영업오더 헤더 / 품목</td></tr>
+<tr><td><code>VBRK</code> / <code>VBRP</code></td><td class="wrap">청구문서(Billing) 헤더 / 품목</td></tr>
+</tbody>
+</table>
+</div>
+
+<div class="note warn">
+  <div class="t">확인 필요 — S/4HANA에서 이 테이블들의 실체</div>
+  <p>원문은 참조 목록으로 <code>BSIK</code>/<code>BSAK</code>·<code>BSID</code>/<code>BSAD</code>·<code>BSIS</code>/<code>BSAS</code>·<code>MKPF</code>/<code>MSEG</code>를 그대로 적고 있습니다. S/4HANA에서는 이들 중 일부가 실테이블이 아닐 수 있으므로, <b>개발에서 이 이름으로 SELECT를 쓰기 전에</b> 실제 시스템(winerp01 / MEP)에서 <code>SE11</code>로 실테이블인지 뷰인지 확인할 것. 관련 배경은 <a href="knowledge-map.html">통합 지식맵 7절(데이터 계층)</a>에 정리되어 있습니다.</p>
+</div>
+
+<h3>회의 안건 체크리스트 — 설계 고려사항</h3>
+
+<h4>A. 계정과목표 · G/L 계정 설계 <span class="tag">→ LESSON 1</span></h4>
+<ul>
+  <li>계정과목표를 중앙(전사 통일)으로 갈 것인가, 분산(국가/법인별)으로 갈 것인가 — 여러 법인/국가 확장 가능성을 지금 얼마나 반영할 것인가</li>
+  <li>신규 계정의 Account Type(Balance Sheet / Primary Costs / Non-operating 등)을 <b>누가 어떤 기준으로</b> 결정하는가 — 잘못 지정하면 전기 이력이 쌓인 뒤 수정이 어렵다는 점을 감안한 승인 프로세스가 있는가</li>
+  <li>Field Status Group을 계정군별로 어떻게 설계할 것인가 — 특히 SD/MM 연동 계정(매출원가 · 재고)에서 PGI · 송장검증 시 사용자 입력을 어디까지 강제할 것인가</li>
+</ul>
+
+<h4>B. 자동계정결정 <span class="tag">→ LESSON 2</span></h4>
+<ul>
+  <li>MM 거래키(<code>BSX</code>/<code>WRX</code>/<code>PRD</code> 등)별 G/L 매핑(<code>OBYC</code>)을 누가 설계 · 관리 · 변경 승인하는가</li>
+  <li>SD 수익계정결정(<code>VKOA</code>)의 Account Assignment Criteria를 어떤 기준(판매조직 · 자재그룹 등)으로 세분화할 것인가 — 세분화가 많을수록 정교하지만 유지보수 부담도 커진다</li>
+  <li>평가클래스를 자재유형별로 몇 개나 둘 것인가 — 원자재 / 상품 / 완제품을 각각 다른 재고계정으로 관리할 것인가</li>
+  <li>계정결정 매핑 변경 시(신규 자재그룹 추가 등) <b>시뮬레이션 검증을 표준 프로세스로 강제</b>할 것인가</li>
+</ul>
+
+<h4>C. 반제 정책 <span class="tag">→ LESSON 3</span></h4>
+<ul>
+  <li>Open Item Management를 켤 계정의 범위 — 은행청산 · GR/IR · 급여청산 외에 추가로 필요한 계정이 있는가</li>
+  <li>GR/IR청산계정처럼 구조적으로 시차가 생기는 계정을 얼마 주기로(월 1회 / 주 1회) 점검 · 정리할 것인가</li>
+  <li><code>F.13</code>으로 처리할 범위와, 사람이 직접 매칭 판단해야 하는 범위(고객 입금 등)를 어떻게 나눌 것인가</li>
+  <li>지급차이 허용한도(Tolerance Group)를 얼마로 설정할 것인가 — 내부통제와 업무 효율의 균형점</li>
+  <li>부분지급(Partial Payment)과 잔액항목(Residual Item) 중 어느 쪽을 기본 정책으로 할 것인가</li>
+</ul>
+
+<h4>D. 역분개 정책 <span class="tag">→ LESSON 4</span></h4>
+<ul>
+  <li>Negative Posting을 허용할 것인가 — 거래액 리포트의 순수성 vs 일반역분개의 단순성</li>
+  <li>역분개 사유코드를 어떻게 표준화할 것인가</li>
+  <li>반제된 항목의 역분개 절차(Reset → Reverse → 재입력)를 누가 승인 · 실행하는가</li>
+  <li>마감된 회계기간에서 오류가 발견되면 <b>특별기간을 여는 승인권자는 누구인가</b></li>
+</ul>
+
+<h4>E. End-to-End · 결산 설계 <span class="tag">→ LESSON 5</span></h4>
+<ul>
+  <li>Document Splitting을 켜서 Profit Center/Segment별 완결 재무제표를 만들 것인가 — <span class="bad">Client 단위 결정이라 초기에 정해야 되돌릴 수 있다</span></li>
+  <li>월결산 태스크(잔액이월 · 외화평가 · 감가상각 · 발생이연 등)를 Financial Closing Cockpit으로 관리할 것인가, 수동 체크리스트로 관리할 것인가</li>
+  <li>P2P/O2C 흐름에서 실물과 청구 사이의 시차(GR/IR, 진행중 재고)를 어떤 주기로 모니터링할 것인가</li>
+</ul>
+
+<div class="note ok">
+  <div class="t">📌 개인 E2E 프로젝트에서 이미 답이 정해진 항목</div>
+  <p>· <b>A</b> — 회사코드 <code>CL04</code> 단일이므로 중앙/분산 논의 불필요. Operating COA 1개<br>
+     · <b>B</b> — 자재그룹 <code>CHKN</code>·<code>RICE</code>·<code>SHAK</code>·<code>PROT</code>·<code>PBAR</code>를 평가클래스 몇 개로 묶을지는 <span class="bad">미결정</span><br>
+     · <b>C</b> — GR/IR 점검 주기는 ZGATE_INSPECT의 실행 주기와 맞물린다. 이 CBO가 사실상 GR/IR 모니터 역할을 겸한다<br>
+     · <b>D</b> — 역분개는 CBO 자동화 대상 아님. 사람이 <code>FB08</code>로 처리<br>
+     · <b>E</b> — Document Splitting 온/오프는 <span class="bad">미결정</span>. 온도군별 손익 분석이 목표에 없으면 끄는 쪽이 범위에 맞다</p>
+</div>
+
+</div>
+
+
+<!-- ══════════ APPENDIX ══════════ -->
+<div class="lesson" id="lx">
+<h2><span class="no">APPENDIX</span>정리 · 반드시 기억할 것</h2>
+
+<h3>한 장 요약</h3>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>질문</th><th>답</th></tr></thead>
+<tbody>
+<tr><td>전표가 고유하게 식별되는 키</td><td class="wrap">문서번호 + 회사코드 + 회계연도</td></tr>
+<tr><td>G/L 전기키는 왜 두 개뿐인가</td><td class="wrap">입력화면 통제를 <b>Field Status Group</b>이 담당하기 때문. 하위원장은 그게 없어 전기키가 그 역할까지 겸한다</td></tr>
+<tr><td>Account Type을 잘못 정하면</td><td class="wrap">전기 이력이 쌓인 뒤에는 바꾸기 어렵다. Primary Costs면 CO 오브젝트 없이 전기 불가(하드 룰)</td></tr>
+<tr><td>계정결정이 실패하면</td><td class="wrap">회계문서가 <b>전혀</b> 생성되지 않는다 — 전부 아니면 전무</td></tr>
+<tr><td>VAT 계정은 어디서 결정되나</td><td class="wrap">VKOA가 <b>아니다</b>. FI Global Settings → Define Tax Accounts</td></tr>
+<tr><td>OBYC 매핑의 저장 테이블</td><td class="wrap"><code>T030</code></td></tr>
+<tr><td>GR/IR 청산계정의 존재 이유</td><td class="wrap">입고 시점과 송장 시점의 시차를 잇기 위해. 미결항목계정으로 유지되어 대사 근거가 된다</td></tr>
+<tr><td>Open Item Management를 켜고 끄는 조건</td><td class="wrap">계정 <b>잔액이 0일 때만</b> 가능. 은행계좌·세금·원재료·재고 계정에는 사용 불가</td></tr>
+<tr><td>일반역분개 vs 네거티브전기</td><td class="wrap">잔액은 둘 다 0. 차이는 <b>거래액(볼륨)</b> — 일반역분개는 증가, 네거티브전기는 원상복원</td></tr>
+<tr><td>네거티브전기를 쓰려면</td><td class="wrap">회사코드 설정 <b>과</b> 역분개 사유코드, <b>둘 다</b> 허용이어야 한다</td></tr>
+<tr><td>반제된 항목을 역분개하려면</td><td class="wrap">Reset → Reverse → 재입력. 순서를 건너뛸 수 없다</td></tr>
+<tr><td>Document Splitting 결정 단위</td><td class="wrap"><b>Client 단위</b>. 초기에 정하지 않으면 나중에 되돌리기 어렵다</td></tr>
+</tbody>
+</table>
+</div>
+
+<div class="note warn">
+  <div class="t">반드시 지킬 것</div>
+  <p>· 계정결정 매핑을 바꿨으면 <b>반드시 시뮬레이션</b>으로 검증한다. 운영에서 "전표가 안 생긴다"로 발견하는 건 너무 늦다.<br>
+     · Account Type과 Open Item Management는 <b>전기가 시작되기 전에</b> 정한다. 둘 다 사후 변경이 사실상 불가능하다.<br>
+     · GR/IR 잔액을 "나중에 보자"로 미루지 않는다. 미룰수록 원인 추적이 어려워지고, 결국 <code>MR11</code>로 밀어버리게 된다.<br>
+     · Document Splitting은 켤지 말지를 <b>결정하고 기록</b>한다. "아직 안 정했다"가 가장 나쁜 상태다.</p>
+</div>
+
+<h3>참고</h3>
+
+<ul>
+  <li>원본: 노션 <b>SAP Learning Hub</b> → FI End-to-End 프로세스 가이드 (직접 작성, 6페이지 구성). 강의 노트가 아니라 회의 준비용 1차 초안</li>
+  <li>이 문서의 재료가 된 노트: <a href="../fi/s4f12-core-settings.html">S4F12 Core Settings</a> · <a href="../fi/s4f13-additional.html">S4F13 Additional Settings</a> · <a href="../fi/s4f15-financial-closing.html">S4F15 Financial Closing</a> · <a href="../fi/s4f17-asset-accounting.html">S4F17 Asset Accounting</a></li>
+  <li>MM 자동계정결정의 상세: <a href="../mm/s4550-cross-functional.html">S4550 Cross-Functional Customizing</a> · 재고 이동유형은 <a href="../mm/s4510-inventory.html">S4510 Inventory Management</a> · 송장검증은 <a href="../mm/s4515-invoice-verification.html">S4515 Invoice Verification</a></li>
+  <li>SD 계정결정(VKOA)과 SD-FI 인터페이스의 상세: <a href="../sd/s46150-billing.html">S46150 Billing</a> · 조건기법 자체는 <a href="../sd/s46200-pricing.html">S46200 Pricing</a></li>
+  <li>이 문서의 위치를 전체 지도에서 보려면: <a href="knowledge-map.html">SAP S/4HANA 통합 지식맵</a> 6절(모듈 통합)</li>
+</ul>
+
+</div>
+
+</div>
+<script src="../../assets/hub.js" defer></script>
+</body>
+</html>

@@ -1,0 +1,420 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>S46052 Configuring Incompletion Procedures — 불완전 로그와 후속 차단</title>
+<meta name="description" content="SAP Learning Hub의 Configuring Incompletion Procedures in SAP S/4HANA Sales(S46052) 노트. Incompletion Log의 동작, 미완료 오더 목록, Incompletion Procedure 배정 구조와 상태그룹이 통제하는 후속 차단 범위.">
+<link rel="icon" href="../../assets/favicon.svg">
+<link rel="stylesheet" href="../../assets/notes-paper.css">
+<style>
+/* ── 이 노트 전용: 도해(SVG) 스타일 ─────────────────────────── */
+.dgm{display:block; width:100%; height:auto;}
+.dgm text{font-family:"Malgun Gothic","맑은 고딕","Apple SD Gothic Neo",sans-serif; fill:#1e1e1e;}
+.dgm .t-h{font-size:15px; font-weight:700;}
+.dgm .t{font-size:13px;}
+.dgm .t-s{font-size:11.5px; fill:#555;}
+.dgm .t-xs{font-size:10.5px; fill:#6B7280;}
+.dgm .m{font-family:"D2Coding","Consolas",monospace; font-size:12px;}
+.dgm .m-s{font-family:"D2Coding","Consolas",monospace; font-size:10.5px;}
+.dgm .c-key{fill:#4338CA;} .dgm .c-bad{fill:#B91C1C;} .dgm .c-ok{fill:#047857;}
+.dgm .b{fill:#FFFFFF; stroke:#C7CBD6; stroke-width:1.2;}
+.dgm .b-key{fill:#EEF0FB; stroke:#4338CA; stroke-width:1.4;}
+.dgm .b-bad{fill:#FEF2F2; stroke:#B91C1C; stroke-width:1.3;}
+.dgm .b-ok{fill:#ECFDF5; stroke:#047857; stroke-width:1.3;}
+.dgm .b-mut{fill:#F3F4F6; stroke:#D1D5DB; stroke-width:1.1;}
+.dgm .b-hl{fill:#FEF08A; stroke:#CA8A04; stroke-width:1.2;}
+.dgm .b-ghost{fill:none; stroke:#9AA3B2; stroke-width:1.1; stroke-dasharray:5 4;}
+.dgm .ln{stroke:#7C8697; stroke-width:1.4; fill:none;}
+.dgm .ln-key{stroke:#4338CA; stroke-width:1.8; fill:none;}
+.dgm .ln-bad{stroke:#B91C1C; stroke-width:1.6; fill:none;}
+.dgm .ln-ok{stroke:#047857; stroke-width:1.6; fill:none;}
+.dgm .ln-d{stroke:#9AA3B2; stroke-width:1.2; stroke-dasharray:4 4; fill:none;}
+.dgm .arw{fill:#7C8697;} .dgm .arw-key{fill:#4338CA;}
+.dgm .arw-bad{fill:#B91C1C;} .dgm .arw-ok{fill:#047857;}
+.figwrap{background:#FAFAFE; border:1px solid var(--rule); border-radius:6px;
+  padding:18px 16px 10px; margin:22px 0;}
+.figwrap figcaption{margin-top:12px; padding-top:10px; border-top:1px solid var(--rule);}
+</style>
+</head>
+<body>
+<div class="crumb"><a href="../../index.html">← 자료실 홈</a> · <a href="../../journey.html?j=sd">SD 저니</a> · S46052 Incompletion</div>
+<div class="sheet">
+
+<div class="doc-head">
+  <div class="kicker">LEARNING HUB · S46052</div>
+  <h1>Incompletion Procedure — 불완전 로그와 후속 차단</h1>
+  <div class="sub">
+    Learning Journey <b>Implementing Sales in SAP S/4HANA Cloud Private Edition</b> · Course 5 / S46052 · 40 min · 2 Unit · 2 레슨 · Intermediate<br>
+    출처: 노션 <b>SAP Learning Hub</b> 노트 5-1 변환
+  </div>
+</div>
+
+<div class="lead">
+  <p><b>결론부터.</b> Incompletion Log는 <span class="hl">입력을 막는 장치가 아니라 후속 처리를 막는 장치</span>입니다. 필수 필드가 비어도 판매문서는 저장됩니다 — 대신 "불완전" 상태가 붙고, 그 상태가 납품이나 청구를 세워 둡니다.</p>
+  <p>어떤 필드를 볼지, 그 필드가 비었을 때 <b>무엇을 막을지</b>를 정하는 커스터마이징 오브젝트가 Incompletion Procedure입니다. 여기서 중요한 건 필드 목록이 아니라 <span class="key">상태그룹(status group)</span>입니다 — 같은 누락이라도 상태그룹에 따라 경고만 뜨기도 하고, 납품이 통째로 막히기도 합니다.</p>
+</div>
+
+<div class="toc">
+  <h4>목차</h4>
+  <ol>
+    <li><a href="#l1">Incompletion Log — 저장은 되는데 다음이 안 간다</a></li>
+    <li><a href="#l2">Incompletion Procedure 설정 — 무엇을 막을지 정하는 자리</a></li>
+  </ol>
+</div>
+
+<div class="note warn">
+  <div class="t">이 노트의 한계 — 먼저 읽을 것</div>
+  <p>원본 Learning Hub의 이 코스는 <span class="bad">두 레슨 모두 본문 텍스트 없이 임베드 영상으로만</span> 구성되어 있습니다(레슨 페이지에 소제목만 있고 설명 문단이 없음). 노션 원문 자체가 소제목 구조 + S/4HANA Sales의 일반 지식으로 재구성된 것이고, 이 노트는 그 원문을 옮긴 것입니다.</p>
+  <p>따라서 <b>정확한 IMG 메뉴 경로, 상태그룹 코드값, 배정 대상의 전체 목록, 미완료 오더 조회 앱/T-Code</b>는 이 노트에 없습니다. 실제 시스템(<code>winerp01</code> / MEP)에서 확인 후 보강해야 합니다. 지어 넣지 않았습니다.</p>
+</div>
+
+
+<!-- ══════════ LESSON 1 ══════════ -->
+<div class="lesson" id="l1">
+<h2><span class="no">LESSON 1</span>Incompletion Log — 저장은 되는데 다음이 안 간다</h2>
+
+<p><span class="tag">Unit 1</span><span class="tag">레슨 1개</span>Working with an Incompletion Log — 판매오더에서 불완전 로그를 다룰 수 있다</p>
+
+<h3>언제 이걸 알아야 하는가</h3>
+
+<p>가장 흔한 문의가 <b>"오더는 분명히 저장됐는데 납품이 안 잡힙니다"</b>입니다. 오더번호도 나오고 조회도 되는데 후속만 안 나갑니다. 에러 메시지도 없습니다 — 저장할 때는 아무 말이 없었으니까요.</p>
+
+<p>이건 대부분 버그가 아니라 <span class="key">Incompletion Log가 작동한 정상 동작</span>입니다. 답은 오더 안의 불완전 로그 화면에 있고, 거기에 "무슨 필드가 비었는지"가 그대로 나와 있습니다.</p>
+
+<h3>Incompletion Log가 하는 일</h3>
+
+<p>Incompletion Log(불완전 로그)는 판매문서 — 오더 · 납품 · 청구 등 — 에서 <b>특정 필드가 아직 입력되지 않았을 때 이를 추적</b>하는 기능입니다. 필수 항목이 비어 있으면 시스템이 그 사실을 기록하고, <span class="hl">문서 저장은 허용하되 후속 프로세스를 차단</span>하는 데 씁니다.</p>
+
+<p>문서를 저장할 때 시스템은 그 문서유형에 배정된 Incompletion Procedure를 참조해 <b>지정된 필드가 채워졌는지 검사</b>합니다. 누락이 있으면 오더 자체는 저장되지만, 로그에 기록되고 상태가 "불완전"으로 표시됩니다. 사용자는 이후 로그를 열어 <b>누락 필드로 바로 이동</b>해 입력을 완료할 수 있습니다.</p>
+
+<figure class="figwrap">
+<svg class="dgm" viewBox="0 0 1000 452" role="img" aria-label="불완전 로그가 후속 처리를 막는 지점 도해. 판매오더 저장 시 절차가 지정 필드를 검사하고, 누락이 있으면 문서는 저장되지만 불완전 상태가 붙으며 상태그룹이 납품 차단인지 청구 차단인지 경고만인지를 결정한다.">
+  <defs>
+    <marker id="ica" markerWidth="9" markerHeight="9" refX="7" refY="4.5" orient="auto">
+      <polygon class="arw" points="0,0 9,4.5 0,9"/></marker>
+    <marker id="icak" markerWidth="9" markerHeight="9" refX="7" refY="4.5" orient="auto">
+      <polygon class="arw-key" points="0,0 9,4.5 0,9"/></marker>
+    <marker id="icab" markerWidth="9" markerHeight="9" refX="7" refY="4.5" orient="auto">
+      <polygon class="arw-bad" points="0,0 9,4.5 0,9"/></marker>
+    <marker id="icao" markerWidth="9" markerHeight="9" refX="7" refY="4.5" orient="auto">
+      <polygon class="arw-ok" points="0,0 9,4.5 0,9"/></marker>
+  </defs>
+
+  <rect class="b" x="20" y="24" width="170" height="56" rx="6"/>
+  <text class="t-h" x="38" y="48">판매오더 저장</text>
+  <text class="t-xs" x="38" y="68">헤더 · 아이템 입력 후</text>
+
+  <path class="ln-key" d="M190 52 H226" marker-end="url(#icak)"/>
+
+  <rect class="b-key" x="234" y="24" width="250" height="56" rx="6"/>
+  <text class="t-h c-key" x="252" y="48">Incompletion 검사</text>
+  <text class="t-xs" x="252" y="68">문서유형에 배정된 절차를 참조</text>
+
+  <path class="ln-key" d="M484 52 H520" marker-end="url(#icak)"/>
+
+  <rect class="b-hl" x="528" y="24" width="180" height="56" rx="6"/>
+  <text class="t-h" x="546" y="48">누락 필드 있나</text>
+  <text class="t-xs" x="546" y="68">지정된 필드만 본다</text>
+
+  <path class="ln-ok" d="M708 52 H756" marker-end="url(#icao)"/>
+  <rect class="b-ok" x="764" y="24" width="216" height="56" rx="6"/>
+  <text class="t-h c-ok" x="782" y="48">완전 (Complete)</text>
+  <text class="t-xs" x="782" y="68">후속 문서 정상 생성</text>
+
+  <path class="ln-bad" d="M618 80 V118" marker-end="url(#icab)"/>
+  <text class="t-xs c-bad" x="632" y="104">누락 있음</text>
+
+  <rect class="b-bad" x="300" y="120" width="440" height="76" rx="6"/>
+  <text class="t-h c-bad" x="324" y="146">문서는 저장된다</text>
+  <text class="t-s" x="324" y="168">오더번호도 나오고 조회도 된다. 대신 로그에 기록되고</text>
+  <text class="t-s" x="324" y="186">문서 상태가 <tspan class="c-bad">불완전(Incomplete)</tspan> 으로 표시된다</text>
+
+  <path class="ln-bad" d="M520 196 V232" marker-end="url(#icab)"/>
+
+  <rect class="b-key" x="300" y="234" width="440" height="58" rx="6"/>
+  <text class="t-h c-key" x="324" y="260">상태그룹(Status Group)이 차단 범위를 결정</text>
+  <text class="t-xs" x="324" y="280">같은 누락이라도 무엇이 막히는지가 여기서 갈린다</text>
+
+  <path class="ln" d="M380 292 V318 H170 V342" marker-end="url(#ica)"/>
+  <path class="ln" d="M520 292 V342" marker-end="url(#ica)"/>
+  <path class="ln" d="M660 292 V318 H850 V342" marker-end="url(#ica)"/>
+
+  <rect class="b-bad" x="40" y="344" width="260" height="60" rx="6"/>
+  <text class="t-h c-bad" x="60" y="370">납품 생성 차단</text>
+  <text class="t-xs" x="60" y="390">출고납품이 아예 안 잡힌다</text>
+
+  <rect class="b-bad" x="390" y="344" width="260" height="60" rx="6"/>
+  <text class="t-h c-bad" x="410" y="370">청구 발행 차단</text>
+  <text class="t-xs" x="410" y="390">납품은 되는데 인보이스가 안 나간다</text>
+
+  <rect class="b-mut" x="720" y="344" width="240" height="60" rx="6"/>
+  <text class="t-h" x="740" y="370">경고만</text>
+  <text class="t-xs" x="740" y="390">기록은 남고 후속은 진행된다</text>
+
+  <rect class="b-ghost" x="40" y="414" width="920" height="32" rx="6"/>
+  <text class="t-s" x="62" y="435">로그를 열면 <tspan class="c-key">누락 필드로 바로 이동</tspan>할 수 있다. 채워 넣고 저장하면 상태가 완전으로 바뀌고 막혀 있던 후속이 열린다.</text>
+</svg>
+<figcaption><span class="fno">그림 1</span>불완전 로그가 후속 처리를 막는 지점. 막히는 자리는 저장이 아니라 <b>납품·청구</b>이고, 어디가 막히는지는 상태그룹이 정한다.</figcaption>
+</figure>
+
+<h3>미완료 오더 목록 (Lists of Incomplete Orders)</h3>
+
+<p>판매담당자는 별도 리포트/앱으로 <b>불완전한 상태로 남아 있는 판매문서 목록</b>을 조회할 수 있습니다. 어떤 오더가 어떤 필드 때문에 후속처리가 막혀 있는지를 한눈에 보고, 거기서 해당 문서로 바로 이동해 누락 필드를 채우는 흐름입니다.</p>
+
+<p>운영 관점에서 이 목록이 실제 가치입니다. 개별 오더를 하나씩 열어 보는 게 아니라, <span class="hl">"지금 막혀 있는 건이 몇 건인지"</span>를 먼저 보고 일괄로 처리합니다.</p>
+
+<div class="note warn">
+  <div class="t">확인 필요 — 조회 앱/T-Code</div>
+  <p>원문에는 <b>"별도 리포트/앱"</b>이라고만 되어 있고 구체적인 앱 ID나 T-Code가 없습니다. 실제 시스템(<code>winerp01</code> / MEP)에서 Fiori 앱 카탈로그와 SD 리포트 목록을 확인해 채워 넣을 것. 기억으로 앱 ID를 적지 않습니다.</p>
+</div>
+
+<div class="note">
+  <div class="t">🔰 초보자 설명 — Incompletion Log를 한 줄로</div>
+  <p>"이 문서는 일단 저장되었지만, <b>이 항목들이 비어 있어서 다음 단계로 못 넘어가요</b>"라고 시스템이 체크리스트를 띄워주는 기능입니다. 체크리스트를 다 채워야 납품·청구 같은 후속 작업이 가능해집니다.</p>
+</div>
+
+<div class="note ok">
+  <div class="t">📌 개인 E2E 프로젝트와의 연결점 — 상태필드 W/P/H와 같은 발상</div>
+  <p>"일단 저장은 시키되 상태를 붙여 두고, 그 상태로 후속을 통제한다" — 이건 프로젝트 CBO 테이블에 <b>상태필드(W / P / H)</b>를 두기로 한 설계와 정확히 같은 구조입니다. 표준이 판매문서에 대해 이미 하고 있는 걸, CBO에서는 직접 만들어 쓰는 셈입니다.</p>
+  <p>또 하나. 프로젝트는 <b>배치관리 + 유통기한(<code>MCHA-VFDAT</code>)</b>에 SD FEFO 배치결정을 얹습니다. 배치가 정해지지 않은 오더 아이템을 "저장은 되지만 납품은 막는다"로 두려면, 새 로직을 만들 게 아니라 <span class="key">Incompletion Procedure에 배치 필드를 넣고 납품 차단 상태그룹을 거는 것</span>이 표준 우선 원칙에 맞습니다.</p>
+</div>
+
+</div>
+
+
+<!-- ══════════ LESSON 2 ══════════ -->
+<div class="lesson" id="l2">
+<h2><span class="no">LESSON 2</span>Incompletion Procedure 설정 — 무엇을 막을지 정하는 자리</h2>
+
+<p><span class="tag">Unit 2</span><span class="tag">레슨 1개</span>Configuring an Incompletion Procedure — 판매문서에 대한 절차를 설정할 수 있다</p>
+
+<h3>언제 이걸 알아야 하는가</h3>
+
+<p>LESSON 1의 문의를 해결하고 나면 반드시 다음 요청이 옵니다. <b>"그 필드, 앞으로는 안 비게 막아 주세요"</b> 또는 반대로 <b>"이것 때문에 납품이 막히는데 이 체크 좀 빼 주세요"</b>. 둘 다 고치는 자리는 같습니다 — Incompletion Procedure입니다.</p>
+
+<p>이때 <span class="bad">"필드를 목록에서 빼면 된다"고 생각하면 절반만 맞습니다.</span> 목록에서 빼지 않고 <b>상태그룹만 바꿔서</b> "기록은 남기되 납품은 막지 않는다"로 조정하는 편이 나은 경우가 많습니다. 그 구분이 이 레슨의 핵심입니다.</p>
+
+<h3>Incompletion Procedure란 무엇을 정의하는가</h3>
+
+<p>Incompletion Procedure는 두 가지를 정의하는 Customizing 오브젝트입니다.</p>
+
+<ul>
+  <li><b>어떤 필드를 필수 체크 대상으로 삼을지</b></li>
+  <li>그 필드가 비었을 때 <b>어떤 상태그룹(status group)에 영향을 줄지</b></li>
+</ul>
+
+<p>필드 하나하나에 대해 "이 필드가 비면 <b>어떤 화면/뷰의 어떤 필드</b>인지"(= 로그에서 클릭했을 때 커서가 갈 자리), 그리고 "누락 시 <b>경고만 할지 후속처리를 차단할지</b>"를 지정합니다.</p>
+
+<figure class="figwrap">
+<svg class="dgm" viewBox="0 0 1000 300" role="img" aria-label="Incompletion Procedure 한 행의 구성 도해. 검사할 필드, 이동할 화면과 뷰, 상태그룹을 지정하면 누락 시의 결과가 경고인지 차단인지로 정해진다.">
+  <defs>
+    <marker id="icb" markerWidth="9" markerHeight="9" refX="7" refY="4.5" orient="auto">
+      <polygon class="arw-key" points="0,0 9,4.5 0,9"/></marker>
+  </defs>
+
+  <text class="t-s c-key" x="20" y="22">Incompletion Procedure 한 행(= 검사 대상 필드 1개)이 갖는 정보</text>
+
+  <rect class="b-key" x="20" y="36" width="216" height="80" rx="6"/>
+  <text class="t-h c-key" x="40" y="62">① 검사할 필드</text>
+  <text class="t-s" x="40" y="84">이 필드가 비면</text>
+  <text class="t-s" x="40" y="102">불완전으로 본다</text>
+
+  <path class="ln-key" d="M236 76 H268" marker-end="url(#icb)"/>
+
+  <rect class="b" x="276" y="36" width="216" height="80" rx="6"/>
+  <text class="t-h" x="296" y="62">② 화면 · 뷰</text>
+  <text class="t-s" x="296" y="84">로그에서 클릭했을 때</text>
+  <text class="t-s" x="296" y="102">커서가 갈 자리</text>
+
+  <path class="ln-key" d="M492 76 H524" marker-end="url(#icb)"/>
+
+  <rect class="b-hl" x="532" y="36" width="216" height="80" rx="6"/>
+  <text class="t-h" x="552" y="62">③ 상태그룹</text>
+  <text class="t-s" x="552" y="84">무엇을 막을지</text>
+  <text class="t-s" x="552" y="102">여기서 정해진다</text>
+
+  <path class="ln-key" d="M748 76 H780" marker-end="url(#icb)"/>
+
+  <rect class="b" x="788" y="36" width="192" height="80" rx="6"/>
+  <text class="t-h" x="808" y="62">④ 결과</text>
+  <text class="t-s" x="808" y="84">경고 / 납품 차단 /</text>
+  <text class="t-s" x="808" y="102">청구 차단</text>
+
+  <line class="ln-d" x1="20" y1="142" x2="980" y2="142"/>
+  <text class="t-s c-key" x="20" y="170">같은 필드라도 ③을 바꾸면 ④가 달라진다 — 필드를 목록에서 빼는 것과는 다른 조정이다</text>
+
+  <rect class="b-bad" x="20" y="184" width="300" height="76" rx="6"/>
+  <text class="t-h c-bad" x="42" y="210">상태그룹 A 를 걸면</text>
+  <text class="t-s" x="42" y="232">납품 생성이 막힌다</text>
+  <text class="t-xs" x="42" y="250">출하 전에 반드시 필요한 필드용</text>
+
+  <rect class="b-bad" x="340" y="184" width="300" height="76" rx="6"/>
+  <text class="t-h c-bad" x="362" y="210">상태그룹 B 를 걸면</text>
+  <text class="t-s" x="362" y="232">청구 발행만 막힌다</text>
+  <text class="t-xs" x="362" y="250">납품에는 필요 없지만 청구에는 필수</text>
+
+  <rect class="b-mut" x="660" y="184" width="320" height="76" rx="6"/>
+  <text class="t-h" x="682" y="210">차단 없는 그룹을 걸면</text>
+  <text class="t-s" x="682" y="232">로그에는 뜨지만 후속은 진행</text>
+  <text class="t-xs" x="682" y="250">"채우면 좋지만 막을 정도는 아닌" 필드</text>
+
+  <rect class="b-ghost" x="20" y="268" width="960" height="26" rx="6"/>
+  <text class="t-xs" x="42" y="286">상태그룹 A · B 는 설명용 표기. 실제 코드값과 각 그룹이 통제하는 항목 조합은 시스템에서 확인해야 한다.</text>
+</svg>
+<figcaption><span class="fno">그림 2</span>Incompletion Procedure 한 행의 구성. 조정 레버는 <b>필드 목록</b>이 아니라 <b>상태그룹</b>이다.</figcaption>
+</figure>
+
+<h3>절차는 어디에 배정되는가</h3>
+
+<p>Incompletion Procedure는 한 군데에 거는 게 아니라 <b>레벨별로 각각</b> 배정합니다. 원문이 명시한 배정 대상은 세 가지입니다.</p>
+
+<figure class="figwrap">
+<svg class="dgm" viewBox="0 0 1000 392" role="img" aria-label="Incompletion Procedure 배정 구조 도해. 절차는 헤더 레벨의 판매문서유형, 아이템 레벨의 아이템 카테고리, 스케줄라인 레벨의 스케줄라인 카테고리에 각각 배정되며 한 오더 안에서 동시에 작동한다.">
+  <defs>
+    <marker id="icc" markerWidth="9" markerHeight="9" refX="7" refY="4.5" orient="auto">
+      <polygon class="arw-key" points="0,0 9,4.5 0,9"/></marker>
+  </defs>
+
+  <rect class="b-key" x="340" y="18" width="320" height="58" rx="6"/>
+  <text class="t-h c-key" x="362" y="44">Incompletion Procedure</text>
+  <text class="t-xs" x="362" y="64">검사 필드 목록 + 필드별 상태그룹</text>
+
+  <path class="ln-key" d="M420 76 V104 H170 V140" marker-end="url(#icc)"/>
+  <path class="ln-key" d="M500 76 V140" marker-end="url(#icc)"/>
+  <path class="ln-key" d="M580 76 V104 H830 V140" marker-end="url(#icc)"/>
+
+  <text class="t-xs c-key" x="676" y="98">같은 절차가 아니라 레벨마다 별도로 배정</text>
+
+  <rect class="b" x="40" y="142" width="260" height="88" rx="6"/>
+  <text class="t-h" x="62" y="168">헤더 레벨</text>
+  <text class="t-s" x="62" y="192">판매문서유형</text>
+  <text class="m-s" x="62" y="212">Sales Document Type</text>
+
+  <rect class="b" x="370" y="142" width="260" height="88" rx="6"/>
+  <text class="t-h" x="392" y="168">아이템 레벨</text>
+  <text class="t-s" x="392" y="192">아이템 카테고리</text>
+  <text class="m-s" x="392" y="212">Item Category</text>
+
+  <rect class="b" x="700" y="142" width="260" height="88" rx="6"/>
+  <text class="t-h" x="722" y="168">스케줄라인 레벨</text>
+  <text class="t-s" x="722" y="192">스케줄라인 카테고리</text>
+  <text class="m-s" x="722" y="212">Schedule Line Category</text>
+
+  <rect class="b-hl" x="40" y="250" width="920" height="62" rx="6"/>
+  <text class="t-h" x="62" y="276">판매오더 한 건 안에서 세 레벨의 절차가 동시에 작동한다</text>
+  <text class="t-s" x="62" y="298">헤더 필드가 모두 채워져 있어도 아이템 필드가 비면 <tspan class="c-bad">그 아이템이 불완전</tspan>이고, 그 아이템의 후속이 막힌다</text>
+
+  <rect class="b-ghost" x="40" y="326" width="920" height="50" rx="6"/>
+  <text class="t-s" x="62" y="348">원문이 명시한 배정 대상은 위 <tspan class="c-key">세 가지뿐</tspan>이다. 파트너기능 · 납품문서유형 등 다른 배정 대상은 원문에 없다.</text>
+  <text class="t-s" x="62" y="368">실제 시스템에서 배정 대상 전체 목록과 IMG 경로를 확인한 뒤 이 그림을 보강할 것.</text>
+</svg>
+<figcaption><span class="fno">그림 3</span>Incompletion Procedure 배정 구조. 헤더·아이템·스케줄라인 세 레벨에 각각 배정되고, 한 오더 안에서 동시에 걸린다.</figcaption>
+</figure>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>레벨</th><th>배정 대상</th><th>검사되는 것</th></tr></thead>
+<tbody>
+<tr><td>헤더</td><td>판매문서유형 (Sales Document Type)</td><td class="wrap">문서 전체에 걸리는 필드 — 원문은 "헤더 레벨"로만 명시</td></tr>
+<tr><td>아이템</td><td>아이템 카테고리 (Item Category)</td><td class="wrap">아이템 단위 필드. 아이템별로 불완전 여부가 갈린다</td></tr>
+<tr><td>스케줄라인</td><td>스케줄라인 카테고리 (Schedule Line Category)</td><td class="wrap">납기·수량이 갈리는 스케줄라인 단위 필드</td></tr>
+</tbody>
+</table>
+</div>
+
+<h3>상태그룹 — "무엇을 막을지"를 쪼갠다</h3>
+
+<p>상태그룹(status group)은 <b>필드 누락이 어떤 후속 프로세스를 막을지</b>를 결정합니다. 어떤 상태그룹은 납품 생성을 차단하고, 다른 상태그룹은 청구서 발행만 차단합니다.</p>
+
+<p>이 구분 덕분에 <span class="hl">"이 필드는 납품에는 필요 없지만 청구에는 반드시 필요하다"</span> 같은 세밀한 제어가 가능합니다. 전부 아니면 전무가 아니라는 점이 핵심입니다.</p>
+
+<div class="note warn">
+  <div class="t">확인 필요 — 상태그룹 코드값과 IMG 경로</div>
+  <p>원문에는 상태그룹의 <b>구체적인 코드값</b>과 각 코드가 통제하는 항목 조합(일반 / 납품 / 청구 / 가격 / 출고 등)이 나와 있지 않습니다. 커스터마이징 메뉴 위치도 마찬가지입니다.</p>
+  <p>실제 시스템(<code>winerp01</code> / MEP)에서 상태그룹 정의 화면을 열어 코드값과 체크 항목을 확인한 뒤 이 노트에 표로 채워 넣을 것. <span class="bad">기억으로 코드값을 적으면 그대로 틀립니다.</span></p>
+</div>
+
+<div class="note">
+  <div class="t">🔰 초보자 설명 — Incompletion Procedure 설정을 한 줄로</div>
+  <p>"<b>이 필드가 비어 있으면 무슨 일이 일어나야 하는지</b>"를 미리 정해 두는 규칙표입니다. 어떤 필드는 그냥 경고만 하고, 어떤 필드는 아예 납품·청구를 막아버리도록 설정할 수 있습니다.</p>
+</div>
+
+<div class="note ok">
+  <div class="t">📌 개인 E2E 프로젝트와의 연결점 — 표준으로 먼저 막는다</div>
+  <p>프로젝트 원칙이 <b>"표준 우선, CBO는 표준으로 안 되는 지점만"</b>입니다. 오더 필수값 검증은 <span class="key">전형적으로 표준이 이미 하는 일</span>이므로, 여기에 CBO 체크 로직을 새로 얹으면 원칙 위반입니다.</p>
+  <p>프로젝트에서 실제로 걸 만한 후보 — 다만 어느 상태그룹을 쓸지는 시스템 확인 후 결정합니다.</p>
+  <div class="step"><span class="n">1</span><p><b>Ship-to Party</b> — PGI 전에 반드시 있어야 하므로 <b>납품 차단</b> 쪽 상태그룹. 배송처 없이 출고되는 일을 표준 선에서 막습니다.</p></div>
+  <div class="step"><span class="n">2</span><p><b>배치 / 유통기한 관련 필드</b> — 냉동(<code>1100</code>/<code>1900</code>) · 냉장(<code>2100</code>/<code>2900</code>) · 실온(<code>3100</code>/<code>3900</code>) 저장위치로 나뉘는 구조에서, FEFO 배치결정이 안 붙은 아이템은 출고되면 안 됩니다. <b>납품 차단</b> 쪽입니다.</p></div>
+  <div class="step"><span class="n">3</span><p><b>가격 조건이 잡히지 않은 아이템</b> — 납품은 나가도 되지만 청구는 나가면 안 되는 전형적인 케이스입니다. <b>청구 차단</b> 쪽 상태그룹이 맞습니다.</p></div>
+  <p>3번이 특히 중요합니다. 프로젝트 원칙상 <b>회계 영향이 있는 처리는 자동화하지 않는다</b>고 정했는데, 금액이 확정되지 않은 건이 청구로 넘어가는 걸 표준 상태그룹으로 막아 두면 CBO를 하나 덜 만들 수 있습니다.</p>
+</div>
+
+</div>
+
+
+<!-- ══════════ APPENDIX ══════════ -->
+<div class="lesson" id="lx">
+<h2><span class="no">APPENDIX</span>정리 · 반드시 기억할 것</h2>
+
+<h3>한 장 요약</h3>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>질문</th><th>답</th></tr></thead>
+<tbody>
+<tr><td>Incompletion Log가 하는 일</td><td class="wrap">판매문서에서 <b>지정된 필드가 비었는지 추적</b>하고 기록한다</td></tr>
+<tr><td>필드가 비면 저장이 막히나</td><td class="wrap"><b>안 막힌다.</b> 저장은 되고 상태만 "불완전"이 된다</td></tr>
+<tr><td>그럼 무엇이 막히나</td><td class="wrap">후속 프로세스 — <b>납품 생성 · 청구서 발행</b> 등</td></tr>
+<tr><td>어디가 막힐지는 누가 정하나</td><td class="wrap"><span class="key">상태그룹(status group)</span>. 납품만 막는 그룹, 청구만 막는 그룹이 따로 있다</td></tr>
+<tr><td>검사 기준은 어디서 오나</td><td class="wrap">그 문서유형에 배정된 <b>Incompletion Procedure</b></td></tr>
+<tr><td>절차는 어디에 배정하나</td><td class="wrap">판매문서유형(헤더) · 아이템 카테고리(아이템) · 스케줄라인 카테고리(스케줄라인) <b>세 레벨 각각</b></td></tr>
+<tr><td>한 오더에 절차가 하나만 걸리나</td><td class="wrap">아니다. 세 레벨의 절차가 <b>동시에</b> 작동한다</td></tr>
+<tr><td>절차가 정의하는 것 두 가지</td><td class="wrap">① 검사할 필드 목록 ② 필드별로 어떤 상태그룹에 영향을 줄지</td></tr>
+<tr><td>누락 필드를 어떻게 채우나</td><td class="wrap">로그에서 해당 항목을 열면 <b>그 필드로 바로 이동</b>한다</td></tr>
+<tr><td>막힌 건을 한꺼번에 보려면</td><td class="wrap">미완료 오더 목록 리포트/앱 — <b>앱 ID는 확인 필요</b></td></tr>
+<tr><td>"납품엔 필요 없고 청구엔 필수"가 되나</td><td class="wrap">된다. 그게 상태그룹을 쪼개 둔 이유다</td></tr>
+<tr><td>차단을 풀 때 필드를 빼야 하나</td><td class="wrap">꼭 그렇지 않다. <b>상태그룹만 바꿔</b> 기록은 남기고 차단만 푸는 편이 대개 낫다</td></tr>
+</tbody>
+</table>
+</div>
+
+<h3>반드시 지킬 것</h3>
+
+<div class="note warn">
+  <div class="t">현장에서 틀리기 쉬운 지점</div>
+  <p>· <b>"오더가 저장됐으니 문제없다"고 판단하지 않는다.</b> 저장과 완전(complete)은 다른 상태다. 후속이 안 나가면 먼저 불완전 로그부터 본다.<br>
+     · <b>차단을 풀라는 요청에 필드부터 빼지 않는다.</b> 필드를 빼면 기록 자체가 사라져 나중에 추적이 안 된다. 상태그룹 조정이 먼저다.<br>
+     · <b>레벨을 헷갈리지 않는다.</b> 헤더 필드를 다 채웠는데도 안 풀리면 아이템 · 스케줄라인 레벨 절차를 본다.<br>
+     · <b>상태그룹 코드값을 기억으로 적지 않는다.</b> 시스템에서 확인한 값만 문서에 남긴다.</p>
+</div>
+
+<h3>확인 필요 목록 (실제 시스템에서 채울 것)</h3>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>항목</th><th>확인할 것</th></tr></thead>
+<tbody>
+<tr><td>IMG 경로</td><td class="wrap">Incompletion Procedure 정의 · 상태그룹 정의 · 문서유형 배정 각각의 커스터마이징 메뉴 위치</td></tr>
+<tr><td>상태그룹 코드값</td><td class="wrap">정의된 그룹 코드와 각 그룹이 통제하는 항목 조합</td></tr>
+<tr><td>배정 대상 전체</td><td class="wrap">원문은 3레벨만 명시. 파트너기능 등 다른 배정 대상이 있는지</td></tr>
+<tr><td>미완료 오더 조회</td><td class="wrap">Fiori 앱 ID 또는 T-Code</td></tr>
+<tr><td>대상 문서 범위</td><td class="wrap">원문은 "오더·납품·청구 등"으로만 기술. 납품/청구 쪽 절차 설정 위치</td></tr>
+</tbody>
+</table>
+</div>
+
+<h3>참고</h3>
+
+<ul>
+  <li>원본: 노션 <b>SAP Learning Hub</b> → Implementing Sales in SAP S/4HANA Cloud Private Edition → 5-1 (Course 5 / S46052, Unit 1-2, 레슨 2개)</li>
+  <li>앞 노트: <b>S46051</b> Outline Agreement · 뒤 노트: <b>S46055</b> Output Control</li>
+  <li>원본 코스가 영상 위주라 본문 텍스트가 없었던 코스입니다. 이 노트는 <b>소제목 구조와 일반 지식으로 재구성된 노션 원문</b>을 옮긴 것이므로, 실제 시스템 확인 전까지는 개념 지도로만 사용합니다.</li>
+</ul>
+
+</div>
+
+</div>
+<script src="../../assets/hub.js" defer></script>
+</body>
+</html>

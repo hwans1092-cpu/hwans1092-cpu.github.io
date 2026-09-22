@@ -1,0 +1,390 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>확인 필요 체크리스트 — 실제 시스템에서 확정할 것</title>
+<meta name="description" content="SAP Learning Hub 자료실 45개 노트에 흩어진 '확인 필요' 항목 100건을 확인 장소별로 묶은 실행 체크리스트. winerp01 / MEP에서 한 번에 확정한다.">
+<link rel="icon" href="../../assets/favicon.svg">
+<link rel="stylesheet" href="../../assets/notes-paper.css">
+<style>
+.dgm{display:block; width:100%; height:auto;}
+.dgm text{font-family:"Malgun Gothic","맑은 고딕","Apple SD Gothic Neo",sans-serif; fill:#1e1e1e;}
+.dgm .t-h{font-size:15px; font-weight:700;}
+.dgm .t{font-size:13px;}
+.dgm .t-s{font-size:11.5px; fill:#555;}
+.dgm .t-xs{font-size:10.5px; fill:#6B7280;}
+.dgm .m-s{font-family:"D2Coding","Consolas",monospace; font-size:10.5px;}
+.dgm .c-key{fill:#4338CA;} .dgm .c-bad{fill:#B91C1C;} .dgm .c-ok{fill:#047857;}
+.dgm .b{fill:#FFFFFF; stroke:#C7CBD6; stroke-width:1.2;}
+.dgm .b-key{fill:#EEF0FB; stroke:#4338CA; stroke-width:1.4;}
+.dgm .b-bad{fill:#FEF2F2; stroke:#B91C1C; stroke-width:1.3;}
+.dgm .b-ok{fill:#ECFDF5; stroke:#047857; stroke-width:1.3;}
+.dgm .b-hl{fill:#FEF08A; stroke:#CA8A04; stroke-width:1.2;}
+.dgm .b-ghost{fill:none; stroke:#9AA3B2; stroke-width:1.1; stroke-dasharray:5 4;}
+.dgm .ln-key{stroke:#4338CA; stroke-width:1.8; fill:none;}
+.dgm .arw-key{fill:#4338CA;}
+.figwrap{background:#FAFAFE; border:1px solid var(--rule); border-radius:6px;
+  padding:18px 16px 10px; margin:22px 0;}
+.figwrap figcaption{margin-top:12px; padding-top:10px; border-top:1px solid var(--rule);}
+/* 체크박스 열 */
+table td.ck, table th.ck{width:30px; text-align:center; padding-left:6px; padding-right:6px;}
+table td.ck{font-size:13pt; color:#9AA3B2; line-height:1.2;}
+table td.wh{white-space:nowrap; font-family:"D2Coding","Consolas",monospace; font-size:9.4pt; color:var(--key);}
+.srcs{font-size:8.8pt; color:var(--ink-mut,#6B7280); margin-top:4px;}
+.srcs a{color:#6B7280; text-decoration:none; border-bottom:1px dotted #C7CBD6;}
+.srcs a:hover{color:var(--key); border-bottom-color:var(--key);}
+.cnt{display:inline-block; background:var(--key); color:#fff; font-size:8.5pt; font-weight:700;
+  padding:2px 8px; border-radius:10px; margin-left:8px; vertical-align:3px;}
+</style>
+</head>
+<body>
+<div class="crumb"><a href="../../index.html">← 자료실 홈</a> · 단독 문서 · 확인 필요 체크리스트</div>
+<div class="sheet">
+
+<div class="doc-head">
+  <div class="kicker">WORKING DOC · 확인 체크리스트</div>
+  <h1>확인 필요 체크리스트 — 실제 시스템에서 확정할 것</h1>
+  <div class="sub">
+    자료실 <b>45개 노트</b>에 <code>.note.warn</code>으로 흩어져 있던 <b>확인 필요 100건</b>을 모아 정리<br>
+    대상 시스템: <b>winerp01 / MEP</b> · 개인 프로젝트 회사코드 <b>CL04</b>
+  </div>
+</div>
+
+<div class="lead">
+  <p><b>결론부터.</b> 노트별로 흩어 두면 영원히 안 채워진다. <span class="hl">확인하는 화면이 같은 것끼리 묶어야</span> 시스템에 한 번 들어가서 한꺼번에 턴다.</p>
+  <p>그래서 이 문서는 노트 순서가 아니라 <b>확인 장소 순서</b>다. 그리고 맨 앞에 <span class="bad">되돌릴 수 없는 결정</span>을 뒀다 — 자재를 만들기 전에 정해야 하는 것들이라, 순서를 틀리면 확인이 아니라 복구 작업이 된다.</p>
+</div>
+
+<div class="toc">
+  <h4>목차</h4>
+  <ol>
+    <li><a href="#l1">되돌릴 수 없는 결정 — 자재 만들기 전에</a></li>
+    <li><a href="#l2">시스템 기본 정보 — 한 번에 긁어 오기</a></li>
+    <li><a href="#l3">CBO 3종의 전제 — 설계가 걸려 있는 것</a></li>
+    <li><a href="#l4">SD 설정 확인</a></li>
+    <li><a href="#l5">MM · FI 설정 확인</a></li>
+    <li><a href="#l6">T-Code · 앱 ID 보강 대상</a></li>
+    <li><a href="#lx">확인 결과를 어디에 반영하나</a></li>
+  </ol>
+</div>
+
+<figure class="figwrap">
+<svg class="dgm" viewBox="0 0 1000 250" role="img" aria-label="확인 순서 도해. 되돌릴 수 없는 결정을 먼저 확정하고, 시스템 기본 정보를 긁은 뒤, CBO 전제와 모듈 설정, 마지막으로 T-Code 보강 순으로 진행한다.">
+  <defs>
+    <marker id="ck" markerWidth="9" markerHeight="9" refX="7" refY="4.5" orient="auto">
+      <polygon class="arw-key" points="0,0 9,4.5 0,9"/></marker>
+  </defs>
+  <rect class="b-bad" x="20" y="34" width="176" height="76" rx="6"/>
+  <text class="t-h c-bad" x="40" y="58">① 되돌릴 수 없는</text>
+  <text class="t-h c-bad" x="40" y="76">결정</text>
+  <text class="t-s" x="40" y="98">자재 생성 전에 확정</text>
+  <path class="ln-key" d="M196 72 H228" marker-end="url(#ck)"/>
+
+  <rect class="b-key" x="236" y="34" width="176" height="76" rx="6"/>
+  <text class="t-h c-key" x="256" y="58">② 시스템 기본</text>
+  <text class="t-s" x="256" y="80">릴리스 · 클라이언트</text>
+  <text class="t-s" x="256" y="98">WP 구성 · 컴포넌트</text>
+  <path class="ln-key" d="M412 72 H444" marker-end="url(#ck)"/>
+
+  <rect class="b-hl" x="452" y="34" width="176" height="76" rx="6"/>
+  <text class="t-h" x="472" y="58">③ CBO 전제</text>
+  <text class="t-s" x="472" y="80">311 회계전표 · GR/IR</text>
+  <text class="t-s" x="472" y="98">배치 · FEFO</text>
+  <path class="ln-key" d="M628 72 H660" marker-end="url(#ck)"/>
+
+  <rect class="b" x="668" y="34" width="150" height="76" rx="6"/>
+  <text class="t-h" x="688" y="58">④ 모듈 설정</text>
+  <text class="t-s" x="688" y="80">SD · MM · FI</text>
+  <text class="t-s" x="688" y="98">IMG 경로 확인</text>
+  <path class="ln-key" d="M818 72 H850" marker-end="url(#ck)"/>
+
+  <rect class="b-ok" x="858" y="34" width="122" height="76" rx="6"/>
+  <text class="t-h c-ok" x="876" y="58">⑤ 보강</text>
+  <text class="t-s" x="876" y="80">T-Code</text>
+  <text class="t-s" x="876" y="98">앱 ID</text>
+
+  <rect class="b-ghost" x="20" y="132" width="960" height="96" rx="6"/>
+  <text class="t-s c-bad" x="44" y="156">①을 건너뛰고 ④부터 하면 안 된다 — 평가영역 하나가 ③의 판정 기준과 ⑤의 대상 테이블까지 전부 바꾼다.</text>
+  <text class="t-s" x="44" y="180">②는 화면 세 개(System → Status / SCC4 / SM50)면 끝난다. 여기서 나온 릴리스 값이 ⑤의 절반을 자동으로 정리해 준다.</text>
+  <text class="t-s" x="44" y="204">⑤는 급하지 않다. 노트를 읽다가 필요할 때 그 자리에서 채워 넣어도 된다.</text>
+</svg>
+<figcaption><span class="fno">그림 1</span>확인 순서. 왼쪽이 밀리면 오른쪽 전부를 다시 해야 한다.</figcaption>
+</figure>
+
+
+<!-- ══════════ LESSON 1 ══════════ -->
+<div class="lesson" id="l1">
+<h2><span class="no">STEP 1</span>되돌릴 수 없는 결정 — 자재 만들기 전에<span class="cnt">7</span></h2>
+
+<div class="note warn">
+  <div class="t">이 절만은 순서가 있다</div>
+  <p>아래 항목은 <span class="bad">이미 자재나 전표가 생긴 뒤에는 바꿀 수 없거나, 바꾸는 데 큰 비용이 든다.</span> 개인 프로젝트 IMG 세팅을 시작하기 전에 전부 확정하고 MM 설계서에 한 줄씩 적어 둘 것.</p>
+</div>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th class="ck">☐</th><th>확인할 것</th><th>어디서</th><th>무엇이 갈리나</th></tr></thead>
+<tbody>
+<tr><td class="ck">☐</td><td class="wrap"><b>평가영역(Valuation Area)</b> — 회사코드인가 플랜트인가</td><td class="wh">OX14<br>플랜트 정의</td><td class="wrap"><span class="bad">이 문서에서 가장 중요한 한 줄.</span> 플랜트면 GATE와 STOR의 이동평균가가 <b>따로</b> 계산되고 301 이관에서 회계전표가 생긴다. 회사코드면 안 생긴다. <code>ZGATE_INSPECT</code>의 "회계 영향" 판정과 <code>ZPRICE_CHECK</code>의 비교 대상이 통째로 달라진다</td></tr>
+<tr><td class="ck">☐</td><td class="wrap"><b>문서분할(Document Splitting)</b> 활성 여부</td><td class="wh">FI IMG</td><td class="wrap"><b>Client 단위 결정</b>이라 같은 클라이언트를 쓰는 다른 실습까지 영향을 받는다. CL04 하나 + 세그먼트 보고 요건 없음 → 켜지 않는 쪽으로 기울지만 현재 상태부터 확인</td></tr>
+<tr><td class="ck">☐</td><td class="wrap"><b>자재번호 사전순 형식</b>(lexicographical) 여부</td><td class="wh">MM IMG</td><td class="wrap">첫 자재를 만들기 전에 정해야 한다. 나중에 못 바꾼다</td></tr>
+<tr><td class="ck">☐</td><td class="wrap"><b>프로젝트에서 쓸 자재유형</b>과 조달유형</td><td class="wh">MM IMG<br>자재유형 정의</td><td class="wrap">강의 표(FERT · ROH · HALB · DIEN · KMAT)에 <b>사입 후 재판매하는 상품(거래재)</b> 성격이 없다. 자재유형은 재고·미결문서가 하나도 없을 때만 바꿀 수 있다</td></tr>
+<tr><td class="ck">☐</td><td class="wrap"><b>배치관리 체크는 Client 레벨</b>(<code>MARA-XCHPF</code>)이라는 제약</td><td class="wh">MM03 기본1</td><td class="wrap">"GATE는 배치 안 쓰고 STOR만" 같은 설계가 자재마스터 기본으로는 불가능하다. <code>ZBATCH_ZONE</code>·FEFO 설계 전에 확정</td></tr>
+<tr><td class="ck">☐</td><td class="wrap"><b>Multi-address Handling</b> Business Function</td><td class="wh">SFW5</td><td class="wrap">한 번 켜면 되돌릴 수 없는 경우가 있다. 학습 목적으로 임의 활성화 금지. 필요해지면 SAP Note 3067314 먼저 (SD 노트는 <b>쓰지 말 것</b>으로 결론)</td></tr>
+<tr><td class="ck">☐</td><td class="wrap"><b>필드 카탈로그 확장</b> IMG 경로와 구조체(<code>KOMKAZ</code>/<code>KOMPAZ</code>)</td><td class="wh">SD IMG</td><td class="wrap">되돌리기 어려운 작업. 릴리즈별로 경로·구조체명이 갈리므로 착수 전 확인. 애초에 조건테이블 기본 필드로 되는지 먼저 볼 것</td></tr>
+</tbody>
+</table>
+</div>
+
+<div class="srcs">출처 노트 — <a href="../mm/s4500-business-processes.html">S4500</a> · <a href="../mm/s4510-inventory.html">S4510</a> · <a href="../mm/s4550-cross-functional.html">S4550</a> · <a href="../fi/s4f12-core-settings.html">S4F12</a> · <a href="../pp/s42100-basic-data.html">S42100</a> · <a href="../sd/s46050-fundamental-customizing.html">S46050</a> · <a href="../sd/s46200-pricing.html">S46200</a> · <a href="../iee2e/iee2e-03-central-objects.html">IEE2E U3</a></div>
+
+</div>
+
+
+<!-- ══════════ LESSON 2 ══════════ -->
+<div class="lesson" id="l2">
+<h2><span class="no">STEP 2</span>시스템 기본 정보 — 한 번에 긁어 오기<span class="cnt">9</span></h2>
+
+<p>화면 네 개면 끝난다. 여기서 나온 릴리스 값이 <b>STEP 6의 절반을 자동으로 정리</b>해 준다 — "이 앱은 우리 릴리스에 없다"가 그 자리에서 판명되기 때문.</p>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th class="ck">☐</th><th>확인할 것</th><th>어디서</th><th>왜 필요한가</th></tr></thead>
+<tbody>
+<tr><td class="ck">☐</td><td class="wrap"><b>S/4HANA 릴리스 · SAP_BASIS · SAP_UI · SAP_GWFND</b> SP 레벨</td><td class="wh">System → Status<br>→ Component Info</td><td class="wrap">Fiori 앱 가용 여부, Spaces vs Groups, FES 조합, 락 조회 T-Code까지 전부 여기서 갈린다</td></tr>
+<tr><td class="ck">☐</td><td class="wrap"><b>클라이언트 목록</b>과 변경·전송 설정</td><td class="wh">SCC4</td><td class="wrap">개발 / 커스터마이징 클라이언트 번호, 자동 기록 여부, 크로스클라이언트 변경 허용 여부. 강의의 080 · 100은 권장값일 뿐</td></tr>
+<tr><td class="ck">☐</td><td class="wrap"><b>워크프로세스 구성</b> — DIA / BTC / UPD / UP2 / ENQ 개수</td><td class="wh">SM50</td><td class="wrap"><span class="hl">병렬처리 패킷 크기를 정하기 전에 반드시 선행.</span> 추측으로 정하면 무조건 틀린다</td></tr>
+<tr><td class="ck">☐</td><td class="wrap"><code>rdisp/max_wprun_time</code> 현재값과 동적 변경 가능 여부</td><td class="wh">RZ11</td><td class="wrap">aRFC 병렬 태스크는 대화 WP라 이 값에 걸린다. AL11 파일 분할 단위의 상한</td></tr>
+<tr><td class="ck">☐</td><td class="wrap"><b>애플리케이션 서버 대수</b></td><td class="wh">SM51</td><td class="wrap">1대면 RFC 서버그룹·부하분산이 의미 없다. 병렬도 설계의 전제</td></tr>
+<tr><td class="ck">☐</td><td class="wrap"><b>락 조회 T-Code</b> — <code>SM12</code>인가 <code>SMENQ</code>인가</td><td class="wh">둘 다 쳐 보기</td><td class="wrap">SAP_BASIS 7.52 이하 SM12 / 7.53 이상 SMENQ / 7.55 이상은 SM12가 곧 SMENQ</td></tr>
+<tr><td class="ck">☐</td><td class="wrap"><b>Controlling Area</b> 구성</td><td class="wh">OKKP</td><td class="wrap">강의는 Cloud Public Edition 전제라 A000 하나뿐. 온프레미스는 다르다</td></tr>
+<tr><td class="ck">☐</td><td class="wrap"><b>원장 구성</b> — 0L 단독인가 비리딩원장이 있는가</td><td class="wh">FI IMG<br>원장 정의</td><td class="wrap">원장이 여럿이면 병행회계 설계가 자산클래스보다 먼저다</td></tr>
+<tr><td class="ck">☐</td><td class="wrap"><b>단일 시스템에서 트랜스포트를 어디까지 실습 가능한가</b></td><td class="wh">STMS · SE06<br>SE09 · SE10</td><td class="wrap">DEV→QAS→PRD Import는 불가하더라도, Z 패키지 + 전송 가능 요청까지는 만들어 둘 것 — 포트폴리오에서 "운영 이관 전제로 설계했다"가 실물이 된다</td></tr>
+</tbody>
+</table>
+</div>
+
+<div class="note ok">
+  <div class="t">한 번에 끝내는 순서</div>
+  <p><code>System → Status</code> (컴포넌트) → <code>SCC4</code> → <code>SM50</code> → <code>SM51</code> → <code>RZ11</code>. 5분이면 된다. 결과를 MM 설계서 맨 앞 "대상 시스템" 절에 표로 박아 두면 이후 모든 판단의 근거가 된다.</p>
+</div>
+
+<div class="srcs">출처 노트 — <a href="../tadm10/tadm10-01-foundation.html">TADM10 기초</a> · <a href="../tadm10/tadm10-03-fiori-monitoring.html">TADM10 모니터링</a> · <a href="../tadm10/tadm10-04-start-stop.html">TADM10 시작·중지</a> · <a href="../tadm10/tadm10-06-fiori-landscape.html">TADM10 Fiori</a> · <a href="../sd/s4c03-implementing-pce.html">S4C03</a> · <a href="../fi/s4f17-asset-accounting.html">S4F17</a> · <a href="../iee2e/iee2e-04-fico.html">IEE2E FI/CO</a></div>
+
+</div>
+
+
+<!-- ══════════ LESSON 3 ══════════ -->
+<div class="lesson" id="l3">
+<h2><span class="no">STEP 3</span>CBO 3종의 전제 — 설계가 걸려 있는 것<span class="cnt">12</span></h2>
+
+<p>여러 노트가 <b>독립적으로 같은 지점을 짚은</b> 항목들이다. 겹친다는 건 실제로 위험하다는 뜻이다.</p>
+
+<h3>ZBATCH_ZONE — 잔여 유통기한 30% 미달 시 정상 → 임박 311 이동</h3>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th class="ck">☐</th><th>확인할 것</th><th>어디서</th><th>결과에 따라</th></tr></thead>
+<tbody>
+<tr><td class="ck">☐</td><td class="wrap"><b>311이 회계전표를 만드는가</b></td><td class="wh">OBYC 시뮬레이션<br>(재고관리 · 311)</td><td class="wrap">통상 안 생기지만 값문자열·계정그룹코드 배정에 따라 달라진다. <span class="bad">생긴다면 자동 이동이 아니라 승인 대기로 설계 변경</span> — "회계 영향 처리는 자동화하지 않는다" 원칙에 걸린다</td></tr>
+<tr><td class="ck">☐</td><td class="wrap">311에 <b>이동사유</b>가 정의되어 있는가 / 사유코드 번호대가 비었는가</td><td class="wh">OMBS</td><td class="wrap">이동 사유를 남길 수 있으면 CBO 로그를 표준 필드로 대체할 수 있다</td></tr>
+<tr><td class="ck">☐</td><td class="wrap"><b>임박 SLoc을 MRP 가용재고에서 제외</b>할지</td><td class="wh">저장위치 MRP<br>제외 지시자</td><td class="wrap">제외하지 않으면 임박 재고가 가용으로 잡혀 발주가 늦어지고 폐기가 늘어난다. <b>CBO보다 IMG 결정이 먼저</b></td></tr>
+<tr><td class="ck">☐</td><td class="wrap"><code>101</code> <b>최소잔여유통기한 검사</b>가 GATE에서 켜져 있는가</td><td class="wh">플랜트 파라미터<br>이동유형 입력제어</td><td class="wrap">표준으로 막을 수 있으면 CBO는 "입고 후 시간이 지나 30%를 깬 재고"만 담당하면 된다 — 범위가 줄어든다</td></tr>
+<tr><td class="ck">☐</td><td class="wrap"><b>배치결정 커스터마이징 경로</b> — 전략유형 · 검색전략 · 선택클래스 · 정렬규칙</td><td class="wh">COB1 · CU70 계열<br>(경로 확인)</td><td class="wrap">FEFO를 실제로 세팅하려면 필요. 강의는 업무 동작만 다루고 오브젝트를 언급하지 않는다</td></tr>
+</tbody>
+</table>
+</div>
+
+<h3>ZGATE_INSPECT — GR(101) vs STOR이관(301) 차이 → 송장 미발생 건 122</h3>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th class="ck">☐</th><th>확인할 것</th><th>어디서</th><th>결과에 따라</th></tr></thead>
+<tbody>
+<tr><td class="ck">☐</td><td class="wrap"><code>For GR-Based IV, Reversal of GR Despite Invoice</code> 설정</td><td class="wh">MM IMG<br>송장검증</td><td class="wrap"><b>비허용</b>으로 두면 표준이 이미 막아 준다 — CBO 판정 전에 IMG가 우선. SAP Note 184632</td></tr>
+<tr><td class="ck">☐</td><td class="wrap"><code>OMBZ</code>의 <b>122 설정 현황</b></td><td class="wh">OMBZ</td><td class="wrap">"인보이스 입력 건 취소 불가"가 이미 걸려 있으면 CBO 가드가 이중이 된다</td></tr>
+<tr><td class="ck">☐</td><td class="wrap"><code>OMCD</code> <b>납품완료지시자 자동설정</b>이 GATE에 켜져 있는가</td><td class="wh">OMCD</td><td class="wrap">차이 판정 대상 건수가 달라진다</td></tr>
+<tr><td class="ck">☐</td><td class="wrap"><b>판정 기준을 GR/IR 미결항목으로 바꿀 것인가</b></td><td class="wh">설계 결정<br>(FBL3N 대조)</td><td class="wrap">MM·FI 노트가 공통으로 짚은 지적 — 재고 차이가 아니라 <span class="hl">GR/IR 미결항목이 살아있는가</span>가 맞는 기준. 송장 전기 후 122만 돌리면 GR/IR 잔액이 남는다</td></tr>
+</tbody>
+</table>
+</div>
+
+<h3>ZPRICE_CHECK — 정보레코드가(EINE-NETPR) vs 이동평균가(MBEW-VERPR) 괴리</h3>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th class="ck">☐</th><th>확인할 것</th><th>어디서</th><th>결과에 따라</th></tr></thead>
+<tbody>
+<tr><td class="ck">☐</td><td class="wrap"><b>정보레코드 단가가 조건레코드로 관리되는 구성인가</b></td><td class="wh">ME13<br>가격결정 스키마</td><td class="wrap">조건레코드 기반이면 <code>EINE-NETPR</code> 직접 참조로는 부족하다</td></tr>
+<tr><td class="ck">☐</td><td class="wrap"><b>비교 기준 시점</b>을 어떻게 잡을 것인가</td><td class="wh">설계 결정</td><td class="wrap"><code>MBEW-VERPR</code>는 입고마다 변한다. 기준일자와 그 시점 스냅샷을 CBO 테이블에 같이 저장하고 <code>(MANDT, MATNR, BWKEY, 기준일자)</code>를 PK로 — 아니면 중복 알림이 쏟아진다</td></tr>
+<tr><td class="ck">☐</td><td class="wrap"><b>수탁재고(K)는 비평가</b>라 <code>MBEW-VERPR</code>이 없다</td><td class="wh">설계 결정</td><td class="wrap">특수재고를 대상에서 제외하고, 제외 건수를 로그로 남길 것</td></tr>
+</tbody>
+</table>
+</div>
+
+<div class="note warn">
+  <div class="t">이 절에서 나온 공통 결론 두 개</div>
+  <p><b>하나.</b> SLoc 매핑(<code>1100→1900</code> · <code>2100→2900</code> · <code>3100→3900</code>)과 30% 임계치를 <span class="bad">소스에 박지 않는다.</span> 커스터마이징 테이블(<code>MANDT + WERKS + LGORT_FROM</code> PK)로 빼고 SM30 뷰를 붙인다. 최소 5개 노트가 같은 지적을 했다.</p>
+  <p><b>둘.</b> CBO 상태필드에 <code>W/P/H</code> 외에 <b>실패(E) 상태와 메시지 클래스·번호 필드</b>를 추가할 것. 지금 구조로는 "왜 실패했는지"가 남지 않는다.</p>
+</div>
+
+<div class="srcs">출처 노트 — <a href="../mm/s4510-inventory.html">S4510</a> · <a href="../mm/s4515-invoice-verification.html">S4515</a> · <a href="../mm/s4550-cross-functional.html">S4550</a> · <a href="../pp/s42025-process-shopfloor.html">S42025</a> · <a href="../iee2e/iee2e-06-source-to-pay.html">IEE2E S2P</a> · <a href="../iee2e/iee2e-04-fico.html">IEE2E FI/CO</a> · <a href="fi-e2e-guide.html">FI E2E 가이드</a></div>
+
+</div>
+
+
+<!-- ══════════ LESSON 4 ══════════ -->
+<div class="lesson" id="l4">
+<h2><span class="no">STEP 4</span>SD 설정 확인<span class="cnt">14</span></h2>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th class="ck">☐</th><th>확인할 것</th><th>어디서</th><th>무엇이 갈리나</th></tr></thead>
+<tbody>
+<tr><td class="ck">☐</td><td class="wrap"><b>Pricing Type</b>이 F2에 무엇으로 배정돼 있는가</td><td class="wh">VTFL 아이템</td><td class="wrap"><code>B</code>(전체 재결정)면 오더 시점 합의가격이 아니라 청구 시점 조건레코드로 재계산된다 → <span class="bad">오더와 송장 금액 불일치 = 고객 클레임</span></td></tr>
+<tr><td class="ck">☐</td><td class="wrap"><b>인보이스 분할 기준 필드</b></td><td class="wh">① VBRK 비교<br>② VBRK-ZUKRI<br>③ VTFL 루틴</td><td class="wrap">노트의 필드 목록은 일반 구성일 뿐. 실제 비교 대상은 Data Transfer Routine과 VOFM 요건에 달렸다. 이 3단계 순서로 역추적</td></tr>
+<tr><td class="ck">☐</td><td class="wrap"><b>수익계정 결정</b>의 조건테이블 조합과 계정키</td><td class="wh">VKOA<br>계정결정 Analysis</td><td class="wrap">절차명·조건유형·접근순서는 시스템마다 다르다. 문제 문서에서 Analysis로 어느 접근에서 걸렸는지 역추적. <span class="bad">추측으로 계정을 바꾸지 않는다</span></td></tr>
+<tr><td class="ck">☐</td><td class="wrap"><code>PRCD_ELEMENTS</code>와 <code>PRCD_COND</code> 중 어느 쪽이 TABL인가</td><td class="wh">SE11</td><td class="wrap">릴리즈에 따라 한쪽이 뷰다. 프로그램에서 SELECT할 대상이 갈린다</td></tr>
+<tr><td class="ck">☐</td><td class="wrap"><b>창고관리 활성화 방식</b> — Embedded EWM / 기존 WM / Stock Room Management</td><td class="wh">창고번호 정의</td><td class="wrap">S46100 LESSON 5~6의 경로가 통째로 달라진다. 그리고 <b>FEFO(SD 배치결정) vs FIFO(EWM 재고출고규칙)</b> 충돌 여부도 여기서 결정</td></tr>
+<tr><td class="ck">☐</td><td class="wrap"><b>선적항 결정 테이블</b>의 실제 줄 (배송플랜트 · 적재그룹 · 출하조건)</td><td class="wh">SD IMG<br>출하지점 결정</td><td class="wrap">온도군별 출하 분리를 적재그룹 축으로 풀 수 있는지 판단</td></tr>
+<tr><td class="ck">☐</td><td class="wrap"><b>플랜트 + 저장위치 → 창고번호</b> 배정 여부</td><td class="wh">LE IMG</td><td class="wrap">배정이 없으면 피킹이 창고관리 경로를 타지 않는다</td></tr>
+<tr><td class="ck">☐</td><td class="wrap"><b>선적항별 스케줄링 방식</b> — 정밀 / 일별, 근무시간 유지 여부</td><td class="wh">출하지점 정의</td><td class="wrap">스케줄링 역산 결과가 달라진다</td></tr>
+<tr><td class="ck">☐</td><td class="wrap"><b>Incompletion 상태그룹 코드값</b>과 통제 항목 조합</td><td class="wh">SD IMG<br>상태그룹 정의</td><td class="wrap">노트 그림 2의 "A/B"는 <b>설명용 표기</b>다. 실제 코드로 치환해야 한다. <span class="bad">기억으로 코드값을 적으면 그대로 틀린다</span></td></tr>
+<tr><td class="ck">☐</td><td class="wrap"><b>계약 한도 초과 시 반응</b> — 경고 / 오류 / 차단 중 무엇이며 어디서 설정하나</td><td class="wh">SD IMG</td><td class="wrap">조용히 통과하면 매출 인식과 미청구 잔액이 같이 틀어진다</td></tr>
+<tr><td class="ck">☐</td><td class="wrap"><b>표준 코드값 존재 여부</b> — <code>WA</code> · 요건 <code>002</code> · <code>AA</code> · <code>AW</code> · <code>KAB</code></td><td class="wh">TPAR · TPAER<br>TVAK</td><td class="wrap">원문이 "표준시스템에서"라고 전제한 값들. <span class="bad">확인 전 하드코딩 금지</span></td></tr>
+<tr><td class="ck">☐</td><td class="wrap">불완전 절차 <code>50</code> · <code>51</code> — 뷰 <code>V_TVUVF</code>가 열리는가</td><td class="wh">SM31</td><td class="wrap">SM31 직접 유지는 권한·변경요청 정책에 걸린다. 안 열리면 이 방식은 설계에서 뺀다 (SAP Note 385982)</td></tr>
+<tr><td class="ck">☐</td><td class="wrap"><code>VOTXN</code>이 열리는가 / IMG 경로가 동일한가</td><td class="wh">VOTXN</td><td class="wrap">Private Edition에서 Fiori SSCUI로만 열리는 항목이 섞일 수 있다</td></tr>
+<tr><td class="ck">☐</td><td class="wrap">출력이 <b>클래식 NAST인가 S/4HANA Output Management인가</b></td><td class="wh">SD IMG<br>출력관리</td><td class="wrap">전환은 <b>신규 문서에만</b> 적용되고 소급되지 않는다. 진단 경로가 완전히 달라진다</td></tr>
+</tbody>
+</table>
+</div>
+
+<div class="srcs">출처 노트 — <a href="../sd/s46050-fundamental-customizing.html">S46050</a> · <a href="../sd/s46051-outline-agreements.html">S46051</a> · <a href="../sd/s46052-incompletion.html">S46052</a> · <a href="../sd/s46055-output-control.html">S46055</a> · <a href="../sd/s46056-text-control.html">S46056</a> · <a href="../sd/s46100-delivery-processing.html">S46100</a> · <a href="../sd/s46150-billing.html">S46150</a> · <a href="../sd/s46200-pricing.html">S46200</a></div>
+
+</div>
+
+
+<!-- ══════════ LESSON 5 ══════════ -->
+<div class="lesson" id="l5">
+<h2><span class="no">STEP 5</span>MM · FI 설정 확인<span class="cnt">13</span></h2>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th class="ck">☐</th><th>확인할 것</th><th>어디서</th><th>무엇이 갈리나</th></tr></thead>
+<tbody>
+<tr><td class="ck">☐</td><td class="wrap"><b>MRP Live인가 Classic MRP인가</b></td><td class="wh">MRP 실행 화면</td><td class="wrap">MRP Live는 유효한 일정계약이 있으면 항상 납품일정라인, 그 외 PR. Classic은 사용자가 선택. <b>"MRP 돌리면 PR이 생긴다"고 설계서에 단정하면 일정계약 도입 순간 어긋난다</b></td></tr>
+<tr><td class="ck">☐</td><td class="wrap"><b>송장검증 Tolerance</b> 키별 실제 한도값</td><td class="wh">OMR6</td><td class="wrap">가격·수량 차이 시 경고만인지 지급차단인지</td></tr>
+<tr><td class="ck">☐</td><td class="wrap"><code>OMRW</code> 두 지시자의 현행값</td><td class="wh">OMRW</td><td class="wrap">두 번째 지시자를 켜면 <span class="bad">가격통제와 무관하게 환율차이 전액이 환율차이계정으로</span> 가고 첫 번째 지시자가 무의미해진다</td></tr>
+<tr><td class="ck">☐</td><td class="wrap"><b>중복 청구서 Reference 검사</b> 켤지 말지</td><td class="wh">OMRDC</td><td class="wrap">켜면 오타 낸 재발송이 통과하고, 끄면 정상 청구서가 자꾸 걸린다. 공급업체 채번 습관에 달렸다. 대변메모 중복검사는 S/4HANA 2023+</td></tr>
+<tr><td class="ck">☐</td><td class="wrap"><b>계정지정범주별 필수 계정지정데이터</b>와 허용 조합표</td><td class="wh">MM IMG<br>계정지정범주 유지</td><td class="wrap">강의가 영상 중심이라 본문에 조합표가 없다. 직접 채워야 한다</td></tr>
+<tr><td class="ck">☐</td><td class="wrap"><code>OMJ2</code> 실사 <b>공차 사용자그룹</b> 배정 여부</td><td class="wh">OMJ2</td><td class="wrap">배정이 없으면 공차 자체가 적용되지 않는다</td></tr>
+<tr><td class="ck">☐</td><td class="wrap"><b>전기(Previous Period) 소급기표 허용 여부</b></td><td class="wh">MM 기간관리</td><td class="wrap">허용 안 돼 있으면 12월 말 카운트분을 1월에 기표할 수 없다</td></tr>
+<tr><td class="ck">☐</td><td class="wrap"><b>자재문서 번호범위</b>가 표준 대역(49* / 5*)인가</td><td class="wh">번호범위 정의</td><td class="wrap">커스터마이징된 시스템이면 CBO 로그의 번호 해석이 달라진다</td></tr>
+<tr><td class="ck">☐</td><td class="wrap"><b>매출원가 계정의 Account Type</b> — Primary Costs로 둘 것인가</td><td class="wh">FS00</td><td class="wrap">Primary Costs면 PGI 시 CO 오브젝트가 강제된다. <b>나중에 못 바꾼다</b></td></tr>
+<tr><td class="ck">☐</td><td class="wrap"><b>CL04의 실제 G/L 계정번호</b></td><td class="wh">FS00<br>Manage COA</td><td class="wrap">노트의 <code>21100000</code> · <code>12100000</code> 등은 전부 Best Practice 콘텐츠 값</td></tr>
+<tr><td class="ck">☐</td><td class="wrap"><b>환율 접두사 설정</b> 시나리오 (공백 = direct? <code>/</code> = indirect?)</td><td class="wh">FI IMG<br>환율 유지</td><td class="wrap">인터페이스로 환율을 밀어 넣을 때 모르면 <span class="bad">부호가 뒤집힌 환율</span>이 들어간다. SAP Note 783877</td></tr>
+<tr><td class="ck">☐</td><td class="wrap"><b>전기기간 관리 경로</b> — <code>OB52</code>인가 Fiori 앱인가 (통일할 것)</td><td class="wh">OB52 / 앱</td><td class="wrap">두 경로가 섞이면 "왜 전표가 안 들어가는가"를 못 찾는다</td></tr>
+<tr><td class="ck">☐</td><td class="wrap"><code>BSIK/BSAK</code> · <code>BSID/BSAD</code> · <code>MKPF/MSEG</code>가 <b>실테이블인가 뷰인가</b></td><td class="wh">SE11</td><td class="wrap">S/4HANA에서 일부는 Compatibility View다. 이 이름으로 SELECT 쓰기 전에 확인</td></tr>
+</tbody>
+</table>
+</div>
+
+<div class="srcs">출처 노트 — <a href="../mm/s4500-business-processes.html">S4500</a> · <a href="../mm/s4510-inventory.html">S4510</a> · <a href="../mm/s4515-invoice-verification.html">S4515</a> · <a href="../mm/s4550-cross-functional.html">S4550</a> · <a href="../fi/s4f12-core-settings.html">S4F12</a> · <a href="../fi/s4f13-additional.html">S4F13</a> · <a href="../fi/s4f15-financial-closing.html">S4F15</a> · <a href="../fi/s4f17-asset-accounting.html">S4F17</a> · <a href="fi-e2e-guide.html">FI E2E 가이드</a> · <a href="knowledge-map.html">지식맵</a></div>
+
+</div>
+
+
+<!-- ══════════ LESSON 6 ══════════ -->
+<div class="lesson" id="l6">
+<h2><span class="no">STEP 6</span>T-Code · 앱 ID 보강 대상<span class="cnt">약 45</span></h2>
+
+<div class="note">
+  <div class="t">급하지 않다 — 노트를 읽다가 필요할 때 채워도 된다</div>
+  <p>강의 원문이 <b>Fiori 앱 이름만 제시하고 앱 ID·T-Code를 주지 않은</b> 경우가 대부분이다. 각 노트는 기억으로 코드를 채우지 않고 비워 뒀다. 이게 옳은 선택이다 — 틀린 T-Code가 적힌 노트는 없는 것만 못하다.</p>
+</div>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th class="ck">☐</th><th>노트</th><th>비어 있는 것</th><th>원문에 실제로 있던 것</th></tr></thead>
+<tbody>
+<tr><td class="ck">☐</td><td class="wrap"><a href="../pp/s42000-manufacturing-basics.html">S42000</a></td><td class="wrap">T-Code · 앱 ID 전무</td><td class="wh">없음</td></tr>
+<tr><td class="ck">☐</td><td class="wrap"><a href="../pp/s42020-discrete-shopfloor.html">S42020</a></td><td class="wrap">이동유형 번호 · 앱 ID · 상태 약어 · 테이블명</td><td class="wh">PCNF · CNF</td></tr>
+<tr><td class="ck">☐</td><td class="wrap"><a href="../pp/s42025-process-shopfloor.html">S42025</a></td><td class="wrap">마스터레시피 · 배치 조회 · 실행 단계 T-Code</td><td class="wh">없음</td></tr>
+<tr><td class="ck">☐</td><td class="wrap"><a href="../pp/s42100-basic-data.html">S42100</a></td><td class="wrap">PRT 카테고리 코드값 · EWB 잠금 동작 · ECM 파라미터</td><td class="wh">MM02 MM12 MM17<br>MM50 MMCU MMSC CC04</td></tr>
+<tr><td class="ck">☐</td><td class="wrap"><a href="../pp/s42240-ppds.html">S42240</a></td><td class="wrap">제품뷰 · 알림모니터 · DS계획보드 진입 코드 · 전략그룹 필드명</td><td class="wh">CFC9 · CURTOADV_CREATE<br>PDS_MAINT · MD74/75/76</td></tr>
+<tr><td class="ck">☐</td><td class="wrap"><a href="../pp/s42300-capacity-planning.html">S42300</a></td><td class="wrap">앱 ID · SET/GET 파라미터 ID</td><td class="wh">CM07 · CM25<br>CM21 · CM22</td></tr>
+<tr><td class="ck">☐</td><td class="wrap"><a href="../pp/s4260-production-orders.html">S4260</a></td><td class="wrap">앱 ID · Customizing 경로 8종</td><td class="wh">COGI</td></tr>
+<tr><td class="ck">☐</td><td class="wrap"><a href="../sd/s46050-fundamental-customizing.html">S46050</a></td><td class="wrap">문서유형·품목범주·복사제어 T-Code (IMG 경로만 제시됨)</td><td class="wh">VOFM · VA02</td></tr>
+<tr><td class="ck">☐</td><td class="wrap"><a href="../sd/s46055-output-control.html">S46055</a></td><td class="wrap">Output Parameter Determination 앱 ID · 언어 결정 단계</td><td class="wh">없음</td></tr>
+<tr><td class="ck">☐</td><td class="wrap"><a href="../tadm10/tadm10-02-authorization.html">TADM10 권한</a></td><td class="wrap">RFC 유형 구분(sRFC/aRFC/tRFC/qRFC)과 IDoc 상태코드는 <b>강의 밖 보충</b></td><td class="wh">SM58 · SMQ1 · SMQ2<br>SBGRFCMON 확인</td></tr>
+<tr><td class="ck">☐</td><td class="wrap"><a href="../tadm10/tadm10-03-fiori-monitoring.html">TADM10 모니터링</a></td><td class="wrap"><code>SM12</code> · <code>SM13</code> · <code>SAT</code> · <code>ST03</code>은 <b>원문 밖 실무 보완</b> 표기</td><td class="wh">SM21 ST22 ST01<br>ST05 ST11</td></tr>
+</tbody>
+</table>
+</div>
+
+<h3>릴리스 · 라이선스 가용성 (STEP 2에서 릴리스를 확인하면 대부분 자동 정리)</h3>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th class="ck">☐</th><th>항목</th><th>확인 방법</th></tr></thead>
+<tbody>
+<tr><td class="ck">☐</td><td class="wrap"><b>Fiori Spaces인가 Groups인가</b></td><td class="wh">/UI2/FLPD_CUST · /UI2/FLP_CUS_CONF</td></tr>
+<tr><td class="ck">☐</td><td class="wrap"><b>ABAP Cloud 사용 가능한가</b> — 언어버전 · 릴리즈된 API · ATO 설정</td><td class="wh">ADT 언어버전 · ATC 변형 · I_PRODUCT 조회</td></tr>
+<tr><td class="ck">☐</td><td class="wrap"><b>GR/IR 조정 앱</b> F3302 · F3303 · F5796 (ML은 별도 구독)</td><td class="wh">앱 검색 · 스코프아이템 2V7</td></tr>
+<tr><td class="ck">☐</td><td class="wrap"><b>pMRP · DDR · PP/DS</b> 앱 제공 여부와 애드온 활성화</td><td class="wh">앱 검색 · MRP유형 설정</td></tr>
+<tr><td class="ck">☐</td><td class="wrap"><b>Manage Global Hierarchies · Accruals Management · IXMR</b></td><td class="wh">앱 검색 (없으면 OB58 / FSE2 클래식 경로)</td></tr>
+<tr><td class="ck">☐</td><td class="wrap"><code>CM*</code> 그래픽 계획테이블 <b>사용권 만료</b> (원문 기준 2025-12-31)</td><td class="wh">SAP Note 2269324 매트릭스 ID 451</td></tr>
+<tr><td class="ck">☐</td><td class="wrap"><code>rdisp/start_icman</code> 존재 여부 (커널 7.72+면 없는 게 정상)</td><td class="wh">RZ11 · SMICM → Parameters</td></tr>
+<tr><td class="ck">☐</td><td class="wrap"><code>WEBGUI</code>가 뜨는가 (안 뜨면 코드가 아니라 ITS 게시 문제)</td><td class="wh">WEBGUI 실행 · SAP Note 790727</td></tr>
+<tr><td class="ck">☐</td><td class="wrap"><b>메일 환경</b> — SMTP 노드 · 외부 25/587 포트</td><td class="wh">SCOT · SMICM (PROT=SMTP)</td></tr>
+<tr><td class="ck">☐</td><td class="wrap"><b>ST22 보관기간 · SM21 조회 기본값</b></td><td class="wh">RZ11 (rslg/* · rstr/*)</td></tr>
+</tbody>
+</table>
+</div>
+
+<div class="note warn">
+  <div class="t">메일 환경이 막혀 있다면</div>
+  <p><code>ZPRICE_CHECK</code>의 괴리 알림은 외부 발송이 안 되면 <b>수신자를 SAP 내부 사용자(<code>SBWP</code> 수신)로 두는 구성</b>으로 범위를 줄인다. 알림 로직 검증에는 그것으로 충분하다.</p>
+</div>
+
+</div>
+
+
+<!-- ══════════ APPENDIX ══════════ -->
+<div class="lesson" id="lx">
+<h2><span class="no">APPENDIX</span>확인 결과를 어디에 반영하나</h2>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>확인한 것</th><th>반영할 곳</th></tr></thead>
+<tbody>
+<tr><td class="wrap">STEP 1 · 2 결과</td><td class="wrap"><b>MM 설계서 맨 앞 "대상 시스템" 절</b>에 표로. 이후 모든 판단의 근거가 된다</td></tr>
+<tr><td class="wrap">STEP 3 결과</td><td class="wrap">CBO 3종 각각의 설계서. 특히 <b>평가영역 결과에 따라 ZGATE_INSPECT·ZBATCH_ZONE의 자동화 범위를 다시 쓴다</b></td></tr>
+<tr><td class="wrap">STEP 4 · 5 결과</td><td class="wrap">SD 설계서 / FI 설계서 (아직 없는 산출물). 확인값을 채우면서 쓰는 게 빠르다</td></tr>
+<tr><td class="wrap">STEP 6 결과</td><td class="wrap">해당 노트의 <code>.note.warn</code> 블록을 <b>확인값으로 교체</b>하고 warn을 지운다</td></tr>
+</tbody>
+</table>
+</div>
+
+<div class="note ok">
+  <div class="t">노트 고치는 법</div>
+  <p>노트 파일을 열어 해당 <code>&lt;div class="note warn"&gt;</code>를 찾고, 확정된 값으로 본문을 바꾼 뒤 클래스를 <code>note</code>(또는 <code>note ok</code>)로 바꾼다. 그러면 "확인 필요"가 아니라 "확정 사실"이 된다.</p>
+  <p>이 체크리스트도 같이 갱신할 것 — 채운 줄은 <code>☐</code>를 <code>☑</code>로.</p>
+</div>
+
+<h3>이 문서에 담지 않은 것</h3>
+
+<p>노트 안의 <code>.note.warn</code> 중 <b>"반드시 지킬 것"</b>과 <b>"Caution / Hint"</b> 성격(약 400건)은 여기 넣지 않았다. 확인이 아니라 <span class="key">주의사항</span>이라 각 노트 안에서 읽어야 의미가 있다.</p>
+
+<div class="note">
+  <div class="t">규모</div>
+  <p>전체 <code>.note.warn</code> 496건 중 <b>확인 필요 성격 100건</b>을 추려 중복을 합쳐 <b>약 60줄</b>로 정리했다. 같은 항목을 여러 노트가 독립적으로 짚은 경우(평가영역 · SLoc 하드코딩 · 311 회계전표)는 STEP 1과 STEP 3으로 끌어올렸다.</p>
+</div>
+
+</div>
+
+</div>
+<script src="../../assets/hub.js" defer></script>
+</body>
+</html>

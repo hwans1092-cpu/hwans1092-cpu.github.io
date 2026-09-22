@@ -1,0 +1,560 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>S46051 Outline Agreement — 일정계약 · 수량계약 · 가치계약</title>
+<meta name="description" content="SAP Learning Hub의 Defining Outline Agreements in SAP S/4HANA Sales(S46051) 노트. Scheduling Agreement · Quantity Contract · Value Contract의 차이, 릴리스오더 생성과 잔여 소진, 열린 계약 자동검색 옵션, 선수금 납품블록, 릴리스 권한 파트너와 계약 날짜 결정.">
+<link rel="icon" href="../../assets/favicon.svg">
+<link rel="stylesheet" href="../../assets/notes-paper.css">
+<style>
+/* ── 이 노트 전용: 도해(SVG) 스타일 ─────────────────────────── */
+.dgm{display:block; width:100%; height:auto;}
+.dgm text{font-family:"Malgun Gothic","맑은 고딕","Apple SD Gothic Neo",sans-serif; fill:#1e1e1e;}
+.dgm .t-h{font-size:15px; font-weight:700;}
+.dgm .t{font-size:13px;}
+.dgm .t-s{font-size:11.5px; fill:#555;}
+.dgm .t-xs{font-size:10.5px; fill:#6B7280;}
+.dgm .m{font-family:"D2Coding","Consolas",monospace; font-size:12px;}
+.dgm .m-s{font-family:"D2Coding","Consolas",monospace; font-size:10.5px;}
+.dgm .c-key{fill:#4338CA;} .dgm .c-bad{fill:#B91C1C;} .dgm .c-ok{fill:#047857;}
+.dgm .b{fill:#FFFFFF; stroke:#C7CBD6; stroke-width:1.2;}
+.dgm .b-key{fill:#EEF0FB; stroke:#4338CA; stroke-width:1.4;}
+.dgm .b-bad{fill:#FEF2F2; stroke:#B91C1C; stroke-width:1.3;}
+.dgm .b-ok{fill:#ECFDF5; stroke:#047857; stroke-width:1.3;}
+.dgm .b-mut{fill:#F3F4F6; stroke:#D1D5DB; stroke-width:1.1;}
+.dgm .b-hl{fill:#FEF08A; stroke:#CA8A04; stroke-width:1.2;}
+.dgm .b-ghost{fill:none; stroke:#9AA3B2; stroke-width:1.1; stroke-dasharray:5 4;}
+.dgm .ln{stroke:#7C8697; stroke-width:1.4; fill:none;}
+.dgm .ln-key{stroke:#4338CA; stroke-width:1.8; fill:none;}
+.dgm .ln-bad{stroke:#B91C1C; stroke-width:1.6; fill:none;}
+.dgm .ln-ok{stroke:#047857; stroke-width:1.6; fill:none;}
+.dgm .ln-d{stroke:#9AA3B2; stroke-width:1.2; stroke-dasharray:4 4; fill:none;}
+.dgm .arw{fill:#7C8697;} .dgm .arw-key{fill:#4338CA;}
+.dgm .arw-bad{fill:#B91C1C;} .dgm .arw-ok{fill:#047857;}
+.figwrap{background:#FAFAFE; border:1px solid var(--rule); border-radius:6px;
+  padding:18px 16px 10px; margin:22px 0;}
+.figwrap figcaption{margin-top:12px; padding-top:10px; border-top:1px solid var(--rule);}
+</style>
+</head>
+<body>
+<div class="crumb"><a href="../../index.html">← 자료실 홈</a> · <a href="../../journey.html?j=sd">SD 저니</a> · S46051 Outline Agreement</div>
+<div class="sheet">
+
+<div class="doc-head">
+  <div class="kicker">LEARNING HUB · S46051</div>
+  <h1>Outline Agreement — 일정계약 · 수량계약 · 가치계약</h1>
+  <div class="sub">
+    Learning Journey <b>Implementing Sales in SAP S/4HANA Cloud Private Edition</b> · Course 4 / S46051 · 3 Unit · 3 레슨 · Intermediate<br>
+    출처: 노션 <b>SAP Learning Hub</b> 노트 4-1 ~ 4-2 변환 (Learning Hub 레슨 본문 3개, 다운로드 자료 없음)
+  </div>
+</div>
+
+<div class="lead">
+  <p><b>결론부터.</b> Outline Agreement(장기계약)는 물건을 내보내는 문서가 아닙니다. <span class="hl">뒤에 올 개별 오더가 갉아먹을 한도</span>를 미리 걸어두는 문서입니다 — 한도의 단위가 수량이면 Quantity Contract, 금액이면 Value Contract, 수량에 납품 스케줄까지 붙으면 Scheduling Agreement입니다.</p>
+  <p>그래서 이 코스에서 실제로 봐야 할 것은 계약 화면이 아니라 <b>릴리스오더가 계약을 어떻게 물고 들어가는가</b>입니다. Copying Control이 어떤 오더유형을 릴리스로 허용하는지, 시스템이 열린 계약을 얼마나 자동으로 찾아주는지, 아이템 레벨에 배정해야만 계약 잔여가 줄어드는지 — 운영에서 터지는 지점은 전부 이쪽입니다. 계약 자체는 껍데기고, 연결 규칙이 본체입니다.</p>
+</div>
+
+<div class="toc">
+  <h4>목차</h4>
+  <ol>
+    <li><a href="#l1">Outline Agreement의 자리 · Scheduling Agreement와 Quantity Contract</a></li>
+    <li><a href="#l2">Value Contract — 금액 한도 · 릴리스 권한 · 계약 날짜</a></li>
+  </ol>
+</div>
+
+
+<!-- ══════════ LESSON 1 ══════════ -->
+<div class="lesson" id="l1">
+<h2><span class="no">LESSON 1</span>Outline Agreement의 자리 · Scheduling Agreement와 Quantity Contract</h2>
+
+<p><span class="tag">Unit 1-2</span><span class="tag">레슨 2개</span>Introducing the Sales and Distribution Process · Working with Scheduling Agreements and Quantity Contracts</p>
+
+<h3>언제 이걸 알아야 하는가</h3>
+
+<p>계약을 태운 고객에서 제일 자주 나오는 문의가 <b>"계약 걸어놨는데 오더가 계약을 안 물고 갑니다"</b>입니다. 계약도 살아 있고 유효기간도 남았는데 오더는 그냥 단독 오더로 떨어집니다. 그 다음 문의는 <b>"릴리스를 했는데 계약 잔여가 안 줄어듭니다"</b>입니다.</p>
+
+<p>두 문의의 답은 계약 문서 안에 없습니다. 앞은 <span class="key">Copying Control과 열린 계약 자동검색 옵션</span>, 뒤는 <span class="key">헤더가 아니라 아이템 레벨 배정</span>입니다. 계약 화면만 들여다보면 하루를 씁니다.</p>
+
+<h3>판매문서 구조 위에 얹히는 문서</h3>
+
+<p>SAP에서 모든 판매 활동은 판매문서(sales document)로 기록되고, 판매·출하·청구 각 단계는 전용 문서유형으로 표현됩니다 — 판매문서유형(문의·견적·표준오더 등), 납품유형(출하납품·반품납품 등), 청구문서유형(청구서·대변전표·차변전표 등).</p>
+
+<p>Outline Agreement도 <b>판매문서유형의 한 종류</b>입니다. 별도 계통이 아닙니다. 모든 문서는 고유 문서번호로 식별되고 처리상태를 반영하는 <b>전체상태(overall status)</b>를 가지며, 판매문서의 일반 구조인 <span class="hl">헤더 – 아이템 – 스케줄라인</span>이 Outline Agreement와 그 릴리스오더에도 그대로 적용됩니다. 이 코스 전체가 이 구조 위에서 전개됩니다.</p>
+
+<div class="note">
+  <div class="t">🔰 초보자 설명 — Outline Agreement을 한 줄로</div>
+  <p>"앞으로 이 조건으로 여러 번 나눠서 살게요"라고 미리 약속해두는 판매문서입니다. 실제 개별 주문(<b>release order</b>, 릴리스오더)은 이 약속을 하나씩 꺼내 쓰는 방식으로 진행됩니다.</p>
+</div>
+
+<h3>계약 3종 — 무엇을 고정하고 무엇을 릴리스하는가</h3>
+
+<figure class="figwrap">
+<svg class="dgm" viewBox="0 0 1000 366" role="img" aria-label="Outline Agreement 3종 비교 도해. Quantity Contract는 총 수량을, Value Contract는 총 금액을 한도로 고정하고 릴리스오더가 그 한도를 소진하며, Scheduling Agreement는 수량에 더해 납품 스케줄까지 미리 고정한다.">
+  <defs>
+    <marker id="oa1" markerWidth="9" markerHeight="9" refX="7" refY="4.5" orient="auto">
+      <polygon class="arw-key" points="0,0 9,4.5 0,9"/></marker>
+  </defs>
+
+  <rect class="b-mut" x="20" y="20" width="176" height="44" rx="5"/>
+  <text class="t-h" x="40" y="48">비교 항목</text>
+  <rect class="b-key" x="204" y="20" width="252" height="44" rx="5"/>
+  <text class="t-h c-key" x="222" y="41">Scheduling Agreement</text>
+  <text class="t-s" x="222" y="57">일정계약</text>
+  <rect class="b-key" x="464" y="20" width="252" height="44" rx="5"/>
+  <text class="t-h c-key" x="482" y="41">Quantity Contract</text>
+  <text class="t-s" x="482" y="57">수량계약</text>
+  <rect class="b-key" x="724" y="20" width="252" height="44" rx="5"/>
+  <text class="t-h c-key" x="742" y="41">Value Contract</text>
+  <text class="t-s" x="742" y="57">가치계약 · LESSON 2</text>
+
+  <rect class="b-mut" x="20" y="72" width="176" height="60" rx="5"/>
+  <text class="t" x="40" y="99">약정의 단위</text>
+  <text class="t-xs" x="40" y="116">무엇으로 묶는가</text>
+  <rect class="b" x="204" y="72" width="252" height="60" rx="5"/>
+  <text class="t" x="222" y="99">총 수량 + 납품 스케줄</text>
+  <text class="t-s" x="222" y="117">언제 얼마씩까지 확정</text>
+  <rect class="b" x="464" y="72" width="252" height="60" rx="5"/>
+  <text class="t" x="482" y="99">총 수량</text>
+  <text class="t-s" x="482" y="117">이 자재를 이 기간 동안</text>
+  <rect class="b-hl" x="724" y="72" width="252" height="60" rx="5"/>
+  <text class="t" x="742" y="99">총 금액(value)</text>
+  <text class="t-s" x="742" y="117">수량이 아니라 금액 한도</text>
+
+  <rect class="b-mut" x="20" y="140" width="176" height="60" rx="5"/>
+  <text class="t" x="40" y="167">미리 고정되는 것</text>
+  <text class="t-xs" x="40" y="184">계약 시점에 확정</text>
+  <rect class="b" x="204" y="140" width="252" height="60" rx="5"/>
+  <text class="t" x="222" y="167">자재 · 총수량 · 납품일정</text>
+  <text class="t-s" x="222" y="185">스케줄이 계약 안에 있음</text>
+  <rect class="b" x="464" y="140" width="252" height="60" rx="5"/>
+  <text class="t" x="482" y="167">자재 · 총수량 · 기간</text>
+  <text class="t-s" x="482" y="185">납품일정은 미확정</text>
+  <rect class="b" x="724" y="140" width="252" height="60" rx="5"/>
+  <text class="t" x="742" y="167">금액 한도 · 유효기간</text>
+  <text class="t-s" x="742" y="185">자재는 릴리스 때 고른다</text>
+
+  <rect class="b-mut" x="20" y="208" width="176" height="60" rx="5"/>
+  <text class="t c-bad" x="40" y="235">릴리스가 소진하는 것</text>
+  <text class="t-xs" x="40" y="252">잔여가 줄어드는 축</text>
+  <rect class="b" x="204" y="208" width="252" height="60" rx="5"/>
+  <text class="t" x="222" y="235">스케줄에 잡힌 수량</text>
+  <text class="t-s c-bad" x="222" y="253">릴리스오더 경유 여부 확인 필요</text>
+  <rect class="b-ok" x="464" y="208" width="252" height="60" rx="5"/>
+  <text class="t c-ok" x="482" y="235">남은 수량</text>
+  <text class="t-s" x="482" y="253">릴리스오더가 꺼내 쓴다</text>
+  <rect class="b-ok" x="724" y="208" width="252" height="60" rx="5"/>
+  <text class="t c-ok" x="742" y="235">남은 금액</text>
+  <text class="t-s" x="742" y="253">계약 통화로 업데이트</text>
+
+  <rect class="b-mut" x="20" y="276" width="176" height="56" rx="5"/>
+  <text class="t" x="40" y="309">자재 구성</text>
+  <rect class="b" x="204" y="276" width="252" height="56" rx="5"/>
+  <text class="t" x="222" y="309">계약에 지정된 자재</text>
+  <rect class="b" x="464" y="276" width="252" height="56" rx="5"/>
+  <text class="t" x="482" y="309">계약에 지정된 자재</text>
+  <rect class="b" x="724" y="276" width="252" height="56" rx="5"/>
+  <text class="t" x="742" y="303">여러 자재를 섞어 릴리스</text>
+  <text class="t-s" x="742" y="321">아이템선택 · assortment module</text>
+
+  <path class="ln-key" d="M590 268 V276" marker-end="url(#oa1)"/>
+  <path class="ln-key" d="M850 268 V276" marker-end="url(#oa1)"/>
+  <text class="t-xs c-key" x="20" y="352">세 문서 모두 판매문서유형의 한 종류이며 헤더 – 아이템 – 스케줄라인 구조를 공유한다. 다른 것은 "한도의 단위"와 "무엇이 미리 확정되는가"뿐이다.</text>
+</svg>
+<figcaption><span class="fno">그림 1</span>Outline Agreement 3종 비교. 한도의 단위가 수량이면 Quantity Contract, 금액이면 Value Contract, 수량에 납품 스케줄까지 얹으면 Scheduling Agreement.</figcaption>
+</figure>
+
+<div class="note warn">
+  <div class="t">확인 필요 — Scheduling Agreement의 납품 경로</div>
+  <p>원문(Learning Hub 레슨 본문)은 Scheduling Agreement를 "Quantity Contract에 납품 스케줄을 더한 문서"로만 설명하고, 납품이 <b>릴리스오더를 거치는지 스케줄라인에서 직접 생성되는지</b>는 명시하지 않습니다. 단정하지 않고 넘깁니다 — 실제 시스템(<code>winerp01</code> / MEP)에서 해당 문서유형의 납품 생성 경로를 확인한 뒤 이 칸을 채울 것.</p>
+</div>
+
+<h3>릴리스오더 생성 — Copying Control이 먼저다</h3>
+
+<p>어떤 판매문서유형을 그 계약의 릴리스오더로 쓸 수 있는지는 <span class="key">Copying Control</span>에서 결정됩니다. 여기에 허용되지 않은 조합은 참조 생성 자체가 막힙니다. "계약을 참조할 수 없다"는 증상이 나오면 계약이 아니라 Copying Control부터 봅니다.</p>
+
+<p>허용된 다음, 릴리스오더를 만드는 방법은 네 가지입니다.</p>
+
+<div class="step"><span class="n">1</span><p>오더 <b>초기화면에서 Create with reference</b> 선택 — 가장 일반적인 경로</p></div>
+<div class="step"><span class="n">2</span><p>판매문서 메뉴에서 <b>Sales document → Create with reference → To contract</b></p></div>
+<div class="step"><span class="n">3</span><p>이미 만든 오더의 <b>아이템을 사후에 계약에 수동 배정</b> — 오더를 먼저 치고 나중에 계약에 붙이는 경우</p></div>
+<div class="step"><span class="n">4</span><p>오더 생성 시 <b>시스템이 열린(open) Outline Agreement을 자동으로 검색</b>하도록 Customizing에서 설정</p></div>
+
+<h3>열린 계약 자동검색 옵션</h3>
+
+<p>4번 경로의 동작 강도를 정하는 것이 아래 옵션입니다. 같은 알파벳 쌍에서 앞 글자가 헤더 레벨, 뒤 글자가 아이템 레벨 체크입니다.</p>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>옵션</th><th>동작</th><th>사용자가 보는 것</th></tr></thead>
+<tbody>
+<tr><td><code>Blank</code></td><td class="wrap">체크하지 않음</td><td class="wrap">계약이 있어도 아무 일도 일어나지 않는다</td></tr>
+<tr><td><code>A</code> / <code>B</code></td><td class="wrap">헤더 / 아이템 레벨 체크. <b>고객번호·자재번호</b>를 비교해 열린 계약이 있으면 알린다</td><td class="wrap">대화상자가 떠서 목록에서 고르거나, 무시하고 그대로 오더 처리를 계속할 수 있다</td></tr>
+<tr><td><code>C</code> / <code>D</code></td><td class="wrap">헤더 / 아이템 레벨 체크 + <span class="hl">유일하면 자동복사</span></td><td class="wrap">열린 계약이 정확히 1개면 대화상자 없이 자동 생성되고 <b>상태바에 정보메시지만</b> 뜬다</td></tr>
+<tr><td><code>E</code> / <code>F</code></td><td class="wrap">헤더 / 아이템 레벨 체크 + 즉시 선택목록으로 이동</td><td class="wrap">대화상자를 건너뛰고 바로 선택목록. 계약이 1개뿐이면 <code>C</code>/<code>D</code>와 동일하게 동작</td></tr>
+</tbody>
+</table>
+</div>
+
+<div class="note warn">
+  <div class="t">확인 필요 — 옵션 필드의 위치와 필드명</div>
+  <p>원문은 옵션 코드(<code>Blank</code>/<code>A·B</code>/<code>C·D</code>/<code>E·F</code>)와 동작만 제시하고, 이 값을 유지하는 <b>Customizing 경로와 필드명</b>은 명시하지 않습니다. 판매문서유형 쪽 설정으로 보이지만 단정하지 않습니다 — 실제 시스템에서 <code>VOV8</code> 계열 화면을 열어 필드 위치를 확정할 것.</p>
+</div>
+
+<h3>계약 → 릴리스오더 → 납품 : 잔여는 언제 줄어드는가</h3>
+
+<figure class="figwrap">
+<svg class="dgm" viewBox="0 0 1000 400" role="img" aria-label="릴리스오더 흐름 도해. 계약이 목표 수량 또는 목표 금액을 걸어두면 각 릴리스오더가 그 한도를 소진하고 납품과 청구로 이어지며, 계약 값은 아이템 레벨에 배정된 경우에만 업데이트된다.">
+  <defs>
+    <marker id="oa2" markerWidth="9" markerHeight="9" refX="7" refY="4.5" orient="auto">
+      <polygon class="arw-key" points="0,0 9,4.5 0,9"/></marker>
+    <marker id="ob2" markerWidth="9" markerHeight="9" refX="7" refY="4.5" orient="auto">
+      <polygon class="arw" points="0,0 9,4.5 0,9"/></marker>
+    <marker id="oc2" markerWidth="9" markerHeight="9" refX="7" refY="4.5" orient="auto">
+      <polygon class="arw-ok" points="0,0 9,4.5 0,9"/></marker>
+  </defs>
+
+  <rect class="b-key" x="20" y="30" width="228" height="104" rx="6"/>
+  <text class="t-h c-key" x="42" y="58">Outline Agreement</text>
+  <text class="t-s" x="42" y="78">목표 수량 또는 목표 금액</text>
+  <text class="t-s" x="42" y="96">유효기간 · 릴리스규칙</text>
+  <text class="t-s" x="42" y="114">가격·조건은 여기서 상속</text>
+
+  <path class="ln-key" d="M248 82 H316" marker-end="url(#oa2)"/>
+  <text class="t-xs c-key" x="252" y="74">참조 생성</text>
+
+  <rect class="b" x="320" y="24" width="210" height="44" rx="5"/>
+  <text class="t" x="340" y="51">릴리스오더 #1</text>
+  <rect class="b" x="320" y="76" width="210" height="44" rx="5"/>
+  <text class="t" x="340" y="103">릴리스오더 #2</text>
+  <rect class="b-ghost" x="320" y="128" width="210" height="34" rx="5"/>
+  <text class="t-s" x="340" y="150">…계약 소진까지 반복</text>
+
+  <path class="ln" d="M530 46 H596" marker-end="url(#ob2)"/>
+  <path class="ln" d="M530 98 H596 V56" marker-end="url(#ob2)"/>
+
+  <rect class="b" x="600" y="24" width="170" height="44" rx="5"/>
+  <text class="t" x="620" y="51">출하납품 · 피킹</text>
+  <path class="ln" d="M770 46 H806" marker-end="url(#ob2)"/>
+  <rect class="b" x="810" y="24" width="166" height="44" rx="5"/>
+  <text class="t" x="830" y="51">재고출고(GI)</text>
+  <path class="ln" d="M893 68 V96" marker-end="url(#ob2)"/>
+  <rect class="b-ok" x="600" y="98" width="376" height="44" rx="5"/>
+  <text class="t c-ok" x="620" y="125">청구문서 → 릴리스오더 · 계약 완료</text>
+
+  <path class="ln-bad" d="M425 120 V186" stroke-dasharray="4 4"/>
+  <path class="ln-bad" d="M425 186 H262 V150" marker-end="url(#oa2)" stroke-dasharray="4 4"/>
+  <text class="t-xs c-bad" x="276" y="182">릴리스 금액·수량이 계약에 되먹임</text>
+
+  <rect class="b-mut" x="20" y="212" width="956" height="106" rx="6"/>
+  <text class="t-h" x="42" y="238">계약 잔여의 소진</text>
+
+  <rect class="b" x="42" y="250" width="880" height="26" rx="4"/>
+  <rect class="b-ok" x="42" y="250" width="300" height="26" rx="4"/>
+  <rect class="b-hl" x="342" y="250" width="220" height="26" rx="4"/>
+  <text class="t-s" x="60" y="268">#1 소진</text>
+  <text class="t-s" x="360" y="268">#2 소진</text>
+  <text class="t-s c-key" x="580" y="268">남은 수량 / 남은 금액 — 다음 릴리스가 여기와 비교된다</text>
+
+  <text class="t-s" x="42" y="296">릴리스오더 생성 시 시스템은 계약에 저장된 요건(릴리스규칙 · 유효기간)을 체크하고, 오더 금액을 계약 잔여와 비교한다.</text>
+  <text class="t-s c-bad" x="42" y="312">초과했을 때의 시스템 반응(경고 · 오류 · 차단)은 설정 가능 — 표준 고정 동작이 아니다.</text>
+
+  <rect class="b-bad" x="20" y="330" width="956" height="52" rx="6"/>
+  <text class="t c-bad" x="42" y="352">사후 배정은 헤더 · 아이템 레벨 모두 가능하지만,</text>
+  <text class="t-h c-bad" x="42" y="372">계약의 금액값은 아이템 레벨에 배정해야만 업데이트된다.</text>
+</svg>
+<figcaption><span class="fno">그림 2</span>계약 → 릴리스오더 → 납품 → 청구. 계약은 한도만 들고 있고, 잔여를 실제로 깎는 것은 각 릴리스오더의 아이템이다.</figcaption>
+</figure>
+
+<h3>선수금(Down Payment) — 돈을 받아야 물건이 나간다</h3>
+
+<p>Quantity Contract에 선수금 처리를 걸 수 있습니다. 원문의 예시는 <b>300유로 판매계약에서 납품 전 100유로를 선불로 요구</b>하는 경우입니다.</p>
+
+<figure class="figwrap">
+<svg class="dgm" viewBox="0 0 1000 322" role="img" aria-label="선수금 처리 시퀀스 도해. 마일스톤 청구계획의 납품블록이 릴리스오더 스케줄라인에 배정되어 납품을 막고, 고객이 선수금을 완납해 계약 선수금상태가 Fully Paid가 되면 시스템이 납품블록을 해제한다.">
+  <defs>
+    <marker id="oa3" markerWidth="9" markerHeight="9" refX="7" refY="4.5" orient="auto">
+      <polygon class="arw-key" points="0,0 9,4.5 0,9"/></marker>
+    <marker id="ob3" markerWidth="9" markerHeight="9" refX="7" refY="4.5" orient="auto">
+      <polygon class="arw-ok" points="0,0 9,4.5 0,9"/></marker>
+  </defs>
+
+  <rect class="b-key" x="20" y="24" width="222" height="76" rx="6"/>
+  <text class="t-h c-key" x="40" y="48">Quantity Contract</text>
+  <text class="t-s" x="40" y="68">총액 300 EUR</text>
+  <text class="t-s" x="40" y="86">마일스톤 청구계획 100 EUR</text>
+
+  <path class="ln-key" d="M242 62 H302" marker-end="url(#oa3)"/>
+
+  <rect class="b" x="306" y="24" width="222" height="76" rx="6"/>
+  <text class="t-h" x="326" y="48">계약릴리스오더</text>
+  <text class="t-s" x="326" y="68">300 EUR · 계약 참조 생성</text>
+  <text class="t-s" x="326" y="86">청구계획에서 블록사유 결정</text>
+
+  <path class="ln-key" d="M528 62 H588" marker-end="url(#oa3)"/>
+
+  <rect class="b-bad" x="592" y="24" width="384" height="76" rx="6"/>
+  <text class="t-h c-bad" x="612" y="48">스케줄라인에 납품블록 배정</text>
+  <text class="t-s" x="612" y="68">선수금 100 EUR 완납 전까지</text>
+  <text class="t-s c-bad" x="612" y="86">릴리스오더는 더 진행되지 않는다</text>
+
+  <path class="ln-ok" d="M784 100 V134" marker-end="url(#ob3)"/>
+
+  <rect class="b-ok" x="20" y="136" width="956" height="62" rx="6"/>
+  <text class="t-h c-ok" x="42" y="160">고객이 100 EUR 완납</text>
+  <text class="t-s" x="42" y="180">선수금청구요청의 전표가 정산 → 계약의 선수금상태가 <tspan class="m-s">Fully Paid</tspan> → 시스템이 스케줄라인의 납품블록을 자동 해제</text>
+
+  <path class="ln-ok" d="M120 198 V226" marker-end="url(#ob3)"/>
+
+  <rect class="b" x="20" y="228" width="180" height="46" rx="5"/>
+  <text class="t" x="40" y="256">출하납품 생성</text>
+  <path class="ln" d="M200 251 H240" marker-end="url(#ob3)"/>
+  <rect class="b" x="244" y="228" width="180" height="46" rx="5"/>
+  <text class="t" x="264" y="256">피킹 실행</text>
+  <path class="ln" d="M424 251 H464" marker-end="url(#ob3)"/>
+  <rect class="b" x="468" y="228" width="200" height="46" rx="5"/>
+  <text class="t" x="488" y="256">재고출고(GI) 게시</text>
+  <path class="ln" d="M668 251 H708" marker-end="url(#ob3)"/>
+  <rect class="b-hl" x="712" y="228" width="264" height="46" rx="5"/>
+  <text class="t" x="732" y="248">최종청구서 발행</text>
+  <text class="t-s" x="732" y="266">선불금정산라인 포함 → 계약 완료</text>
+
+  <text class="t-xs" x="20" y="300">납품블록은 계약이 아니라 <tspan class="m-s">릴리스오더의 스케줄라인</tspan>에 붙는다. "계약은 멀쩡한데 납품이 안 잡힌다"는 문의는 여기를 본다.</text>
+  <text class="t-xs" x="20" y="316">해제 주체도 사용자가 아니라 시스템이다 — 수동으로 블록을 풀면 선수금 통제 자체가 무력화된다.</text>
+</svg>
+<figcaption><span class="fno">그림 3</span>선수금 납품블록의 생성과 해제. 블록은 청구계획이 걸고, 정산이 끝나면 시스템이 푼다.</figcaption>
+</figure>
+
+<div class="note">
+  <div class="t">🔰 초보자 설명 — 선수금 처리를 한 줄로</div>
+  <p>"돈을 먼저 받기 전엔 물건을 못 보낸다"는 규칙을 시스템에 걸어두는 것입니다. 계약에 걸어둔 청구계획 금액만큼 고객이 결제하면 <b>자동으로 납품 잠금이 풀립니다.</b></p>
+</div>
+
+<div class="note ok">
+  <div class="t">📌 개인 E2E 프로젝트와의 연결점</div>
+  <p>지금 프로젝트(회사코드 <b>CL04</b>, 플랜트 <b>GATE</b>·<b>STOR</b>)는 건별 판매오더 중심이라 장기계약 자체는 범위 밖입니다. 다만 두 가지는 그대로 가져올 수 있습니다.</p>
+  <p>· <b>자동검색 옵션의 등급 설계</b> — <code>A·B</code>(알리기만) / <code>C·D</code>(유일하면 자동) / <code>E·F</code>(바로 목록)는 CBO에서 "참조문서를 얼마나 자동으로 물릴지"를 정할 때 쓸 수 있는 3단계 모델입니다. <code>ZGATE_INSPECT</code>가 GR(101)과 STOR이관(301) 차이를 잡을 때 <span class="hl">건이 유일할 때만 자동, 여러 건이면 목록</span>으로 가는 게 정확히 <code>C/D</code> 사고방식입니다.</p>
+  <p>· <b>납품블록 모델</b> — 조건이 충족될 때까지 후속 처리를 막고, 조건이 풀리면 시스템이 해제하는 구조는 CBO 상태필드 <code>W</code>(대기) → <code>P</code>(처리) 설계와 같습니다. 회계 영향이 있는 처리는 자동화하지 않는다는 원칙과도 맞습니다 — 막는 것은 자동, 푸는 것은 정산 사실 확인 후.</p>
+</div>
+
+</div>
+
+
+<!-- ══════════ LESSON 2 ══════════ -->
+<div class="lesson" id="l2">
+<h2><span class="no">LESSON 2</span>Value Contract — 금액 한도 · 릴리스 권한 · 계약 날짜</h2>
+
+<p><span class="tag">Unit 3</span><span class="tag">레슨 1개</span>Working with Value Contracts · 코스에서 가장 긴 Unit(1시간 40분) · Exercise 시뮬레이션 6개</p>
+
+<h3>언제 이걸 알아야 하는가</h3>
+
+<p>본사와 계약을 맺고 지점이 주문하는 고객에서 나오는 문의가 <b>"이 지점으로는 계약에서 릴리스가 안 됩니다"</b>입니다. 계약은 본사(Sold-to Party) 이름으로 걸려 있고 오더는 지점이 냅니다.</p>
+
+<p>이건 권한 오류가 아니라 <span class="key">파트너결정절차에 릴리스 권한 파트너가 안 들어간 것</span>입니다. 답은 판매문서유형의 <code>Check partner authorization</code>과 파트너기능 <code>AA</code>에 있습니다.</p>
+
+<h3>Value Contract란</h3>
+
+<p>Value Contract는 특정 자재 수량이 아니라 <span class="hl">총 금액(value) 한도</span>로 약정하는 계약입니다. 릴리스오더는 계약에 합의된 총 금액 중 일부를 소진하는 판매오더의 일종입니다.</p>
+
+<div class="note">
+  <div class="t">🔰 초보자 설명 — Value Contract를 한 줄로</div>
+  <p>"이 금액만큼 앞으로 이것저것 사겠다"는 통 큰 약정입니다. Quantity Contract가 "<b>이 물건을 이 수량만큼</b>"이라면 Value Contract는 "<b>총 얼마어치를</b>"이라는 차이가 있습니다 — 개별 릴리스 때마다 다른 자재를 섞어 살 수도 있습니다.</p>
+</div>
+
+<h3>릴리스(Release) 처리</h3>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>항목</th><th>내용</th></tr></thead>
+<tbody>
+<tr><td>계약 찾는 방법</td><td class="wrap"><b>① 파트너번호로</b> 적합한 계약 검색 / <b>② 계약번호로</b> 적합한 파트너 검색 — ②는 <span class="key">고객리스트 방식</span>에 한정된다</td></tr>
+<tr><td>자재 선택</td><td class="wrap">아이템선택 기능으로 유효한 전체 자재 중에서 고르거나, <b>assortment module</b>(구색 모듈)을 펼쳐서 선택</td></tr>
+<tr><td>납품수량 · 납품시점</td><td class="wrap">계약이 아니라 <b>릴리스오더의 스케줄라인</b>에 저장된다</td></tr>
+<tr><td>통화</td><td class="wrap">릴리스는 <b>어떤 통화로도</b> 생성 가능. 단 계약의 총액은 <span class="hl">계약 통화로 업데이트</span>된다</td></tr>
+<tr><td>생성 시 체크</td><td class="wrap">계약에 저장된 요건(릴리스규칙 · 유효기간 등) 확인 + 릴리스오더 금액을 <b>계약 잔여금액과 비교</b></td></tr>
+<tr><td>한도 초과 시</td><td class="wrap">시스템 반응 방식은 <span class="bad">설정 가능</span> — 표준으로 고정된 동작이 아니다</td></tr>
+<tr><td>사후 배정</td><td class="wrap">헤더 · 아이템 레벨 모두 가능. 단 <span class="bad">아이템 레벨에서 배정해야만</span> 계약의 금액값이 업데이트된다</td></tr>
+</tbody>
+</table>
+</div>
+
+<div class="note warn">
+  <div class="t">확인 필요 — 한도 초과 시 반응</div>
+  <p>원문은 "초과 시 시스템 반응 방식은 설정 가능하다"까지만 말하고 <b>경고 / 오류 / 차단 중 무엇이 선택지인지, 어디서 설정하는지</b>는 밝히지 않습니다. 계약 한도를 넘긴 릴리스가 조용히 통과하면 매출 인식까지 따라 흔들리므로, 실제 시스템(<code>winerp01</code> / MEP)에서 이 설정 위치와 표준 기본값을 반드시 확정할 것.</p>
+</div>
+
+<h3>청구(Billing)</h3>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>방식</th><th>내용</th></tr></thead>
+<tbody>
+<tr><td>릴리스오더 개별 청구</td><td class="wrap">표준 오더유형 <code>OR</code> 사용. <b>오더기준 또는 납품기준</b> 청구 가능</td></tr>
+<tr><td>Value Contract 직접 청구</td><td class="wrap">표준시스템의 릴리스용 오더유형 <code>WA</code> 사용. 계약이 오더에 따라 청구된다</td></tr>
+</tbody>
+</table>
+</div>
+
+<ul>
+  <li><b>청구계획(billing plan)</b>을 쓰면 여러 날짜·부분수량에 걸쳐 한 번에 계약을 청구할 수 있다</li>
+  <li>이후 계약 아이템의 <b>목표금액을 변경</b>하면 시스템이 <span class="hl">열린 청구일정을 자동 조정</span>한다</li>
+  <li><span class="bad">완전히 릴리스되지 않은 Value Contract는 자동청구 대상이 될 수 없다</span></li>
+</ul>
+
+<h3>계약에서 릴리스할 수 있는 파트너</h3>
+
+<p>기본은 <b>Sold-to Party</b>와 그 외 지정된 비즈니스파트너입니다. 이 구조 덕분에 본사가 <span class="key">어느 지사가 계약에서 릴리스할 수 있는지</span>를 결정할 수 있고, Ship-to Party도 여러 개일 수 있습니다.</p>
+
+<figure class="figwrap">
+<svg class="dgm" viewBox="0 0 1000 384" role="img" aria-label="Value Contract 릴리스 권한 파트너 도해. 판매문서유형의 Check partner authorization이 고객리스트(Rule A) 또는 고객계층구조(Rule B)를 지정하고, 파트너결정절차가 AA와 AW를 계약 헤더에 배정하며 릴리스 권한은 헤더 레벨에서만 체크된다.">
+  <defs>
+    <marker id="oa4" markerWidth="9" markerHeight="9" refX="7" refY="4.5" orient="auto">
+      <polygon class="arw-key" points="0,0 9,4.5 0,9"/></marker>
+    <marker id="ob4" markerWidth="9" markerHeight="9" refX="7" refY="4.5" orient="auto">
+      <polygon class="arw" points="0,0 9,4.5 0,9"/></marker>
+  </defs>
+
+  <rect class="b-key" x="20" y="22" width="300" height="70" rx="6"/>
+  <text class="t-h c-key" x="42" y="46">판매문서유형 Customizing</text>
+  <text class="m-s" x="42" y="66">Check partner authorization</text>
+  <text class="t-s" x="42" y="84">이 필드를 유지해야 권한 체크가 산다</text>
+
+  <path class="ln-key" d="M320 46 H384" marker-end="url(#oa4)"/>
+  <path class="ln-key" d="M320 76 H384" marker-end="url(#oa4)"/>
+
+  <rect class="b" x="388" y="22" width="288" height="32" rx="5"/>
+  <text class="t" x="408" y="43">Rule A — 고객리스트 방식</text>
+  <rect class="b" x="388" y="60" width="288" height="32" rx="5"/>
+  <text class="t" x="408" y="81">Rule B — 고객계층구조 방식</text>
+
+  <rect class="b-ghost" x="692" y="22" width="284" height="70" rx="6"/>
+  <text class="t-s" x="712" y="46">둘 중 하나로 "누가 릴리스할 수 있는가"를</text>
+  <text class="t-s" x="712" y="64">판매오더 쪽에서 판정한다.</text>
+  <text class="t-xs c-bad" x="712" y="82">체크는 헤더 레벨에서만 이뤄진다</text>
+
+  <path class="ln" d="M532 92 V124" marker-end="url(#ob4)"/>
+
+  <rect class="b-mut" x="20" y="126" width="956" height="132" rx="6"/>
+  <text class="t-h" x="42" y="150">파트너결정절차(Partner Determination Procedure) — 표준 절차 <tspan class="m-s">KAB</tspan></text>
+
+  <rect class="b" x="42" y="164" width="290" height="76" rx="5"/>
+  <text class="t-h" x="62" y="188">SP — Sold-to Party</text>
+  <text class="t-s" x="62" y="208">계약 당사자. 기본 릴리스 권한</text>
+  <text class="t-s" x="62" y="228">본사에 해당</text>
+
+  <rect class="b-key" x="348" y="164" width="290" height="76" rx="5"/>
+  <text class="t-h c-key" x="368" y="188">AA — 릴리스 권한 파트너</text>
+  <text class="t-s" x="368" y="208">표준에서 KAB의 <tspan class="m-s">선택적</tspan> 파트너기능</text>
+  <text class="t-s" x="368" y="228">계약 파트너화면에 직접 저장</text>
+
+  <rect class="b" x="654" y="164" width="300" height="76" rx="5"/>
+  <text class="t-h" x="674" y="188">AW — 대체 Ship-to Party</text>
+  <text class="t-s" x="674" y="208">권한 파트너가 지정하는 납품처</text>
+  <text class="t-s" x="674" y="228">여러 개 가능</text>
+
+  <path class="ln-key" d="M493 258 V286" marker-end="url(#oa4)"/>
+
+  <rect class="b-ok" x="20" y="288" width="956" height="56" rx="6"/>
+  <text class="t c-ok" x="42" y="312">릴리스오더 생성 시 — 권한 파트너가 여러 명이면 목록에서 선택, 권한 있는 Ship-to Party가 여러 개여도 목록에서 선택.</text>
+  <text class="t-s" x="42" y="332">고객마스터에 잠재 Sold-to Party(<tspan class="m-s">SP · AA</tspan>)가 이미 여럿이면, 계약 생성 시 선택화면에서 한 번에 여러 파트너를 골라 복사할 수 있다.</text>
+
+  <text class="t-xs c-bad" x="20" y="366">릴리스 파트너가 계약의 Sold-to Party와 달라도 되게 하려면 → Copying Control에서 요건(requirement) 002 (Header - Diff Customer)</text>
+</svg>
+<figcaption><span class="fno">그림 4</span>릴리스 권한 파트너의 결정 경로. 문서유형이 규칙(A/B)을 고르고, 파트너결정절차가 AA·AW를 계약 헤더에 얹는다.</figcaption>
+</figure>
+
+<h3>고객리스트 방식(Rule A)의 릴리스 권한</h3>
+
+<ul>
+  <li>고객리스트가 있으면 <b>계약문서의 파트너화면</b>에 릴리스 권한 파트너를 직접 저장할 수 있다</li>
+  <li>표준시스템에서 파트너기능 <code>AA</code>는 관련 파트너결정절차(표준 <code>KAB</code> 절차)의 <b>선택적(optional) 파트너기능</b>으로 정의되어 있다 — 기본으로 켜져 있지 않다</li>
+  <li>대체 Ship-to Party는 파트너기능 <code>AW</code>로 표현된다</li>
+  <li>고객마스터에 이미 여러 개의 잠재적 Sold-to Party(<code>SP</code>, <code>AA</code>)가 있으면, 계약 생성 시 시스템이 선택화면을 띄워 한 번에 여러 파트너를 선택·복사하게 한다</li>
+  <li><span class="bad">릴리스 권한 파트너는 헤더 레벨에서만 체크된다</span></li>
+</ul>
+
+<div class="note warn">
+  <div class="t">확인 필요 — 표준 코드값의 존재 여부</div>
+  <p>오더유형 <code>WA</code>, 요건 <code>002</code>(Header - Diff Customer), 파트너기능 <code>AA</code>·<code>AW</code>, 파트너결정절차 <code>KAB</code>는 모두 <b>원문이 "표준시스템에서"라고 전제한 값</b>입니다. 릴리스 버전과 기존 Customizing 상태에 따라 존재하지 않거나 다른 값으로 대체되어 있을 수 있습니다 — 실제 시스템에서 존재를 확인한 뒤 설계서에 인용할 것. 확인 전에는 하드코딩 금지.</p>
+</div>
+
+<h3>계약 날짜 결정(Determining Dates)</h3>
+
+<p>계약을 만들면 시스템이 시작일·종료일 등을 제안합니다. 그 제안을 만드는 것이 Customizing의 <b>날짜결정규칙(date determination rule)</b>입니다.</p>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>구성요소</th><th>역할</th></tr></thead>
+<tbody>
+<tr><td>날짜결정규칙</td><td class="wrap">지정된 <b>기준일</b>(예: 오늘 날짜, 설치일) 중 하나로 문서를 시작시키고, 여기에 지정한 <b>기간(interval)</b>을 더한다. 이렇게 결정된 <b>월의 시작일이나 종료일</b>로 일정을 맞출 수도 있다</td></tr>
+<tr><td>Duration Category<br>(기간범주)</td><td class="wrap">지정하면 시스템이 <b>계약 기간을 자동 생성</b>한다. 계약 종료일 결정 등에서 날짜규칙의 구성요소로 쓰일 수 있다</td></tr>
+<tr><td>Contract Profile<br>(계약프로필)</td><td class="wrap">판매문서유형에 배정하면 계약 관련 기본값을 한 번에 결정 — <span class="hl">시작·종료일 결정규칙, Duration Category, 후속활동, 취소절차</span></td></tr>
+</tbody>
+</table>
+</div>
+
+<p>즉 순서는 <b>판매문서유형 → Contract Profile → 날짜결정규칙 · Duration Category → 실제 계약 날짜</b>입니다. 계약 날짜가 이상하게 들어온다는 문의는 계약 화면이 아니라 이 체인의 위쪽을 봐야 합니다.</p>
+
+<div class="note ok">
+  <div class="t">📌 개인 E2E 프로젝트와의 연결점</div>
+  <p>· <b>파트너기능 설계</b> — 프로젝트에서 이미 파트너기능(<code>SP</code> 등)을 잡아 두었으므로, 다지점 도매 고객을 넣게 되면 파트너결정절차에 <code>AA</code>(릴리스 권한)·<code>AW</code>(대체 Ship-to)를 더하는 것이 그대로 확장 경로가 됩니다. 식품 유통 모델에서 Ship-to가 여러 개인 상황(본사 계약 · 점포별 납품)은 자연스럽게 생깁니다.</p>
+  <p>· <b>유효기간 · 날짜결정규칙</b> — 프로젝트는 배치 유통기한(<code>MCHA-VFDAT</code>)을 기준으로 잔여 유통기한 30% 미달 시 <code>ZBATCH_ZONE</code>이 정상→임박 저장위치로 옮깁니다. "기준일 + 기간 → 종료일"이라는 계약 날짜결정규칙의 계산 구조가 <span class="hl">제조일 + 유통기간 → 만료일 → 임계일</span> 계산과 같은 모양입니다. 임계일 계산식을 CBO 안에 하드코딩하지 말고 <b>규칙 테이블로 빼야 한다</b>는 근거로 이 표준 설계를 인용할 수 있습니다.</p>
+  <p>· <b>금액 한도 초과 반응</b>은 회계 영향이 있는 지점입니다. 프로젝트 원칙(회계 영향 처리는 자동화하지 않는다)에 따르면, 한도 초과 릴리스는 자동 차단보다 <b>알림 + 승인 대기</b>가 맞습니다 — <code>ZPRICE_CHECK</code>가 <code>EINE-NETPR</code> vs <code>MBEW-VERPR</code> 괴리를 알림까지만 하는 것과 같은 판단입니다.</p>
+</div>
+
+</div>
+
+
+<!-- ══════════ APPENDIX ══════════ -->
+<div class="lesson" id="lx">
+<h2><span class="no">APPENDIX</span>정리 · 반드시 기억할 것</h2>
+
+<h3>한 장 요약</h3>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>질문</th><th>답</th></tr></thead>
+<tbody>
+<tr><td>Outline Agreement이란</td><td class="wrap">개별 오더가 소진할 <b>한도</b>(수량 또는 금액)를 미리 걸어두는 판매문서유형</td></tr>
+<tr><td>Quantity Contract</td><td class="wrap">총 <b>수량</b> + 기간 약정. 릴리스오더가 남은 수량을 꺼내 쓴다</td></tr>
+<tr><td>Scheduling Agreement</td><td class="wrap">수량에 더해 <b>납품 스케줄</b>(언제 얼마씩)까지 미리 확정한 문서</td></tr>
+<tr><td>Value Contract</td><td class="wrap">총 <b>금액</b> 한도 약정. 릴리스마다 다른 자재를 섞을 수 있다</td></tr>
+<tr><td>릴리스오더 만드는 법</td><td class="wrap">① 초기화면 Create with reference ② 메뉴 Sales document → Create with reference → To contract ③ 아이템 사후 수동 배정 ④ 자동검색 Customizing</td></tr>
+<tr><td>어떤 오더유형을 릴리스로 쓸 수 있나</td><td class="wrap"><b>Copying Control</b>이 결정한다. 여기서 막히면 참조 생성 자체가 안 된다</td></tr>
+<tr><td>자동검색 옵션</td><td class="wrap"><code>Blank</code> 없음 / <code>A·B</code> 알림 후 선택·무시 가능 / <code>C·D</code> 유일하면 자동복사 + 정보메시지 / <code>E·F</code> 바로 선택목록</td></tr>
+<tr><td>계약 잔여가 왜 안 줄지</td><td class="wrap">사후 배정을 헤더에만 했기 때문. <b>아이템 레벨</b>에 배정해야 계약 금액값이 업데이트된다</td></tr>
+<tr><td>한도를 넘기면</td><td class="wrap">시스템 반응은 <b>설정 가능</b>. 표준 고정 동작이 아니므로 시스템에서 확인해야 한다</td></tr>
+<tr><td>선수금은 어떻게 막나</td><td class="wrap">마일스톤 청구계획 + 납품블록 → 릴리스오더 <b>스케줄라인</b>에 블록 배정. 완납 시 선수금상태 <code>Fully Paid</code> → 시스템이 자동 해제</td></tr>
+<tr><td>Value Contract 청구</td><td class="wrap">릴리스오더 개별 청구(<code>OR</code>) 또는 계약 직접 청구(<code>WA</code>). 청구계획으로 여러 날짜·부분수량 청구 가능</td></tr>
+<tr><td>완전히 릴리스 안 된 계약</td><td class="wrap"><b>자동청구 대상이 될 수 없다</b></td></tr>
+<tr><td>지점이 계약에서 릴리스하려면</td><td class="wrap">판매문서유형의 <code>Check partner authorization</code> 유지 + 파트너결정절차(<code>KAB</code>)에 <code>AA</code> 추가. Rule A(고객리스트) 또는 Rule B(고객계층구조)</td></tr>
+<tr><td>릴리스 파트너 ≠ Sold-to Party</td><td class="wrap">Copying Control에서 요건 <code>002</code>(Header - Diff Customer)</td></tr>
+<tr><td>계약 날짜는 어디서 오나</td><td class="wrap">판매문서유형 → Contract Profile → 날짜결정규칙 · Duration Category</td></tr>
+</tbody>
+</table>
+</div>
+
+<div class="note warn">
+  <div class="t">반드시 지킬 것</div>
+  <p>· <b>"계약을 참조할 수 없다"는 계약 문제가 아니다.</b> Copying Control부터 본다. 계약 화면을 아무리 봐도 답이 없다.<br>
+     · <b>사후 배정은 아이템 레벨로 한다.</b> 헤더에만 붙이면 계약 잔여가 그대로 남아 한도 관리가 통째로 무의미해진다.<br>
+     · <b>납품블록을 수동으로 풀지 않는다.</b> 선수금 통제는 정산 사실로 풀리는 것이지 사람 판단으로 푸는 것이 아니다.<br>
+     · <b>한도 초과 반응을 표준 기본값에 맡기지 않는다.</b> 매출 인식에 직결되므로 설정값을 눈으로 확인하고 문서에 남긴다.<br>
+     · <b><code>WA</code>·<code>002</code>·<code>AA</code>·<code>AW</code>·<code>KAB</code>는 확인 전까지 인용하지 않는다.</b> 원문이 "표준시스템에서"라고 한 값이고 시스템마다 다를 수 있다.</p>
+</div>
+
+<h3>참고</h3>
+
+<ul>
+  <li>원본: 노션 <b>SAP Learning Hub</b> → Implementing Sales in SAP S/4HANA Cloud Private Edition → <b>4-1</b>(Unit 1-2) · <b>4-2</b>(Unit 3)</li>
+  <li>Learning Hub 레슨 본문 3개를 직접 읽어 정리한 것. <b>다운로드 가능한 PDF 없음</b>, 데모 영상은 본문 설명 텍스트로만 반영, 실습은 Learning Hub 내장 Exercise 시뮬레이션(Unit 3은 6개)</li>
+  <li><b>Further Reading 없음</b> — SAP Signavio Process Navigator scope item <code>I9I</code>와 <code>help.sap.com</code> 언급은 있으나 별도 링크 제공 자료는 아니다</li>
+  <li>앞 노트: <b>S46050</b> Sales 기본 Customizing · 뒤 노트: <b>S46052</b> Incompletion(미완성 로그)</li>
+</ul>
+
+</div>
+
+</div>
+<script src="../../assets/hub.js" defer></script>
+</body>
+</html>

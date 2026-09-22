@@ -1,0 +1,532 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>IEE2E U1 — End-to-End 프로세스와 통합 과제</title>
+<meta name="description" content="SAP Learning Hub의 Exploring End-to-End Business Processes in SAP Business Suite 노트 1. 부서별 과제와 인터페이스, 5대 E2E 프로세스(Lead to Cash · Source to Pay · Design to Operate · Recruit to Retire · Record to Report)와 통합 지점, SAP Signavio Process Navigator.">
+<link rel="icon" href="../../assets/favicon.svg">
+<link rel="stylesheet" href="../../assets/notes-paper.css">
+<style>
+/* ── 이 노트 전용: 도해(SVG) 스타일 ─────────────────────────── */
+.dgm{display:block; width:100%; height:auto;}
+.dgm text{font-family:"Malgun Gothic","맑은 고딕","Apple SD Gothic Neo",sans-serif; fill:#1e1e1e;}
+.dgm .t-h{font-size:15px; font-weight:700;}
+.dgm .t{font-size:13px;}
+.dgm .t-s{font-size:11.5px; fill:#555;}
+.dgm .t-xs{font-size:10.5px; fill:#6B7280;}
+.dgm .m{font-family:"D2Coding","Consolas",monospace; font-size:12px;}
+.dgm .m-s{font-family:"D2Coding","Consolas",monospace; font-size:10.5px;}
+.dgm .c-key{fill:#4338CA;} .dgm .c-bad{fill:#B91C1C;} .dgm .c-ok{fill:#047857;}
+.dgm .b{fill:#FFFFFF; stroke:#C7CBD6; stroke-width:1.2;}
+.dgm .b-key{fill:#EEF0FB; stroke:#4338CA; stroke-width:1.4;}
+.dgm .b-bad{fill:#FEF2F2; stroke:#B91C1C; stroke-width:1.3;}
+.dgm .b-ok{fill:#ECFDF5; stroke:#047857; stroke-width:1.3;}
+.dgm .b-mut{fill:#F3F4F6; stroke:#D1D5DB; stroke-width:1.1;}
+.dgm .b-hl{fill:#FEF08A; stroke:#CA8A04; stroke-width:1.2;}
+.dgm .b-ghost{fill:none; stroke:#9AA3B2; stroke-width:1.1; stroke-dasharray:5 4;}
+.dgm .ln{stroke:#7C8697; stroke-width:1.4; fill:none;}
+.dgm .ln-key{stroke:#4338CA; stroke-width:1.8; fill:none;}
+.dgm .ln-bad{stroke:#B91C1C; stroke-width:1.6; fill:none;}
+.dgm .ln-ok{stroke:#047857; stroke-width:1.6; fill:none;}
+.dgm .ln-d{stroke:#9AA3B2; stroke-width:1.2; stroke-dasharray:4 4; fill:none;}
+.dgm .arw{fill:#7C8697;} .dgm .arw-key{fill:#4338CA;}
+.dgm .arw-bad{fill:#B91C1C;} .dgm .arw-ok{fill:#047857;}
+.figwrap{background:#FAFAFE; border:1px solid var(--rule); border-radius:6px;
+  padding:18px 16px 10px; margin:22px 0;}
+.figwrap figcaption{margin-top:12px; padding-top:10px; border-top:1px solid var(--rule);}
+</style>
+</head>
+<body>
+<div class="crumb"><a href="../../index.html">← 자료실 홈</a> · <a href="../../journey.html?j=iee2e">E2E 저니</a> · U1 E2E 프로세스와 통합 과제</div>
+<div class="sheet">
+
+<div class="doc-head">
+  <div class="kicker">LEARNING HUB · IEE2E U1</div>
+  <h1>End-to-End 프로세스와 통합 과제</h1>
+  <div class="sub">
+    Learning Journey <b>Exploring End-to-End Business Processes in SAP Business Suite</b> · Unit 1 · 레슨 3개 · Beginner<br>
+    출처: 노션 <b>SAP Learning Hub</b> → IEE2E → <b>1. Identifying End-to-End Business Processes and their Integration Challenge</b> (1-1 ~ 1-3)
+  </div>
+</div>
+
+<div class="lead">
+  <p><b>결론부터.</b> 이 저니는 모듈 하나를 깊게 파는 자리가 아니라 <span class="hl">"무엇이 무엇과 이어지는가"</span>를 보는 자리입니다. 부서는 나뉘어 있지만 프로세스는 부서를 가로질러 흐르고, SAP가 파는 것은 그 가로지름 자체입니다.</p>
+  <p>Unit 1은 자전거 회사 사례로 부서별 과제와 부서 간 인터페이스를 먼저 세운 다음, 그 인터페이스를 SAP가 <b>5개의 E2E 프로세스</b>(Lead to Cash · Source to Pay · Design to Operate · Recruit to Retire · Record to Report)로 어떻게 묶는지를 다룹니다. 통합이 깨지는 지점의 이름이 <b>Data Silo</b>이고, 표준 프로세스를 어디서 확인하는지가 <b>SAP Signavio Process Navigator</b>입니다.</p>
+</div>
+
+<div class="toc">
+  <h4>목차</h4>
+  <ol>
+    <li><a href="#l1">부서별 과제와 인터페이스 — 자전거 회사 사례</a></li>
+    <li><a href="#l2">SAP 솔루션 매핑 — 5대 E2E 프로세스와 통합 지점</a></li>
+    <li><a href="#l3">SAP Best Practices와 Signavio Process Navigator</a></li>
+  </ol>
+</div>
+
+
+<!-- ══════════ LESSON 1 ══════════ -->
+<div class="lesson" id="l1">
+<h2><span class="no">LESSON 1</span>부서별 과제와 인터페이스 — 자전거 회사 사례</h2>
+
+<p><span class="tag">Unit 1</span><span class="tag">1-1</span>Identifying Business Processes Using the Example of a Bike Company</p>
+
+<h3>언제 이걸 알아야 하는가</h3>
+
+<p>모듈 하나만 하다 보면 <b>"이 값은 왜 여기 들어오는 겁니까"</b>라는 질문 앞에서 막힙니다. 구매 쪽 입고 수량이 왜 영업 쪽 가용재고를 바꾸는지, 출고 한 번이 왜 회계 전표를 낳는지 — 답은 내 모듈 안에 없습니다.</p>
+
+<p>이 레슨은 그 답이 <span class="key">부서 간 인터페이스</span>에 있다는 것을 먼저 보여줍니다. 각 부서가 무엇을 하고, 누구에게서 받아 누구에게 넘기는지를 표로 세워두면 뒤에 나오는 E2E 프로세스 5종이 그냥 이 인터페이스들을 이어붙인 것이라는 게 보입니다.</p>
+
+<h3>부서별 핵심 과제</h3>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>부서</th><th>핵심 과제</th></tr></thead>
+<tbody>
+<tr><td>Procurement</td><td class="wrap">프로세스 효율성 향상 및 안정적 공급망 유지 / 신뢰할 수 있는 파트너 네트워크 유지</td></tr>
+<tr><td>Production</td><td class="wrap">변화 대응 및 신기술 도입 / 애자일 프로세스 확보 / 기후 목표 준수</td></tr>
+<tr><td>HR</td><td class="wrap">숙련되고 동기부여된 인력 확보 / 효율적인 채용 및 온보딩</td></tr>
+<tr><td>Finance</td><td class="wrap">예측 수립 및 현실적인 재무 목표 설정 / 컴플라이언스 기준 충족 / 현금흐름 보호</td></tr>
+<tr><td>Controlling</td><td class="wrap">수익성 모니터링 / 예산 계획</td></tr>
+<tr><td>Sales</td><td class="wrap">고객 만족 확보 / 영업~배송 프로세스 통합</td></tr>
+<tr><td>Services</td><td class="wrap">24/7 지원 제공 / 지식·부품·애프터세일즈 서비스 제공 / 서비스 혁신</td></tr>
+</tbody>
+</table>
+</div>
+
+<h3>부서 간 인터페이스 — 여기가 E2E의 재료다</h3>
+
+<p>강의는 부서마다 <b>주요 업무 / 인터페이스 / 산출물 / 성공 요인</b> 네 칸으로 정리합니다. 이 중 실제로 SAP 통합을 설명하는 칸은 <span class="key">인터페이스</span>뿐입니다. 그 칸만 모으면 이렇습니다.</p>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>부서</th><th>인터페이스 상대</th><th>산출물</th></tr></thead>
+<tbody>
+<tr><td>Financial Accounting</td><td class="wrap">Customers(채권 관리·클레임) / Sales(신용 리스크 조기 파악, 배송·품질·결제 이슈) / Procurement(매입채무·매출채권 처리)</td><td class="wrap">재무제표(대차대조표·손익계산서·현금흐름표), 매입채무·매출채권, 고정자산, 재고자산</td></tr>
+<tr><td>Controlling</td><td class="wrap">Production(원가 통제·예산 계획·생산원가 산정) / Marketing &amp; Sales(매출 부진 구간 파악 → 캠페인·가격 조정)</td><td class="wrap">재무 건전성·원가 계산·재무 계획 개선을 위한 분석 결과와 보고서</td></tr>
+<tr><td>Human Resources</td><td class="wrap">전 부서(성과관리·복리후생·인건비 예산) / Finance &amp; Controlling(급여 및 인건비)</td><td class="wrap">직원 설문조사, 리더십·교육 프로그램, 급여, 문화·건강 프로그램</td></tr>
+<tr><td>Procurement</td><td class="wrap">Controlling(구매 항목 계획·예산) / Financial Accounting(매입채무는 재무회계와 긴밀히 연계)</td><td class="wrap">재고 자재, 공급업체 계약, 직원용 구매 카탈로그</td></tr>
+<tr><td>Sales</td><td class="wrap">Marketing(리드 활용) / Finance &amp; Controlling(주문 매출 보고) / Services(컨설팅 등 서비스 영업 지원)</td><td class="wrap">견적·주문 처리, 지속가능한 고객 관계, 영업 추정치·계획</td></tr>
+<tr><td>Production</td><td class="wrap">Controlling(생산원가 산정) / Financial Accounting(제품원가 저장·생산 데이터 보고) / Procurement(생산용 자재 구매)</td><td class="wrap">품질 기준을 충족하고 제때 완성된 자전거</td></tr>
+<tr><td>Services</td><td class="wrap">Sales(고객 서비스 이력 공유, 문의·요청 처리) / Procurement(24시간 내 부품 확보·배송 조율)</td><td class="wrap">24/7 지원, 부품과 숙련 담당자를 동반한 서비스 방문, 서비스 이력</td></tr>
+</tbody>
+</table>
+</div>
+
+<div class="note">
+  <div class="t">🔰 초보자 설명 — 왜 하필 자전거 회사인가</div>
+  <p>SAP 교육은 특정 산업에 치우치지 않으면서도 제조·재고·영업·서비스가 모두 존재하는 <b>모델 컴퍼니</b>로 자전거 회사를 자주 씁니다. 조립형 제품(자재 다수, BOM 존재), 재고 보유, B2C/B2B 혼합 판매, 애프터서비스(부품 교체)를 전부 가지고 있어서 <b>SD-MM-PP-FI/CO-CS</b> 통합 흐름을 한 번에 보여주기 좋기 때문입니다.</p>
+</div>
+
+<h3>부서 ↔ SAP 모듈 매핑</h3>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>부서(강의)</th><th>SAP 모듈</th><th>비고</th></tr></thead>
+<tbody>
+<tr><td>Finance / Financial Accounting</td><td><code>FI</code></td><td class="wrap">재무제표, 채권·채무</td></tr>
+<tr><td>Controlling / Management Accounting</td><td><code>CO</code></td><td class="wrap">원가관리, 수익성 분석</td></tr>
+<tr><td>Human Resources</td><td><code>HCM</code></td><td class="wrap">구 HR 모듈</td></tr>
+<tr><td>Procurement</td><td><code>MM</code></td><td class="wrap">구매, 재고관리</td></tr>
+<tr><td>Sales</td><td><code>SD</code></td><td class="wrap">영업, 배송</td></tr>
+<tr><td>Production</td><td><code>PP</code></td><td class="wrap">생산계획, BOM·라우팅</td></tr>
+<tr><td>Services</td><td><code>CS</code> / <code>PM</code></td><td class="wrap">애프터세일즈, 설비유지보수</td></tr>
+</tbody>
+</table>
+</div>
+
+<div class="note ok">
+  <div class="t">📌 개인 E2E 프로젝트와의 연결점</div>
+  <p>이 프로젝트는 <b>벤더 사입 → 재판매</b> 트레이딩 모델이라 자전거 회사와 달리 <b>PP가 빠집니다.</b> 남는 것은 <code>MM</code> ↔ <code>SD</code> ↔ <code>FI</code> 세 모듈이고, 위 표의 인터페이스 칸 중 실제로 구현하는 것은 세 줄입니다.</p>
+  <p>· <b>Procurement ↔ Financial Accounting</b> — 사입 시 매입채무. <code>ME21N</code> PO → GR(101) → <code>MIRO</code> 송장검증이 FI 매입채무(A/P)로 직결<br>
+     · <b>Sales ↔ Financial Accounting</b> — 판매 시 매출채권. 수주 → 납품 PGI(601) → 청구가 FI 매출채권(A/R)·매출인식으로 직결<br>
+     · <b>Procurement ↔ Sales</b> — 플랜트 <code>STOR</code>에 들어온 재고가 그대로 판매 가능 재고(ATP)가 된다. 여기에 배치관리와 유통기한(<code>MCHA-VFDAT</code>)이 걸려 있어서 MM·SD 양쪽에 동시에 영향을 준다</p>
+</div>
+
+</div>
+
+
+<!-- ══════════ LESSON 2 ══════════ -->
+<div class="lesson" id="l2">
+<h2><span class="no">LESSON 2</span>SAP 솔루션 매핑 — 5대 E2E 프로세스와 통합 지점</h2>
+
+<p><span class="tag">Unit 1</span><span class="tag">1-2</span>Mapping SAP Solutions to Business Processes</p>
+
+<h3>프로세스는 분리되어 운영되지 않는다</h3>
+
+<p>생산팀은 영업팀이 관리하는 수주 정보를 봐야 하고, 관리회계팀은 인사팀이 계획한 출장 경비를 모니터링해야 하며, 영업팀과 구매팀은 모든 주문이 이행되도록 협업해야 합니다. 고객·제품·직원 같은 <b>마스터 데이터는 모든 프로세스에서 일관되게</b> 유지되어야 합니다.</p>
+
+<h3>Business Unit → SAP Process Name → LoB</h3>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>Business Unit</th><th>SAP Process Name</th><th>Line of Business Application</th><th>보완 Cloud ERP 앱</th></tr></thead>
+<tbody>
+<tr><td>Finance / Controlling</td><td><span class="key">Record to Report</span></td><td class="wrap">Finance and Risk</td><td>—</td></tr>
+<tr><td>Human Resources</td><td><span class="key">Recruit to Retire</span></td><td class="wrap">HR and People Engagement</td><td class="wrap">SAP SuccessFactors</td></tr>
+<tr><td>Sales / Services</td><td><span class="key">Lead to Cash</span></td><td class="wrap">CRM and Customer Experience</td><td class="wrap">SAP Marketing Cloud</td></tr>
+<tr><td>Production</td><td><span class="key">Design to Operate</span></td><td class="wrap">Supply Chain Management</td><td>—</td></tr>
+<tr><td>Procurement</td><td><span class="key">Source to Pay</span></td><td class="wrap">Spend Management</td><td class="wrap">SAP Ariba / SAP Fieldglass</td></tr>
+</tbody>
+</table>
+</div>
+
+<p>이 5개 프로세스는 모두 ERP 레이어인 <b>SAP S/4HANA</b> 위에서 통합 운영됩니다.</p>
+
+<figure class="figwrap">
+<svg class="dgm" viewBox="0 0 1000 412" role="img" aria-label="5대 E2E 프로세스가 조직을 가로지르는 도해. 각 프로세스는 자기 LoB에서 출발하지만 오른쪽 재무까지 이어지고, Record to Report가 나머지 네 프로세스 전체의 기반이 된다.">
+  <defs>
+    <marker id="e2a" markerWidth="9" markerHeight="9" refX="7" refY="4.5" orient="auto">
+      <polygon class="arw-ok" points="0,0 9,4.5 0,9"/></marker>
+  </defs>
+
+  <rect class="b-mut" x="20" y="26" width="180" height="34" rx="5"/>
+  <text class="t-s" x="42" y="48">HR · People</text>
+  <rect class="b-mut" x="208" y="26" width="192" height="34" rx="5"/>
+  <text class="t-s" x="230" y="48">Sales · Service</text>
+  <rect class="b-mut" x="408" y="26" width="212" height="34" rx="5"/>
+  <text class="t-s" x="430" y="48">Sourcing · Procurement</text>
+  <rect class="b-mut" x="628" y="26" width="182" height="34" rx="5"/>
+  <text class="t-s" x="650" y="48">R&amp;D · 제조 · 공급망</text>
+  <rect class="b-mut" x="818" y="26" width="162" height="34" rx="5"/>
+  <text class="t-s" x="840" y="48">Finance · CO</text>
+
+  <line class="ln-d" x1="204" y1="66" x2="204" y2="292"/>
+  <line class="ln-d" x1="404" y1="66" x2="404" y2="292"/>
+  <line class="ln-d" x1="624" y1="66" x2="624" y2="292"/>
+  <line class="ln-d" x1="814" y1="66" x2="814" y2="292"/>
+
+  <rect class="b-key" x="20" y="76" width="960" height="44" rx="6"/>
+  <text class="t-h c-key" x="40" y="98">Recruit to Retire</text>
+  <text class="t-xs" x="40" y="114">Request → Staff → Onboard → Work → Pay → Close   ·   결과: Engaged, Productive Workforce</text>
+
+  <rect class="b-key" x="208" y="130" width="772" height="44" rx="6"/>
+  <text class="t-h c-key" x="228" y="152">Lead to Cash</text>
+  <text class="t-xs" x="228" y="168">Lead → Opportunity → Contact → Quote → Order → Fulfillment → Invoicing → Support</text>
+
+  <rect class="b-key" x="408" y="184" width="572" height="44" rx="6"/>
+  <text class="t-h c-key" x="428" y="206">Source to Pay</text>
+  <text class="t-xs" x="428" y="222">Source → Contract → Commit → Forecast → Request → Receive → Make</text>
+
+  <rect class="b-key" x="628" y="238" width="352" height="44" rx="6"/>
+  <text class="t-h c-key" x="648" y="260">Design to Operate</text>
+  <text class="t-xs" x="648" y="276">Plan → Procure → Manufacture → Deliver →</text>
+
+  <path class="ln-ok" d="M120 120 V300" marker-end="url(#e2a)"/>
+  <path class="ln-ok" d="M300 174 V300" marker-end="url(#e2a)"/>
+  <path class="ln-ok" d="M520 228 V300" marker-end="url(#e2a)"/>
+  <path class="ln-ok" d="M740 282 V300" marker-end="url(#e2a)"/>
+
+  <rect class="b-ok" x="20" y="302" width="960" height="52" rx="6"/>
+  <text class="t-h c-ok" x="40" y="324">Record to Report</text>
+  <text class="t-s" x="40" y="343">재무·비재무 정보의 측정·처리·전달. Financial close로 특정 시점 재무보고서 생성 — 나머지 프로세스 전체의 기반</text>
+
+  <rect class="b-ghost" x="20" y="366" width="960" height="34" rx="6"/>
+  <text class="t-s" x="42" y="388">프로세스 막대가 자기 LoB 칸을 넘어 오른쪽까지 이어지는 것이 요점. <tspan class="c-key">E2E 프로세스 = 하나의 비즈니스 기능이 처음부터 끝까지 이어지는 여정</tspan>이고, 끝은 언제나 회계다.</text>
+</svg>
+<figcaption><span class="fno">그림 1</span>5대 E2E 프로세스와 LoB. 네 프로세스가 각자 LoB에서 출발해 전부 Record to Report로 떨어진다.</figcaption>
+</figure>
+
+<div class="note warn">
+  <div class="t">확인 필요 — 스윔레인 교차 구조</div>
+  <p>원문의 Process Integration 다이어그램은 각 단계가 서로 다른 레인과 교차하는 <b>스윔레인</b>이고, 교차점(Pay · Contract 등)이 프로세스 간 통합 지점을 뜻합니다. 그림 1은 <span class="hl">"프로세스가 LoB를 가로지른다"</span>는 요지만 옮긴 것이며, 정확한 교차 지점은 SAP Learning 원본 다이어그램에서 확인해야 합니다.</p>
+</div>
+
+<h3>통합이 깨지는 지점 — Data Silo</h3>
+
+<div class="note">
+  <div class="t">🔰 초보자 설명 — Data Silo</div>
+  <p>부서나 시스템마다 데이터가 따로따로 저장·관리되어 서로 공유되지 않는 상태입니다. 영업팀은 자체 엑셀이나 CRM에 고객 데이터를 갖고 있고, 재무팀은 회계 시스템에 따로 데이터를 갖고 있어서, <b>같은 고객인데 두 시스템의 정보가 서로 다르거나 서로 조회가 안 되는</b> 상황입니다.</p>
+</div>
+
+<figure class="figwrap">
+<svg class="dgm" viewBox="0 0 1000 344" role="img" aria-label="Data Silo와 단일 진실 공급원 비교 도해. 시스템별로 같은 고객이 다른 코드로 저장되면 조회·집계가 불가능하고, 중앙화하면 단일 진실 공급원이 되어 데이터 정확성과 분석력이 올라간다.">
+  <defs>
+    <marker id="dsa" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto">
+      <polygon class="arw-ok" points="0,0 8,4 0,8"/></marker>
+  </defs>
+
+  <text class="t-h c-bad" x="30" y="24">통합이 깨진 상태 — Data Silo</text>
+  <text class="t-h c-ok" x="530" y="24">통합된 상태 — 단일 진실 공급원(SSOT)</text>
+
+  <rect class="b-bad" x="30" y="40" width="130" height="72" rx="6"/>
+  <text class="t" x="48" y="64">영업 CRM</text>
+  <text class="m-s" x="48" y="84">고객코드 C-001</text>
+  <text class="t-xs" x="48" y="102">담당자 · 여신한도</text>
+
+  <rect class="b-bad" x="172" y="40" width="130" height="72" rx="6"/>
+  <text class="t" x="190" y="64">회계 시스템</text>
+  <text class="m-s" x="190" y="84">고객코드 CUST001</text>
+  <text class="t-xs" x="190" y="102">채권 잔액 · 결제조건</text>
+
+  <rect class="b-bad" x="314" y="40" width="130" height="72" rx="6"/>
+  <text class="t" x="332" y="64">구매·물류 엑셀</text>
+  <text class="m-s" x="332" y="84">거래처명 "A사"</text>
+  <text class="t-xs" x="332" y="102">배송지 · 납기 이력</text>
+
+  <line class="ln-d" x1="160" y1="76" x2="172" y2="76"/>
+  <line class="ln-d" x1="302" y1="76" x2="314" y2="76"/>
+  <text class="t-h c-bad" x="160" y="82">✕</text>
+  <text class="t-h c-bad" x="302" y="82">✕</text>
+
+  <rect class="b-ghost" x="30" y="128" width="414" height="94" rx="6"/>
+  <text class="t-s c-bad" x="52" y="150">· 같은 고객인데 키가 달라 서로 조회되지 않는다</text>
+  <text class="t-s c-bad" x="52" y="172">· 같은 정보를 세 번 입력하고, 세 번 다 틀릴 수 있다</text>
+  <text class="t-s c-bad" x="52" y="194">· 전사 합계가 맞지 않아 집계할 때마다 대사(對査)가 필요하다</text>
+  <text class="t-s c-bad" x="52" y="214">· 비효율과 병목이 여기서 생긴다</text>
+
+  <line class="ln-d" x1="478" y1="16" x2="478" y2="330"/>
+
+  <rect class="b-ok" x="530" y="40" width="450" height="52" rx="6"/>
+  <text class="t-h c-ok" x="552" y="64">SAP S/4HANA — 하나의 데이터, 하나의 키</text>
+  <text class="t-s" x="552" y="82">고객·제품·직원 마스터가 모든 프로세스에서 동일하게 참조된다</text>
+
+  <path class="ln-ok" d="M600 92 V116" marker-end="url(#dsa)"/>
+  <path class="ln-ok" d="M690 92 V116" marker-end="url(#dsa)"/>
+  <path class="ln-ok" d="M780 92 V116" marker-end="url(#dsa)"/>
+  <path class="ln-ok" d="M870 92 V116" marker-end="url(#dsa)"/>
+
+  <rect class="b" x="530" y="118" width="84" height="44" rx="5"/>
+  <text class="t-s" x="556" y="145">구매</text>
+  <rect class="b" x="620" y="118" width="84" height="44" rx="5"/>
+  <text class="t-s" x="646" y="145">영업</text>
+  <rect class="b" x="710" y="118" width="84" height="44" rx="5"/>
+  <text class="t-s" x="736" y="145">재무</text>
+  <rect class="b" x="800" y="118" width="84" height="44" rx="5"/>
+  <text class="t-s" x="826" y="145">생산</text>
+  <rect class="b" x="890" y="118" width="90" height="44" rx="5"/>
+  <text class="t-s" x="916" y="145">인사</text>
+
+  <rect class="b-ghost" x="530" y="178" width="450" height="122" rx="6"/>
+  <text class="t-s c-ok" x="552" y="200">Integration — 단일 플랫폼, 부서 간 원활한 데이터 흐름</text>
+  <text class="t-s c-ok" x="552" y="222">Efficiency — 반복 업무 자동화로 수작업·오류 감소</text>
+  <text class="t-s c-ok" x="552" y="244">Data Management — 중앙화로 단일 진실 공급원 확보</text>
+  <text class="t-s c-ok" x="552" y="266">Compliance · Scalability — 규제 대응, 성장에 맞춘 확장</text>
+  <text class="t-s c-ok" x="552" y="288">Real-time Analytics · Customer Satisfaction</text>
+</svg>
+<figcaption><span class="fno">그림 2</span>Data Silo가 만드는 증상과, 통합이 되돌려주는 7가지 이점.</figcaption>
+</figure>
+
+<h3>Lead to Cash 상세 — 뒤 2단계가 SD 작업이다</h3>
+
+<p>참고자료 PDF에 따르면 Lead to Cash는 실제로 <b>6단계 서브프로세스</b>로 나뉩니다. 앞 4단계는 마케팅·영업(CRM) 중심이고, <span class="hl">뒤 2단계가 S/4HANA 작업</span>입니다.</p>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>서브프로세스</th><th>무슨 일이 일어나나</th><th>SAP 솔루션</th></tr></thead>
+<tbody>
+<tr><td>Contact to Lead</td><td class="wrap">마케팅 캠페인으로 잠재고객 유입, 리드 생성</td><td class="wrap">SAP Emarsys</td></tr>
+<tr><td>Lead to Opportunity</td><td class="wrap">리드 육성 후 영업 기회로 전환</td><td class="wrap">SAP Emarsys, Sales Cloud</td></tr>
+<tr><td>Opportunity to Quote</td><td class="wrap">영업사원이 견적 생성(cross-sell / up-sell 포함)</td><td class="wrap">SAP Sales Cloud, CPQ</td></tr>
+<tr><td>Quote to Order</td><td class="wrap">견적 협상 후 고객 주문 생성</td><td class="wrap">SAP Commerce Cloud, CPQ, S/4HANA</td></tr>
+<tr><td><span class="key">Order to Fulfill</span></td><td class="wrap">주문이 물류(피킹·패킹·배송)로 전달되어 이행됨</td><td class="wrap"><b>SAP S/4HANA (pick, pack, ship)</b></td></tr>
+<tr><td><span class="key">Invoice to Cash</span></td><td class="wrap">인보이스 생성 → 고객 결제 → 매출 인식(FI 전기)</td><td class="wrap"><b>SAP S/4HANA Cloud (Finance)</b></td></tr>
+</tbody>
+</table>
+</div>
+
+<h3>Source to Pay는 자재가 아니어도 같은 패턴이다</h3>
+
+<p>Recruit to Retire의 <b>External Workforce</b>(외부 인력·도급 관리) 시나리오는 인력을 채용할 때도 <b>Manage Purchase Requisition → Manage Purchase Order</b>, 즉 S/4HANA의 <code>PR</code> → <code>PO</code> 흐름을 그대로 씁니다.</p>
+
+<p>대상이 "자재"냐 "인력"이냐만 다를 뿐 SAP 안에서는 <span class="key">같은 Procure-to-Pay 패턴을 재사용</span>합니다 — PR → PO → 입고/서비스 완료 → 검증 → 지급.</p>
+
+<figure class="figwrap">
+<svg class="dgm" viewBox="0 0 1000 306" role="img" aria-label="개인 프로젝트 도해. Source to Pay와 Lead to Cash가 STOR 플랜트의 재고 한 덩어리에서 맞물리고, 양쪽 끝에서 각각 매입채무와 매출채권 전표가 발생한다.">
+  <defs>
+    <marker id="pja" markerWidth="9" markerHeight="9" refX="7" refY="4.5" orient="auto">
+      <polygon class="arw-key" points="0,0 9,4.5 0,9"/></marker>
+    <marker id="pjo" markerWidth="9" markerHeight="9" refX="8" refY="4.5" orient="auto">
+      <polygon class="arw-ok" points="0,0 9,4.5 0,9"/></marker>
+  </defs>
+
+  <text class="t-s c-key" x="20" y="22">Source to Pay  ·  MM</text>
+
+  <rect class="b-key" x="20" y="32" width="146" height="48" rx="6"/>
+  <text class="t" x="38" y="54">구매오더 PO</text>
+  <text class="m-s" x="38" y="72">ME21N</text>
+  <path class="ln-key" d="M166 56 H182" marker-end="url(#pja)"/>
+
+  <rect class="b-key" x="190" y="32" width="146" height="48" rx="6"/>
+  <text class="t" x="208" y="54">입고 GR</text>
+  <text class="m-s" x="208" y="72">101 → GATE</text>
+  <path class="ln-key" d="M336 56 H352" marker-end="url(#pja)"/>
+
+  <rect class="b-key" x="360" y="32" width="146" height="48" rx="6"/>
+  <text class="t" x="378" y="54">STOR 이관</text>
+  <text class="m-s" x="378" y="72">301 → STOR</text>
+  <path class="ln-key" d="M506 56 H522" marker-end="url(#pja)"/>
+
+  <rect class="b-key" x="530" y="32" width="146" height="48" rx="6"/>
+  <text class="t" x="548" y="54">송장검증</text>
+  <text class="m-s" x="548" y="72">MIRO</text>
+  <path class="ln-ok" d="M676 56 H716" marker-end="url(#pjo)"/>
+
+  <rect class="b-ok" x="724" y="32" width="256" height="48" rx="6"/>
+  <text class="t-h c-ok" x="742" y="54">FI 매입채무 A/P</text>
+  <text class="t-xs" x="742" y="72">회사코드 CL04 귀속</text>
+
+  <path class="ln-key" d="M433 80 V118" marker-end="url(#pja)"/>
+
+  <rect class="b-hl" x="300" y="120" width="400" height="64" rx="6"/>
+  <text class="t-h" x="322" y="144">재고 한 덩어리 — 플랜트 STOR</text>
+  <text class="t-s" x="322" y="164">배치관리 + 유통기한 MCHA-VFDAT · 이동평균가(V)</text>
+  <text class="t-xs" x="322" y="178">매입과 매출이 만나는 유일한 지점</text>
+
+  <path class="ln-key" d="M433 184 V222" marker-end="url(#pja)"/>
+
+  <text class="t-s c-key" x="20" y="214">Lead to Cash  ·  SD</text>
+
+  <rect class="b-key" x="20" y="224" width="146" height="48" rx="6"/>
+  <text class="t" x="38" y="246">수주</text>
+  <text class="m-s" x="38" y="264">VA01</text>
+  <path class="ln-key" d="M166 248 H182" marker-end="url(#pja)"/>
+
+  <rect class="b-key" x="190" y="224" width="146" height="48" rx="6"/>
+  <text class="t" x="208" y="246">납품 · FEFO 배치</text>
+  <text class="m-s" x="208" y="264">VL01N</text>
+  <path class="ln-key" d="M336 248 H352" marker-end="url(#pja)"/>
+
+  <rect class="b-key" x="360" y="224" width="146" height="48" rx="6"/>
+  <text class="t" x="378" y="246">출고처리 PGI</text>
+  <text class="m-s" x="378" y="264">601</text>
+  <path class="ln-key" d="M506 248 H522" marker-end="url(#pja)"/>
+
+  <rect class="b-key" x="530" y="224" width="146" height="48" rx="6"/>
+  <text class="t" x="548" y="246">청구</text>
+  <text class="m-s" x="548" y="264">VF01</text>
+  <path class="ln-ok" d="M676 248 H716" marker-end="url(#pjo)"/>
+
+  <rect class="b-ok" x="724" y="224" width="256" height="48" rx="6"/>
+  <text class="t-h c-ok" x="742" y="246">FI 매출채권 A/R</text>
+  <text class="t-xs" x="742" y="264">회사코드 CL04 귀속</text>
+
+  <rect class="b-ghost" x="20" y="286" width="960" height="0.1" rx="0"/>
+</svg>
+<figcaption><span class="fno">그림 3</span>개인 프로젝트에서 두 E2E 프로세스가 맞물리는 구조. 하나의 재고가 양쪽 회계 전표를 모두 발생시킨다.</figcaption>
+</figure>
+
+<div class="note ok">
+  <div class="t">📌 개인 E2E 프로젝트와의 연결점</div>
+  <p>이 프로젝트는 <b>Source to Pay</b>와 <b>Lead to Cash</b> 두 E2E 프로세스가 재고 한 덩어리에서 맞물리는 구조입니다. 직접 생산이 없으니 Design to Operate는 해당 없고, Record to Report는 FI 전기까지만 다룹니다.</p>
+  <p>주목할 점은 <b>두 프로세스를 잇는 지점이 CBO 3종이 앉는 자리</b>와 겹친다는 것입니다.<br>
+     · <code>ZGATE_INSPECT</code> — GR(101)과 STOR 이관(301) 사이. Source to Pay 내부의 Receive 단계가 깨지는 지점<br>
+     · <code>ZBATCH_ZONE</code> — STOR 재고의 잔여 유통기한을 보고 정상→임박(<code>311</code>)으로 옮긴다. 그림 3의 가운데 노란 박스가 그 대상<br>
+     · <code>ZPRICE_CHECK</code> — 정보레코드가(<code>EINE-NETPR</code>)와 이동평균가(<code>MBEW-VERPR</code>)의 괴리. Source to Pay와 Record to Report가 만나는 지점</p>
+</div>
+
+</div>
+
+
+<!-- ══════════ LESSON 3 ══════════ -->
+<div class="lesson" id="l3">
+<h2><span class="no">LESSON 3</span>SAP Best Practices와 Signavio Process Navigator</h2>
+
+<p><span class="tag">Unit 1</span><span class="tag">1-3</span>Aligning Business Processes with SAP Best Practices</p>
+
+<h3>Signavio Process Navigator란</h3>
+
+<p><b>SAP Signavio Process Navigator</b>는 여러 솔루션을 위한 SAP의 <span class="key">사전 정의된 비즈니스 프로세스 콘텐츠 라이브러리</span>입니다. "SAP 표준은 이렇게 되어 있다"를 확인하는 곳입니다.</p>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>용어</th><th>뜻</th></tr></thead>
+<tbody>
+<tr><td>Solution Scenario</td><td class="wrap">각 솔루션 프로세스의 문서화 + 구현을 돕는 리소스(<b>accelerators</b>)를 포함하는 묶음</td></tr>
+<tr><td>Solution Process</td><td class="wrap">관련 시스템에서 활동을 처음부터 끝까지 완료하는 프로세스 단계. 예: <code>1Q4</code> Time Recording. <span class="hl">solution process와 business process는 동의어</span></td></tr>
+<tr><td>Accelerators</td><td class="wrap">구현 보조 자료 묶음 — test script, task tutorial, set-up instructions 등</td></tr>
+</tbody>
+</table>
+</div>
+
+<h3>Accelerators — 무엇이 들어 있는가</h3>
+
+<div class="step"><span class="n">1</span><p>솔루션 프로세스는 <b>solution process flow diagram</b>으로 시각화된다. 예: <code>1Q4</code>는 "External System(Employee) → Start Time Recording → Record Actual Working Times → Approver" 흐름</p></div>
+<div class="step"><span class="n">2</span><p>실제 S/4HANA Cloud 시스템에서 완료하는 단계는 accelerators의 <b>test script</b>에 문서화된다</p></div>
+<div class="step"><span class="n">3</span><p>많은 솔루션 프로세스에 <b>task tutorial</b>(가상 환경 시뮬레이션)이 있다. 있으면 accelerators에 <b>"End-User Information"</b> 탭이 추가로 표시된다. 실제 라이브 시스템에서도 embedded support의 일부로 동일 튜토리얼 제공</p></div>
+<div class="step"><span class="n">4</span><p><b>(SAP Cloud ALM)</b>이 붙은 test script는 구현팀이 고객 랜드스케이프 구성 후 <b>UAT 케이스</b>를 SAP Cloud ALM에 만들 때 쓴다</p></div>
+<div class="step"><span class="n">5</span><p>사전 정의된 통합이나 전제조건 작업이 필요하면 <b>set-up instructions</b>도 제공된다</p></div>
+
+<h3>화면에서 보이는 것</h3>
+
+<p>접근 경로는 direct link 또는 <b>SAP for Me → Services &amp; Support 대시보드 → ALM 탭 → SAP Signavio Process Navigator</b>입니다.</p>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>항목</th><th>강의 화면의 값</th></tr></thead>
+<tbody>
+<tr><td>Business and Solution Entities</td><td class="wrap">Business Scenarios 1 / Business Processes 243 / Solution Scenarios 66 / Solution Processes 4771 / Roles 317 중 1419 / Capabilities 1238 중 4720</td></tr>
+<tr><td>솔루션 시나리오 예시</td><td class="wrap">SAP Best Practices for SAP S/4HANA Cloud Public Edition — Version 2602, United States, Processes 643, New 17, Added 16, Delta 7, In Deprecation 11</td></tr>
+<tr><td>LoB별 프로세스 수</td><td class="wrap">Finance 294 · Sales 90 · Human Resources 7 등 (그 외 Asset Management, Manufacturing, R&amp;D/Engineering …)</td></tr>
+<tr><td>Solution Process 탭</td><td class="wrap">Diagrams / Used In / Accelerators / Description / Country-Region Relevance / Industry Relevance</td></tr>
+</tbody>
+</table>
+</div>
+
+<div class="note warn">
+  <div class="t">확인 필요 — 위 숫자는 강의 캡처 시점 값이다</div>
+  <p>Process Navigator의 프로세스 개수·버전(2602)은 릴리스마다 바뀝니다. <span class="hl">범위 감을 잡는 용도로만 쓰고</span>, 실제로 참조할 때는 지금 시점의 Navigator 화면에서 다시 확인해야 합니다.</p>
+</div>
+
+<h3>두 개의 마스터 패키지</h3>
+
+<ul>
+  <li><b>SAP Best Practices for SAP S/4HANA Cloud Public Edition</b> — Public Edition에서 제공되는 모든 사전 정의 베스트 프랙티스 프로세스의 마스터 패키지</li>
+  <li><b>SAP Best Practices for SAP S/4HANA Cloud Private Edition</b> — Private Edition에서 제공되는 마스터 패키지</li>
+</ul>
+
+<div class="note ok">
+  <div class="t">📌 개인 E2E 프로젝트와의 연결점</div>
+  <p>이 프로젝트의 개발 원칙이 <b>"표준 우선. IMG로 되는 건 IMG로. CBO는 표준으로 안 되는 지점만"</b>인데, Process Navigator는 그 <span class="hl">"표준으로 되는지"를 확인하는 1차 도구</span>입니다.</p>
+  <p>구체적으로는 CBO 3종을 착수하기 전에 각각 대응하는 표준 solution process가 있는지 먼저 뒤져 봐야 합니다 — 유통기한 기준 재고 이동(<code>ZBATCH_ZONE</code>), 입고 검수 차이 반품(<code>ZGATE_INSPECT</code>), 구매가-이동평균가 괴리 알림(<code>ZPRICE_CHECK</code>). 표준에 있는데 CBO로 만들면 그 자체가 설계 실패이므로, 포트폴리오 문서의 <b>"표준으로 왜 안 되는가"</b> 절의 근거를 여기서 확보합니다.</p>
+</div>
+
+</div>
+
+
+<!-- ══════════ APPENDIX ══════════ -->
+<div class="lesson" id="lx">
+<h2><span class="no">APPENDIX</span>정리 · 반드시 기억할 것</h2>
+
+<h3>한 장 요약</h3>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>질문</th><th>답</th></tr></thead>
+<tbody>
+<tr><td>E2E 프로세스란</td><td class="wrap">하나의 비즈니스 기능이 처음부터 끝까지 이어지는 전체 여정. 영업·공급망·재무·구매·인사를 하나의 워크플로우로 통합</td></tr>
+<tr><td>5대 E2E 프로세스</td><td class="wrap">Lead to Cash · Source to Pay · Design to Operate · Recruit to Retire · <b>Record to Report</b></td></tr>
+<tr><td>Record to Report의 위치</td><td class="wrap">나머지 4개 프로세스 전체의 <b>기반</b>. 재무관리·보고·컴플라이언스·의사결정이 여기서 나온다</td></tr>
+<tr><td>통합이 깨지면 생기는 것</td><td class="wrap"><b>Data Silo</b> — 같은 고객·제품인데 시스템마다 값이 다르고 서로 조회되지 않는 상태</td></tr>
+<tr><td>통합의 7가지 이점</td><td class="wrap">Integration · Efficiency · Data Management(SSOT) · Compliance · Scalability · Real-time Analytics · Customer Satisfaction</td></tr>
+<tr><td>SD 작업이 Lead to Cash의 어디인가</td><td class="wrap">뒤 2단계 — <b>Order to Fulfill</b>(pick, pack, ship)과 <b>Invoice to Cash</b></td></tr>
+<tr><td>표준 프로세스를 어디서 보나</td><td class="wrap">SAP Signavio Process Navigator. solution process = business process</td></tr>
+<tr><td>solution process를 실제로 돌려보려면</td><td class="wrap">accelerators 섹션의 <b>test script</b>, 또는 <b>task tutorial</b>(있으면 End-User Information 탭)</td></tr>
+</tbody>
+</table>
+</div>
+
+<div class="note warn">
+  <div class="t">반드시 지킬 것</div>
+  <p>· 이 Unit은 <b>개관</b>이다. 개별 모듈 동작을 여기서 단정하지 않는다 — 모듈별 정확한 동작은 해당 저니 노트에서 확인한다.<br>
+     · Process Navigator의 프로세스 개수·버전 숫자는 강의 캡처 시점 값이다. <b>인용하지 말고 다시 확인한다.</b><br>
+     · Process Integration 스윔레인의 교차 지점은 원본 다이어그램을 봐야 정확하다. 표만 보고 교차 구조를 추측하지 않는다.<br>
+     · CBO를 만들기 전에 <b>표준 solution process가 있는지 먼저 뒤진다.</b> 이 순서를 지키지 않으면 "표준으로 왜 안 되는가"를 나중에 설명할 수 없다.</p>
+</div>
+
+<h3>참고</h3>
+
+<ul>
+  <li>원본: 노션 <b>SAP Learning Hub</b> → <b>IEE2E</b> → 1. Identifying End-to-End Business Processes and their Integration Challenge (1-1 ~ 1-3)</li>
+  <li>과정명: <b>Exploring End-to-End Business Processes in SAP Business Suite</b></li>
+  <li>이어지는 노트: <b>U2</b> SAP Business Suite 개관 · <b>U3</b> 핵심 개념과 오브젝트</li>
+  <li>관련 노트: SD 저니 <b>S46000</b> Sales Essentials(Order-to-Cash 상세) · MM 저니 <b>S4500</b> 구매 프로세스</li>
+  <li>이 노트는 <b>개인 학습용</b> 정리다. 실무 프로젝트 산출물이 아니다.</li>
+</ul>
+
+</div>
+
+</div>
+<script src="../../assets/hub.js" defer></script>
+</body>
+</html>

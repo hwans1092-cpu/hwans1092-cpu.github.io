@@ -1,0 +1,1153 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>S46200 Pricing 구성 — Condition Technique · 가격결정절차</title>
+<meta name="description" content="SAP Learning Hub의 Configuring Pricing in SAP S/4HANA Sales(S46200) 노트를 사이트 규격으로 변환. Condition Technique 검색 전략, Pricing Procedure, Access Sequence, 헤더조건 배분, 재가격결정(Pricing Type).">
+<link rel="icon" href="../../assets/favicon.svg">
+<link rel="stylesheet" href="../../assets/notes-paper.css">
+<style>
+/* ── 이 노트 전용: 도해(SVG) 스타일 ─────────────────────────── */
+.dgm{display:block; width:100%; height:auto;}
+.dgm text{font-family:"Malgun Gothic","맑은 고딕","Apple SD Gothic Neo",sans-serif; fill:#1e1e1e;}
+.dgm .t-h{font-size:15px; font-weight:700;}
+.dgm .t{font-size:13px;}
+.dgm .t-s{font-size:11.5px; fill:#555;}
+.dgm .t-xs{font-size:10.5px; fill:#6B7280;}
+.dgm .m{font-family:"D2Coding","Consolas",monospace; font-size:12px;}
+.dgm .m-s{font-family:"D2Coding","Consolas",monospace; font-size:10.5px;}
+.dgm .c-key{fill:#4338CA;} .dgm .c-bad{fill:#B91C1C;} .dgm .c-ok{fill:#047857;}
+.dgm .b{fill:#FFFFFF; stroke:#C7CBD6; stroke-width:1.2;}
+.dgm .b-key{fill:#EEF0FB; stroke:#4338CA; stroke-width:1.4;}
+.dgm .b-bad{fill:#FEF2F2; stroke:#B91C1C; stroke-width:1.3;}
+.dgm .b-ok{fill:#ECFDF5; stroke:#047857; stroke-width:1.3;}
+.dgm .b-mut{fill:#F3F4F6; stroke:#D1D5DB; stroke-width:1.1;}
+.dgm .b-hl{fill:#FEF08A; stroke:#CA8A04; stroke-width:1.2;}
+.dgm .b-ghost{fill:none; stroke:#9AA3B2; stroke-width:1.1; stroke-dasharray:5 4;}
+.dgm .ln{stroke:#7C8697; stroke-width:1.4; fill:none;}
+.dgm .ln-key{stroke:#4338CA; stroke-width:1.8; fill:none;}
+.dgm .ln-bad{stroke:#B91C1C; stroke-width:1.6; fill:none;}
+.dgm .ln-ok{stroke:#047857; stroke-width:1.6; fill:none;}
+.dgm .ln-d{stroke:#9AA3B2; stroke-width:1.2; stroke-dasharray:4 4; fill:none;}
+.dgm .arw{fill:#7C8697;} .dgm .arw-key{fill:#4338CA;}
+.dgm .arw-bad{fill:#B91C1C;} .dgm .arw-ok{fill:#047857;}
+.figwrap{background:#FAFAFE; border:1px solid var(--rule); border-radius:6px;
+  padding:18px 16px 10px; margin:22px 0;}
+.figwrap figcaption{margin-top:12px; padding-top:10px; border-top:1px solid var(--rule);}
+</style>
+</head>
+<body>
+<div class="crumb"><a href="../../index.html">← 자료실 홈</a> · <a href="../../journey.html?j=sd">SD 저니</a> · S46200 Pricing</div>
+<div class="sheet">
+
+<div class="doc-head">
+  <div class="kicker">LEARNING HUB · S46200</div>
+  <h1>Pricing 구성 — Condition Technique와 가격결정절차</h1>
+  <div class="sub">
+    Learning Journey <b>Implementing Sales in SAP S/4HANA Cloud Private Edition</b> · Course 10 / S46200 · 7 Unit · 14 레슨<br>
+    출처: 노션 <b>SAP Learning Hub</b> 노트 10-1 ~ 10-7 변환 · 개인 학습용 정리
+  </div>
+</div>
+
+<div class="lead">
+  <p><b>결론부터.</b> SAP의 가격은 계산되는 게 아니라 <span class="hl">"찾아지는" 것</span>입니다. 오더 한 줄의 단가는 어딘가에 저장된 <b>조건레코드(Condition Record)</b>이고, Condition Technique는 <span class="key">그 레코드를 어떤 순서로 뒤질지 정해 둔 검색 전략</span>입니다.</p>
+  <p>그래서 "가격이 왜 이렇게 나왔지"를 추적할 때 봐야 할 것은 계산식이 아니라 <b>검색 경로</b>입니다 — 어떤 Pricing Procedure가 잡혔고, 그 안의 조건유형에 어떤 Access Sequence가 붙어 있고, 몇 번째 조건테이블에서 적중했는가. 이 노트는 그 경로를 따라갑니다.</p>
+</div>
+
+<div class="toc">
+  <h4>목차</h4>
+  <ol>
+    <li><a href="#l1">Condition Technique 개념 · 헤더조건 · 재가격결정</a></li>
+    <li><a href="#l2">Condition Table · Access Sequence 구성 · 필드 확장</a></li>
+    <li><a href="#l3">조건레코드 대량유지보수 · 가격리스트 · Manage Prices</a></li>
+    <li><a href="#l4">그룹조건 · 조건배제/비교 · 누적값</a></li>
+    <li><a href="#l5">특수조건유형 · 통계조건 · 세금결정</a></li>
+    <li><a href="#l6">Condition Contract Management · 정산(Settlement)</a></li>
+    <li><a href="#l7">[Appendix] 가격 데이터모델 · SAP Note 목록</a></li>
+    <li><a href="#lx">정리 · 반드시 기억할 것</a></li>
+  </ol>
+</div>
+
+
+<!-- ══════════ LESSON 1 ══════════ -->
+<div class="lesson" id="l1">
+<h2><span class="no">LESSON 1</span>Condition Technique 개념 · 헤더조건 · 재가격결정</h2>
+
+<p><span class="tag">Unit 1</span><span class="tag">레슨 2개</span>Introducing Pricing (33분) · Introducing the Condition Technique (1시간 26분)</p>
+
+<h3>언제 이 구조를 알아야 하는가</h3>
+
+<p>운영에서 들어오는 가격 문의는 거의 다 같은 모양입니다 — <b>"같은 자재인데 이 고객만 단가가 다르게 나옵니다"</b>. 이때 자재마스터를 아무리 봐도 답이 없습니다. 단가는 자재마스터가 아니라 <span class="key">조건레코드</span>에 있고, 어떤 레코드가 선택됐는지는 <span class="key">Access Sequence</span>가 결정하기 때문입니다.</p>
+
+<p>Condition Technique를 모르면 이 문의는 "모르겠다"로 끝나고, 알면 <code>VK13</code> 조회 3분으로 끝납니다.</p>
+
+<h3>조건(Condition)과 조건유형(Condition Type)</h3>
+
+<p>가격결정은 <b>조건(Condition)</b>을 기반으로 동작합니다. 조건은 "가격 · 할인 · 운임 같은 개별 가격요소" 하나하나이고, <b>조건유형(Condition Type)</b>은 그 요소의 종류표입니다. 조건유형이 통제하는 대표적인 두 가지가 <span class="key">스케일기준유형(Scale Base Type)</span>과 <span class="key">계산유형(Calculation Type)</span>입니다.</p>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>스케일기준유형</th><th>계산유형</th><th>읽는 법</th></tr></thead>
+<tbody>
+<tr><td>값(Value)</td><td>초기값 대비 비율</td><td class="wrap">금액 기준으로 몇 % — 할인율 조건에 해당</td></tr>
+<tr><td>값(Value)</td><td>고정금액</td><td class="wrap">조건이 걸리면 정액으로 얼마</td></tr>
+<tr><td>수량(Quantity)</td><td>단위당 금액</td><td class="wrap">가장 흔한 형태 — EA당 단가</td></tr>
+<tr><td>중량(Weight)</td><td>중량단위당 금액</td><td class="wrap">운임 조건에서 자주 쓰임</td></tr>
+<tr><td>부피(Volume)</td><td>부피단위당 금액</td><td class="wrap">부피가 과금 기준인 물류 조건</td></tr>
+<tr><td>기간(Period)</td><td>시간단위당 수량</td><td class="wrap">렌탈 · 기간과금 시나리오</td></tr>
+</tbody>
+</table>
+</div>
+
+<div class="note">
+  <div class="t">🔰 초보자 설명 — 조건을 한 줄로</div>
+  <p>조건 = "가격표에 찍히는 줄 하나". 조건유형 = "그 줄이 어떤 성격인지 정해둔 분류" (정액인지 비율인지, 무엇을 기준으로 스케일이 걸리는지).</p>
+</div>
+
+<h3>Pricing Procedure — 이 거래에 허용된 조건유형의 목록</h3>
+
+<p>특정 거래에 쓸 수 있는 <b>모든 조건유형은 Pricing Procedure에 담깁니다.</b> 그리고 어떤 Pricing Procedure가 잡히는지는 Customizing에서 아래 세 가지의 조합으로 결정됩니다.</p>
+
+<ul>
+  <li><b>판매영역(Sales Area)</b> — 판매조직 / 유통경로 / 부문</li>
+  <li><b>문서 가격결정절차(Document Pricing Procedure)</b> — 판매문서유형에 배정된 값</li>
+  <li><b>고객 가격결정절차(Customer Pricing Procedure)</b> — 판매처(sold-to party) 마스터에 배정된 값</li>
+</ul>
+
+<p>Inclusion Point · Sub-procedure를 쓰면 국가별 특수 세금 요건을 <b>동적으로 끼워 넣을</b> 수도 있습니다.</p>
+
+<h4>Pricing Procedure의 주요 속성</h4>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>속성</th><th>하는 일</th></tr></thead>
+<tbody>
+<tr><td>Level (STEP)</td><td class="wrap">문서 안에서 조건이 처리 · 배치되는 <b>순서</b>. 소계 위치도 이 번호로 잡힌다</td></tr>
+<tr><td>Subtotal</td><td class="wrap">조건유형 필드를 <b>비워두고</b> Description에 소계명을 넣어 정의</td></tr>
+<tr><td>Condition Formula</td><td class="wrap">조건값 계산의 대체 기반 지정. 기본값은 <span class="key">직전 조건유형의 처리 결과값</span></td></tr>
+<tr><td>Requirements</td><td class="wrap">이 조건유형을 이번 문서에 적용할지 말지 판정</td></tr>
+<tr><td>Mandatory</td><td class="wrap">필수 — 값이 없으면 문서가 불완전 처리된다</td></tr>
+<tr><td>Manual only</td><td class="wrap">수동입력 전용 — <span class="bad">배정된 Access Sequence를 무시</span>한다</td></tr>
+<tr><td>Statistical</td><td class="wrap">통계 전용 — 순값 계산에 반영되지 않는다</td></tr>
+</tbody>
+</table>
+</div>
+
+<h3>가격이 찾아지는 순서 — 5단계</h3>
+
+<p>수량 120개짜리 자재가 담긴 오더가 생성됐다고 하겠습니다. 시스템은 이 흐름으로 단가를 찾습니다.</p>
+
+<div class="step"><span class="n">STEP 1</span><p>판매영역 · 고객 · 판매문서유형을 기준으로 <b>Pricing Procedure</b>를 결정한다.</p></div>
+<div class="step"><span class="n">STEP 2</span><p>절차에 담긴 각 <b>조건유형</b>에 배정된 <b>Access Sequence</b>를 확인한다.</p></div>
+<div class="step"><span class="n">STEP 3</span><p>Access Sequence 안의 <b>조건테이블 순서</b>를 읽는다. 각 테이블 하나가 곧 키 기준의 access 한 번이다.</p></div>
+<div class="step"><span class="n">STEP 4</span><p>첫 테이블부터 조회한다. <span class="hl">유효한 조건레코드를 찾을 때까지</span> 다음 테이블로 순차 이동한다.</p></div>
+<div class="step"><span class="n">STEP 5</span><p>적중하면 해당 스케일값을 매출문서에 복사한다. 그리고 <b>다음 조건유형으로 넘어가 STEP 2부터 반복</b>한다.</p></div>
+
+<figure class="figwrap">
+<svg class="dgm" viewBox="0 0 1000 400" role="img" aria-label="가격결정 흐름 도해. 판매영역·고객·문서유형이 Pricing Procedure를 결정하고, 절차 안의 조건유형마다 Access Sequence가 조건테이블을 순서대로 조회해 첫 적중 레코드를 문서에 복사한다.">
+  <defs>
+    <marker id="a1" markerWidth="9" markerHeight="9" refX="7" refY="4.5" orient="auto">
+      <polygon class="arw" points="0,0 9,4.5 0,9"/></marker>
+    <marker id="a1k" markerWidth="9" markerHeight="9" refX="7" refY="4.5" orient="auto">
+      <polygon class="arw-key" points="0,0 9,4.5 0,9"/></marker>
+    <marker id="a1o" markerWidth="9" markerHeight="9" refX="7" refY="4.5" orient="auto">
+      <polygon class="arw-ok" points="0,0 9,4.5 0,9"/></marker>
+  </defs>
+
+  <text class="t-s c-key" x="20" y="24">① 절차 결정</text>
+  <text class="t-s c-key" x="270" y="24">② 조건유형별 검색 전략</text>
+  <text class="t-s c-key" x="820" y="24">③ 결과</text>
+
+  <!-- 입력 3종 -->
+  <rect class="b" x="20" y="44" width="180" height="36" rx="4"/>
+  <text class="t" x="34" y="67">판매영역 (VKORG/VTWEG/SPART)</text>
+  <rect class="b" x="20" y="90" width="180" height="36" rx="4"/>
+  <text class="t" x="34" y="113">문서 가격결정절차 (KALSM)</text>
+  <rect class="b" x="20" y="136" width="180" height="36" rx="4"/>
+  <text class="t" x="34" y="159">고객 가격결정절차 (KALKS)</text>
+
+  <path class="ln" d="M200 108 H232" marker-end="url(#a1)"/>
+
+  <!-- Pricing Procedure -->
+  <rect class="b-key" x="240" y="44" width="230" height="200" rx="6"/>
+  <text class="t-h c-key" x="256" y="68">Pricing Procedure</text>
+  <text class="m-s" x="256" y="86">RVAA01</text>
+  <line class="ln-d" x1="256" y1="96" x2="454" y2="96"/>
+  <rect class="b-hl" x="256" y="106" width="198" height="30" rx="3"/>
+  <text class="m" x="266" y="126">10   PR00  가격</text>
+  <rect class="b" x="256" y="142" width="198" height="30" rx="3"/>
+  <text class="m" x="266" y="162">100  K007  고객할인</text>
+  <rect class="b" x="256" y="178" width="198" height="30" rx="3"/>
+  <text class="m" x="266" y="198">900  SKTO  현금할인</text>
+  <text class="t-xs" x="256" y="228">STEP 순서대로 처리 · 각 줄이 조건유형 하나</text>
+
+  <path class="ln-key" d="M454 121 H516" marker-end="url(#a1k)"/>
+  <text class="t-xs c-key" x="462" y="113">PR00의</text>
+
+  <!-- Access Sequence -->
+  <rect class="b" x="524" y="44" width="256" height="200" rx="6"/>
+  <text class="t-h c-key" x="540" y="68">Access Sequence</text>
+  <text class="m-s" x="540" y="86">PR02</text>
+  <line class="ln-d" x1="540" y1="96" x2="764" y2="96"/>
+
+  <rect class="b-mut" x="540" y="106" width="224" height="28" rx="3"/>
+  <text class="m-s" x="550" y="124">1  A005  고객 / 자재</text>
+  <path class="ln" d="M652 134 V142" marker-end="url(#a1)"/>
+  <rect class="b-mut" x="540" y="146" width="224" height="28" rx="3"/>
+  <text class="m-s" x="550" y="164">2  A004  자재</text>
+  <path class="ln" d="M652 174 V182" marker-end="url(#a1)"/>
+  <rect class="b-mut" x="540" y="186" width="224" height="28" rx="3"/>
+  <text class="m-s" x="550" y="204">3  A002  가격그룹</text>
+  <text class="t-xs c-bad" x="540" y="232">적중하면 즉시 중단 — 아래는 조회하지 않는다</text>
+
+  <path class="ln-ok" d="M780 144 H824" marker-end="url(#a1o)"/>
+
+  <!-- 결과 -->
+  <rect class="b-ok" x="832" y="108" width="150" height="76" rx="6"/>
+  <text class="t-h c-ok" x="848" y="134">조건레코드 적중</text>
+  <text class="t-s" x="848" y="154">스케일값 → 문서</text>
+  <text class="m-s" x="848" y="172">VK13 으로 조회</text>
+
+  <!-- 반복 루프 -->
+  <path class="ln-d" d="M907 184 V286 H355 V250" marker-end="url(#a1)"/>
+  <text class="t-s" x="380" y="306">다음 조건유형(K007 → SKTO)에 대해 ② 부터 반복</text>
+
+  <rect class="b-ghost" x="20" y="330" width="962" height="50" rx="6"/>
+  <text class="t-s" x="40" y="352">추적 요령 — 문제의 문서에서 조건 화면 → 해당 조건유형 더블클릭 → <tspan class="m-s">Analysis</tspan> 탭.</text>
+  <text class="t-s" x="40" y="370">어느 access까지 갔고 왜 미적중이었는지 시스템이 그대로 보여준다. 추측하지 말 것.</text>
+</svg>
+<figcaption><span class="fno">그림 1</span>Condition Technique 검색 흐름 — 절차 결정 → 조건유형별 Access Sequence → 조건테이블 순차 조회 → 첫 적중 복사.</figcaption>
+</figure>
+
+<h3>조건 유지보수 — 대량 인터페이스</h3>
+
+<p>SAP ERP에는 <b>대량유지보수(mass maintenance)</b> 인터페이스가 따로 있습니다. 고객 같은 특성 기준으로 <span class="key">여러 조건유형 · 여러 조건테이블을 한 번에</span> 갱신할 수 있습니다 — 예를 들어 특정 고객의 자재가격과 할인 · 할증을 한 화면에서 같이 보고 고치는 식입니다.</p>
+
+<p>기존 유지보수 트랜잭션(<code>Select Using Condition Type</code> 노드)도 그대로 살아 있습니다. 둘 중 무엇을 쓸지는 <b>한 번에 고칠 대상이 몇 줄이냐</b>로 갈립니다.</p>
+
+<h3>헤더조건 — 자동결정이 닿지 않는 영역</h3>
+
+<p>PR00 같은 일반 조건과 달리, 표준에는 <b>헤더레벨에만 붙는 헤더조건(header condition)</b>이 따로 있습니다. 성격이 완전히 다릅니다.</p>
+
+<div class="note warn">
+  <div class="t">헤더조건이 일반 조건과 다른 점</div>
+  <p>① <b>자동 가격결정이 헤더조건을 고려하지 않습니다.</b> ② 표준에서는 <b>조건레코드를 만들 수 없습니다.</b> ③ 따라서 <span class="bad">오더 처리 중 수동 입력만</span> 가능합니다.</p>
+</div>
+
+<p>입력된 헤더조건 금액은 시스템이 <b>순값(net value) 기준으로 아이템에 자동 배분</b>합니다. 이 배분 기준은 고정이 아니라, Pricing Procedure의 <span class="key">AltCBV(Alternative Condition Base Value)</span> 필드에서 루틴을 선택해 바꿀 수 있습니다.</p>
+
+<figure class="figwrap">
+<svg class="dgm" viewBox="0 0 1000 300" role="img" aria-label="헤더조건 배분 도해. 수동 입력된 헤더조건 -100,000원이 아이템 순값 비율에 따라 -60,000 / -30,000 / -10,000으로 자동 배분되며, 배분 기준은 AltCBV 루틴으로 변경한다.">
+  <defs>
+    <marker id="a2" markerWidth="9" markerHeight="9" refX="7" refY="4.5" orient="auto">
+      <polygon class="arw-key" points="0,0 9,4.5 0,9"/></marker>
+  </defs>
+
+  <rect class="b-hl" x="300" y="20" width="400" height="56" rx="6"/>
+  <text class="t-h" x="322" y="46">헤더조건 — 수동 입력</text>
+  <text class="m" x="322" y="66">-100,000 원   (조건레코드 없음 · 자동결정 대상 아님)</text>
+
+  <path class="ln-key" d="M420 76 V112 H180 V150" marker-end="url(#a2)"/>
+  <path class="ln-key" d="M500 76 V150" marker-end="url(#a2)"/>
+  <path class="ln-key" d="M580 76 V112 H820 V150" marker-end="url(#a2)"/>
+  <text class="t-s c-key" x="520" y="104">순값 비율로 자동 배분</text>
+
+  <rect class="b" x="80" y="158" width="200" height="86" rx="6"/>
+  <text class="t-h" x="100" y="184">아이템 10</text>
+  <text class="t-s" x="100" y="204">순값 600,000 (60%)</text>
+  <text class="m c-bad" x="100" y="228">→ -60,000</text>
+
+  <rect class="b" x="400" y="158" width="200" height="86" rx="6"/>
+  <text class="t-h" x="420" y="184">아이템 20</text>
+  <text class="t-s" x="420" y="204">순값 300,000 (30%)</text>
+  <text class="m c-bad" x="420" y="228">→ -30,000</text>
+
+  <rect class="b" x="720" y="158" width="200" height="86" rx="6"/>
+  <text class="t-h" x="740" y="184">아이템 30</text>
+  <text class="t-s" x="740" y="204">순값 100,000 (10%)</text>
+  <text class="m c-bad" x="740" y="228">→ -10,000</text>
+
+  <rect class="b-ghost" x="80" y="258" width="840" height="34" rx="6"/>
+  <text class="t-s" x="100" y="280">배분 기준 변경 = Pricing Procedure의 <tspan class="m-s">AltCBV</tspan> 루틴 — 12 총중량 · 13 순중량 · 01 부피</text>
+</svg>
+<figcaption><span class="fno">그림 2</span>헤더조건의 아이템 배분. 기본은 순값 비율, 기준 변경은 AltCBV 루틴 선택으로.</figcaption>
+</figure>
+
+<h3>재가격결정(New Pricing)과 Pricing Type</h3>
+
+<p>오더의 가격화면에서 <b>Edit → New Pricing Document</b>를 실행하면 <span class="key">Pricing Type</span>을 지정해 가격을 다시 계산할 수 있습니다. 지정하지 않으면 기본값은 <b>Type B(재가격결정)</b>입니다.</p>
+
+<p>판매문서만이 아니라 <b>청구문서에도</b> 적용되며, <span class="key">Copying Control</span>을 통해 청구문서 재가격결정 시나리오를 고객별로 다르게 설계할 수 있습니다.</p>
+
+<div class="note warn">
+  <div class="t">확인 필요 — 시스템에서 확정할 것</div>
+  <p>Pricing Type 코드 체계(B 외 A · C · G 등)와 각 코드가 어떤 조건유형을 보존/재결정하는지는 <b>버전과 Copying Control 설정에 따라 갈립니다.</b> 실제 시스템(<b>winerp01 / MEP</b>)의 <code>VTFL</code> 설정을 확인하고 이 절을 보강할 것.</p>
+</div>
+
+<div class="note ok">
+  <div class="t">📌 SD-MM-FI 개인 프로젝트와의 연결점</div>
+  <p>현재 개인 프로젝트(회사코드 CL04)의 판매문서 가격결정은 <b>PR00 기반 정가</b> 하나로 돌고 있습니다. 그 정가가 찾아지는 경로 자체가 이 장의 Access Sequence 검색 전략입니다.</p>
+  <p>향후 단백질 자재군(PROT · PBAR)별로 다른 할인율을 적용하려면 새 조건유형이 아니라 <span class="key">Access Sequence의 조건테이블 구성부터</span> 손대야 합니다 — 자재그룹을 키로 갖는 조건테이블이 있어야 하기 때문입니다.</p>
+</div>
+
+<div class="note">
+  <div class="t">🔰 초보자 설명 — Condition Technique를 한 줄로</div>
+  <p>"이 오더에 적용할 가격을 <b>어떤 순서로 찾을까</b>"를 정해둔 검색 전략입니다. 출력결정(Output Determination)의 Decision Table과 개념 구조가 같습니다 — 조건표를 순차 검색해 가장 구체적인 결과를 먼저 잡는 구조.</p>
+</div>
+
+</div>
+
+
+<!-- ══════════ LESSON 2 ══════════ -->
+<div class="lesson" id="l2">
+<h2><span class="no">LESSON 2</span>Condition Table · Access Sequence 구성 · 필드 확장</h2>
+
+<p><span class="tag">Unit 2</span><span class="tag">레슨 2개</span>Configuring Pricing (1시간 36분) · Identifying Further Options for Pricing Control (25분)</p>
+
+<h3>언제 이걸 알아야 하는가</h3>
+
+<p>현업 요청은 대개 이렇게 옵니다 — <b>"자재그룹 단위로 할인을 걸고 싶은데 조건레코드 화면에 자재그룹 칸이 없습니다"</b>. 조건유형을 새로 만들 문제가 아닙니다. <span class="key">그 키 조합을 가진 조건테이블이 없는 것</span>이고, 더 앞으로 가면 <span class="key">필드 카탈로그에 그 필드가 들어 있느냐</span>의 문제입니다.</p>
+
+<p>그래서 손대는 순서가 정해져 있습니다 — 필드 카탈로그 → 조건테이블 → Access Sequence → 조건유형 → Pricing Procedure. 뒤에서부터 손대면 반드시 앞으로 되돌아오게 됩니다.</p>
+
+<h3>Condition Table — 조건레코드의 키 구조</h3>
+
+<p>조건레코드는 항상 <b>특정 키로</b> 생성됩니다. Condition Table은 그 키의 구조를 정의합니다. 헤더 · 아이템 레벨에서 자주 쓰이는 필드들은 표준시스템에 이미 준비되어 있습니다.</p>
+
+<div class="note warn">
+  <div class="t">조건테이블을 만들 때 놓치는 두 가지</div>
+  <p>① <b>키필드는 테이블 상단에 배치</b>해야 합니다. 배치 순서가 곧 조건레코드의 키 순서입니다.<br>
+     ② 조건레코드 입력화면(fast entry screen)에서 그 필드가 <b>헤더 영역에 나올지 아이템 영역에 나올지</b>도 Condition Table에서 지정합니다 — 나중에 "입력이 불편하다"는 말이 나오는 지점입니다.</p>
+</div>
+
+<h3>Access Sequence — 레벨의 우선순위 계층</h3>
+
+<p>가격 · 할인 · 할증은 여러 레벨에서 정의할 수 있고, <b>각 레벨은 조건테이블 하나</b>로 표현됩니다. Access Sequence에 등록된 <span class="hl">순서가 곧 우선순위</span>입니다 — 시스템은 지정된 순서대로 조건레코드를 찾습니다.</p>
+
+<figure class="figwrap">
+<svg class="dgm" viewBox="0 0 1000 430" role="img" aria-label="조건테이블과 Access Sequence 구성 도해. 허용된 필드 카탈로그에서 키필드를 골라 조건테이블을 만들고, 그 테이블들을 좁은 키에서 넓은 키 순으로 Access Sequence에 배치한다.">
+  <defs>
+    <marker id="a3" markerWidth="9" markerHeight="9" refX="7" refY="4.5" orient="auto">
+      <polygon class="arw" points="0,0 9,4.5 0,9"/></marker>
+    <marker id="a3k" markerWidth="9" markerHeight="9" refX="7" refY="4.5" orient="auto">
+      <polygon class="arw-key" points="0,0 9,4.5 0,9"/></marker>
+  </defs>
+
+  <text class="t-s c-key" x="20" y="24">① 필드 카탈로그</text>
+  <text class="t-s c-key" x="320" y="24">② 조건테이블 = 키 조합</text>
+  <text class="t-s c-key" x="680" y="24">③ Access Sequence = 조회 순서</text>
+
+  <rect class="b" x="20" y="40" width="250" height="250" rx="6"/>
+  <text class="t-h" x="38" y="64">허용 필드 카탈로그</text>
+  <text class="t-s" x="38" y="82">쓸 수 있는 키필드의 목록</text>
+  <line class="ln-d" x1="38" y1="92" x2="252" y2="92"/>
+  <text class="m-s" x="38" y="114">KUNNR   고객</text>
+  <text class="m-s" x="38" y="134">MATNR   자재</text>
+  <text class="m-s" x="38" y="154">KONDM   자재가격그룹</text>
+  <text class="m-s" x="38" y="174">WAERK   문서통화</text>
+  <rect class="b-ghost" x="38" y="192" width="214" height="80" rx="4"/>
+  <text class="t-s" x="52" y="214">목록에 없는 필드가 필요하면</text>
+  <text class="t-s" x="52" y="234">릴리즈 중립 절차로 추가</text>
+  <text class="t-xs" x="52" y="256">SD → System Modifications →</text>
+  <text class="t-xs" x="52" y="270">Create New Fields</text>
+
+  <path class="ln" d="M270 150 H302" marker-end="url(#a3)"/>
+
+  <rect class="b-key" x="310" y="40" width="300" height="250" rx="6"/>
+  <text class="t-h c-key" x="328" y="64">조건테이블 (Annn)</text>
+  <text class="t-s" x="328" y="82">키필드는 위쪽부터 배치한다</text>
+  <line class="ln-d" x1="328" y1="92" x2="592" y2="92"/>
+  <rect class="b" x="328" y="104" width="264" height="46" rx="3"/>
+  <text class="m-s" x="340" y="124">A005  고객 + 자재</text>
+  <text class="t-xs" x="340" y="142">가장 좁은 키 — 개별 합의가</text>
+  <rect class="b" x="328" y="158" width="264" height="46" rx="3"/>
+  <text class="m-s" x="340" y="178">A004  자재</text>
+  <text class="t-xs" x="340" y="196">자재 정가</text>
+  <rect class="b-ok" x="328" y="212" width="264" height="46" rx="3"/>
+  <text class="m-s" x="340" y="232">Annn  판매조직 + 자재그룹</text>
+  <text class="t-xs" x="340" y="250">신규 — 자재그룹 할인용</text>
+  <text class="t-xs" x="328" y="278">생성 V/03 · 변경 V/04 · 조회 V/05</text>
+
+  <path class="ln-key" d="M610 165 H662" marker-end="url(#a3k)"/>
+
+  <rect class="b" x="670" y="40" width="310" height="250" rx="6"/>
+  <text class="t-h c-key" x="688" y="64">Access Sequence</text>
+  <text class="t-s" x="688" y="82">V/07 · 조건유형에 배정한다</text>
+  <line class="ln-d" x1="688" y1="92" x2="962" y2="92"/>
+  <rect class="b-mut" x="688" y="104" width="274" height="32" rx="3"/>
+  <text class="m-s" x="700" y="124">10  A005  고객 + 자재</text>
+  <path class="ln" d="M825 136 V146" marker-end="url(#a3)"/>
+  <rect class="b-mut" x="688" y="150" width="274" height="32" rx="3"/>
+  <text class="m-s" x="700" y="170">20  Annn  자재그룹</text>
+  <path class="ln" d="M825 182 V192" marker-end="url(#a3)"/>
+  <rect class="b-mut" x="688" y="196" width="274" height="32" rx="3"/>
+  <text class="m-s" x="700" y="216">30  A004  자재</text>
+  <text class="t-xs c-bad" x="688" y="250">순서를 뒤집으면 개별 합의가가 잡히지 않는다</text>
+  <text class="t-xs" x="688" y="270">access마다 대체 소스필드 · 요건 지정 가능</text>
+
+  <rect class="b-ghost" x="20" y="306" width="960" height="108" rx="6"/>
+  <text class="t-s" x="40" y="330">제한조건부 access — 표준 PR00의 Access Sequence는 3번째 access에 요건 3(문서통화 ≠ 로컬통화)이</text>
+  <text class="t-s" x="40" y="350">걸려 있다. 외화 문서일 때만 로컬통화 소스필드로 가격리스트 조건레코드를 한 번 더 조회하기 위한 것.</text>
+  <text class="t-s" x="40" y="370">불필요한 access를 요건으로 잘라내면 조회 건수가 줄어 가격결정 성능이 개선된다.</text>
+  <text class="t-xs" x="40" y="394">대체 소스필드 예 — 자재 → 5F 가격자재 · 문서통화 → 로컬통화 · sold-to party → ship-to party</text>
+</svg>
+<figcaption><span class="fno">그림 3</span>필드 카탈로그 → 조건테이블 → Access Sequence. 손대는 순서는 항상 왼쪽부터다.</figcaption>
+</figure>
+
+<h3>대체 소스필드 배정 — access마다 다른 필드로 조회</h3>
+
+<p>Access Sequence의 <b>각 access마다</b> 어떤 문서필드(소스필드)로 조회할지 따로 지정할 수 있습니다. 표준에서 쓰이는 예가 셋 있습니다.</p>
+
+<ul>
+  <li>자재 → <b>5F 가격자재(pricing material)</b> — 자재는 다르지만 가격은 대표 자재 하나로 관리할 때</li>
+  <li>문서통화 → <b>로컬통화</b> — 외화 문서에서 로컬통화 가격리스트를 참조할 때</li>
+  <li>sold-to party → <b>ship-to party</b> — 가격 기준을 실제 납품처로 잡아야 할 때</li>
+</ul>
+
+<h3>Counter — 같은 레벨에 조건을 여러 개 두기</h3>
+
+<p>수동 입력한 조건의 <b>입력 순서를 유지</b>하려면 조건들을 같은 Level에 두고 <span class="key">Counter</span> 하위키를 씁니다. Pricing Procedure 안에서 같은 레벨에 여러 조건을 입력할 수 있게 하는 장치입니다.</p>
+
+<h3>가격전략 5요소</h3>
+
+<p>복잡한 가격 요건은 새 기능이 아니라 <b>아래 다섯 개를 조합해서</b> 풉니다. 순서대로 읽으면 그대로 파이프라인입니다.</p>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>요소</th><th>역할</th><th>읽는 법</th></tr></thead>
+<tbody>
+<tr><td>Condition Table</td><td class="wrap">조건레코드의 키필드 정의</td><td class="wrap">무엇을 키로 찾을 것인가</td></tr>
+<tr><td>Access Sequence</td><td class="wrap">조건레코드 access의 계층구조</td><td class="wrap">어떤 순서로 찾을 것인가</td></tr>
+<tr><td>Condition Type</td><td class="wrap">가격조건의 속성 정의</td><td class="wrap">찾아낸 값이 무엇인가</td></tr>
+<tr><td>Pricing Procedure</td><td class="wrap">조건유형들의 연결 방식 정의</td><td class="wrap">어떻게 합산할 것인가</td></tr>
+<tr><td>Procedure Determination</td><td class="wrap">올바른 Pricing Procedure 선택</td><td class="wrap">어느 절차를 쓸 것인가</td></tr>
+</tbody>
+</table>
+</div>
+
+<p>여기서 모자라면 <b>신규 가격필드</b>(고객 요건 충족용) · <b>Requirements</b>(의존관계 정의 · 성능 개선) · <b>Formula</b>(표준 설정의 한계를 넘는 확장)를 추가합니다. SAP는 이 세 가지를 만들 도구를 Customizing에 제공합니다.</p>
+
+<div class="note warn">
+  <div class="t">확인 필요 — 시스템에서 확정할 것</div>
+  <p>필드 카탈로그 확장 Customizing 경로(<code>Sales and Distribution → System Modifications → Create New Fields Using Condition Technique</code>)와 거기서 요구하는 구조체(<code>KOMKAZ</code> / <code>KOMPAZ</code>) · Include 이름은 <b>릴리즈에 따라 갈립니다.</b> 실제 시스템(<b>winerp01 / MEP</b>)에서 IMG 경로와 구조체명을 먼저 확인한 뒤 착수할 것. 필드 카탈로그 확장은 <span class="bad">되돌리기가 어려운 작업</span>이므로 추측으로 진행하지 않습니다.</p>
+</div>
+
+<div class="note">
+  <div class="t">🔰 초보자 설명 — 세 개의 관계를 한 줄로</div>
+  <p>Condition Table은 <b>"검색 키 구조"</b>, Access Sequence는 <b>"여러 조건테이블을 어떤 순서로 뒤질지의 순서표"</b>, Condition Type은 <b>"그 검색으로 찾을 가격요소의 정체성"</b>입니다.</p>
+</div>
+
+<div class="note ok">
+  <div class="t">📌 SD-MM-FI 개인 프로젝트와의 연결점</div>
+  <p>개인 프로젝트(회사코드 CL04)에서 자재그룹은 온도군을 따라 이미 나뉘어 있습니다 — 냉동 · 냉장은 <code>CHKN</code> <code>RICE</code>, 실온은 <code>SHAK</code> <code>PROT</code> <code>PBAR</code>. 실온 단백질군(<code>PROT</code> · <code>PBAR</code>)에만 판촉 할인을 걸겠다면, 새 조건유형이 아니라 <span class="key">판매조직 + 자재그룹을 키로 갖는 조건테이블</span>을 만들고 할인 조건유형의 Access Sequence에 <b>A004(자재) 앞</b>에 끼워 넣으면 됩니다.</p>
+  <p>주의할 점은 순서입니다. 자재 단위 정가가 먼저 잡히면 자재그룹 할인은 영원히 적중하지 않습니다 — <b>좁은 키가 위</b>라는 원칙을 그대로 지킵니다.</p>
+</div>
+
+</div>
+
+
+<!-- ══════════ LESSON 3 ══════════ -->
+<div class="lesson" id="l3">
+<h2><span class="no">LESSON 3</span>조건레코드 대량유지보수 · 가격리스트 · Manage Prices</h2>
+
+<p><span class="tag">Unit 3</span><span class="tag">레슨 2개</span>Using Condition Records (36분) · Using Reports for Condition Records (1시간 10분)</p>
+
+<h3>언제 이걸 알아야 하는가</h3>
+
+<p><b>"다음 달부터 전 품목 단가가 3% 오릅니다. 조건레코드 400건 고쳐 주세요."</b> — <code>VK12</code>로 한 건씩 열면 하루가 갑니다. 여기서 알아야 할 것은 세 가지입니다: <span class="key">참조 생성</span>(기존 것을 본떠 새 유효구간 만들기), <span class="key">대량유지보수</span>(여러 건 동시 수정), <span class="key">Manage Prices - Sales</span>(스프레드시트 임포트).</p>
+
+<h3>참조 생성(Create with Reference) — VK14</h3>
+
+<p>기존 조건레코드를 참조해 <b>새 유효구간(Validity Interval)</b>을 만듭니다. 이 과정에서 요율 · 유효기간 · 추가 판매데이터를 함께 수정할 수 있어, 여러 조건레코드를 효율적으로 갱신할 수 있습니다.</p>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>수단</th><th>쓰는 상황</th><th>주의</th></tr></thead>
+<tbody>
+<tr><td><code>VK14</code></td><td class="wrap">기존 레코드를 템플릿으로 새 유효기간 · 요율 생성</td><td class="wrap">템플릿의 추가 판매데이터도 같이 따라온다</td></tr>
+<tr><td class="wrap">가격변경 기능</td><td class="wrap">여러 조건레코드를 동시에 수정</td><td class="wrap">변경문서(change document)로 추적 가능</td></tr>
+<tr><td class="wrap">기존 레코드 복사</td><td class="wrap">고객번호 범위 · 자재번호 범위를 지정해 일괄 생성</td><td class="wrap">복사규칙은 Customizing 정의 — 직접 만들 수도 있다</td></tr>
+</tbody>
+</table>
+</div>
+
+<p>릴리즈 절차가 필요하면 비즈니스 트랜잭션 이벤트 <code>00503303</code>(Maintain Conditions: Transfers)으로 처리상태별 개별 로직을 정의할 수 있습니다.</p>
+
+<div class="note">
+  <div class="t">계산유형은 레코드 단위로 덮어쓸 수 있다</div>
+  <p>조건유형의 계산유형(Calculation Type)은 Customizing에서 정의되지만, <b>새 조건레코드를 만들 때 기본값과 다른 계산유형을 선택할 수 있습니다.</b> "조건유형 설정은 정률인데 이 레코드만 정액"인 상황이 실제로 나오는 이유입니다 — 조건유형 설정만 보고 판단하면 틀립니다.</p>
+</div>
+
+<h3>가격리스트(Price List)</h3>
+
+<p>고객에게 내보낼 가격표를 뽑는 기능입니다. 입력값이 두 갈래로 나뉩니다.</p>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>구분</th><th>항목</th></tr></thead>
+<tbody>
+<tr><td class="wrap">선택기준</td><td class="wrap">판매영역 · 고객번호(또는 범위) · 자재번호(또는 제품계층 · 자재가격그룹)</td></tr>
+<tr><td class="wrap">통제데이터</td><td class="wrap">가격일자 · <b>판매문서유형</b> — Pricing Procedure 결정에 필요하므로 필수</td></tr>
+<tr><td class="wrap">출력</td><td class="wrap">시스템 내 표시 · FTP 서버 업로드 · Excel/CSV(ZIP 포함) 이메일 발송(sold-to party)</td></tr>
+</tbody>
+</table>
+</div>
+
+<h3>가격리포트(Pricing Reports)</h3>
+
+<p>기존 조건레코드를 <b>분석</b>하는 리스트입니다. "특정 기간 내 고객별 가격합의가 무엇인가", "저장된 Incoterms 조건레코드가 무엇인가" 같은 질문에 답합니다.</p>
+
+<div class="step"><span class="n">STEP 1</span><p>보고자 하는 <b>필드를 선택</b>해 뷰(view)를 정의한다.</p></div>
+<div class="step"><span class="n">STEP 2</span><p>시스템이 <b>해당 필드를 포함하는 조건테이블 목록</b>을 자동 생성한다.</p></div>
+<div class="step"><span class="n">STEP 3</span><p>필드 배치 · 정렬로 레이아웃을 지정한다 — 페이지헤더 / 그룹헤더 / 아이템 세 섹션.</p></div>
+
+<h3>Manage Prices - Sales 앱</h3>
+
+<p><code>VK31</code> · <code>VK32</code> · <code>VK33</code>을 통한 조건 유지보수는 SAP Fiori 앱 <b>Manage Prices - Sales</b> 도입으로 중요성이 줄었습니다. 이 앱이 가진 것은 다음과 같습니다.</p>
+
+<ul>
+  <li>필터값으로 조건레코드 검색 — <b>조건유형 · 키조합을 지정하면 관련 키필드가 동적으로 필터 · 열로 추가</b>된다</li>
+  <li>테이블에서 직접 조건레코드 생성, 또는 기존 레코드를 복사해 생성</li>
+  <li>유효기간과 조건금액을 <b>동시에</b> 수정</li>
+  <li>템플릿 기반 <b>스프레드시트 임포트</b> — 신규 생성 / 기존 수정 일괄 처리, 대량 임포트는 백그라운드 상태 추적</li>
+</ul>
+
+<div class="note warn">
+  <div class="t">임포트 전에 반드시 확인 — 유효기간 겹침</div>
+  <p>새로 만들거나 수정한 조건레코드의 유효기간이 기존 레코드와 겹치면, <span class="bad">기존 레코드가 새 기간으로 갱신되거나 대체(삭제)될 수 있습니다.</span> 엑셀 400줄을 올린 뒤에 발견하면 되돌릴 방법이 마땅치 않습니다. 임포트는 <b>소량 파일로 먼저 한 번 돌려 결과를 확인한 뒤</b> 전량을 올립니다.</p>
+</div>
+
+<h3>조건 설명 유지보수(Maintain Description)</h3>
+
+<p>조건레코드마다 <b>개별 설명</b>을 정의해 조건유형의 기본 설명을 덮어쓸 수 있습니다. 같은 조건유형을 서로 다른 설명으로 재사용할 수 있으므로 <span class="key">신규 조건유형을 만들 필요가 줄고 가격 Customizing이 단순해집니다.</span> Manage Prices - Sales · Set Material Prices - Sales 앱 또는 <code>VK12</code>에서 설정합니다.</p>
+
+<div class="note">
+  <div class="t">🔰 초보자 설명 — 참조 생성 · 대량유지보수 · Manage Prices를 한 줄로</div>
+  <p>참조 생성(<code>VK14</code>)은 "기존 가격을 복사해 일부만 바꿔 새로 만드는 것", 대량유지보수는 "이미 있는 여러 가격을 한 번에 일괄 수정하는 것", Manage Prices - Sales는 "엑셀 업로드로 수백 건을 한 번에 갱신하는 현대화된 앱"입니다.</p>
+</div>
+
+<div class="note ok">
+  <div class="t">📌 SD-MM-FI 개인 프로젝트와의 연결점</div>
+  <p>개인 프로젝트에서 가격 데이터는 아직 <code>VK11</code> 단건 입력으로 만들고 있습니다. 목표 3번(웹페이지 → RFC 호출)에 <b>가격 조회/등록 FM</b>을 붙일 때, 이 장의 "조건유형 + 키조합을 지정하면 키필드가 결정된다"는 구조를 그대로 인터페이스 파라미터 설계로 옮길 수 있습니다 — RFC FM 입력을 자재 · 고객으로 고정하지 말고, <span class="key">조건유형과 키조합을 받아 키필드를 동적으로 구성</span>하는 쪽이 확장에 유리합니다.</p>
+  <p>다만 가격 등록은 <b>금액에 직접 영향을 주는 처리</b>입니다. 프로젝트 원칙대로 웹에서 들어온 요청은 CBO 테이블에 상태 <code>W</code>로 적재만 하고, 실제 <code>VK11</code> 반영은 승인 후 배치로 돌립니다. RFC가 바로 조건레코드를 쓰게 만들지 않습니다.</p>
+</div>
+
+</div>
+
+
+<!-- ══════════ LESSON 4 ══════════ -->
+<div class="lesson" id="l4">
+<h2><span class="no">LESSON 4</span>그룹조건 · 조건배제/비교 · 누적값</h2>
+
+<p><span class="tag">Unit 4</span><span class="tag">레슨 1개</span>Applying Special Pricing Functions (1시간 35분)</p>
+
+<h3>언제 이걸 알아야 하는가</h3>
+
+<p><b>"100개 이상이면 10% 할인인데, 40개 + 30개 + 50개로 나눠 담으니 할인이 안 붙습니다."</b> — 스케일은 아이템 단위로 평가되기 때문입니다. 아이템을 <span class="key">묶어서</span> 평가하게 만드는 것이 <b>그룹조건(Group Condition)</b>입니다.</p>
+
+<h3>그룹조건 — 합산해서 평가하고, 다시 나눠서 붙인다</h3>
+
+<p>그룹조건은 <b>Customizing에서 그룹조건으로 지정</b>되어야 하고, <span class="key">누적 단위(unit of measure)</span>도 함께 지정해야 합니다. 무엇을 기준으로 묶을지는 <b>Group Condition Routine</b> 필드에서 세 공식 중 하나를 고릅니다.</p>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>공식</th><th>누적 기준</th><th>쓰는 상황</th></tr></thead>
+<tbody>
+<tr><td class="wrap">Formula 1 (전체문서)</td><td class="wrap">같은 조건유형을 가진 문서 내 모든 명세의 수량/값 합산</td><td class="wrap">같은 할인이 걸리는 아이템끼리 묶기</td></tr>
+<tr><td class="wrap">Formula 2 (모든 조건유형)</td><td class="wrap">조건유형과 무관하게 문서 내 모든 명세의 수량/값 합산</td><td class="wrap">오더 전체 규모로 판단</td></tr>
+<tr><td class="wrap">Formula 3 (자재그룹)</td><td class="wrap">현재 명세와 같은 <b>자재가격그룹(<code>KONDM</code>)</b>을 가진 모든 명세 합산</td><td class="wrap">상품군 단위 묶음할인</td></tr>
+</tbody>
+</table>
+</div>
+
+<figure class="figwrap">
+<svg class="dgm" viewBox="0 0 1000 400" role="img" aria-label="그룹조건 배분 도해. 아이템별 수량 40·30·50은 각각 스케일에 미달하지만 그룹조건으로 합산하면 120개가 되어 10% 스케일에 적중하고, 그 할인액이 다시 아이템 순값 비율로 배분된다.">
+  <defs>
+    <marker id="a4k" markerWidth="9" markerHeight="9" refX="7" refY="4.5" orient="auto">
+      <polygon class="arw-key" points="0,0 9,4.5 0,9"/></marker>
+    <marker id="a4o" markerWidth="9" markerHeight="9" refX="7" refY="4.5" orient="auto">
+      <polygon class="arw-ok" points="0,0 9,4.5 0,9"/></marker>
+  </defs>
+
+  <rect class="b" x="40" y="36" width="240" height="64" rx="6"/>
+  <text class="t-h" x="58" y="62">아이템 10</text>
+  <text class="m" x="58" y="84">40 EA · 40,000 원</text>
+  <rect class="b" x="380" y="36" width="240" height="64" rx="6"/>
+  <text class="t-h" x="398" y="62">아이템 20</text>
+  <text class="m" x="398" y="84">30 EA · 30,000 원</text>
+  <rect class="b" x="720" y="36" width="240" height="64" rx="6"/>
+  <text class="t-h" x="738" y="62">아이템 30</text>
+  <text class="m" x="738" y="84">50 EA · 50,000 원</text>
+
+  <path class="ln-key" d="M160 100 V124 H420 V146" marker-end="url(#a4k)"/>
+  <path class="ln-key" d="M500 100 V146" marker-end="url(#a4k)"/>
+  <path class="ln-key" d="M840 100 V124 H580 V146" marker-end="url(#a4k)"/>
+
+  <rect class="b-bad" x="30" y="148" width="270" height="64" rx="6"/>
+  <text class="t-h c-bad" x="48" y="174">그룹조건이 아니면</text>
+  <text class="t-s" x="48" y="196">40 · 30 · 50 각각 100 미만 → 할인 0</text>
+
+  <rect class="b-key" x="340" y="148" width="300" height="64" rx="6"/>
+  <text class="t-h c-key" x="358" y="174">그룹 합산 (Formula 1)</text>
+  <text class="m" x="358" y="196">120 EA · 120,000 원</text>
+
+  <path class="ln-key" d="M640 180 H692" marker-end="url(#a4k)"/>
+
+  <rect class="b-hl" x="700" y="148" width="270" height="64" rx="6"/>
+  <text class="t-h" x="718" y="174">스케일 적중</text>
+  <text class="m" x="718" y="196">100 EA 이상 → 10 %</text>
+
+  <path class="ln-ok" d="M835 212 V240 H160"/>
+  <path class="ln-ok" d="M160 240 V264" marker-end="url(#a4o)"/>
+  <path class="ln-ok" d="M500 240 V264" marker-end="url(#a4o)"/>
+  <path class="ln-ok" d="M830 240 V264" marker-end="url(#a4o)"/>
+  <text class="t-s c-ok" x="540" y="234">합산값에 적용된 10 %를 아이템별로 다시 배분</text>
+
+  <rect class="b-ok" x="40" y="268" width="240" height="62" rx="6"/>
+  <text class="t-h" x="58" y="294">아이템 10</text>
+  <text class="m c-ok" x="58" y="316">-4,000 원</text>
+  <rect class="b-ok" x="380" y="268" width="240" height="62" rx="6"/>
+  <text class="t-h" x="398" y="294">아이템 20</text>
+  <text class="m c-ok" x="398" y="316">-3,000 원</text>
+  <rect class="b-ok" x="720" y="268" width="240" height="62" rx="6"/>
+  <text class="t-h" x="738" y="294">아이템 30</text>
+  <text class="m c-ok" x="738" y="316">-5,000 원</text>
+
+  <rect class="b-ghost" x="30" y="344" width="940" height="48" rx="6"/>
+  <text class="t-s" x="50" y="366">누적 단위(unit of measure)를 Customizing에서 함께 지정해야 한다 · 그룹조건에는 구간스케일(D) 사용 불가</text>
+  <text class="t-xs" x="50" y="384">Formula 1 같은 조건유형 전체 · Formula 2 조건유형 무관 전체 · Formula 3 같은 자재가격그룹(KONDM)</text>
+</svg>
+<figcaption><span class="fno">그림 4</span>그룹조건의 합산과 배분. 아이템을 묶어 스케일을 평가한 뒤 결과를 다시 아이템으로 되돌린다.</figcaption>
+</figure>
+
+<h3>조건 배제(Exclusion of Conditions) — 중복할인 막기</h3>
+
+<p>Pricing Procedure의 조건은 <b>Requirement</b>와 연결될 수 있습니다. Requirement가 <span class="key">배제지표(exclusion indicator)</span>를 확인해서, 설정되어 있으면 해당 조건을 무시합니다.</p>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>배제지표를 어디에 설정하나</th><th>적용 범위</th></tr></thead>
+<tbody>
+<tr><td class="wrap">조건유형</td><td class="wrap">해당 유형의 <b>모든 조건레코드</b>에 배제가 적용된다</td></tr>
+<tr><td class="wrap">조건레코드</td><td class="wrap">그 레코드에만 적용 — 같은 유형의 다른 레코드는 영향 없음</td></tr>
+</tbody>
+</table>
+</div>
+
+<div class="note warn">
+  <div class="t">배제는 "뒤에 오는 것"만 막는다</div>
+  <p>PR00에 배제지표가 설정되면 <b>그 뒤에 오는 조건유형(예: K007)이 배제</b>됩니다. <span class="bad">PR00 앞에 있는 조건은 영향받지 않습니다.</span> 그래서 "배제를 걸었는데 할인이 그대로 붙는다"는 문의는 대부분 Pricing Procedure의 STEP 순서 문제입니다.</p>
+</div>
+
+<h3>조건유형 비교 — 어느 쪽이 유리한 가격인가</h3>
+
+<p>여러 후보 중 가장 유리한(또는 가장 불리한) 가격을 고르는 방법이 코드로 정리되어 있습니다.</p>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>방법</th><th>로직</th></tr></thead>
+<tbody>
+<tr><td>A</td><td class="wrap">첫 배제그룹 내 모든 레코드를 비교해 <b>최적가</b> 선택 (나머지 비활성화)</td></tr>
+<tr><td>B</td><td class="wrap">같은 조건유형(예: PR00) 내 레코드만으로 비교해 최적가 선택</td></tr>
+<tr><td>C</td><td class="wrap">1배제그룹 전체가 vs 2배제그룹 전체가를 비교해 <b>유리한 그룹</b> 선택</td></tr>
+<tr><td>D</td><td class="wrap">1배제그룹에서 레코드가 결정되면 2배제그룹 전체를 비활성화</td></tr>
+<tr><td>E</td><td class="wrap">B와 같으나 <b>최악가</b>(가장 비싼 부과 / 가장 적은 할인) 선택</td></tr>
+<tr><td>F</td><td class="wrap">C와 같으나 최악가 그룹 선택</td></tr>
+<tr><td>L</td><td class="wrap">A와 같으나 최악가 선택</td></tr>
+</tbody>
+</table>
+</div>
+
+<h3>조건갱신(Condition Update)과 조건보완(Condition Supplements)</h3>
+
+<p><b>조건갱신</b>은 조건레코드에 값을 <span class="key">누적</span>해서 한도와 비교하는 기능입니다. 조건의 <b>최대 값 · 최대 기준값 · 최대 오더건수</b>를 설정할 수 있고, 누적된 값은 조건레코드에서 조회할 수 있습니다.</p>
+
+<p><b>조건보완</b>은 <span class="bad">자체 Access Sequence가 없습니다.</span> 조건유형 PR00의 기본 조건레코드와 <b>함께 찾아지고 함께 유지보수</b>됩니다. 허용되는 보완조건 집합은 주 조건유형에 별도의 Pricing Procedure(PR0000)를 배정해 Customizing에서 지정합니다.</p>
+
+<div class="note">
+  <div class="t">🔰 초보자 설명 — 그룹조건과 조건배제를 한 줄로</div>
+  <p>그룹조건은 <b>"여러 아이템을 묶어서 할인율을 계산하는"</b> 기능이고, 조건배제는 <b>"특정 할인이 적용되면 다른 할인은 막는"</b>(중복할인 방지) 기능입니다.</p>
+</div>
+
+<div class="note ok">
+  <div class="t">📌 SD-MM-FI 개인 프로젝트와의 연결점</div>
+  <p>개인 프로젝트의 자재그룹은 온도군 기준으로 이미 분리되어 있으므로(<code>CHKN</code> <code>RICE</code> / <code>SHAK</code> <code>PROT</code> <code>PBAR</code>), <b>상품군 묶음할인</b>을 넣는다면 <span class="key">Formula 3(자재가격그룹 <code>KONDM</code> 기준)</span>이 그대로 맞습니다 — 자재그룹과 자재가격그룹은 별개 필드이므로 <code>MVKE-KONDM</code>을 자재마스터 영업뷰에 채워야 한다는 점만 주의합니다.</p>
+  <p>다만 그룹조건은 <b>문서 전체 금액을 바꾸는 처리</b>입니다. 프로젝트 원칙(회계 영향 처리는 자동화하지 않는다)에 따라, 묶음할인은 표준 조건유형으로만 구성하고 <span class="bad">CBO로 할인율을 계산해 조건에 밀어 넣는 방식은 쓰지 않습니다.</span></p>
+</div>
+
+</div>
+
+
+<!-- ══════════ LESSON 5 ══════════ -->
+<div class="lesson" id="l5">
+<h2><span class="no">LESSON 5</span>특수조건유형 · 통계조건 · 세금결정</h2>
+
+<p><span class="tag">Unit 5</span><span class="tag">레슨 3개</span>Using Special Condition Types (2시간) · Using Statistical Condition Types (45분) · Analyzing the Determination of Taxes (30분)</p>
+
+<h3>언제 이걸 알아야 하는가</h3>
+
+<p><b>"영업이 오더 총액을 고객과 통으로 합의해 왔는데, 아이템별로 어떻게 나눠 넣습니까"</b> — 나눠 넣지 않습니다. 헤더 조건유형 <b>HM00</b>에 총액을 넣으면 시스템이 배분합니다. 이 장은 표준이 이미 준비해 둔 <span class="key">특수 조건유형 목록</span>입니다. 새로 만들기 전에 여기서 먼저 찾습니다.</p>
+
+<h3>수동가격 — HM00 · PN00</h3>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>조건유형</th><th>레벨</th><th>동작</th></tr></thead>
+<tbody>
+<tr><td><b>HM00</b></td><td>헤더</td><td class="wrap">오더값을 수동 입력 → 기존 <b>순아이템값 비율</b>로 아이템에 안분, 세금은 아이템별 재계산</td></tr>
+<tr><td><b>PN00</b></td><td>아이템</td><td class="wrap">순가격을 직접 지정 → <span class="bad">원래 조건들은 비활성화</span></td></tr>
+</tbody>
+</table>
+</div>
+
+<p>PN00은 PR00에 <b>Requirement 2</b>를 배정해 배제지표를 쓰는 순가격(net pricing) 방식의 <b>대안</b>입니다. 둘 다 같은 목적지에 도달하지만 흔적이 다릅니다 — PN00은 문서에 "사람이 값을 넣었다"가 남습니다.</p>
+
+<h3>최소가 — PMIN · AMIW · AMIZ</h3>
+
+<p><b>PMIN</b>으로 자재별 최소가를 설정합니다. 가격결정 결과가 최소가에 미달하면 시스템이 PMIN으로 <b>차액</b>을 결정합니다. 최소 <em>오더금액</em>은 별개로 <b>AMIW</b> · <b>AMIZ</b>로 관리합니다.</p>
+
+<h3>누진가격(Graduated Pricing) — 스케일유형 D</h3>
+
+<p>구간스케일(interval scale)은 <span class="key">조건유형이 스케일유형 D로 설정된 경우에만</span> 유지보수할 수 있습니다. 그룹조건에는 쓸 수 없습니다.</p>
+
+<div class="step"><span class="n">STEP 1</span><p>PR00(콘디션클래스 B)과 PR02(같은 클래스)를 Pricing Procedure에 두고, <b>PR02를 PR00 다음</b>에 배치한다.</p></div>
+<div class="step"><span class="n">STEP 2</span><p>같은 클래스에서는 <b>가장 높은 레벨의 가격만 유효</b>하므로 PR00이 자동으로 비활성화된다.</p></div>
+<div class="step"><span class="n">STEP 3</span><p>스케일유형 D인 PR02가 여러 구간을 나눠서 반영한다.</p></div>
+
+<div class="note warn">
+  <div class="t">스케일 마지막 구간은 넉넉하게</div>
+  <p>스케일의 <b>마지막 구간값은 실제 발생할 수 있는 최대치보다 크게</b> 설정해야 합니다. 그렇지 않으면 마지막 구간을 넘는 수량에서 계산 오류가 납니다 — 운영에서 "평소엔 맞는데 대량 오더만 금액이 이상하다"로 나타납니다.</p>
+</div>
+
+<h3>고객계층 가격결정(Customer Hierarchy Pricing)</h3>
+
+<p>다단계 구매그룹 · 협동조합 · 체인점처럼 고객 조직구조를 반영해야 할 때 씁니다. 구축 순서는 <b>노드 생성 → 노드끼리 배정 → 고객마스터를 노드에 배정</b>입니다. 노드를 옮기면 관련 노드 · 고객마스터가 자동으로 재배정됩니다.</p>
+
+<p>상위 노드에 가격 / 리베이트 합의를 배정하면 <span class="hl">하위 모든 레벨에 적용</span>됩니다. 오더의 계층 경로상 여러 노드에 가격정보가 있으면 Access Sequence에 따라 자동으로 고려되며, <b>표준 Access Sequence는 최하위 계층에서 할인이 시작되도록</b> 설정되어 있습니다.</p>
+
+<h3>팔렛 할인 · 반올림 — KP00 · KP01 · KP02 · DIFF</h3>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>조건유형</th><th>동작</th><th>기본 공식</th></tr></thead>
+<tbody>
+<tr><td><b>KP00</b></td><td class="wrap">팔렛 할인 — <b>완전한 단위</b>(팔렛 1개 등)에만 할인 적용. 팔렛 외 단위에도 사용 가능</td><td>22</td></tr>
+<tr><td><b>KP01</b></td><td class="wrap">불완전팔렛 할증 — <b>자투리 수량</b>만큼 할증 부과</td><td>24</td></tr>
+<tr><td><b>KP02</b></td><td class="wrap">혼합팔렛 할인 — 서로 다른 자재가 섞인 팔렛에 대한 할인/할증</td><td>—</td></tr>
+<tr><td><b>DIFF</b></td><td class="wrap">반올림 차액 — 반올림단위(<code>T001R</code>, 회사코드·통화별)에 따라 헤더 최종금액을 반올림한 차액. <b>그룹조건</b>이라 값에 비례해 모든 아이템에 분배</td><td>—</td></tr>
+</tbody>
+</table>
+</div>
+
+<h3>통계조건 — 계산에는 안 들어가지만 봐야 하는 값</h3>
+
+<p>Pricing Procedure에서 <b>Statistical</b>로 표시된 조건은 순값 계산에 반영되지 않습니다. 그래도 반드시 있어야 하는 것들이 있습니다.</p>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>조건유형</th><th>가져오는 값</th><th>근거</th></tr></thead>
+<tbody>
+<tr><td><b>VPRS</b></td><td class="wrap">자재의 표준원가 / 이동평균가</td><td class="wrap">조건카테고리 <b>G</b> — 평가세그먼트에서 조회<br>(<b>S</b> = 항상 표준원가, <b>T</b> = 항상 이동평균가)</td></tr>
+<tr><td><b>SKTO</b></td><td class="wrap">현금할인율</td><td class="wrap">조건카테고리 <b>E</b> — <code>T052</code>에서 아이템 지불조건의 <b>첫 번째</b> 할인율</td></tr>
+<tr><td><b>EDI1</b></td><td class="wrap">고객예상가격</td><td class="wrap">오더 입력 시 고객이 예상한 가격</td></tr>
+<tr><td><b>EDI2</b></td><td class="wrap">고객예상값</td><td class="wrap">오더 입력 시 고객이 예상한 금액</td></tr>
+</tbody>
+</table>
+</div>
+
+<p>이익률(profit margin)은 Pricing Procedure의 <b>공식 11</b>이 순가에서 원가를 차감해 계산합니다.</p>
+
+<div class="note warn">
+  <div class="t">EDI1 / EDI2는 문서를 잠근다</div>
+  <p>Pricing Procedure에 지정된 공식(표준 <b>공식 8</b>)의 허용치를 넘어 차이가 나면 <span class="bad">오더가 불완전 상태가 되어 납품 · 청구가 불가능</span>해집니다. 분쟁청구서 처리 비용을 앞단에서 막는 장치입니다. 불일치 항목은 <b>Manage Sales documents with Customer-Expected Price</b> 앱에서 수락 / 거부 / 거절합니다.</p>
+</div>
+
+<p><b>"Statistical and Relevant for Account Determination"</b> 옵션은 통계 가격조건을 수익성분석(CO-PA)에 <b>확장원장(extension ledger) 전표</b>로 게시할지 결정합니다(보증비 · 배송비 · 할인 · 수수료 등). <span class="key">SD 측에는 영향이 없고 CO-PA에서만 효과가 나타납니다.</span></p>
+
+<h3>세금결정 — 누구 기준으로 매기는가</h3>
+
+<p>세금식별번호는 <b>판매조직 레벨</b>에서 규칙(Blank · A · B)을 지정해 결정합니다.</p>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>규칙</th><th>결정 방식</th></tr></thead>
+<tbody>
+<tr><td>Blank</td><td class="wrap">① payer에 번호가 있고 sold-to party와 <b>다르면</b> payer에서 (ship-to party 무관)<br>② sold-to party에 없고 ship-to party에 있으면 ship-to party에서<br>③ 그 외에는 sold-to party에서 전달</td></tr>
+<tr><td>A</td><td class="wrap">항상 <b>sold-to party</b>에서</td></tr>
+<tr><td>B</td><td class="wrap">항상 <b>payer</b>에서</td></tr>
+</tbody>
+</table>
+</div>
+
+<p>세율은 <b>거래유형(국내 · 수출 · 수입)</b> · <b>ship-to party의 납세의무</b> · <b>자재의 납세의무</b>를 기준으로 결정됩니다. 표준 조건유형은 <b>MWST</b>(부가가치세)와 <b>TTX1</b>이며 이 코스는 MWST를 씁니다.</p>
+
+<h3>세금 인터페이스 — SD는 세율을 직접 관리하지 않는다</h3>
+
+<p>세율은 회계부서 또는 외부 서비스가 결정합니다. 그래서 SD의 Pricing Procedure는 SAP S/4HANA Finance 또는 외부 시스템과 연동해야 하며, <b>세금절차(Tax Procedure)는 FI의 국가별 기본설정에 배정</b>됩니다. 미국 기준 예시가 셋 있습니다.</p>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>세금절차</th><th>계산 방식</th><th>받는 조건유형</th></tr></thead>
+<tbody>
+<tr><td><b>TAXUS</b></td><td class="wrap">SD 컴포넌트 내에서 계산</td><td>—</td></tr>
+<tr><td><b>TAXUSJ</b></td><td class="wrap">ship-to party 마스터의 세관할값(tax jurisdiction)으로 중앙세금절차에서 계산</td><td class="wrap">RVAJUS의 <b>JR1~JR4</b></td></tr>
+<tr><td><b>TAXUSX</b></td><td class="wrap"><b>RFC</b>와 중앙세금절차를 통해 계산</td><td class="wrap">RVAXUS의 <b>XR1~XR6</b></td></tr>
+</tbody>
+</table>
+</div>
+
+<p>세금계산을 트리거하는 조건유형은 <b>UTXJ</b>이며, 위 JRn · XRn이 중앙세금절차에서 반환된 <span class="key">세관할구역별 세액</span>을 받습니다.</p>
+
+<div class="note">
+  <div class="t">🔰 초보자 설명 — VPRS · EDI1 · 세금인터페이스를 한 줄로</div>
+  <p>VPRS는 <b>"판매가에는 반영 안 되지만 이익률 계산용으로만 참조하는 원가값"</b>, EDI1/EDI2는 <b>"고객이 생각한 가격과 실제 가격이 다르면 오더를 자동으로 잠그는"</b> 분쟁방지 장치, 세금인터페이스는 <b>"SD가 직접 세율을 계산할지 외부 세무엔진에 물어볼지"</b>를 정하는 연동 방식입니다.</p>
+</div>
+
+<div class="note ok">
+  <div class="t">📌 SD-MM-FI 개인 프로젝트와의 연결점</div>
+  <p>개인 프로젝트는 자재 평가를 <b>이동평균가(V)</b>로 잡았으므로, 이익률을 보려면 VPRS의 조건카테고리를 <span class="key">T(항상 이동평균가)</span>로 두는 것이 실제 값과 맞습니다. 기본 G는 평가세그먼트의 가격결정구분을 따라가므로 V 자재에서는 결국 <code>MBEW-VERPR</code>을 읽게 되지만, 의도를 문서에 남기려면 T가 명확합니다.</p>
+  <p>이 값은 CBO <code>ZPRICE_CHECK</code>와 정확히 같은 소스를 봅니다 — <code>ZPRICE_CHECK</code>는 매입 쪽에서 <code>EINE-NETPR</code> vs <code>MBEW-VERPR</code> 괴리를 보고, VPRS는 판매 쪽에서 같은 <code>MBEW-VERPR</code>을 이익률 기준으로 씁니다. <b>한쪽에서 괴리 알림이 뜬 자재는 판매 이익률도 같이 틀어져 있다</b>고 봐야 하므로, 두 지표를 한 화면에서 보는 편이 낫습니다.</p>
+</div>
+
+</div>
+
+
+<!-- ══════════ LESSON 6 ══════════ -->
+<div class="lesson" id="l6">
+<h2><span class="no">LESSON 6</span>Condition Contract Management · 정산(Settlement)</h2>
+
+<p><span class="tag">Unit 6</span><span class="tag">레슨 3개</span>Introducing CCM (50분) · Maintaining Condition Contracts (55분) · Executing Condition Contract Settlement (1시간 5분)</p>
+
+<h3>언제 이걸 알아야 하는가</h3>
+
+<p><b>"이번 분기 누적 매출이 1억을 넘으면 3% 돌려주기로 했습니다"</b> — 이건 청구서에 바로 붙는 할인이 아닙니다. <span class="key">나중에 정산</span>해야 하는 조건이고, 그 사이에 <b>발생충당금(accruals)</b>을 쌓아야 회계가 맞습니다. 이 영역을 통째로 담당하는 표준이 <b>Condition Contract Management(CCM)</b>입니다.</p>
+
+<h3>CCM이란 — 후속 정산이 필요한 조건의 중앙 관리</h3>
+
+<p>공급업체 · 고객 조건을 관리하는 중앙화된 표준 솔루션입니다. 청구서와 함께 즉시 적용되는 일반 조건과 달리, <span class="hl">물류 프로세스 중에 합의되지만 정산은 나중에 이루어지는</span> 조건을 다룹니다(구매-지급 · 판매-수금 양쪽 모두 해당).</p>
+
+<p>조건계약에는 조건데이터만이 아니라 <b>정산일자 · 사업물량(business volume) 결정 기준 데이터 · 유효범위</b>가 함께 들어갑니다.</p>
+
+<div class="note">
+  <div class="t">발생충당금(Accruals) 게시 시점</div>
+  <p>원천문서(SD 청구문서 등) 게시 시점에 게시하거나, 지체발생적(delta) 정산으로 게시할 수 있습니다. 계약은 자동 · 수동 어느 쪽으로도 정산할 수 있고, <b>과거 유효일자로 계약을 입력해 정산할 수도</b> 있습니다 — 사업물량 문서가 게시되기 전에 조건계약이 미리 존재할 필요는 없습니다.</p>
+</div>
+
+<h3>Customizing 구성 3단계</h3>
+
+<p>경로: <code>Logistics - General → Settlement Management → Condition Contract Management</code></p>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>단계</th><th>내용</th></tr></thead>
+<tbody>
+<tr><td class="wrap">1. Configure Pricing including Condition Contract Conditions</td><td class="wrap">정산금액 계산에 관련된 가격조건 정의 (리베이트 / 발생충당금 조건)</td></tr>
+<tr><td class="wrap">2. Configure Condition Contract Maintenance</td><td class="wrap">조건계약유형(Condition Contract Type)의 파라미터 및 유형 자체 정의</td></tr>
+<tr><td class="wrap">3. Configure Condition Contract Settlement</td><td class="wrap">정산 파라미터 정의 후 기존 계약유형에 적용</td></tr>
+</tbody>
+</table>
+</div>
+
+<h3>조건계약유형과 조건유형</h3>
+
+<p>기본 시나리오는 단일 고객과의 판매리베이트 합의인 <b>0S01(Sales Rebate)</b>입니다. 다수 고객용 <b>0S02</b>, 서비스성 과세(<b>0S01~0S04</b>) vs 재화관련성 과세(<b>0SG1~0SG4</b>) 2가지 과세 방식, TPM(Trade Promotion Management) 연동용 <b>0ST1~0ST4</b> 등이 표준으로 제공됩니다.</p>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>조건유형</th><th>쓰이는 곳</th><th>설정 포인트</th></tr></thead>
+<tbody>
+<tr><td><b>RES1</b></td><td class="wrap">조건계약의 <b>리베이트 조건</b> 유지보수</td><td class="wrap">Access Sequence <b>RE01</b> 사용. 할인처럼 설정하지만 크레딧메모를 생성하므로 <span class="bad">Plus/Minus 필드를 양수(+)로</span></td></tr>
+<tr><td><b>REA1</b></td><td class="wrap"><b>발생충당금 조건</b> 유지보수</td><td class="wrap">Control Data 2의 <b>Accruals 지표</b>가 선택되어야 함. 정산실행이 금액을 결정해 Pricing Procedure로 전달</td></tr>
+<tr><td><b>RED1</b></td><td class="wrap"><b>지체발생적(delta) 발생충당금</b> 금액 결정</td><td class="wrap">Pricing Procedure <b>A10006</b>. 자체는 발생충당금 조건이 아니며 REA1을 참조</td></tr>
+</tbody>
+</table>
+</div>
+
+<h3>사업물량 결정과 성능</h3>
+
+<p>사업물량은 <b>필드 선택 · 조합을 제한 없이</b> 정의할 수 있고 포함 / 제외 기능을 모두 지원합니다. 소스는 Customizing에서 정의되며 <span class="key">조건레코드와는 독립적</span>입니다.</p>
+
+<ul>
+  <li>핵심수치(key figure): <b>수량 · 매출금액 · 중량 · 부피 · 포인트</b></li>
+  <li>소스: 구매오더 · 납품 · 청구문서 · POS 데이터 · 합의예산 등</li>
+  <li>집계값(aggregate)을 특정 DB 필드에 만들어 <b>SAP HANA에서 직접 집계</b> — 성능 최적화</li>
+  <li>조건계약 생성 시 계산규칙 · 스케일기준지표를 <b>조건레코드 레벨에서 직접</b> 선택 → Pricing Procedure의 조건 수와 access 수를 최소화</li>
+</ul>
+
+<h3>정산달력과 정산유형</h3>
+
+<p>계약 안에 <b>정산달력(Settlement Calendar)</b>을 정의해 정산일자와 정산유형을 미리 지정합니다.</p>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>정산유형</th><th>설명</th></tr></thead>
+<tbody>
+<tr><td class="wrap">Partial Settlement<br>(부분정산)</td><td class="wrap">특정 기간을 <b>잠정</b> 정산. 누적부분정산은 이전 기간 매출을 끌어와 스케일 혜택을 조기 적용</td></tr>
+<tr><td class="wrap">Final Settlement<br>(최종정산)</td><td class="wrap">특정 기간을 <b>영구</b> 정산하고 이전 부분정산들을 확정. 이후에는 <span class="bad">delta로만 수정 가능</span></td></tr>
+<tr><td class="wrap">Delta Settlement<br>(지체수정정산)</td><td class="wrap">최종정산 이후의 사업물량 변경 · 늦은 게시를 반영해 수정. 반복 가능</td></tr>
+<tr><td class="wrap">Delta Accruals<br>(지체발생적 발생충당금)</td><td class="wrap">원문서와 함께 발생충당금을 게시하지 않은 경우 누적 형태로 생성(주기 실행 권장). 조건 변경 보정에도 사용</td></tr>
+</tbody>
+</table>
+</div>
+
+<div class="note warn">
+  <div class="t">Delta Accruals로 이동평균가는 바꿀 수 없다</div>
+  <p>Delta Accruals는 <span class="bad">이동평균가를 변경하지 못합니다</span> — 이동평균가 조정은 재고 게시에서만 가능합니다. 대신 <b>클레임을 G/L 계정에 게시해 FI에 매핑</b>할 수는 있습니다. "리베이트를 반영했는데 재고단가가 그대로"라는 문의의 답이 여기 있습니다.</p>
+</div>
+
+<h3>숫자로 보는 정산 흐름</h3>
+
+<p>10~12월 유효한 조건계약, 월말 중간정산 예약, 최소금액 $5,000, 1단계 2% / 2단계 4% 스케일이라고 하겠습니다.</p>
+
+<div class="step"><span class="n">10월말</span><p>사업물량이 최소금액 <b>$5,000에 미달</b> → 정산액 <b>0</b>.</p></div>
+<div class="step"><span class="n">11월말</span><p>누적 <b>$7,000</b>($3,000 + $4,000) 도달 → 2% 리베이트 <b>$140</b> 계산 · 지급.</p></div>
+<div class="step"><span class="n">계약 종료</span><p>누적 <b>$27,000</b> 도달 → 2단계 스케일 <b>4%</b> → 총 리베이트 <b>$1,080</b>. 최종정산은 이미 지급한 $140을 차감해 <span class="hl">$940</span>을 계산한다.</p></div>
+
+<h3>정산 실행과 리베이트 분배</h3>
+
+<p>부분 / 최종정산에서는 <b>계약유효시작일(CC Valid from)부터의 사업물량</b>을 결정하고 <span class="key">이전 지체발생적 발생충당금을 역전표(reverse)</span>합니다. 사업물량 기반 결정과 리베이트 조건 정의가 엄격히 분리되어 있어, 적은 수의 조건 · 조건유형으로도 대량 문서를 처리할 수 있습니다 — <b>정산용 Pricing Procedure의 조건유형 수가 적을수록 실행시간이 개선</b>됩니다.</p>
+
+<p>후속정산의 리베이트액은 <b>사업물량 기여도에 따라</b> 수수자격 파트너(플랜트 · 고객)에게 분배할 수 있습니다. 사업물량이 플랜트 · 코스트센터 · 자재 레벨까지 세분화되어 있으면 그 레벨까지 균형 분배가 가능하고, 이때 <span class="key">계정배정객체 레벨에서 자동 게시</span>됩니다.</p>
+
+<p>문서흐름은 <b>지체발생적 발생충당금 정산 → 부분정산 → 최종정산</b> 순서로 진행되고 최종정산 후 종료됩니다. 법규상 <b>고객 관련 정산에는 발생충당금이 필수</b>이며, 청구문서 생성 시 또는 지체발생적 발생충당금 게시의 일부로 자동 생성됩니다. CCM 리포팅은 <b>CDS View · IDA(Integrated Data Access) ALV</b> 기반이라 SAP HANA에 최적화되어 있습니다.</p>
+
+<div class="note">
+  <div class="t">🔰 초보자 설명 — Partial / Final / Delta를 한 줄로</div>
+  <p>Partial Settlement는 <b>"중간정산(가집계)"</b>, Final Settlement는 <b>"기간 확정(본계산서)"</b>, Delta Settlement는 <b>"확정 후에 발견된 차이를 잡는 수정전표"</b>입니다.</p>
+</div>
+
+<div class="note ok">
+  <div class="t">📌 SD-MM-FI 개인 프로젝트와의 연결점</div>
+  <p>개인 프로젝트는 <b>단건 즉시청구 구조</b>라 CCM을 쓰지 않습니다. 쓰지 않기로 한 이유를 남겨 두는 편이 낫습니다 — 정산 · 발생충당금은 FI 전표를 자동으로 만드는 영역이고, 프로젝트 원칙상 <span class="bad">회계 영향이 있는 처리는 자동화하지 않기</span> 때문입니다.</p>
+  <p>다만 구조 하나는 가져올 만합니다. CCM이 <b>"사업물량 결정"과 "리베이트 조건 정의"를 분리</b>해 조건 수를 줄이는 방식은, 목표 2번(AL11 기반 대량 처리 프로그램)에서 <span class="key">집계 로직과 판정 로직을 분리</span>하는 설계로 그대로 옮길 수 있습니다 — 파일을 읽어 집계하는 단계와, 집계 결과에 규칙을 적용하는 단계를 섞지 않는 편이 병렬 분할에도 유리합니다.</p>
+</div>
+
+</div>
+
+
+<!-- ══════════ LESSON 7 ══════════ -->
+<div class="lesson" id="l7">
+<h2><span class="no">LESSON 7</span>[Appendix] 가격 데이터모델 · SAP Note 목록</h2>
+
+<p><span class="tag">Unit 7</span><span class="tag">레슨 1개</span>Working with this Appendix (50분) · 코스 자체가 "Appendix"로 분류한 참고자료성 Unit</p>
+
+<h3>언제 이걸 알아야 하는가</h3>
+
+<p>화면에서 답이 안 나올 때 마지막으로 가는 곳이 테이블입니다. <b>"이 청구서의 이 할인이 어느 조건레코드에서 왔는지"</b>를 추적하려면 문서 쪽 테이블에서 <code>KNUMH</code>를 얻고 마스터 쪽 테이블로 건너가야 합니다.</p>
+
+<h3>조건 관련 핵심 테이블</h3>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>테이블</th><th>담는 것</th></tr></thead>
+<tbody>
+<tr><td><code>Annn</code></td><td class="wrap">조건테이블 — 키 조합별로 하나씩 생성된다(A004 · A005 …)</td></tr>
+<tr><td><code>KONH</code></td><td class="wrap">조건헤더 — 유효기간 등</td></tr>
+<tr><td><code>KONP</code></td><td class="wrap">조건아이템 — 요율 · 계산유형</td></tr>
+<tr><td><code>KONM</code></td><td class="wrap">수량스케일</td></tr>
+<tr><td><code>KONW</code></td><td class="wrap">가치스케일 — <span class="bad">KONM과 동시에 존재하지 않는다</span></td></tr>
+<tr><td><code>KONA</code></td><td class="wrap">협약 — <b>리베이트에만</b> 해당</td></tr>
+</tbody>
+</table>
+</div>
+
+<figure class="figwrap">
+<svg class="dgm" viewBox="0 0 1000 400" role="img" aria-label="가격 데이터모델 도해. 조건테이블 Annn에서 KONH 조건헤더와 KONP 조건아이템, KONM/KONW 스케일로 이어지는 마스터 측과, 판매·청구문서의 PRCD_ELEMENTS로 복사되는 문서 측의 관계를 보여준다.">
+  <defs>
+    <marker id="a5" markerWidth="9" markerHeight="9" refX="7" refY="4.5" orient="auto">
+      <polygon class="arw" points="0,0 9,4.5 0,9"/></marker>
+    <marker id="a5k" markerWidth="9" markerHeight="9" refX="7" refY="4.5" orient="auto">
+      <polygon class="arw-key" points="0,0 9,4.5 0,9"/></marker>
+  </defs>
+
+  <text class="t-s c-key" x="20" y="24">마스터 — 조건레코드가 저장되는 곳</text>
+  <text class="t-s c-key" x="600" y="24">문서 — 결정된 결과가 복사되는 곳</text>
+
+  <rect class="b" x="40" y="36" width="210" height="52" rx="5"/>
+  <text class="t-h" x="56" y="60">Annn  조건테이블</text>
+  <text class="t-xs" x="56" y="78">키 조합별 테이블 · A004 A005</text>
+  <path class="ln" d="M145 88 V106" marker-end="url(#a5)"/>
+
+  <rect class="b-key" x="40" y="108" width="210" height="52" rx="5"/>
+  <text class="t-h c-key" x="56" y="132">KONH  조건헤더</text>
+  <text class="m-s" x="56" y="150">KNUMH · 유효기간</text>
+  <path class="ln" d="M145 160 V178" marker-end="url(#a5)"/>
+
+  <rect class="b-key" x="40" y="180" width="210" height="52" rx="5"/>
+  <text class="t-h c-key" x="56" y="204">KONP  조건아이템</text>
+  <text class="t-xs" x="56" y="222">요율 · 계산유형</text>
+  <path class="ln" d="M145 232 V250" marker-end="url(#a5)"/>
+
+  <rect class="b" x="40" y="252" width="210" height="66" rx="5"/>
+  <text class="t-h" x="56" y="276">KONM / KONW</text>
+  <text class="t-xs" x="56" y="294">수량스케일 / 가치스케일</text>
+  <text class="t-xs c-bad" x="56" y="310">둘은 동시에 존재하지 않는다</text>
+
+  <rect class="b-mut" x="292" y="108" width="196" height="52" rx="5"/>
+  <text class="t-h" x="308" y="132">KONA  협약</text>
+  <text class="t-xs" x="308" y="150">리베이트에만 해당</text>
+  <path class="ln" d="M250 134 H284" marker-end="url(#a5)"/>
+
+  <path class="ln-d" d="M250 206 H556 V172 H588" marker-end="url(#a5)"/>
+  <text class="t-xs c-key" x="300" y="198">가격결정 시점에 문서로 복사</text>
+
+  <rect class="b" x="600" y="36" width="170" height="52" rx="5"/>
+  <text class="t-h" x="616" y="60">VBAK / VBAP</text>
+  <text class="t-xs" x="616" y="78">판매문서 헤더 · 아이템</text>
+  <rect class="b" x="800" y="36" width="170" height="52" rx="5"/>
+  <text class="t-h" x="816" y="60">VBRK / VBRP</text>
+  <text class="t-xs" x="816" y="78">청구문서 헤더 · 아이템</text>
+
+  <path class="ln-key" d="M685 88 V116 H785"/>
+  <path class="ln-key" d="M885 88 V116 H785"/>
+  <path class="ln-key" d="M785 116 V142" marker-end="url(#a5k)"/>
+
+  <rect class="b-key" x="600" y="144" width="370" height="58" rx="5"/>
+  <text class="t-h c-key" x="616" y="168">PRCD_ELEMENTS (구 KONV)</text>
+  <text class="t-xs" x="616" y="188">문서에 확정된 가격조건 라인 · KNUMH 보유</text>
+
+  <path class="ln" d="M785 202 V222" marker-end="url(#a5)"/>
+  <rect class="b" x="600" y="224" width="370" height="52" rx="5"/>
+  <text class="t-h" x="616" y="248">PRCD_HEAD · PRCD_ITEM</text>
+  <text class="t-xs" x="616" y="266">SAP S/4HANA에서 추가된 구조</text>
+
+  <text class="t-xs" x="600" y="300">부가 — VBKD 영업데이터 · VBEP 스케줄라인 · VBPA 파트너 · VBFA 문서흐름 · VBUV 불완전로그</text>
+
+  <rect class="b-ghost" x="30" y="332" width="940" height="56" rx="6"/>
+  <text class="t-s" x="50" y="356">추적 순서 — 문서의 PRCD_ELEMENTS에서 KNUMH를 얻고, KONH · KONP로 건너가 원본 조건레코드를 확인한다.</text>
+  <text class="t-xs" x="50" y="378">막히면 SAP Note 886773(Condition Technique FAQ) · 363212(Pricing Analysis 동작방식)부터 읽는다.</text>
+</svg>
+<figcaption><span class="fno">그림 5</span>가격 데이터모델. 마스터(Annn → KONH → KONP → KONM/KONW)와 문서(PRCD_ELEMENTS)는 KNUMH로 이어진다.</figcaption>
+</figure>
+
+<h3>판매문서 · 청구문서 테이블 구조</h3>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>구분</th><th>테이블</th></tr></thead>
+<tbody>
+<tr><td class="wrap">판매문서</td><td class="wrap"><code>VBAK</code> 헤더 · <code>VBKD</code> 영업데이터 · <code>VBAP</code> 아이템 · <code>VBEP</code> 스케줄라인일자 · <code>VBPA</code> 파트너 · <code>SADR</code> 주소 · <code>VBFA</code> 문서흐름 · <code>PRCD_COND</code> 가격조건 · <code>STXH</code>/<code>STXL</code> 텍스트 · <code>VBUV</code> 불완전로그</td></tr>
+<tr><td class="wrap">청구문서</td><td class="wrap"><code>VBRK</code> 헤더 · <code>VBRP</code> 아이템 · <code>VBPA</code> 파트너 · <code>SADR</code> 주소 · <code>VBFA</code> 문서흐름 · <code>PRCD_COND</code> 가격조건 · <code>STXH</code>/<code>STXL</code> 텍스트</td></tr>
+</tbody>
+</table>
+</div>
+
+<div class="note warn">
+  <div class="t">확인 필요 — KONV · PRCD_COND · PRCD_ELEMENTS</div>
+  <p>원문은 SAP S/4HANA에서 <b>구 <code>KONV</code>를 대체해 <code>PRCD_COND</code>가 사용되고 <code>PRCD_ELEMENTS</code> · <code>PRCD_HEAD</code> · <code>PRCD_ITEM</code>이 추가</b>되었다고 설명합니다. 실제로는 릴리즈에 따라 <code>PRCD_ELEMENTS</code>가 테이블이고 <code>PRCD_COND</code>가 뷰인 경우가 있어 <span class="bad">어느 것을 직접 SELECT해야 하는지가 갈립니다.</span> 실제 시스템(<b>winerp01 / MEP</b>)에서 <code>SE11</code>로 두 오브젝트의 종류(TABL / VIEW)를 확인한 뒤 프로그램에서 쓸 대상을 확정할 것.</p>
+</div>
+
+<h3>가격결정 관련 주요 SAP Note</h3>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>Note</th><th>내용</th></tr></thead>
+<tbody>
+<tr><td>886773</td><td class="wrap">FAQ: 일반 Condition Technique</td></tr>
+<tr><td>876617</td><td class="wrap">FAQ: 헤더조건 / 헤더조건 화면</td></tr>
+<tr><td>844141</td><td class="wrap">FAQ: 누적조건(Cumulated Conditions)</td></tr>
+<tr><td>834174</td><td class="wrap">값 관련(value related) 조건기준은 어떻게 결정되는가</td></tr>
+<tr><td>363212</td><td class="wrap">'Pricing Analysis' 모드 동작 방식</td></tr>
+<tr><td>854978</td><td class="wrap">누적 스케일기준값 작동 방식</td></tr>
+<tr><td>900089</td><td class="wrap">가격결정 처리단계: FORM XKOMV_BEWERTEN</td></tr>
+<tr><td>912145</td><td class="wrap">계산유형 "G"의 의미</td></tr>
+<tr><td>886532</td><td class="wrap">숫자 표시 · 반올림</td></tr>
+<tr><td>156230</td><td class="wrap">Requirements 작성 가능 / 불가능 범위</td></tr>
+<tr><td>2481672</td><td class="wrap">Condition Contract Management 유용 문서 모음</td></tr>
+<tr><td>2535889</td><td class="wrap">CCM 구성 설명</td></tr>
+<tr><td>2564353</td><td class="wrap">CCM 제품 개요 문서</td></tr>
+</tbody>
+</table>
+</div>
+
+<h3>Promotion과 Sales Deal</h3>
+
+<p><b>Promotion</b>은 특정 기간 동안의 <span class="key">상품군 마케팅 계획</span>이며 여러 <b>Sales Deal</b>을 포함할 수 있습니다(여름 프로모션 하나에 제품군별로 여러 Sales Deal 연결). Sales Deal은 <b>할인 조건레코드와 연결</b>되고, 청구문서 아이템 상세화면에 Sales Deal번호 · Promotion번호 필드가 표시됩니다.</p>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>Sales Deal 릴리즈 상태</th><th>조건레코드가 어디서 찾아지는가</th></tr></thead>
+<tbody>
+<tr><td>B</td><td class="wrap">가격 시뮬레이션(순가격리스트)에는 <b>포함</b>되지만 <span class="bad">현재 문서에는 적용되지 않는다</span></td></tr>
+<tr><td>C</td><td class="wrap">수익성분석(CO-PA) <b>계획</b>에 반영된다</td></tr>
+</tbody>
+</table>
+</div>
+
+<div class="note">
+  <div class="t">🔰 초보자 설명 — Promotion vs Sales Deal을 한 줄로</div>
+  <p>Promotion은 <b>"여름 세일"</b> 같은 큰 마케팅 테마이고, Sales Deal은 그 안에서 제품군별 · 고객군별로 세분화된 <b>개별 할인 시행단위</b>입니다.</p>
+</div>
+
+<div class="note ok">
+  <div class="t">📌 SD-MM-FI 개인 프로젝트와의 연결점</div>
+  <p>개인 프로젝트에서 가격 관련 CBO나 인터페이스를 만들 때 읽을 테이블은 이 장 그대로입니다 — 문서 측 <code>PRCD_ELEMENTS</code>, 마스터 측 <code>KONH</code> · <code>KONP</code>. 목표 3번(웹 → RFC)의 가격 조회 FM도 이 경로를 씁니다.</p>
+  <p>주의할 것은 <b>조건테이블 <code>Annn</code>을 직접 SELECT하지 않는 것</b>입니다. 조건테이블은 키 조합마다 이름이 달라지므로 프로그램에 <code>A005</code>를 하드코딩하면 조건테이블이 하나 추가되는 순간 깨집니다. <span class="key">가격 조회는 표준 FM을 거치고, 테이블 직접 조회는 분석 목적에만</span> 씁니다.</p>
+</div>
+
+</div>
+
+
+<!-- ══════════ APPENDIX ══════════ -->
+<div class="lesson" id="lx">
+<h2><span class="no">APPENDIX</span>정리 · 반드시 기억할 것</h2>
+
+<h3>한 장 요약</h3>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>질문</th><th>답</th></tr></thead>
+<tbody>
+<tr><td class="wrap">단가는 어디서 오나</td><td class="wrap">자재마스터가 아니라 <b>조건레코드</b>. 어느 레코드가 잡히는지는 Access Sequence가 정한다</td></tr>
+<tr><td class="wrap">가격이 왜 이렇게 나왔는지 보려면</td><td class="wrap">조건 화면 → 조건유형 더블클릭 → <b>Analysis 탭</b>. 어느 access에서 미적중이었는지 시스템이 알려준다</td></tr>
+<tr><td class="wrap">Pricing Procedure는 무엇으로 결정되나</td><td class="wrap">판매영역 + 문서 가격결정절차(<code>KALSM</code>) + 고객 가격결정절차(<code>KALKS</code>)</td></tr>
+<tr><td class="wrap">새 키로 가격을 걸고 싶으면</td><td class="wrap">조건유형이 아니라 <b>필드 카탈로그 → 조건테이블 → Access Sequence</b> 순으로</td></tr>
+<tr><td class="wrap">Access Sequence 순서 원칙</td><td class="wrap"><b>좁은 키가 위.</b> 넓은 키가 위에 있으면 개별 합의가가 영원히 안 잡힌다</td></tr>
+<tr><td class="wrap">헤더조건의 특징</td><td class="wrap">자동결정 대상 아님 · 조건레코드 만들 수 없음 · 수동 입력만. 배분은 순값 비율, 기준 변경은 AltCBV</td></tr>
+<tr><td class="wrap">아이템을 묶어 스케일을 태우려면</td><td class="wrap"><b>그룹조건</b> + Group Condition Routine(1 전체 / 2 조건유형 무관 / 3 자재가격그룹)</td></tr>
+<tr><td class="wrap">그룹조건에 구간스케일(D)을 쓸 수 있나</td><td class="wrap"><b>쓸 수 없다</b></td></tr>
+<tr><td class="wrap">배제지표는 어디까지 막나</td><td class="wrap">지표가 붙은 조건 <b>뒤에 오는</b> 조건유형만. 앞의 조건은 영향 없다</td></tr>
+<tr><td class="wrap">원가와 이익률은</td><td class="wrap"><b>VPRS</b>(카테고리 G/S/T)로 통계 조회 + Pricing Procedure의 <b>공식 11</b></td></tr>
+<tr><td class="wrap">고객이 예상한 가격과 다르면</td><td class="wrap"><b>EDI1 / EDI2</b> — 공식 8 허용치 초과 시 오더가 불완전이 되어 납품·청구 불가</td></tr>
+<tr><td class="wrap">즉시 할인이 아니라 나중에 정산하는 조건은</td><td class="wrap"><b>Condition Contract Management</b> — 0S01 판매리베이트 · RES1/REA1/RED1</td></tr>
+<tr><td class="wrap">최종정산 후에도 고칠 수 있나</td><td class="wrap"><b>Delta Settlement로만</b> 가능하다</td></tr>
+<tr><td class="wrap">조건레코드를 테이블로 추적하려면</td><td class="wrap"><code>PRCD_ELEMENTS</code>에서 <code>KNUMH</code> → <code>KONH</code> · <code>KONP</code> → 스케일은 <code>KONM</code>/<code>KONW</code></td></tr>
+<tr><td class="wrap">대량 갱신 수단</td><td class="wrap"><code>VK14</code> 참조생성 · 가격변경 기능 · <b>Manage Prices - Sales</b> 스프레드시트 임포트</td></tr>
+</tbody>
+</table>
+</div>
+
+<div class="note warn">
+  <div class="t">반드시 지킬 것</div>
+  <p>· 가격 문의는 <b>추측하지 않는다.</b> 조건 화면의 <b>Analysis</b>를 먼저 연다 — 어느 access에서 왜 미적중인지 시스템이 이미 답을 갖고 있다.<br>
+     · Access Sequence는 <b>좁은 키가 위</b>다. 순서를 뒤집으면 아래 테이블은 영원히 조회되지 않는다.<br>
+     · <b>필드 카탈로그 확장은 되돌리기 어렵다.</b> IMG 경로와 구조체를 실제 시스템에서 확인한 뒤 착수한다.<br>
+     · Manage Prices 스프레드시트 임포트는 <b>기존 레코드를 갱신·대체할 수 있다.</b> 소량으로 먼저 돌려 결과를 확인한 뒤 전량을 올린다.<br>
+     · 프로그램에서 <b>조건테이블(<code>Annn</code>)을 하드코딩해 SELECT하지 않는다.</b> 조건테이블이 하나 추가되는 순간 깨진다.<br>
+     · 정산 · 발생충당금은 <b>FI 전표를 만드는 영역</b>이다. 개인 프로젝트 원칙대로 이 영역은 자동화 대상에서 제외한다.</p>
+</div>
+
+<h3>확인 필요로 남긴 것</h3>
+
+<ul>
+  <li>Pricing Type 코드 체계(B 외 A · C · G 등)와 각 코드의 보존/재결정 범위 → <code>VTFL</code> Copying Control 확인 (LESSON 1)</li>
+  <li>필드 카탈로그 확장 IMG 경로와 구조체(<code>KOMKAZ</code> / <code>KOMPAZ</code>) 명칭 → 릴리즈별 상이 (LESSON 2)</li>
+  <li><code>PRCD_COND</code>와 <code>PRCD_ELEMENTS</code> 중 어느 쪽이 테이블이고 어느 쪽이 뷰인지 → <code>SE11</code> 확인 (LESSON 7)</li>
+</ul>
+
+<h3>참고</h3>
+
+<ul>
+  <li>원본: 노션 <b>SAP Learning Hub</b> → Implementing Sales in SAP S/4HANA Cloud Private Edition → <b>10-1 ~ 10-7</b> (Course 10 / S46200 · 7 Unit · 레슨 14개)</li>
+  <li>앞 노트: <b>S46100</b> 납품처리 · <b>S46150</b> 청구 — 가격은 이 두 단계로 흘러간다</li>
+  <li>기초 노트: <b>S46000</b> Sales 기본 · <b>S46050</b> Sales 기본 Customizing (조직구조 · Copying Control)</li>
+  <li>이 노트는 <b>개인 학습용 정리</b>다. 실무 프로젝트 산출물이 아니며, 프로젝트 연결점(📌)은 개인 SAP End-to-End 프로젝트(회사코드 CL04) 기준으로 다시 쓴 것이다.</li>
+</ul>
+
+</div>
+
+</div>
+<script src="../../assets/hub.js" defer></script>
+</body>
+</html>

@@ -1,0 +1,566 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Recruit-to-Retire — 인적자원 E2E 프로세스</title>
+<meta name="description" content="SAP Learning Hub의 Exploring End-to-End Business Processes in SAP Business Suite Unit 5 노트. SuccessFactors HCM Suite 구성, 채용·온보딩 승인 워크플로우, Employee Central, 급여 처리와 FI 재무전기.">
+<link rel="icon" href="../../assets/favicon.svg">
+<link rel="stylesheet" href="../../assets/notes-paper.css">
+<style>
+/* ── 이 노트 전용: 도해(SVG) 스타일 ─────────────────────────── */
+.dgm{display:block; width:100%; height:auto;}
+.dgm text{font-family:"Malgun Gothic","맑은 고딕","Apple SD Gothic Neo",sans-serif; fill:#1e1e1e;}
+.dgm .t-h{font-size:15px; font-weight:700;}
+.dgm .t{font-size:13px;}
+.dgm .t-s{font-size:11.5px; fill:#555;}
+.dgm .t-xs{font-size:10.5px; fill:#6B7280;}
+.dgm .m{font-family:"D2Coding","Consolas",monospace; font-size:12px;}
+.dgm .m-s{font-family:"D2Coding","Consolas",monospace; font-size:10.5px;}
+.dgm .c-key{fill:#4338CA;} .dgm .c-bad{fill:#B91C1C;} .dgm .c-ok{fill:#047857;}
+.dgm .b{fill:#FFFFFF; stroke:#C7CBD6; stroke-width:1.2;}
+.dgm .b-key{fill:#EEF0FB; stroke:#4338CA; stroke-width:1.4;}
+.dgm .b-bad{fill:#FEF2F2; stroke:#B91C1C; stroke-width:1.3;}
+.dgm .b-ok{fill:#ECFDF5; stroke:#047857; stroke-width:1.3;}
+.dgm .b-mut{fill:#F3F4F6; stroke:#D1D5DB; stroke-width:1.1;}
+.dgm .b-hl{fill:#FEF08A; stroke:#CA8A04; stroke-width:1.2;}
+.dgm .b-ghost{fill:none; stroke:#9AA3B2; stroke-width:1.1; stroke-dasharray:5 4;}
+.dgm .ln{stroke:#7C8697; stroke-width:1.4; fill:none;}
+.dgm .ln-key{stroke:#4338CA; stroke-width:1.8; fill:none;}
+.dgm .ln-bad{stroke:#B91C1C; stroke-width:1.6; fill:none;}
+.dgm .ln-ok{stroke:#047857; stroke-width:1.6; fill:none;}
+.dgm .ln-d{stroke:#9AA3B2; stroke-width:1.2; stroke-dasharray:4 4; fill:none;}
+.dgm .arw{fill:#7C8697;} .dgm .arw-key{fill:#4338CA;}
+.dgm .arw-bad{fill:#B91C1C;} .dgm .arw-ok{fill:#047857;}
+.figwrap{background:#FAFAFE; border:1px solid var(--rule); border-radius:6px;
+  padding:18px 16px 10px; margin:22px 0;}
+.figwrap figcaption{margin-top:12px; padding-top:10px; border-top:1px solid var(--rule);}
+</style>
+</head>
+<body>
+<div class="crumb"><a href="../../index.html">← 자료실 홈</a> · <a href="../../journey.html?j=iee2e">E2E 저니</a> · IEE2E Unit 5 Recruit-to-Retire</div>
+<div class="sheet">
+
+<div class="doc-head">
+  <div class="kicker">LEARNING HUB · IEE2E UNIT 5</div>
+  <h1>Recruit-to-Retire — 인적자원 E2E 프로세스</h1>
+  <div class="sub">
+    Learning Journey <b>Exploring End-to-End Business Processes in SAP Business Suite</b> · Unit 5 · 5 레슨<br>
+    출처: 노션 <b>SAP Learning Hub</b> 노트 5-1 ~ 5-5 변환 (05. Performing the Recruit-to-Retire Process: Focus on Human Experience Management)
+  </div>
+</div>
+
+<div class="lead">
+  <p><b>결론부터.</b> Recruit-to-Retire는 HR 모듈 한 개가 아니라 <span class="hl">두 시스템의 연결 구조</span>입니다 — 사람의 데이터를 만드는 쪽은 SAP SuccessFactors(클라우드)이고, 그 데이터를 돈으로 바꿔 회계에 떨어뜨리는 쪽은 SAP ERP HCM / S/4HANA(온프레미스 백엔드)입니다.</p>
+  <p>그래서 이 Unit의 실습 화면은 두 종류로 갈립니다. Career Site·Onboarding·Employee Central은 Fiori 계열 클라우드 화면이고, 급여 계산과 재무전기는 <code>PA30</code>·<code>PA03</code>·<code>PC00_M99_CIPE</code> 같은 SAP GUI 클래식 트랜잭션입니다. <b>이 경계가 어디인지</b>, 그리고 <b>인건비가 어느 지점에서 FI 전표가 되는지</b> — 이 노트에서 붙잡아야 할 것은 이 둘입니다.</p>
+</div>
+
+<div class="toc">
+  <h4>목차</h4>
+  <ol>
+    <li><a href="#l1">HXM 지도 — Recruit-to-Retire 6단계</a></li>
+    <li><a href="#l2">채용과 온보딩 — 승인 워크플로우와 전자서명</a></li>
+    <li><a href="#l3">Employee Central — 직원 마스터의 system of record</a></li>
+    <li><a href="#l4">급여 처리와 재무전기 — 인건비가 FI로 들어오는 지점</a></li>
+  </ol>
+</div>
+
+
+<!-- ══════════ LESSON 1 ══════════ -->
+<div class="lesson" id="l1">
+<h2><span class="no">LESSON 1</span>HXM 지도 — Recruit-to-Retire 6단계</h2>
+
+<p><span class="tag">Unit 5</span><span class="tag">레슨 5개</span>5-1 Identifying the Key Functions of SAP SuccessFactors Solutions</p>
+
+<h3>언제 이걸 알아야 하는가</h3>
+
+<p>HR 쪽에서 가장 자주 넘어오는 문의가 <b>"입사 처리는 다 끝났다는데 이 사람이 시스템에 안 보입니다"</b>입니다. 서류에 서명도 했고 온보딩도 완료됐는데 조회가 안 됩니다.</p>
+
+<p>답은 <span class="key">온보딩 완료와 직원 마스터 활성화가 서로 다른 단계</span>라는 데 있습니다. 서명이 끝나면 대상자는 <b>Manage Pending Hires</b> 목록에 올라갈 뿐이고, HR Admin이 Employee Central에 프로필을 만들어야 하며, 그 프로필조차 <b>시작일(start date)이 되어야</b> 활성화됩니다. 세 단계가 전부 끝나야 "보이는" 상태가 됩니다 — 상세는 LESSON 2에 있습니다.</p>
+
+<h3>Recruit-to-Retire 6단계</h3>
+
+<p>채용(Recruit)부터 퇴직(Retire)까지 한 직원의 전체 라이프사이클을 하나의 연결된 흐름으로 보는 관점입니다. 채용 단계에서 수집한 지원자 정보가 온보딩으로 넘어가고, 온보딩에서 확정된 데이터가 Employee Central로 이어지고, 그 마스터 데이터를 기반으로 급여·성과·보상이 계산됩니다.</p>
+
+<figure class="figwrap">
+<svg class="dgm" viewBox="0 0 1000 318" role="img" aria-label="Recruit-to-Retire 6단계 도해. 채용에서 마스터데이터, 학습, 성과, 급여와 보상, 리포팅으로 이어지며 인건비가 FI 총계정원장으로 넘어가는 지점은 급여·보상 단계 하나뿐이다.">
+  <defs>
+    <marker id="ra" markerWidth="9" markerHeight="9" refX="7" refY="4.5" orient="auto">
+      <polygon class="arw" points="0,0 9,4.5 0,9"/></marker>
+    <marker id="rok" markerWidth="9" markerHeight="9" refX="8" refY="4.5" orient="auto">
+      <polygon class="arw-ok" points="0,0 9,4.5 0,9"/></marker>
+  </defs>
+
+  <text class="t-s c-key" x="20" y="24">SAP SuccessFactors HCM Suite — 한 직원의 라이프사이클</text>
+
+  <rect class="b-key" x="20" y="38" width="145" height="84" rx="6"/>
+  <text class="t-h c-key" x="34" y="60">① Recruiting</text>
+  <text class="t-s" x="34" y="80">Recruiting</text>
+  <text class="t-s" x="34" y="97">Job Requisition</text>
+  <text class="t-s" x="34" y="114">Career Site</text>
+
+  <rect class="b-key" x="182" y="38" width="145" height="84" rx="6"/>
+  <text class="t-h c-key" x="196" y="60">② Master Data</text>
+  <text class="t-s" x="196" y="80">Onboarding</text>
+  <text class="t-s" x="196" y="97">Employee Central</text>
+
+  <rect class="b" x="344" y="38" width="145" height="84" rx="6"/>
+  <text class="t-h" x="358" y="60">③ Learning</text>
+  <text class="t-s" x="358" y="80">Learning</text>
+  <text class="t-s" x="358" y="97">Development</text>
+
+  <rect class="b" x="506" y="38" width="145" height="84" rx="6"/>
+  <text class="t-h" x="520" y="60">④ Performance</text>
+  <text class="t-s" x="520" y="80">Performance/Goals</text>
+  <text class="t-s" x="520" y="97">Succession</text>
+
+  <rect class="b-hl" x="668" y="38" width="145" height="84" rx="6"/>
+  <text class="t-h" x="682" y="60">⑤ Payroll</text>
+  <text class="t-s" x="682" y="80">Compensation</text>
+  <text class="t-s" x="682" y="97">Variable Pay</text>
+  <text class="t-s" x="682" y="114">Payroll</text>
+
+  <rect class="b" x="830" y="38" width="145" height="84" rx="6"/>
+  <text class="t-h" x="844" y="60">⑥ Reporting</text>
+  <text class="t-s" x="844" y="80">People Analytics</text>
+
+  <path class="ln" d="M165 80 H176" marker-end="url(#ra)"/>
+  <path class="ln" d="M327 80 H338" marker-end="url(#ra)"/>
+  <path class="ln" d="M489 80 H500" marker-end="url(#ra)"/>
+  <path class="ln" d="M651 80 H662" marker-end="url(#ra)"/>
+  <path class="ln" d="M813 80 H824" marker-end="url(#ra)"/>
+
+  <path class="ln-ok" d="M740 122 V176" marker-end="url(#rok)"/>
+  <rect class="b-ok" x="596" y="178" width="380" height="56" rx="6"/>
+  <text class="t-h c-ok" x="618" y="202">FI 총계정원장 (Universal Journal)</text>
+  <text class="t-s" x="618" y="222">인건비가 회계로 넘어오는 유일한 지점 — LESSON 4</text>
+
+  <rect class="b-ghost" x="20" y="178" width="550" height="56" rx="6"/>
+  <text class="t-s" x="42" y="200">①~⑥ 어느 단계에서든 퇴사가 발생하면 <tspan class="c-bad">Offboarding</tspan> 으로 빠진다 —</text>
+  <text class="t-s" x="42" y="220">사유 3종: Voluntary(사직) · Involuntary(해고) · Retirement(정년)</text>
+
+  <rect class="b-ghost" x="20" y="252" width="956" height="46" rx="6"/>
+  <text class="t-s" x="42" y="274">①에서 모은 지원자 정보가 재입력 없이 ②로 이관되고, ②의 마스터 데이터 위에서 ③~⑤가 계산된다.</text>
+  <text class="t-s" x="42" y="292">즉 <tspan class="c-key">②가 틀리면 ⑤의 급여 금액이 틀린다</tspan> — 마스터가 먼저다.</text>
+</svg>
+<figcaption><span class="fno">그림 1</span>Recruit-to-Retire 6단계. 회계와 만나는 접점은 ⑤ 한 곳뿐이다.</figcaption>
+</figure>
+
+<h3>HCM Suite 솔루션 9종</h3>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>솔루션</th><th>기능</th></tr></thead>
+<tbody>
+<tr><td>Recruiting</td><td class="wrap">지원자 추적 시스템(ATS), 채용공고 배포, 반응형 커리어 사이트, 후보자 관계관리, 라인오브사이트 분석을 결합해 인재를 소싱·확보·채용</td></tr>
+<tr><td>Onboarding</td><td class="wrap">외부/내부 신규 입사자가 빠르게 조직의 생산적 구성원이 되도록 지원하는 도구 제공</td></tr>
+<tr><td><span class="key">Employee Central</span></td><td class="wrap">신뢰할 수 있는 일관된 <b>system of record</b> 제공, 업무 자동화 도구 제공</td></tr>
+<tr><td>Learning</td><td class="wrap">사용자가 배정·자기배정·이수할 수 있는 학습관리시스템(LMS)</td></tr>
+<tr><td>Performance and Goals</td><td class="wrap">Goal Management로 개인 목표를 비즈니스 목표에 정렬, Performance Management로 성과·역량 평가</td></tr>
+<tr><td>Succession</td><td class="wrap">인재 유지, 인재 갭 파악, 역량·경력지향에 맞춘 후계자 계획 수립</td></tr>
+<tr><td>Compensation</td><td class="wrap">직원·비즈니스·예산 요구에 맞는 전략적 보상 프로그램 구축·관리</td></tr>
+<tr><td>Career Development (CDP)</td><td class="wrap">향후 역할을 목표로 삼고 역량 갭을 파악해 커리어 준비도를 평가</td></tr>
+<tr><td>People Analytics</td><td class="wrap">SuccessFactors 전체 리포팅 솔루션 — 대화형 대시보드·타일로 팀 정보 요약</td></tr>
+</tbody>
+</table>
+</div>
+
+<div class="note">
+  <div class="t">🔰 초보자 설명 — Recruit-to-Retire가 왜 하나의 프로세스로 묶이는가</div>
+  <p>채용부터 퇴직까지를 <b>하나의 연결된 데이터 흐름</b>으로 본다는 뜻입니다. 채용에서 모은 지원자 정보가 온보딩으로, 온보딩에서 확정된 데이터가 Employee Central로, 그 마스터를 기반으로 급여·성과·보상이 계산됩니다.</p>
+  <p>Unit 4(Record-to-Report)가 "거래 기록부터 재무제표까지"를 하나의 사이클로 본 것과 같은 설계 철학입니다 — <b>한 번 만든 마스터를 재입력 없이 전 구간에서 재사용한다</b>는 것.</p>
+</div>
+
+</div>
+
+
+<!-- ══════════ LESSON 2 ══════════ -->
+<div class="lesson" id="l2">
+<h2><span class="no">LESSON 2</span>채용과 온보딩 — 승인 워크플로우와 전자서명</h2>
+
+<p><span class="tag">Unit 5</span><span class="tag">레슨 2개</span>5-2 Recruiting · 5-3 Onboarding / Offboarding</p>
+
+<h3>언제 이걸 알아야 하는가</h3>
+
+<p><b>"오퍼레터를 후보자가 못 받았다고 합니다"</b> — 채용담당자는 분명히 만들었다고 합니다. 이 경우 거의 항상 <span class="key">승인(Approval) 단계가 아직 안 끝난 것</span>입니다.</p>
+
+<p>오퍼는 생성(Draft) → 승인(Approval) → 발송(Send) 세 단계가 <b>서로 다른 역할</b>에 의해 순차 처리됩니다. 승인 전까지는 오퍼레터 자체가 후보자에게 노출되지 않습니다 — 버그가 아니라 설계입니다.</p>
+
+<h3>Recruiting 구성요소 4종</h3>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>구성요소</th><th>설명</th></tr></thead>
+<tbody>
+<tr><td>Job Requisition and Applicant Management</td><td class="wrap">구인신청서 작성, 채용공고 게시·소싱, 후보자 데이터 수집부터 스크리닝·선발까지</td></tr>
+<tr><td>Self Service Career Site</td><td class="wrap">Career Site Builder의 사전 구성·커스텀 컴포넌트로 46개 이상 언어 채용사이트 구축 — 기술지원 없이 고객이 직접 유지관리</td></tr>
+<tr><td>Sourcing Analytics</td><td class="wrap">Recruiting Advanced Analytics로 채용활동 지출 확인, 구인신청서·소스·캠페인·기간 차원별 드릴다운</td></tr>
+<tr><td>Candidate Relationship Management</td><td class="wrap">인재풀(talent pool) 구성, 커리어사이트 폼 작성자 자동 추가, 최대 25만 명 이메일 마케팅 캠페인</td></tr>
+</tbody>
+</table>
+</div>
+
+<h3>Recruiting 5단계</h3>
+
+<p>채용담당자의 업무는 <b>구인신청서(job requisition) 작성</b>으로 시작해, 합격 후보자에게 <b>오퍼가 제시되는 시점</b>에 끝납니다.</p>
+
+<div class="step"><span class="n">STEP 1</span><p><b>어떤 직무를 채울 것인가</b> — 구인신청서에 직무명·설명·근무지·채용관리자·보상 데이터를 담는다. <span class="key">경로맵(route map)에 따라 승인을 받은 뒤에야</span> 게시·홍보할 수 있다</p></div>
+<div class="step"><span class="n">STEP 2</span><p><b>어디에 게시할 것인가</b> — 사내/사외 커리어사이트, 채용대행사, 채용게시판에 동시 게시. 비공개 포지션은 공개 게시 없이 특정 후보자에게만 전달하는 <b>private posting</b> 가능</p></div>
+<div class="step"><span class="n">STEP 3</span><p><b>후보자 데이터를 어떻게 모을 것인가</b> — <b>Candidate Profile</b>(이력서 파싱·LinkedIn 연동), <b>Application</b>(자격요건·다양성 준수·리포팅용 데이터), <b>Pre-screening questions</b>(오답 시 자동 탈락 또는 점수 부여) 세 가지 조합</p></div>
+<div class="step"><span class="n">STEP 4</span><p><b>지원 후에는</b> — Candidate Workbench의 <b>Talent Pipeline</b>에서 단계 통과 시마다 후보자를 이동시킨다. 인터뷰 일정·평가·백그라운드 체크 연동 지원</p></div>
+<div class="step"><span class="n">STEP 5</span><p><b>오퍼 프로세스</b> — 오퍼 상세정보(보상 등)로 트리거, 승인 후 <b>구두 · 이메일(텍스트/PDF) · 커리어사이트 온라인</b> 세 채널 중 하나로 전달(온라인은 전자서명 요구 옵션 포함)</p></div>
+
+<h4>실습으로 확인된 오퍼 흐름 (02-2 / 02-3)</h4>
+
+<p>Candidate Workbench에서 <b>Take Action → Offer → Offer Approval</b>로 승인요청을 만들고 Ad hoc approver를 지정해 <b>Send For Approval</b> → HR Manager 역할로 전환해 오퍼 상세(Base Pay $60,000/Annual)를 확인하고 <b>Approve</b> → 다시 채용담당자가 <b>Offer Letter</b> 템플릿을 골라 <b>Online Offer</b>로 <b>Send</b>. 후보자는 커리어사이트 Candidate Profile의 <b>Jobs Applied</b>에서 <b>View/Accept Offer</b> → <b>Accept Offer</b>로 상태를 <code>Pending offer acceptance</code> → <code>Accepted</code>로 직접 전환합니다.</p>
+
+<div class="note">
+  <div class="t">🔰 초보자 설명 — 전자서명이 두 번 나오는 이유</div>
+  <p>지원서 제출(02-1)에서 후보자는 전자서명란에 이름을 직접 입력(Typed Signature)했고, 온보딩(03-3)에서는 정식 계약서류에 <b>Click to Sign</b>으로 서명합니다.</p>
+  <p>같은 전자서명 메커니즘이 <b>채용 단계와 온보딩 단계에 걸쳐 일관되게</b> 쓰인다는 뜻입니다. 앞은 "내가 제출한 정보가 사실이다"라는 확인, 뒤는 "고용 조건에 동의한다"라는 계약 행위로 성격이 다를 뿐입니다.</p>
+</div>
+
+<h3>온보딩 개시 — 시스템 vs 수동</h3>
+
+<p>온보딩 프로세스는 개시로 시작해 <b>신규 입사자가 내부 사용자(직원)로 전환되는 시점</b>에 끝납니다. ATS(예: SuccessFactors Recruiting)를 통해 시스템으로 개시하거나 수동으로 개시할 수 있습니다.</p>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>개시 방식</th><th>절차 · 쓰는 경우</th></tr></thead>
+<tbody>
+<tr><td>시스템 개시</td><td class="wrap">Job Requisitions 탭에서 구인신청서 조회 → Candidates 컬럼에서 후보자 수 선택 → <code>Ready to Hire</code> 상태 후보자 확인 → 외부/내부 후보자 여부 확인 → 액션 메뉴 <b>Initiate Onboarding</b></td></tr>
+<tr><td>수동 개시</td><td class="wrap">채용시스템을 쓰지 않는 회사 / 기밀 유지가 필요한 고위 임원 채용 / 안식년(sabbatical) 복귀 직원. 검색창에 "add new hire to onboarding" 입력 → 정보 입력 → <b>Initiate Onboarding</b></td></tr>
+</tbody>
+</table>
+</div>
+
+<h3>온보딩 5단계 — 서명과 프로필 생성은 분리되어 있다</h3>
+
+<div class="step"><span class="n">STEP 1</span><p><b>채용관리자</b>가 온보딩 개시 알림을 받고 신규 입사자 데이터를 검토한 뒤, 추가 정보 제공 태스크를 배정한다</p></div>
+<div class="step"><span class="n">STEP 2</span><p><b>신규 입사자</b>가 로그인 URL·자격증명 이메일을 받고, 홈페이지 <b>For You Today</b> 섹션에서 배정된 태스크를 완료한다 (개인정보 직접 입력 — 셀프서비스)</p></div>
+<div class="step"><span class="n">STEP 3</span><p><b>시스템</b>이 필요한 서류를 자동 생성하고, 채용관리자와 신규 입사자 양쪽에 검토·서명이 필요함을 알린다</p></div>
+<div class="step"><span class="n">STEP 4</span><p>서명이 완료되면 대상자가 <b>Manage Pending Hires</b> 목록에 표시되고, 채용관리자 또는 HR Admin이 <span class="key">Employee Central에 채용 데이터를 추가</span>한다 (Identity → Job Information → Compensation Information 3단계 폼)</p></div>
+<div class="step"><span class="n">STEP 5</span><p><b>시작일(start date)</b>이 되면 SuccessFactors가 해당 직원의 상태·고용정보를 <b>활성화</b>한다</p></div>
+
+<div class="note">
+  <div class="t">🔰 초보자 설명 — 왜 서류 서명(3단계)과 프로필 생성(4단계)이 분리되어 있는가</div>
+  <p>서류 서명은 <b>본인이 고용 조건에 동의하는 절차</b>이고, Employee Central 프로필 생성은 <b>회사 내부 시스템에 정식 직원 마스터로 등록하는 절차</b>입니다.</p>
+  <p>이 둘을 분리해두면 <span class="bad">서명이 끝나지 않은 사람의 데이터가 정식 직원 시스템에 활성화되는 것</span>을 막을 수 있습니다. 실습에서도 이 순서(서명 → 프로필 생성)가 그대로 지켜집니다.</p>
+</div>
+
+<div class="note warn">
+  <div class="t">Manage Pending Hires에는 두 종류가 섞인다</div>
+  <p>이 목록에는 온보딩을 거쳐 넘어온 신규 입사자(<b>Onboarding</b> 소스)와, 온보딩을 거치지 않고 직접 채용된 케이스(<b>Recruiting</b> 소스)가 드롭다운으로 구분되어 함께 들어옵니다. "온보딩 목록에 없는데 왜 여기 있냐"는 질문이 나오면 이 소스 구분부터 확인합니다.</p>
+</div>
+
+<h3>Offboarding — 퇴직 구간</h3>
+
+<p>Offboarding은 퇴사자의 <b>마지막 근무일까지 매끄러운 경험</b>을 지원하며, 퇴사 관련 정보를 모으고 시간에 민감한 활동들을 트리거합니다. 퇴사 사유는 <b>Voluntary</b>(사직) · <b>Involuntary</b>(정리해고·해고) · <b>Retirement</b>(정년퇴직) 세 가지입니다. Onboarding과 함께 구축하거나, HCM Suite 내 독립 솔루션으로도 구현 가능합니다.</p>
+
+</div>
+
+
+<!-- ══════════ LESSON 3 ══════════ -->
+<div class="lesson" id="l3">
+<h2><span class="no">LESSON 3</span>Employee Central — 직원 마스터의 system of record</h2>
+
+<p><span class="tag">Unit 5</span><span class="tag">레슨 1개</span>5-4 Storing Employee Records with SAP SuccessFactors Employee Central</p>
+
+<h3>언제 이걸 알아야 하는가</h3>
+
+<p><b>"직원이 계좌를 바꿨는데 급여가 옛 계좌로 나갔습니다"</b> — 직원은 분명히 본인 화면에서 바꿨다고 합니다.</p>
+
+<p>Employee Central에서 셀프서비스로 바꾼 계좌정보가 <span class="key">백엔드 급여 시스템까지 반영됐는지는 별개 문제</span>입니다. 확인 지점은 클라우드 화면이 아니라 SAP GUI의 <code>PA30</code> <b>Bank Details</b> 인포타입입니다 — LESSON 4의 사전점검(05-2)이 정확히 이 검증입니다.</p>
+
+<h3>EC 코어 구조 — 3요소</h3>
+
+<p>Employee Central은 글로벌 기업을 위한 신뢰할 수 있고 일관된 <b>system of record</b>를 제공합니다. 코어 구조는 <b>HR 워크플로우</b>(프로세스·이벤트사유·비즈니스룰), <b>셀프서비스</b>(직원·매니저의 시스템 상호작용), <b>역할기반권한</b>(HR Data와 Foundation Objects 접근 통제) 세 가지로 구성됩니다.</p>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>구성요소</th><th>설명</th></tr></thead>
+<tbody>
+<tr><td>Workflows, Event Reasons, Business Rules</td><td class="wrap">워크플로우는 <b>승인 프로세스</b>를 정의. Event Reasons는 고용변경에 따른 직원 상태를 설정하고 사유를 정의. Business Rules는 트랜잭션에 애플리케이션 로직을 추가</td></tr>
+<tr><td>Self Service</td><td class="wrap">EC의 핵심 특징 — 직원 셀프서비스와 매니저 셀프서비스 모두 제공. <b>People Profile</b> 인터페이스에서 직접 트랜잭션 개시</td></tr>
+<tr><td>Role-Based Permissions</td><td class="wrap">사용자 역할(HR / 직원 / 매니저)에 따라 서로 다른 수준의 읽기·쓰기 권한 부여</td></tr>
+<tr><td>HR Data</td><td class="wrap">직원 개인정보(생년월일·국가ID 등)와 고용정보(직함·보상 등)</td></tr>
+<tr><td><span class="key">Foundation Objects</span></td><td class="wrap">EC의 근본 요소 — 회사의 <b>조직·급여·직무 구조</b>를 정의·저장해 직원 정보를 체계화</td></tr>
+</tbody>
+</table>
+</div>
+
+<div class="note">
+  <div class="t">🔰 초보자 설명 — Foundation Objects가 왜 "근본적"인가</div>
+  <p>HR Data(개인정보·고용정보)는 <b>어떤 조직단위·직무·급여구조에 속하는지</b>를 알아야 의미가 완성됩니다. Foundation Objects는 그 "조직·직무·급여"라는 뼈대를 미리 정의해두는 마스터 데이터 계층입니다.</p>
+  <p>온보딩 실습(03-4)에서 Viktor Krum의 프로필에 Location(<code>Detroit HQ US</code>)을 지정했던 것이 바로 이 Foundation Objects를 채우는 과정이었습니다.</p>
+</div>
+
+<h4>실습 — 계좌정보 셀프서비스 변경 (04-1)</h4>
+
+<div class="step"><span class="n">STEP 1</span><p><b>My Employee File</b> → <b>PERSONAL INFORMATION</b> 드롭다운 → <b>Payment Information</b> 선택 → 편집(연필) 아이콘</p></div>
+<div class="step"><span class="n">STEP 2</span><p>Payment Method를 <code>Cash(09)</code> → <code>Bank Transfer(05)</code>로 변경, Bank <code>CITIBANKUSA</code> 검색·선택</p></div>
+<div class="step"><span class="n">STEP 3</span><p>Account Owner 입력, Account Type <b>Savings</b>, Routing Number <code>021000089</code> · Account Number <code>81728832</code> 입력 → <b>Save</b></p></div>
+<div class="step"><span class="n">STEP 4</span><p>Payment Information 블록에 변경값(Bank Transfer / CITIBANKUSA / Savings) 반영 확인</p></div>
+
+<p>핵심은 <span class="hl">급여 계좌번호 같은 민감정보까지 직원 본인이 HR 담당자 개입 없이 직접 수정</span>한다는 점입니다 — 이론의 "Self Service"가 어디까지 적용되는지를 보여주는 사례입니다.</p>
+
+<h3>클라우드와 백엔드의 경계</h3>
+
+<figure class="figwrap">
+<svg class="dgm" viewBox="0 0 1000 350" role="img" aria-label="SuccessFactors 클라우드와 SAP ERP HCM 온프레미스 백엔드의 경계 도해. 사람의 데이터는 클라우드에서 만들어지고, 급여 계산과 FI 전기는 SAP GUI 트랜잭션이 있는 백엔드에서 수행된다.">
+  <defs>
+    <marker id="ba" markerWidth="9" markerHeight="9" refX="7" refY="4.5" orient="auto">
+      <polygon class="arw-key" points="0,0 9,4.5 0,9"/></marker>
+    <marker id="bok" markerWidth="9" markerHeight="9" refX="8" refY="4.5" orient="auto">
+      <polygon class="arw-ok" points="0,0 9,4.5 0,9"/></marker>
+  </defs>
+
+  <rect class="b-ghost" x="20" y="28" width="956" height="112" rx="8"/>
+  <text class="t-h c-key" x="40" y="50">SAP SuccessFactors (클라우드 · Fiori 계열 화면)</text>
+
+  <rect class="b-key" x="40" y="62" width="215" height="62" rx="6"/>
+  <text class="t" x="58" y="86">Career Site</text>
+  <text class="t-s" x="58" y="106">지원 · 오퍼 수락</text>
+
+  <rect class="b-key" x="275" y="62" width="215" height="62" rx="6"/>
+  <text class="t" x="293" y="86">Recruiting</text>
+  <text class="t-s" x="293" y="106">Candidate Workbench</text>
+
+  <rect class="b-key" x="510" y="62" width="215" height="62" rx="6"/>
+  <text class="t" x="528" y="86">Onboarding</text>
+  <text class="t-s" x="528" y="106">Manage Pending Hires</text>
+
+  <rect class="b-key" x="745" y="62" width="215" height="62" rx="6"/>
+  <text class="t" x="763" y="86">Employee Central</text>
+  <text class="t-s" x="763" y="106">People Profile · 셀프서비스</text>
+
+  <path class="ln-d" d="M20 162 H976"/>
+  <text class="t-xs c-bad" x="40" y="157">시스템 경계 — 하이브리드 연동 (직원 마스터 · 계좌정보가 백엔드로 넘어간다)</text>
+  <path class="ln-key" d="M852 124 V196" marker-end="url(#ba)"/>
+
+  <rect class="b-ghost" x="20" y="182" width="956" height="120" rx="8"/>
+  <text class="t-h" x="40" y="204">SAP ERP HCM · S/4HANA (온프레미스 · SAP GUI 트랜잭션)</text>
+
+  <rect class="b" x="40" y="216" width="215" height="68" rx="6"/>
+  <text class="m" x="58" y="240">PA30</text>
+  <text class="t-s" x="58" y="260">인포타입 조회 · 유지</text>
+  <text class="t-s" x="58" y="277">Bank Details 검증</text>
+
+  <rect class="b" x="275" y="216" width="215" height="68" rx="6"/>
+  <text class="m" x="293" y="240">PA03</text>
+  <text class="t-s" x="293" y="260">급여영역 관리레코드</text>
+  <text class="t-s" x="293" y="277">Exit Payroll 상태 확인</text>
+
+  <rect class="b" x="510" y="216" width="215" height="68" rx="6"/>
+  <text class="m" x="528" y="240">PC00_M99_CALC</text>
+  <text class="t-s" x="528" y="260">Payroll Driver</text>
+  <text class="t-s" x="528" y="277">급여 계산 실행</text>
+
+  <rect class="b-ok" x="745" y="216" width="215" height="68" rx="6"/>
+  <text class="m c-ok" x="763" y="240">PC00_M99_CIPE</text>
+  <text class="m-s c-ok" x="763" y="258">PC00_M99_CIPC</text>
+  <text class="t-s" x="763" y="277">재무전기 → FI 전표</text>
+
+  <rect class="b-ghost" x="20" y="312" width="956" height="30" rx="6"/>
+  <text class="t-s" x="42" y="332">같은 Unit 안에서도 화면 성격이 갈린다 — <tspan class="c-key">클라우드는 "사람의 데이터"</tspan>, <tspan class="c-ok">백엔드는 "그 데이터를 돈으로 바꾸는 계산과 전기"</tspan>.</text>
+</svg>
+<figcaption><span class="fno">그림 2</span>HXM(SuccessFactors)과 S/4HANA · ERP HCM의 경계. 급여 계산과 회계 전기는 백엔드에 남는다.</figcaption>
+</figure>
+
+<div class="note warn">
+  <div class="t">확인 필요 — 연동 방식은 시스템 구성에 따라 갈린다</div>
+  <p>Learning Hub 자료는 "SuccessFactors와 ERP HCM/Payroll이 연동되어 함께 동작하는 하이브리드 구조"라는 사실까지만 보여줍니다. 실제 복제 주기·연동 미들웨어·어느 필드가 어느 방향으로 흐르는지는 <b>구축 시나리오마다 다릅니다.</b></p>
+  <p>실제 시스템(<b>winerp01 / MEP</b>)에서 확정할 것 — 여기서 단정하지 않습니다.</p>
+</div>
+
+</div>
+
+
+<!-- ══════════ LESSON 4 ══════════ -->
+<div class="lesson" id="l4">
+<h2><span class="no">LESSON 4</span>급여 처리와 재무전기 — 인건비가 FI로 들어오는 지점</h2>
+
+<p><span class="tag">Unit 5</span><span class="tag">레슨 1개</span>5-5 Processing Payroll and Posting Payroll Results to Finance</p>
+
+<h3>언제 이걸 알아야 하는가</h3>
+
+<p><b>"급여전기가 안 돌아갑니다"</b> — 이 문의에서 추측으로 손대면 안 됩니다. 확인 순서가 정해져 있습니다.</p>
+
+<p>① <code>PA30</code>에서 대상자의 마스터데이터(특히 Bank Details)가 정확한가, ② <code>PA03</code>에서 그 사람이 속한 <b>급여영역(Payroll Area)</b>의 상태가 <span class="key">Exit Payroll</span>인가. 급여가 아직 확정되지 않았으면 재무전기 자체가 성립하지 않습니다.</p>
+
+<h3>급여 프로세스 3단계</h3>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>단계</th><th>내용</th></tr></thead>
+<tbody>
+<tr><td>I. Master- and Timedata</td><td class="wrap">급여 계산에 필요한 마스터데이터·근태데이터 준비 (예: 인포타입 <code>7</code>, <code>8</code>, <code>14</code>, <code>15</code>)</td></tr>
+<tr><td>II. Payroll Process</td><td class="wrap">준비된 데이터를 바탕으로 실제 급여 계산 실행</td></tr>
+<tr><td>III. Payout</td><td class="wrap">계산 결과에 따른 지급 처리 (예: 임금 계정 <code>/560</code> = 3,000 EUR)</td></tr>
+</tbody>
+</table>
+</div>
+
+<p>II단계 자체는 <b>Release Payroll → Start Payroll → Run Payroll Ok?</b> 사이클로 돕니다. 성공하면 <b>Exit Payroll → Subsequent activities</b>로 종료하고, 실패하면 <b>Corrections → Change master data</b>를 거쳐 <span class="bad">다시 Release Payroll로 되돌아갑니다.</span> 실습 영상에서는 <code>PC00_M99_CALC</code>(Payroll Driver)에 Payroll area(예: <code>X1</code>)와 Current period(예: <code>01 2022</code>)를 지정해 이 사이클의 1~2단계를 직접 실행합니다.</p>
+
+<div class="note">
+  <div class="t">🔰 초보자 설명 — "Run Payroll Ok?"에서 실패하면 왜 처음부터 다시 도는가</div>
+  <p>급여 계산은 그 회사코드의 <b>모든 직원에게 일괄 적용</b>되는 매우 민감한 작업입니다. 계산 도중 특정 직원의 마스터데이터에 오류가 있으면(예: 잘못된 계좌정보), 그 오류를 고치기 전까지 급여를 확정(Exit Payroll)할 수 없습니다.</p>
+  <p>그래서 오류 발견 시 마스터데이터를 수정한 뒤 <b>처음 단계(Release Payroll)로 되돌아가 전체 사이클을 다시</b> 돕니다. LESSON 3의 셀프서비스 계좌 변경을 미리 정확히 해두면 이 재작업 루프를 예방할 수 있습니다.</p>
+</div>
+
+<h3>재무전기 — 시뮬레이션이 강제되는 구간</h3>
+
+<figure class="figwrap">
+<svg class="dgm" viewBox="0 0 1000 392" role="img" aria-label="급여 계산부터 FI 전기까지의 흐름 도해. 급여가 Exit Payroll로 확정된 뒤에야 전기가 가능하고, 실제 전기(P) 전에 시뮬레이션(S)과 릴리스가 반드시 선행된다.">
+  <defs>
+    <marker id="pa" markerWidth="9" markerHeight="9" refX="7" refY="4.5" orient="auto">
+      <polygon class="arw" points="0,0 9,4.5 0,9"/></marker>
+    <marker id="pk" markerWidth="9" markerHeight="9" refX="7" refY="4.5" orient="auto">
+      <polygon class="arw-key" points="0,0 9,4.5 0,9"/></marker>
+    <marker id="pb" markerWidth="9" markerHeight="9" refX="7" refY="4.5" orient="auto">
+      <polygon class="arw-bad" points="0,0 9,4.5 0,9"/></marker>
+    <marker id="pok" markerWidth="9" markerHeight="9" refX="8" refY="4.5" orient="auto">
+      <polygon class="arw-ok" points="0,0 9,4.5 0,9"/></marker>
+  </defs>
+
+  <rect class="b" x="20" y="46" width="190" height="58" rx="6"/>
+  <text class="t" x="38" y="70">I. 마스터 · 근태데이터</text>
+  <text class="m-s" x="38" y="90">인포타입 7 · 8 · 14 · 15</text>
+
+  <rect class="b-key" x="250" y="46" width="210" height="58" rx="6"/>
+  <text class="t c-key" x="268" y="70">II. 급여 계산 실행</text>
+  <text class="m-s" x="268" y="90">PC00_M99_CALC</text>
+
+  <polygon class="b-hl" points="600,40 706,75 600,110 494,75"/>
+  <text class="t" x="552" y="72">Run Payroll</text>
+  <text class="t" x="574" y="88">Ok ?</text>
+
+  <rect class="b-ok" x="746" y="46" width="190" height="58" rx="6"/>
+  <text class="t c-ok" x="764" y="70">Exit Payroll</text>
+  <text class="t-s" x="764" y="90">급여 확정 — 여기부터 전기</text>
+
+  <path class="ln" d="M210 75 H244" marker-end="url(#pa)"/>
+  <path class="ln" d="M460 75 H488" marker-end="url(#pa)"/>
+  <path class="ln-ok" d="M706 75 H740" marker-end="url(#pok)"/>
+
+  <path class="ln-bad" d="M600 110 V138 H355 V110" marker-end="url(#pb)"/>
+  <text class="t-s c-bad" x="380" y="132">아니오 → Corrections · 마스터 수정 후 Release Payroll 부터 재실행</text>
+
+  <path class="ln-key" d="M841 104 V158 H109 V194" marker-end="url(#pk)"/>
+  <text class="t-xs c-key" x="120" y="152">확정된 급여 결과만 재무전기 대상이 된다</text>
+
+  <rect class="b" x="20" y="196" width="178" height="62" rx="6"/>
+  <text class="t" x="36" y="220">① 시뮬레이션 (S)</text>
+  <text class="m-s" x="36" y="240">PC00_M99_CIPE</text>
+
+  <rect class="b" x="215" y="196" width="178" height="62" rx="6"/>
+  <text class="t" x="231" y="220">② 평가 확인</text>
+  <text class="t-s" x="231" y="240">Rejected 0 / Skipped 0</text>
+
+  <rect class="b" x="410" y="196" width="178" height="62" rx="6"/>
+  <text class="t" x="426" y="220">③ Release</text>
+  <text class="t-s" x="426" y="240">Created → Released</text>
+
+  <rect class="b-bad" x="605" y="196" width="178" height="62" rx="6"/>
+  <text class="t c-bad" x="621" y="220">④ 실전기 (P)</text>
+  <text class="m-s" x="621" y="240">PC00_M99_CIPE</text>
+
+  <rect class="b-bad" x="800" y="196" width="178" height="62" rx="6"/>
+  <text class="t c-bad" x="816" y="220">⑤ 전기 실행</text>
+  <text class="m-s" x="816" y="240">PC00_M99_CIPC</text>
+
+  <path class="ln" d="M198 227 H209" marker-end="url(#pa)"/>
+  <path class="ln" d="M393 227 H404" marker-end="url(#pa)"/>
+  <path class="ln" d="M588 227 H599" marker-end="url(#pa)"/>
+  <path class="ln" d="M783 227 H794" marker-end="url(#pa)"/>
+
+  <path class="ln-ok" d="M889 258 V286" marker-end="url(#pok)"/>
+  <rect class="b-ok" x="600" y="288" width="378" height="58" rx="6"/>
+  <text class="t-h c-ok" x="620" y="312">FI 전표 (Journal Entry)</text>
+  <text class="t-s" x="620" y="332">Document check – no errors · Document posted successfully</text>
+
+  <rect class="b-ghost" x="20" y="288" width="550" height="58" rx="6"/>
+  <text class="t-s" x="42" y="310">④⑤ 를 돌리기 전에 ①②③ 은 <tspan class="c-bad">건너뛸 수 없다.</tspan></text>
+  <text class="t-s" x="42" y="330">대량 인건비 전표는 되돌리는 비용이 크기 때문이다.</text>
+
+  <rect class="b-ghost" x="20" y="356" width="958" height="28" rx="6"/>
+  <text class="t-s" x="42" y="375">전기 전 사전점검: <tspan class="m-s">PA30</tspan> Bank Details · Organizational Assignment(급여영역) → <tspan class="m-s">PA03</tspan> 해당 급여영역이 Exit Payroll 인가</text>
+</svg>
+<figcaption><span class="fno">그림 3</span>급여 계산에서 FI 전표까지. 실제 전기(P) 앞에 시뮬레이션(S)·검증·릴리스가 강제된다.</figcaption>
+</figure>
+
+<h4>실습 — 사전점검 (05-2)</h4>
+
+<div class="step"><span class="n">STEP 1</span><p><code>PA30</code>(Maintain HR Master Data)에서 대상자의 <b>Bank Details</b> 인포타입을 Display로 조회 → Bank Key / Account / Payment Method 확인</p></div>
+<div class="step"><span class="n">STEP 2</span><p>같은 화면에서 <b>Organizational Assignment</b> 인포타입으로 이동 → 대상자가 급여영역(Payroll Area) <code>X9</code>에 속하는지 확인</p></div>
+<div class="step"><span class="n">STEP 3</span><p><code>PA03</code>(Maintain Personnel Control Record)에서 급여영역 <code>X9</code>의 <b>Payroll status</b>를 Change로 조회 → Payroll period <code>01/2022</code>가 <span class="key">Exit Payroll</span> 상태(급여가 정상 실행 완료됨)임을 확인</p></div>
+
+<h4>실습 — 재무전기 (05-3)</h4>
+
+<div class="step"><span class="n">STEP 1</span><p><code>PC00_M99_CIPE</code>(Posting to Accounting: Create Posting Run)에서 Payroll Period · Payroll Area(<code>X9</code>) · Personnel Number 지정</p></div>
+<div class="step"><span class="n">STEP 2</span><p>Type of document creation을 <b>S</b>(Creation of simulation documents)로 먼저 실행 → <b>Evaluation of Posting Item</b> 화면에서 <span class="good">Rejected 0 / Skipped 0</span> 확인 → <b>Document Overview</b>에서 생성된 전표 확인</p></div>
+<div class="step"><span class="n">STEP 3</span><p><b>Release</b>로 전표 릴리스 → 문서 상태가 <code>Created</code> → <code>Released</code>로 변경</p></div>
+<div class="step"><span class="n">STEP 4</span><p>Type of document creation을 <b>P</b>(Live posting run)로 바꿔 실제 전기 실행</p></div>
+<div class="step"><span class="n">STEP 5</span><p><code>PC00_M99_CIPC</code>(Edit Posting Run) → <b>Display posting runs</b> 목록에서 해당 급여전기런 선택 → <b>Post documents → Immediately</b> → "Document check – no errors" · "Document posted successfully"(문서번호 포함) 최종 확인</p></div>
+
+<div class="note warn">
+  <div class="t">확인 필요 — 급여영역 · 인포타입 번호는 국가·구성별로 다르다</div>
+  <p>자료에 나오는 <code>X1</code> · <code>X9</code> 같은 급여영역과 <code>/560</code> 임금계정, 인포타입 번호는 <b>학습 시스템의 값</b>입니다. 급여 스키마와 계정결정은 국가별 법규(country version)에 따라 달라집니다.</p>
+  <p>실제 시스템(<b>winerp01 / MEP</b>)에서 확인 후 보강할 것.</p>
+</div>
+
+<div class="note ok">
+  <div class="t">📌 개인 E2E 프로젝트와의 연결점</div>
+  <p>개인 프로젝트는 <b>SD · MM · FI</b> 세 모듈만 다루고 <span class="bad">HR은 범위 밖</span>입니다. 억지로 붙일 이유가 없습니다. 다만 이 LESSON에서 가져갈 것이 하나 있습니다 — <span class="key">인건비도 결국 FI 전표로 총계정원장에 들어온다</span>는 점입니다. Universal Journal은 SD·MM뿐 아니라 HR/Payroll 결과까지 받아들이는 자리입니다.</p>
+  <p>그리고 <b>시뮬레이션(S) → 검증 → 릴리스 → 실전기(P)</b>라는 4단계 안전장치는 프로젝트 개발 원칙 <b>"회계 영향이 있는 처리는 자동화하지 않는다(알림 또는 승인 대기까지만)"</b>와 정확히 같은 발상입니다. CBO 테이블에 상태필드 <code>W</code>(대기) / <code>P</code>(처리) / <code>H</code>(보류)를 두기로 한 설계가 이 4단계를 직접 구현하는 셈입니다 — 확정 전 상태를 시스템이 기억하게 만드는 것.</p>
+</div>
+
+</div>
+
+
+<!-- ══════════ APPENDIX ══════════ -->
+<div class="lesson" id="lx">
+<h2><span class="no">APPENDIX</span>정리 · 반드시 기억할 것</h2>
+
+<h3>한 장 요약</h3>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>질문</th><th>답</th></tr></thead>
+<tbody>
+<tr><td>Recruit-to-Retire 6단계는</td><td class="wrap">Recruiting → Master Data → Learning → Performance → Payroll &amp; Compensation → Reporting</td></tr>
+<tr><td>회계와 만나는 지점은</td><td class="wrap"><b>Payroll 단계 하나뿐.</b> 급여 계산 결과가 FI 전표로 총계정원장에 들어온다</td></tr>
+<tr><td>오퍼레터가 후보자에게 안 갔다면</td><td class="wrap">승인(Approval)이 안 끝난 것. Draft → Approval → Send 순서이며 승인 전 노출 안 됨</td></tr>
+<tr><td>온보딩이 끝났는데 직원이 안 보인다면</td><td class="wrap">서명 완료 → <b>Manage Pending Hires</b> 등재 → EC 프로필 생성 → <b>시작일 도래 시 활성화</b>. 네 단계가 다 끝나야 보인다</td></tr>
+<tr><td>Foundation Objects란</td><td class="wrap">조직·직무·급여 구조를 미리 정의하는 뼈대. 그 위에 개별 직원 HR Data가 얹힌다</td></tr>
+<tr><td>클라우드 / 백엔드 경계는</td><td class="wrap">Career Site · Onboarding · Employee Central = SuccessFactors / <code>PA30</code> · <code>PA03</code> · <code>PC00_M99_*</code> = ERP HCM</td></tr>
+<tr><td>재무전기 전 확인할 두 가지</td><td class="wrap">① <code>PA30</code> 마스터(계좌)가 정확한가 ② <code>PA03</code> 급여영역이 <b>Exit Payroll</b>인가</td></tr>
+<tr><td>전기 순서는</td><td class="wrap">시뮬레이션 <b>S</b> → 평가(Rejected 0 / Skipped 0) → <b>Release</b> → 실전기 <b>P</b> → <code>PC00_M99_CIPC</code> Post documents</td></tr>
+</tbody>
+</table>
+</div>
+
+<div class="note warn">
+  <div class="t">반드시 지킬 것</div>
+  <p>· 급여 재무전기를 <b>시뮬레이션(S) 없이 바로 P로 돌리지 않는다.</b> 대량 인건비 전표는 되돌리는 비용이 크다.<br>
+     · "Run Payroll Ok?"에서 실패하면 <b>마스터를 고치고 Release Payroll부터 다시 돈다.</b> 중간부터 재개하지 않는다.<br>
+     · 전자서명이 끝나지 않은 사람을 <b>Employee Central에 먼저 만들지 않는다.</b> 서명 → 프로필 생성 순서가 통제 장치다.<br>
+     · 급여영역·인포타입 번호·임금계정은 <b>학습 시스템 값이다.</b> 실제 시스템에서 확인하기 전에 인용하지 않는다.</p>
+</div>
+
+<h3>참고</h3>
+
+<ul>
+  <li>원본: 노션 <b>SAP Learning Hub</b> → IEE2E → <b>05. Performing the Recruit-to-Retire Process: Focus on Human Experience Management</b> (Unit 5, 레슨 5개 · 5-1 ~ 5-5)</li>
+  <li>과정: Exploring End-to-End Business Processes in SAP Business Suite</li>
+  <li>이어지는 노트: <b>IEE2E Unit 6</b> Source-to-Pay — 조달 E2E 프로세스 (개인 프로젝트의 구매 축 전체 지도)</li>
+  <li>이 Unit의 실습은 SuccessFactors 학습 시스템 데모 기준이며, 개인 프로젝트(SD·MM·FI)에서 재현 대상이 아니다</li>
+</ul>
+
+</div>
+
+</div>
+<script src="../../assets/hub.js" defer></script>
+</body>
+</html>

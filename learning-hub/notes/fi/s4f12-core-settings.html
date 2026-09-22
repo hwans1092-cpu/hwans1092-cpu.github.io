@@ -1,0 +1,1238 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>S4F12 Customizing Core Settings in FI — 조직단위 · 원장 · 전표통제 · 미결항목처리</title>
+<meta name="description" content="SAP Learning Hub의 Customizing Core Settings in Financial Accounting in SAP S/4HANA(S4F12) 노트. FI 조직단위와 원장 구조, 회계연도변형과 통화유형, G/L계정 마스터, 전표유형과 전기키, 문서분할, 미결항목 정리와 지급차이 처리.">
+<link rel="icon" href="../../assets/favicon.svg">
+<link rel="stylesheet" href="../../assets/notes-paper.css">
+<style>
+/* ── 이 노트 전용: 도해(SVG) 스타일 ─────────────────────────── */
+.dgm{display:block; width:100%; height:auto;}
+.dgm text{font-family:"Malgun Gothic","맑은 고딕","Apple SD Gothic Neo",sans-serif; fill:#1e1e1e;}
+.dgm .t-h{font-size:15px; font-weight:700;}
+.dgm .t{font-size:13px;}
+.dgm .t-s{font-size:11.5px; fill:#555;}
+.dgm .t-xs{font-size:10.5px; fill:#6B7280;}
+.dgm .m{font-family:"D2Coding","Consolas",monospace; font-size:12px;}
+.dgm .m-s{font-family:"D2Coding","Consolas",monospace; font-size:10.5px;}
+.dgm .c-key{fill:#4338CA;} .dgm .c-bad{fill:#B91C1C;} .dgm .c-ok{fill:#047857;}
+.dgm .b{fill:#FFFFFF; stroke:#C7CBD6; stroke-width:1.2;}
+.dgm .b-key{fill:#EEF0FB; stroke:#4338CA; stroke-width:1.4;}
+.dgm .b-bad{fill:#FEF2F2; stroke:#B91C1C; stroke-width:1.3;}
+.dgm .b-ok{fill:#ECFDF5; stroke:#047857; stroke-width:1.3;}
+.dgm .b-mut{fill:#F3F4F6; stroke:#D1D5DB; stroke-width:1.1;}
+.dgm .b-hl{fill:#FEF08A; stroke:#CA8A04; stroke-width:1.2;}
+.dgm .b-ghost{fill:none; stroke:#9AA3B2; stroke-width:1.1; stroke-dasharray:5 4;}
+.dgm .ln{stroke:#7C8697; stroke-width:1.4; fill:none;}
+.dgm .ln-key{stroke:#4338CA; stroke-width:1.8; fill:none;}
+.dgm .ln-bad{stroke:#B91C1C; stroke-width:1.6; fill:none;}
+.dgm .ln-ok{stroke:#047857; stroke-width:1.6; fill:none;}
+.dgm .ln-d{stroke:#9AA3B2; stroke-width:1.2; stroke-dasharray:4 4; fill:none;}
+.dgm .arw{fill:#7C8697;} .dgm .arw-key{fill:#4338CA;}
+.dgm .arw-bad{fill:#B91C1C;} .dgm .arw-ok{fill:#047857;}
+.figwrap{background:#FAFAFE; border:1px solid var(--rule); border-radius:6px;
+  padding:18px 16px 10px; margin:22px 0;}
+.figwrap figcaption{margin-top:12px; padding-top:10px; border-top:1px solid var(--rule);}
+</style>
+</head>
+<body>
+<div class="crumb"><a href="../../index.html">← 자료실 홈</a> · <a href="../../journey.html?j=fi">FI 저니</a> · S4F12 Core Settings in FI</div>
+<div class="sheet">
+
+<div class="doc-head">
+  <div class="kicker">LEARNING HUB · S4F12</div>
+  <h1>FI 핵심 설정 — 조직단위 · 원장 · 전표통제 · 미결항목처리</h1>
+  <div class="sub">
+    Learning Journey <b>Implementing Financial Accounting in SAP S/4HANA</b> · Course 1 / S4F12 · 13hr 28min · 6 Unit · 26 레슨 · Intermediate<br>
+    출처: 노션 <b>SAP Learning Hub</b> 노트 1-1 ~ 1-2 변환 (Unit 1~6)
+  </div>
+</div>
+
+<div class="lead">
+  <p><b>결론부터.</b> FI 설정은 결국 <span class="hl">"전표 한 줄이 어느 좌표에 떨어지는가"</span>를 정하는 일입니다. 회사코드 · 원장(Ledger) · 회계연도변형 · 통화유형이 그 좌표계이고, 전표유형 · 전기키 · 필드상태가 그 좌표에 값을 채우는 규칙입니다.</p>
+  <p>SD 청구문서가 만드는 회계전표도, MM 송장검증이 만드는 전표도 전부 <b>여기서 깐 설정을 타고 내려옵니다</b>. 그래서 "왜 전표가 안 생기느냐" "왜 이 기간에 전기가 안 되느냐" 같은 문의의 답은 대부분 SD·MM이 아니라 이 코스 안에 있습니다. 마지막 Unit의 미결항목 정리(Clearing)까지 가면 <span class="key">돈이 실제로 닫히는 지점</span>이 보입니다.</p>
+</div>
+
+<div class="toc">
+  <h4>목차</h4>
+  <ol>
+    <li><a href="#l1">S/4HANA 개관 — Universal Journal과 Fiori</a></li>
+    <li><a href="#l2">FI 조직단위 · 원장 · 회계연도 · 통화</a></li>
+    <li><a href="#l3">마스터데이터 — G/L계정 · 이익센터 · Business Partner</a></li>
+    <li><a href="#l4">전표 통제 — 전표유형 · 전기키 · 전기기간</a></li>
+    <li><a href="#l5">전기 통제 — 문서분할 · 역분개 · 지급조건 · 세금</a></li>
+    <li><a href="#l6">미결항목 처리 — 정리 · 지급차이 · 환차이</a></li>
+  </ol>
+</div>
+
+
+<!-- ══════════ LESSON 1 ══════════ -->
+<div class="lesson" id="l1">
+<h2><span class="no">LESSON 1</span>S/4HANA 개관 — Universal Journal과 Fiori</h2>
+
+<p><span class="tag">Unit 1</span><span class="tag">레슨 2개</span>Getting an Overview of SAP S/4HANA · Introducing SAP Fiori</p>
+
+<h3>언제 이걸 알아야 하는가</h3>
+
+<p>FI 쪽에서 개발 요청을 받으면 제일 먼저 부딪히는 질문이 <b>"이 전표 데이터를 어느 테이블에서 읽어야 합니까"</b>입니다. ECC 시절 습관대로 <code>BKPF</code>/<code>BSEG</code>를 잡으면 CO 금액과 세그먼트가 따로 놀고, 리포트가 회계팀 숫자와 맞지 않습니다.</p>
+
+<p>S/4HANA의 답은 <span class="key">Universal Journal</span>입니다. FI·CO·자산·자재원장·수익성분석의 라인아이템이 전부 <code>ACDOCA</code> 한 테이블에 들어 있습니다 — 그래서 조인 없이 한 번에 읽히고, 그래서 이 코스의 모든 설정(원장·통화·이익센터·세그먼트)이 결국 <b><code>ACDOCA</code>의 한 레코드를 어떻게 채울 것인가</b>로 수렴합니다.</p>
+
+<div class="note warn">
+  <div class="t">Unit 1은 범용 개관 — 여기서는 요약만</div>
+  <p>원문에도 명시되어 있듯 Unit 1(S/4HANA 개관 · Fiori 소개)은 SD 저니의 <b>S46000</b> · <b>S4C03</b>에서 이미 다룬 내용과 상당 부분 겹치는 인트로 자료입니다. 이 노트에서는 FI 관점에서 새로 걸리는 부분만 남기고 압축했습니다.</p>
+</div>
+
+<h3>HTAP와 Universal Journal</h3>
+
+<p>SAP HANA는 트랜잭션(OLTP)과 분석(OLAP)을 하나의 인메모리 플랫폼에서 결합하는 <b>HTAP</b>(Hybrid Transaction/Analytical Processing) 구조입니다. 그 위에서 <span class="key">Universal Journal</span>(테이블 <code>ACDOCA</code>)이 모든 재무 데이터를 하나의 라인아이템 구조로 통합하는 <b>단일 진실원천</b>(single source of truth)이 되고, 덕분에 데이터모델이 대폭 단순화되었습니다.</p>
+
+<p>배포형태는 클라우드(공개/프라이빗)와 온프레미스 모두 <b>동일한 데이터모델 · UX · 코드라인</b>을 유지합니다. 클라우드는 분기별 혁신 배포와 낮은 TCO를, 온프레미스는 완전한 커스터마이징 통제권을 제공합니다.</p>
+
+<h3>Fiori — 앱 3종류</h3>
+
+<p>Fiori UX 원칙은 역할기반(Role-based) · 반응형(Responsive) · 단순함(Simple, <b>앱당 최대 3화면</b>) · 일관성(Coherent) · 즉각적 가치(Instant value) 다섯 가지입니다. Launchpad는 Tile과 검색을 통한 단일 진입점이고, 앱은 다음 3종류로 나뉩니다.</p>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>앱 종류</th><th>역할</th><th>FI에서의 예</th></tr></thead>
+<tbody>
+<tr><td>Transaction Apps</td><td class="wrap">생성 · 변경 · 조회</td><td class="wrap">Post General Journal Entries · Manage Journal Entries</td></tr>
+<tr><td>Analytical Apps</td><td class="wrap">모니터링 · 시각화</td><td class="wrap">Currency Exchange Rate 모니터링</td></tr>
+<tr><td>Fact Sheets</td><td class="wrap">360도 조회</td><td class="wrap">Business Partner 단일 뷰</td></tr>
+</tbody>
+</table>
+</div>
+
+<p><b>Spaces / Pages</b> 구조로 Business Role별 화면 레이아웃이 결정됩니다.</p>
+
+<div class="note ok">
+  <div class="t">📌 개인 E2E 프로젝트와의 연결점</div>
+  <p>프로젝트에서 만들 CBO 3종은 전부 <b>물류 테이블</b>(<code>MCHA</code> · <code>MBEW</code> · <code>EINE</code> · <code>MSEG</code>)을 읽습니다. 하지만 <span class="key">ZPRICE_CHECK</span>가 "이동평균가와 정보레코드가가 벌어졌다"고 알릴 때, 그 금액 차이가 실제로 회계에 얼마로 떨어졌는지는 <code>ACDOCA</code>를 봐야 확인됩니다. 검증 단계에서 <code>MSEG</code>의 수량·금액과 <code>ACDOCA</code>의 전기금액을 대조하는 절차를 넣어 두면 CBO 신뢰도가 올라갑니다.</p>
+</div>
+
+</div>
+
+
+<!-- ══════════ LESSON 2 ══════════ -->
+<div class="lesson" id="l2">
+<h2><span class="no">LESSON 2</span>FI 조직단위 · 원장 · 회계연도 · 통화</h2>
+
+<p><span class="tag">Unit 2</span><span class="tag">레슨 7개</span>Core Financial Accounting (FI) Configuration — 이 코스의 뼈대</p>
+
+<h3>조직단위 계층 — Client에서 Company Code까지</h3>
+
+<p>S/4HANA 계층의 최상위는 <b>Client</b>이며, 하나의 Client는 독립된 마스터레코드 · 테이블 · 데이터 집합을 가집니다(기업집단 단위에 대응). 그 아래 <span class="key">Company Code</span>가 독립된 <b>법적 회계실체</b>로서, 법적으로 요구되는 재무제표가 작성되는 <b>FI의 최소 필수 구조단위</b>입니다.</p>
+
+<p>Company Code는 보통 기존 코드를 <b>Copy</b>해서 만듭니다(Copy, delete, check company code 기능). 4자리 영숫자 키 · 회사명 · 도시 · 국가 · 통화 · 언어 · 주소가 필요하고, 국가별 Best Practice 템플릿을 복사해 국가특화 설정만 조정하는 방식도 씁니다.</p>
+
+<figure class="figwrap">
+<svg class="dgm" viewBox="0 0 1000 520" role="img" aria-label="FI 조직단위와 원장 구조 도해. 회사코드 아래에 원장(Leading·Non-Leading·Extension)과 각종 변형(계정과목표·회계연도변형·전기기간변형·필드상태변형)이 붙고, 통화유형과 컨트롤링 영역이 함께 결정되며 이 모두가 Universal Journal ACDOCA 한 줄에 기록된다.">
+  <defs>
+    <marker id="fi1" markerWidth="9" markerHeight="9" refX="7" refY="4.5" orient="auto">
+      <polygon class="arw" points="0,0 9,4.5 0,9"/></marker>
+    <marker id="fi2" markerWidth="9" markerHeight="9" refX="7" refY="4.5" orient="auto">
+      <polygon class="arw-key" points="0,0 9,4.5 0,9"/></marker>
+  </defs>
+
+  <rect class="b-mut" x="380" y="14" width="240" height="46" rx="6"/>
+  <text class="t-h" x="402" y="36">Client</text>
+  <text class="t-s" x="402" y="52">마스터·테이블의 최상위 경계</text>
+
+  <path class="ln" d="M500 60 V84" marker-end="url(#fi1)"/>
+
+  <rect class="b-key" x="340" y="86" width="320" height="58" rx="6"/>
+  <text class="t-h c-key" x="362" y="112">Company Code  <tspan class="m">CL04</tspan></text>
+  <text class="t-s" x="362" y="132">법적 실체 · 재무제표가 나오는 단위</text>
+
+  <path class="ln-key" d="M400 144 V168 H190 V222" marker-end="url(#fi2)"/>
+  <path class="ln" d="M600 144 V168 H810 V222" marker-end="url(#fi1)"/>
+  <path class="ln" d="M500 144 V194" marker-end="url(#fi1)"/>
+
+  <rect class="b-mut" x="380" y="196" width="240" height="56" rx="6"/>
+  <text class="t-h" x="400" y="218">Controlling Area</text>
+  <text class="t-xs" x="400" y="236">CC 횡단은 동일 COA + 동일 FYV 일 때만</text>
+
+  <text class="t-h c-key" x="40" y="212">원장 (Ledger)</text>
+  <rect class="b-ghost" x="34" y="222" width="312" height="200" rx="6"/>
+
+  <rect class="b-ok" x="50" y="234" width="280" height="52" rx="5"/>
+  <text class="t" x="68" y="256">Leading Ledger  <tspan class="m">0L</tspan></text>
+  <text class="t-xs" x="68" y="274">Client당 1개 · 전 CC 자동할당 · CO 전기</text>
+
+  <rect class="b" x="50" y="294" width="280" height="52" rx="5"/>
+  <text class="t" x="68" y="316">Non-Leading  <tspan class="m">2L / 3L</tspan></text>
+  <text class="t-xs" x="68" y="334">CC별 수동 활성 · FYV 달라도 됨</text>
+
+  <rect class="b-ghost" x="50" y="354" width="280" height="52" rx="5"/>
+  <text class="t" x="68" y="376">Extension Ledger</text>
+  <text class="t-xs" x="68" y="394">기저 원장 상속 + 자체 게시분만 추가</text>
+
+  <text class="t-h" x="660" y="212">변형 (Variant 원칙)</text>
+  <rect class="b-ghost" x="654" y="222" width="312" height="200" rx="6"/>
+
+  <rect class="b" x="670" y="234" width="280" height="42" rx="5"/>
+  <text class="t" x="688" y="260">Chart of Accounts  <tspan class="m-s">4자리</tspan></text>
+
+  <rect class="b" x="670" y="282" width="280" height="42" rx="5"/>
+  <text class="t" x="688" y="302">Fiscal Year Variant</text>
+  <text class="t-xs" x="688" y="318">정규 최대 12 + 특별 13~16</text>
+
+  <rect class="b" x="670" y="330" width="280" height="42" rx="5"/>
+  <text class="t" x="688" y="356">Posting Period Variant</text>
+
+  <rect class="b" x="670" y="378" width="280" height="42" rx="5"/>
+  <text class="t" x="688" y="404">Field Status Variant</text>
+
+  <rect class="b-hl" x="380" y="272" width="240" height="90" rx="6"/>
+  <text class="t-h" x="400" y="296">통화유형 Currency Type</text>
+  <text class="m-s" x="400" y="316">00 전표 · 10 회사코드(필수)</text>
+  <text class="m-s" x="400" y="334">20 CO영역 · 30 그룹</text>
+  <text class="t-xs" x="400" y="352">Ledger에 등록해 병행 저장</text>
+
+  <path class="ln-d" d="M330 260 H360 V300 H380"/>
+  <path class="ln-d" d="M670 256 H640 V300 H620"/>
+
+  <rect class="b-key" x="34" y="440" width="932" height="62" rx="6"/>
+  <text class="t-h c-key" x="56" y="464">Universal Journal  <tspan class="m">ACDOCA</tspan></text>
+  <text class="t-s" x="56" y="484">위의 원장 · 통화 · 조직요소가 전부 이 테이블의 한 라인아이템에 들어간다. Segment는 원칙적으로 Profit Center에서만 파생된다.</text>
+</svg>
+<figcaption><span class="fno">그림 1</span>FI 조직단위와 원장 구조. 회사코드에 원장·변형·통화유형이 붙고, 그 조합이 <code>ACDOCA</code> 한 줄의 좌표가 된다.</figcaption>
+</figure>
+
+<h3>추가 조직단위 — 언제 어느 것을 켜는가</h3>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>조직단위</th><th>설명</th></tr></thead>
+<tbody>
+<tr><td>Profit Center</td><td class="wrap">비용·수익 <b>책임 영역</b>의 성과 평가. 문서분할 비활성 시 P&amp;L만, 활성 시 재무제표까지 작성 가능</td></tr>
+<tr><td>Segment</td><td class="wrap">대외보고용 사업부 구분 (US-GAAP SFAS 131 · IFRS 8 요건 대응)</td></tr>
+<tr><td>Company</td><td class="wrap"><b>연결</b>(consolidation) 단위 — 하나 이상의 Company Code를 묶고 자회사에 Company ID 부여</td></tr>
+<tr><td>Functional Area</td><td class="wrap"><b>매출원가법</b>(cost-of-sales) 회계에서 간접비를 발생 기능영역별로 보고</td></tr>
+<tr><td>Business Area</td><td class="wrap">Company Code 횡단 운영영역 구분, 자체 재무제표 작성 가능한 balancing entity</td></tr>
+</tbody>
+</table>
+</div>
+
+<p>국제회계 요건별 권장 경로를 한 줄로 정리하면 — 기간회계는 <b>원가유형</b>, 매출원가법은 <b>Functional Area</b>, 세그먼트보고는 <b>Profit Center에서 파생된 Segment</b>, 연결준비는 <b>Company / 거래상대방(trading partner)</b>, 평행회계(local + international)는 <span class="key">Ledger 접근법(권장)</span> 또는 Account 접근법입니다.</p>
+
+<h3>Controlling Area 할당 — 조건이 붙는다</h3>
+
+<p>Controlling Area는 원가·수익을 관리·배분하는 자기완결적 조직구조로 Controlling의 최상위 조직요소입니다. 여러 Company Code를 하나의 Controlling Area에 할당하면 <b>Company Code 횡단 원가회계</b>가 가능한데, 여기에 조건이 붙습니다.</p>
+
+<div class="note warn">
+  <div class="t">CC 횡단 원가회계의 전제조건 두 가지</div>
+  <p>대상 Company Code들이 <span class="bad">동일한 Operating Chart of Accounts</span>와 <span class="bad">동일한 Fiscal Year Variant</span>를 사용할 때만 가능합니다. 나중에 회사코드를 추가하면서 이 둘이 어긋나면 횡단 원가회계가 깨지므로, 계정과목표와 회계연도변형은 설계 초기에 못 박아야 합니다.</p>
+</div>
+
+<h3>Leading Ledger와 Non-Leading Ledger</h3>
+
+<div class="note">
+  <div class="t">🔰 초보자 설명 — Leading Ledger를 한 줄로</div>
+  <p>Leading Ledger(<code>0L</code>)는 SAP가 기본 제공하는 <b>"대표 장부"</b>로 모든 Company Code가 자동 할당되며 끌 수 없습니다. Non-Leading Ledger는 현지 회계기준 등을 위한 <b>"보조 장부"</b>로 Company Code별로 수동 활성화합니다.</p>
+</div>
+
+<ul>
+  <li>Client당 Leading Ledger는 <b>하나뿐</b>이고 모든 Company Code가 여기 자동 할당된다. CO에는 표준적으로 <span class="key">Leading Ledger 값만 전기</span>된다</li>
+  <li>Non-Leading Ledger는 Leading과 병행 운영되며 <b>회계연도변형이 달라도 된다</b></li>
+  <li>게시된 FI 문서는 보통 Leading과 (할당된) Non-Leading <b>모두에</b> 표시된다. 특정 Ledger에만 조정분개를 넣으려면 <span class="key">Ledger Group</span>을 쓴다</li>
+  <li>Leading + Non-Leading = <b>Standard Ledger</b>. 그 위에 <b>Extension Ledger</b>를 얹을 수 있다 — 기저 Standard Ledger의 분개를 전부 상속해 보고에 반영하지만, Extension Ledger에만 한 수동 게시분은 기저 Ledger에 보이지 않는다</li>
+</ul>
+
+<p>Extension Ledger의 쓰임새는 <b>IFRS나 현지 GAAP 위에 경영관리용 뷰를 쌓아 올리는 것</b>입니다. 기저 장부는 건드리지 않은 채 "우리 관점의 조정"만 별도로 얹습니다.</p>
+
+<h3>Accounts Approach vs Ledger Approach</h3>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>구분</th><th>Accounts Approach</th><th>Ledger Approach</th></tr></thead>
+<tbody>
+<tr><td>계정과목표</td><td class="wrap">GAAP별 전용 계정 → <span class="bad">복잡한 COA 구조</span></td><td class="wrap">GAAP 전용계정 불필요 → COA 변경 없음</td></tr>
+<tr><td>이익잉여금계정</td><td class="wrap">GAAP별 최소 1개</td><td class="wrap">전체 GAAP 통틀어 최소 1개</td></tr>
+<tr><td>재무제표버전</td><td class="wrap">복잡</td><td class="wrap">표준 단일 정의</td></tr>
+<tr><td>GAAP 관련성 지정</td><td class="wrap"><b>계정</b> 레벨</td><td class="wrap"><b>문서(전표)</b> 레벨</td></tr>
+<tr><td>CO 반영</td><td class="wrap">모든 평가방식 반영 가능</td><td class="wrap"><span class="bad">Leading 평가만</span> CO 반영</td></tr>
+</tbody>
+</table>
+</div>
+
+<p>신규 시스템(Greenfield)에는 <span class="hl">Ledger 접근법이 강력히 권장</span>됩니다. 단, CO에는 Leading 평가만 반영된다는 제약을 알고 들어가야 합니다.</p>
+
+<h3>Variant 원칙 — 3단계</h3>
+
+<div class="step"><span class="n">STEP 1</span><p><b>Variant를 정의</b>한다 (키와 이름만 만든다)</p></div>
+<div class="step"><span class="n">STEP 2</span><p><b>Variant의 값을 정의</b>한다 (실제 기간·필드상태 등을 채운다)</p></div>
+<div class="step"><span class="n">STEP 3</span><p><b>관련 객체에 할당</b>한다 (보통 Company Code)</p></div>
+
+<p>Field Status · Posting Period · Fiscal Year Variant 등에서 이 패턴이 계속 반복됩니다. <b>"정의 → 값 → 할당"</b> 세 걸음을 기억하면 IMG에서 길을 덜 잃습니다.</p>
+
+<h3>회계연도변형(Fiscal Year Variant)</h3>
+
+<p>회계연도는 <b>최대 16개 기간</b>(일반 전기기간 최대 12개 + 특별기간 13~16)으로 정의하고, Fiscal Year Variant로 만들어 Company Code에 할당합니다. 특별기간은 <span class="key">결산(year-end closing) 관련 게시 전용</span>이며 실제 시간범위가 아닙니다 — 전기일이 마지막 정규기간에 속할 때 특별기간 중 하나를 골라 게시할 수 있습니다. 그 외에는 전기일이 속한 기간을 시스템이 자동 도출합니다.</p>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>구분</th><th>언제 쓰나</th></tr></thead>
+<tbody>
+<tr><td>Year-Independent</td><td class="wrap">매 회계연도의 기간수·시작/종료일이 동일 (달력연도 또는 비달력연도). <b>대부분이 여기</b></td></tr>
+<tr><td>Year-Specific</td><td class="wrap">특정 연도만 기간수나 기간일자가 다름 — 회계연도 개시일 변경, 회사매각으로 인한 <b>단축연도</b>(Shortened Fiscal Year)</td></tr>
+</tbody>
+</table>
+</div>
+
+<h3>통화키 · 환율유형 · 고시방식</h3>
+
+<p>모든 통화에는 통화키(Currency Key)가 있어야 하고 유효일자를 지정할 수 있습니다. 환율유형(Exchange Rate Type)은 평가 · 환산 · 계획 등 <b>목적별로 다르게</b> 정의하며, 통화쌍(currency pair)별 환산비율(Translation Ratio)을 기간 단위로 유지합니다.</p>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>고시방식</th><th>설명</th><th>예시 (현지 EUR, 외화 USD)</th></tr></thead>
+<tbody>
+<tr><td>Direct (직접고시)</td><td class="wrap">외화 1단위 = 현지통화 X단위</td><td><code>USD 1 = EUR 0.8832</code></td></tr>
+<tr><td>Indirect (간접고시)</td><td class="wrap">현지통화 1단위 = 외화 X단위</td><td><code>EUR 1 = USD 1.1319</code></td></tr>
+</tbody>
+</table>
+</div>
+
+<p>환율 자동갱신은 리포트 <code>RFTBFF00</code>(MultiCash 형식 파일 업로드)이나 <code>RFTBDF07</code> / <code>RFTBDF14</code>(RFC 데이터피드 실시간 연동)로 처리합니다. Fiori 앱 <b>Currency Exchange Rate</b>로 모니터링·생성·변경하거나, 트랜잭션 <code>TCURMNT</code>로 Worklist 기반 유지보수도 가능합니다. 접두사(prefix)로 direct/indirect 입력을 구분할 수 있는데, <b>설정 시나리오가 3가지</b>라 시스템마다 다릅니다.</p>
+
+<div class="note warn">
+  <div class="t">확인 필요 — 환율 접두사 설정은 시스템마다 갈린다</div>
+  <p>"공백 = direct 기본", "<code>/</code> = indirect 기본" 등 3가지 시나리오 중 어느 것이 적용되어 있는지는 <b>실제 시스템(winerp01 / MEP)에서 확정</b>해야 합니다. 인터페이스로 환율을 밀어 넣을 때 이 설정을 모르면 부호가 뒤집힌 환율이 들어갑니다. 자세한 동작은 <b>SAP Note 783877</b>(환율변환 FAQ) 참조.</p>
+</div>
+
+<h3>통화유형(Currency Type)</h3>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>유형</th><th>설명</th></tr></thead>
+<tbody>
+<tr><td><code>00</code></td><td class="wrap">Document currency (전표통화)</td></tr>
+<tr><td><code>10</code></td><td class="wrap">Company Code currency (회사코드 / 현지통화) — <b>기본값</b></td></tr>
+<tr><td><code>20</code></td><td class="wrap">Controlling Area currency</td></tr>
+<tr><td><code>30</code></td><td class="wrap">Group currency (그룹통화)</td></tr>
+<tr><td><code>40</code></td><td class="wrap">Hard currency</td></tr>
+<tr><td><code>50</code></td><td class="wrap">Index-based currency</td></tr>
+<tr><td><code>60</code></td><td class="wrap">Global Company currency</td></tr>
+<tr><td><code>70</code></td><td class="wrap">CO Object currency</td></tr>
+</tbody>
+</table>
+</div>
+
+<p>S/4HANA <b>1610</b>부터 Universal Journal이 다수의 병행통화(parallel currency)를 지원합니다. <code>00</code>·<code>10</code> 외의 추가 유형을 Ledger에 등록해 병행회계 · 병행통화 평가 · 마감에 활용할 수 있고, 이체가격(transfer price) 등 목적의 추가 통화유형을 <b>최대 8개까지</b> 더 저장할 수 있습니다. Controlling Area는 별도 통화유형을 쓰며 권장값은 <code>30</code> Group Currency입니다(<b>SAP Note 119428</b>).</p>
+
+<h3>Greenfield 구현 권장사항</h3>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>조직요소</th><th>필수</th><th>권장사항</th></tr></thead>
+<tbody>
+<tr><td>Client</td><td>-</td><td class="wrap">가능하면 그룹 전체를 <b>하나의 Client</b>로 (사내대체가격 활용 시 특히)</td></tr>
+<tr><td>Company Code</td><td>필수</td><td class="wrap">법적 독립기업 = 1 Company Code. 하나의 실제 회사를 여러 CC로 쪼개는 경우는 드물다</td></tr>
+<tr><td>Ledger</td><td>필수</td><td class="wrap">Ledger 접근법 권장. Leading은 주로 국제기준, 세법용 Non-Leading 추가 가능</td></tr>
+<tr><td>Controlling Area</td><td class="wrap">CO 사용 시 필수</td><td class="wrap">CC 횡단 원가회계를 위해 <b>공통 Controlling Area</b> 권장</td></tr>
+<tr><td>Operating Concern</td><td>선택</td><td class="wrap">CO-PA 관점 조직단위. Account-based CO-PA는 Universal Journal에 저장</td></tr>
+<tr><td>Company</td><td>선택</td><td class="wrap">연결준비용. CC 수보다 Company 수가 많을 수 있다 (예: 100 CC ↔ 400 Company)</td></tr>
+<tr><td>Segment</td><td>선택</td><td class="wrap">IFRS 8 / ASC 280 세그먼트보고. <b>Profit Center에서 자동 파생</b></td></tr>
+<tr><td>Profit Center</td><td>선택</td><td class="wrap">권장 상한 <b>5,000개</b>(SAP Note 217338). 손익영향 CO 객체에서 직접 파생</td></tr>
+<tr><td>Functional Area</td><td>선택</td><td class="wrap">매출원가법 병행 시 사용. 비용성격법은 항상 활성</td></tr>
+</tbody>
+</table>
+</div>
+
+<div class="note ok">
+  <div class="t">📌 개인 E2E 프로젝트와의 연결점</div>
+  <p>프로젝트는 회사코드 <b>CL04</b> 하나, 플랜트 <b>GATE</b>(입고 게이트)와 <b>STOR</b>(보관) 둘입니다. 여기서 정리하면 —</p>
+  <p>· <b>원장</b>: Leading Ledger <code>0L</code>만 쓰면 충분합니다. 병행회계 요건이 없으니 Non-Leading은 만들지 않습니다.<br>
+     · <b>통화</b>: 전표통화 <code>00</code> + 회사코드통화 <code>10</code>(KRW) 2개면 끝. 벤더 사입을 외화로 하지 않는 한 환차이 설정은 건너뜁니다.<br>
+     · <b>Profit Center / Segment</b>: 온도군(냉동·냉장·실온)을 이익센터로 잡고 싶어질 수 있지만, <span class="bad">이익센터는 저장위치가 아니라 자재·원가객체에서 파생</span>됩니다. 온도군 구분은 이미 저장위치(1100/1900 · 2100/2900 · 3100/3900)와 자재그룹(CHKN · RICE · SHAK · PROT · PBAR)에 있으므로 <b>이익센터는 만들지 않는 쪽</b>이 맞습니다.<br>
+     · <b>Controlling Area</b>: 회사코드가 하나이므로 횡단 원가회계 논의 자체가 없습니다. 계정과목표와 회계연도변형만 한 번 정하고 고정합니다.</p>
+</div>
+
+</div>
+
+
+<!-- ══════════ LESSON 3 ══════════ -->
+<div class="lesson" id="l3">
+<h2><span class="no">LESSON 3</span>마스터데이터 — G/L계정 · 이익센터 · Business Partner</h2>
+
+<p><span class="tag">Unit 3</span><span class="tag">레슨 3개</span>Maintaining G/L Accounts · Creating Profit Centers and Segments · Managing Business Partners</p>
+
+<h3>Chart of Accounts와 G/L계정의 2세그먼트 구조</h3>
+
+<p>Chart of Accounts는 <b>4자리 ID의 Variant</b>로, 키 · 명칭 · 유지보수 언어 · 계정번호 자릿수(1~10자리) · 그룹계정과목표(연결용) · 차단표시자로 구성됩니다. 모든 Company Code는 계정과목표를 할당받아야 하고, 여러 Company Code가 <b>동일 계정과목표를 공유</b>할 수 있습니다(Variant 원칙). CO와 FI는 같은 계정과목표를 씁니다.</p>
+
+<figure class="figwrap">
+<svg class="dgm" viewBox="0 0 1000 430" role="img" aria-label="G/L 계정 구조 도해. 계정과목표 아래 G/L 계정은 전 회사코드 공통인 계정과목표 세그먼트와 회사코드마다 따로 만드는 회사코드 세그먼트로 나뉘며, 계정그룹이 번호범위와 필드상태를 통제하고 조정계정과 미결항목관리가 회사코드 세그먼트에서 결정된다.">
+  <defs>
+    <marker id="fi3" markerWidth="9" markerHeight="9" refX="7" refY="4.5" orient="auto">
+      <polygon class="arw" points="0,0 9,4.5 0,9"/></marker>
+    <marker id="fi4" markerWidth="9" markerHeight="9" refX="7" refY="4.5" orient="auto">
+      <polygon class="arw-key" points="0,0 9,4.5 0,9"/></marker>
+  </defs>
+
+  <rect class="b-key" x="350" y="14" width="300" height="52" rx="6"/>
+  <text class="t-h c-key" x="372" y="38">Chart of Accounts</text>
+  <text class="t-xs" x="372" y="56">4자리 Variant · 모든 CC가 1개 이상 할당</text>
+
+  <path class="ln-key" d="M430 66 V86 H250 V112" marker-end="url(#fi4)"/>
+  <path class="ln-key" d="M570 66 V86 H750 V112" marker-end="url(#fi4)"/>
+  <text class="t-xs" x="404" y="102">G/L 계정 = 두 세그먼트의 합</text>
+
+  <rect class="b" x="60" y="114" width="380" height="112" rx="6"/>
+  <text class="t-h" x="80" y="140">Chart of Accounts Segment</text>
+  <text class="t" x="80" y="164">계정번호 · 명칭</text>
+  <text class="t" x="80" y="186">통제필드 · 연결필드</text>
+  <text class="t-s c-ok" x="80" y="210">전 Company Code 공통 — 1회만 입력</text>
+
+  <rect class="b" x="560" y="114" width="380" height="112" rx="6"/>
+  <text class="t-h" x="580" y="140">Company Code Segment</text>
+  <text class="t" x="580" y="164">통화 · 세금 · 조정계정</text>
+  <text class="t" x="580" y="186">정렬키 · 필드상태그룹 · 주거래은행</text>
+  <text class="t-s c-bad" x="580" y="210">CC마다 따로 — 계정 1개에 N개 가능</text>
+
+  <path class="ln" d="M250 226 V250" marker-end="url(#fi3)"/>
+  <path class="ln" d="M660 226 V250" marker-end="url(#fi3)"/>
+  <path class="ln" d="M840 226 V250" marker-end="url(#fi3)"/>
+
+  <rect class="b-mut" x="60" y="252" width="380" height="80" rx="6"/>
+  <text class="t-h" x="80" y="276">Account Group</text>
+  <text class="t-s" x="80" y="296">번호범위 부여 + CC세그먼트 필드상태 통제</text>
+  <text class="m-s c-bad" x="80" y="318">Suppress &gt; Display &gt; Required &gt; Optional</text>
+
+  <rect class="b-bad" x="560" y="252" width="185" height="80" rx="6"/>
+  <text class="t-h c-bad" x="578" y="276">조정계정</text>
+  <text class="t-xs" x="578" y="296">직접 전기 불가</text>
+  <text class="t-xs" x="578" y="314">하위원장 전기가 자동 반영</text>
+
+  <rect class="b-ok" x="755" y="252" width="185" height="80" rx="6"/>
+  <text class="t-h c-ok" x="773" y="276">미결항목관리</text>
+  <text class="t-xs" x="773" y="296">Open / Cleared 상태</text>
+  <text class="t-xs" x="773" y="314">잔액 0일 때만 On/Off</text>
+
+  <rect class="b-ghost" x="60" y="350" width="880" height="62" rx="6"/>
+  <text class="t-s" x="82" y="374">결산 이월 — <tspan class="c-key">재무상태표 계정</tspan>: 잔액이 동일 계정으로 이월.  <tspan class="c-bad">P&amp;L 계정</tspan>: 이익잉여금계정으로 이월되고 계정 자체는 0으로 초기화.</text>
+  <text class="t-s" x="82" y="396">이익잉여금계정이 1개면 P&amp;L계정 생성 시 자동 할당, 2개 이상이면 <tspan class="c-bad">계정마다 수동 선택</tspan>해야 한다.</text>
+</svg>
+<figcaption><span class="fno">그림 2</span>G/L 계정의 2세그먼트 구조. 계정과목표 세그먼트는 한 번, 회사코드 세그먼트는 회사코드마다.</figcaption>
+</figure>
+
+<h3>계정유형과 이월</h3>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>계정유형</th><th>결산 시 처리</th></tr></thead>
+<tbody>
+<tr><td>재무상태표 (Balance Sheet)</td><td class="wrap">잔액이 <b>동일 계정</b>으로 이월</td></tr>
+<tr><td>손익계산서 (P&amp;L)</td><td class="wrap">잔액이 <b>이익잉여금계정</b>(Retained Earnings)으로 이월되고 P&amp;L계정 자체는 0으로 초기화. 계정과목표 세그먼트에 "P&amp;L Statement Account Type" 키 <code>X</code> 지정 필요</td></tr>
+</tbody>
+</table>
+</div>
+
+<p>그 외 계정유형으로 <b>Cash Account</b>(하우스뱅크 계좌 다수를 하나의 G/L계정에 매핑) · Non-operating Expense/Income · <b>Primary/Secondary Costs</b>(CO 연동, Cost Element Category 지정 필요)가 있습니다. 이익잉여금 자동 할당은 <b>Automatic Account Determination</b> 앱에서 설정합니다.</p>
+
+<h3>Account Group과 Field Status</h3>
+
+<p>Account Group은 계정과목표 안의 계정을 유형별(현금계정 · 자재계정 · 자산계정 · P&amp;L계정 등)로 묶고 <b>번호범위</b>를 부여하며, Company Code Segment의 필드 표시 방식도 통제합니다. 필드상태는 <span class="key">Account Group 통제와 Transaction별 통제 중 우선순위가 높은 쪽</span>이 적용되고, 순서는 <b>Suppress &gt; Display &gt; Required &gt; Optional</b>입니다.</p>
+
+<div class="note">
+  <div class="t">🔰 초보자 설명 — 항상 Required로 고정되는 필드</div>
+  <p><b>Account currency</b>와 <b>Field status group</b> 두 필드는 어떤 설정을 하든 항상 Required입니다. 계정 통화가 없으면 금액을 담을 수 없고, 필드상태그룹이 없으면 전기 화면을 그릴 수 없기 때문입니다.</p>
+</div>
+
+<h3>조정계정과 미결항목관리</h3>
+
+<p><span class="key">조정계정</span>(Reconciliation Account)은 하위원장(Subledger — 매출채권 · 매입채무 등)의 전기가 자동으로 반영되는 G/L계정입니다. <b>직접 전기가 불가능</b>하고, 하나의 Account Type(예: Receivables 또는 Payables)에만 유효합니다.</p>
+
+<p><span class="key">Open Item Management</span>를 설정한 계정의 항목은 <b>Open(미결)</b> 또는 <b>Cleared(정리완료)</b> 상태를 가집니다. 은행정리계정 · <b>입고/송장정리계정(GR/IR)</b> · 급여정리계정 등에 씁니다. 계정 <span class="bad">잔액이 0일 때만</span> On/Off 전환이 가능하고, Ledger Group별 개별 Clearing도 됩니다.</p>
+
+<h3>생성 방식과 일괄처리</h3>
+
+<div class="step"><span class="n">One-step</span><p>두 세그먼트를 <b>동시에</b> 생성</p></div>
+<div class="step"><span class="n">Two-step</span><p>계정과목표 세그먼트 → Company Code 세그먼트 <b>순서대로</b></p></div>
+<div class="step"><span class="n">Copy</span><p>계정 / 세그먼트 / <b>전체 계정과목표</b>를 복사</p></div>
+
+<p>일괄 변경은 <b>Edit Multiple G/L Accounts</b> 앱이나 <b>Manage G/L Account Master Data</b> 앱(최대 <b>50개 계정</b> 동시)으로 합니다.</p>
+
+<h3>그룹 · 국가별 계정과목표</h3>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>종류</th><th>용도</th><th>CC 횡단 Controlling</th></tr></thead>
+<tbody>
+<tr><td>Group Chart of Accounts</td><td class="wrap">연결재무제표 작성용. 계정과목표가 서로 달라도 매핑 가능</td><td class="wrap"><span class="bad">불가</span></td></tr>
+<tr><td>Country Chart of Accounts</td><td class="wrap">현지 법정보고용 <b>대체계정번호</b>. Operating COA는 공통 유지</td><td class="wrap"><span class="good">유지됨</span></td></tr>
+</tbody>
+</table>
+</div>
+
+<h3>Profit Center와 Segment — 파생 경로가 좁다</h3>
+
+<p>Segment는 Company Code 하위 레벨에서 시장 · 제품 등 사업영역을 평가하는 <b>표준 계정할당 객체</b>로, IFRS 8의 세그먼트보고 요건(수익·비용이 발생하는 영역, 주요의사결정자가 정기 검토하는 영역, 재무정보가 존재하는 영역)에 대응합니다.</p>
+
+<div class="note warn">
+  <div class="t">Segment 파생은 Profit Center 경로만 공식 지원된다</div>
+  <p><b>SAP Note 1035140</b>에 따라 Segment는 원칙적으로 <span class="bad">Profit Center에서만 자동 파생</span>되도록 공식 지원됩니다. 수동입력이나 다수의 물류 트랜잭션은 지원 대상이 아닙니다. Profit Center 마스터데이터에 Segment를 저장해 두면 Profit Center 전기 시 자동 반영됩니다.</p>
+  <p>파생이 어려운 경우의 대안은 — 문서분할의 수동입력 · BAdI <code>FAGL_DERIVE_SEGMENT</code> · Substitution Rule · 표준계정 할당입니다. <b>BAdI로 세그먼트를 만들어 내기 시작하면 검증 책임이 전부 개발 쪽으로 넘어오므로</b>, 먼저 Profit Center 설계로 풀리는지 확인해야 합니다.</p>
+</div>
+
+<h3>Business Partner — 카테고리 · 역할 · 세그먼트</h3>
+
+<p>S/4HANA에서 <span class="key">Business Partner</span>(BP)는 고객·공급업체를 관리하는 마스터레코드이자 <b>생성·편집·조회의 단일 진입점</b>입니다.</p>
+
+<ul>
+  <li><b>BP Category</b>(자연인 / 조직)는 생성 시 필수 선택이며 <span class="bad">이후 변경 불가</span>(정적 할당)</li>
+  <li><b>BP Role</b>은 FI Vendor(FI-AP) · FI Customer(FI-AR) · Customer(SD) · Supplier(MM) 등 업무 맥락별로 여러 개 부여 가능. <b>General Business Partner</b> 역할이 항상 자동 부여되는 출발점</li>
+  <li>완전한 통합 <b>Vendor</b> 계정 = General Data(Client 레벨) + Company Code Segment + <b>Purchasing Organization Segment</b></li>
+  <li>완전한 통합 <b>Customer</b> 계정 = General Data + Company Code Segment + <b>Sales Area Segment</b></li>
+  <li><b>BP Role Grouping</b>을 쓰면 FI·SD 등 여러 역할을 한 번에 생성 — 중앙집중식 마스터데이터 관리가 가능해지지만 AR팀과 SD팀의 협업이 전제</li>
+</ul>
+
+<h3>Customer/Vendor Integration (CVI)</h3>
+
+<p>CVI는 FI(전통적 고객/공급업체 마스터)와 SAP Business Partner를 <b>병행 사용</b>할 때 필요합니다. BP 1개당 Customer/Vendor는 <span class="key">1 : 1로만</span> 할당 가능합니다(단, 하나의 BP에 Customer와 Vendor를 <b>역할별로 동시에</b> 다는 것은 가능). BP를 생성·변경하면 백그라운드에서 연동된 Customer/Vendor 마스터가 자동 갱신됩니다.</p>
+
+<div class="step"><span class="n">1</span><p>Customizing에서 <b>BP Grouping ↔ Customer/Vendor Account Group</b>을 매핑한다</p></div>
+<div class="step"><span class="n">2</span><p><b>Same Number</b> 플래그를 켜면 BP 번호와 Customer/Vendor 번호를 동일하게 유지할 수 있다 — 단 번호범위가 일치하고 FI에서 <b>External 채번</b>이 설정되어 있어야 한다</p></div>
+<div class="step"><span class="n">3</span><p>Grouping은 <b>Hide</b> 옵션으로 특정 채번을 드롭다운에서 숨길 수 있다 (예: 외부 인터페이스 전용 채번 예약)</p></div>
+
+<div class="note">
+  <div class="t">🔰 초보자 설명 — Business Partner와 Customer/Vendor의 관계를 한 줄로</div>
+  <p>Business Partner는 "이 회사와 관계를 맺는 모든 대상(개인·법인)의 통합 마스터파일"이고, Customer/Vendor는 그중 <b>회계(FI) 관점에서 채권·채무를 관리하기 위한 전통적인 하위 레코드</b>입니다. CVI 설정을 통해 BP를 만들면 뒤에서 자동으로 Customer/Vendor 레코드가 동기화됩니다.</p>
+</div>
+
+<h3>필드상태 우선순위 · One-time Account · Sensitive Field</h3>
+
+<p>BP의 필드상태는 <b>FI Customer/Vendor 설정으로 통제하는 것이 권장</b>됩니다(BP 자체 설정은 최하위 우선순위인 Optional로 둔다). FI에서는 <b>Account Group별 · Activity(트랜잭션)별 · Company Code별</b> 3가지 필드상태 설정이 가능합니다.</p>
+
+<p>하나의 BP가 여러 Role을 가져 필드상태가 충돌하면 "Same Criteria" 규칙의 우선순위는 <span class="key">Required &gt; Optional &gt; Display &gt; Hide &gt; Not-specified</span> 순입니다. <b>앞의 G/L계정 필드상태(Suppress 우선)와 순서가 다르다</b>는 점에 주의합니다.</p>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>기능</th><th>동작</th></tr></thead>
+<tbody>
+<tr><td>One-time Account</td><td class="wrap">거래빈도가 낮은 고객/공급업체용. 특정 상대방 정보를 마스터에 담지 않고 <b>전기 시점에 개별 입력</b></td></tr>
+<tr><td>Sensitive Field</td><td class="wrap">중요 필드 변경 시 <b>이중통제</b>(dual control). 지정 필드가 바뀌면 해당 고객/공급업체의 <span class="bad">지급이 자동 차단</span>되고 별도 승인자가 확인/거부해야 해제된다</td></tr>
+<tr><td>변경이력 조회</td><td class="wrap">리포트 <code>RFDABL00</code>(고객) / <code>RFKABL00</code>(공급업체)</td></tr>
+</tbody>
+</table>
+</div>
+
+<div class="note ok">
+  <div class="t">📌 개인 E2E 프로젝트와의 연결점</div>
+  <p>프로젝트는 <b>벤더 사입 → 재판매</b> 트레이딩 모델이라 BP가 양쪽으로 다 필요합니다. 사입 벤더는 <b>Supplier(MM) + FI Vendor</b> 역할, 재판매 고객은 <b>Customer(SD) + FI Customer</b> 역할로 만들고, BP Role Grouping을 써서 한 번에 생성하는 것이 작업량이 적습니다.</p>
+  <p>G/L계정 쪽에서 반드시 잡아야 할 것은 <span class="key">GR/IR 정리계정</span>입니다 — <b>미결항목관리를 켠 상태</b>여야 <code>ZGATE_INSPECT</code>가 "송장 미발생 건"을 판정할 수 있습니다. 이 CBO는 GR(<code>101</code>) 대비 STOR 이관(<code>301</code>) 차이를 잡아 송장이 아직 안 붙은 건을 <code>122</code>로 반품하는데, "송장 미발생"의 회계적 근거가 결국 <b>GR/IR 계정의 미결 상태</b>이기 때문입니다. 자세한 GR/IR 동작은 MM 노트 <a href="../mm/s4515-invoice-verification.html">S4515 송장검증</a>에 정리돼 있습니다.</p>
+</div>
+
+</div>
+
+
+<!-- ══════════ LESSON 4 ══════════ -->
+<div class="lesson" id="l4">
+<h2><span class="no">LESSON 4</span>전표 통제 — 전표유형 · 전기키 · 전기기간</h2>
+
+<p><span class="tag">Unit 4</span><span class="tag">레슨 4개</span>FI 문서 구조 · 전기기간 · 전기권한 · 단순전표 생성</p>
+
+<h3>언제 이걸 알아야 하는가</h3>
+
+<p>FI 운영에서 압도적으로 자주 오는 두 문의가 <b>"전기가 안 됩니다"</b>와 <b>"이 필드를 못 넣습니다"</b>입니다. 둘 다 회계 로직 문제가 아니라 <span class="key">통제 설정</span> 문제입니다.</p>
+
+<p>전자는 십중팔구 <b>전기기간이 닫혀 있는 것</b>(Posting Period Variant)이고, 후자는 <b>필드상태그룹</b>이 그 필드를 Suppress로 막아 둔 것입니다. 이 Unit은 그 두 개의 통제 축 — <span class="hl">헤더는 전표유형, 항목은 전기키와 필드상태</span> — 을 세우는 자리입니다. 여기를 모르면 매번 회계팀에 되묻게 됩니다.</p>
+
+<h3>문서 원칙(Document Principle)</h3>
+
+<p>SAP S/4HANA는 문서 원칙을 따릅니다 — <b>모든 거래는 문서로 저장되며 아카이빙될 때까지 완전한 단위로 유지</b>됩니다. 각 문서는 <span class="key">문서번호 + Company Code + 회계연도</span> 세 가지로 고유하게 식별되고, 문서헤더(전체 공통 정보)와 <b>최소 2개 ~ 최대 999개</b>의 항목(Line Item)으로 구성됩니다.</p>
+
+<ul>
+  <li>하나의 비즈니스 트랜잭션이 <b>여러 문서</b>를 만들 수 있다 (예: 자재문서 + 회계문서)</li>
+  <li>회계에 영향이 없는 문서는 <b>회계문서 없이</b> 생성된다 (예: 구매오더)</li>
+  <li>조회 수단: 리포트 <code>RFBELJ00</code>(문서저널) · <code>RFBUEB00</code> / <code>RFBUEB01</code>(문서 검색) · Fiori 앱 <b>Manage Journal Entries</b></li>
+</ul>
+
+<figure class="figwrap">
+<svg class="dgm" viewBox="0 0 1000 500" role="img" aria-label="FI 전표 구조와 전기키 도해. 전표유형이 문서헤더를, 전기키가 각 항목의 차변·대변과 계정유형을 결정하며, G/L 계정 항목의 필드상태는 필드상태그룹을 필드상태변형으로 묶어 회사코드에 할당해 통제한다.">
+  <defs>
+    <marker id="fi5" markerWidth="9" markerHeight="9" refX="7" refY="4.5" orient="auto">
+      <polygon class="arw" points="0,0 9,4.5 0,9"/></marker>
+    <marker id="fi6" markerWidth="9" markerHeight="9" refX="7" refY="4.5" orient="auto">
+      <polygon class="arw-key" points="0,0 9,4.5 0,9"/></marker>
+  </defs>
+
+  <rect class="b-key" x="330" y="14" width="340" height="56" rx="6"/>
+  <text class="t-h c-key" x="352" y="38">FI 전표 = 헤더 1 + 항목 2~999</text>
+  <text class="t-xs" x="352" y="58">문서번호 + Company Code + 회계연도 로 유일</text>
+
+  <path class="ln-key" d="M420 70 V90 H250 V116" marker-end="url(#fi6)"/>
+  <path class="ln-key" d="M580 70 V90 H750 V116" marker-end="url(#fi6)"/>
+
+  <rect class="b" x="60" y="118" width="380" height="140" rx="6"/>
+  <text class="t-h" x="80" y="144">헤더 — 전표유형 Document Type</text>
+  <text class="t-s" x="80" y="168">Client 레벨 정의 · 전 CC 공통</text>
+  <text class="t-s" x="80" y="190">번호범위 · 역분개 전표유형 · 허용 계정유형</text>
+  <text class="m-s" x="80" y="214">RV 청구  ·  RE MM송장  ·  KR 공급업체송장</text>
+  <text class="m-s" x="80" y="234">ZP 지급프로그램  ·  AB 전 계정유형 가능</text>
+  <text class="t-xs c-bad" x="80" y="252">Net Document Type — 현금할인 차감 여부</text>
+
+  <rect class="b" x="560" y="118" width="380" height="140" rx="6"/>
+  <text class="t-h" x="580" y="144">항목 — 전기키 Posting Key</text>
+  <text class="t-s" x="580" y="168">Client 레벨 정의</text>
+  <text class="t-s" x="580" y="190">① 차변 / 대변 결정</text>
+  <text class="t-s" x="580" y="212">② 계정유형 결정 (G/L · 고객 · 공급업체 · 자산)</text>
+  <text class="t-s" x="580" y="234">③ 필드상태 통제</text>
+  <text class="t-xs c-bad" x="580" y="252">지급거래 연동 · 매출관련 여부도 여기서</text>
+
+  <path class="ln" d="M750 258 V282" marker-end="url(#fi5)"/>
+
+  <rect class="b-hl" x="120" y="284" width="220" height="66" rx="6"/>
+  <text class="t-h" x="142" y="308">G/L 계정</text>
+  <text class="m" x="142" y="332">차변 40  /  대변 50</text>
+
+  <rect class="b-hl" x="390" y="284" width="220" height="66" rx="6"/>
+  <text class="t-h" x="412" y="308">고객 (AR)</text>
+  <text class="m" x="412" y="332">차변 01  /  대변 11</text>
+
+  <rect class="b-hl" x="660" y="284" width="220" height="66" rx="6"/>
+  <text class="t-h" x="682" y="308">공급업체 (AP)</text>
+  <text class="m" x="682" y="332">차변 21  /  대변 31</text>
+
+  <rect class="b-ok" x="60" y="380" width="200" height="48" rx="5"/>
+  <text class="t" x="80" y="410">Field Status Group</text>
+  <path class="ln-ok" d="M260 404 H296" marker-end="url(#fi5)"/>
+
+  <rect class="b-ok" x="304" y="380" width="200" height="48" rx="5"/>
+  <text class="t" x="324" y="410">Field Status Variant</text>
+  <path class="ln-ok" d="M504 404 H540" marker-end="url(#fi5)"/>
+
+  <rect class="b-ok" x="548" y="380" width="200" height="48" rx="5"/>
+  <text class="t" x="568" y="410">Company Code 할당</text>
+  <text class="t-xs c-bad" x="766" y="400">Variant가 완성돼야</text>
+  <text class="t-xs c-bad" x="766" y="416">전기가 가능하다</text>
+
+  <rect class="b-ghost" x="60" y="444" width="880" height="44" rx="6"/>
+  <text class="t-s" x="82" y="468">하위원장(고객·공급업체) 계정은 Field Status Group이 없다 — 그래서 전기키 종류가 많다. 하위원장 전기 시에는 <tspan class="c-key">조정계정의 필드상태그룹</tspan>이 쓰인다.</text>
+</svg>
+<figcaption><span class="fno">그림 3</span>전표 구조와 전기키. 헤더는 전표유형이, 항목의 차·대와 계정유형은 전기키가 정한다.</figcaption>
+</figure>
+
+<h3>전표유형(Document Type)</h3>
+
+<p>전표유형은 <b>Client 레벨</b>에서 정의되어 전체 Company Code에 공통 적용되며, 문서헤더를 통제하고 거래유형을 구분합니다. 정의 항목은 번호범위 · <b>역분개 전표유형</b>(Reverse Document Type) · 허용 계정유형(자산 / 고객 / 공급업체 / 자재 / G,L) · <b>Net Document Type</b>(공급업체 송장 현금할인 차감 여부)입니다.</p>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>전표유형</th><th>쓰이는 곳</th></tr></thead>
+<tbody>
+<tr><td><code>AB</code></td><td class="wrap"><b>전체 계정유형</b>에 전기 가능한 대표 전표유형</td></tr>
+<tr><td><code>RV</code></td><td class="wrap">SD 청구서가 만드는 회계전표의 기본값</td></tr>
+<tr><td><code>RE</code></td><td class="wrap">MM 공급업체 송장의 기본값</td></tr>
+<tr><td><code>KR</code></td><td class="wrap">FI에서 직접 입력하는 공급업체 송장</td></tr>
+<tr><td><code>ZP</code></td><td class="wrap">지급프로그램 자동전기의 기본값</td></tr>
+</tbody>
+</table>
+</div>
+
+<h3>문서 번호범위</h3>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>구분</th><th>동작</th></tr></thead>
+<tbody>
+<tr><td>내부채번</td><td class="wrap">시스템이 순번을 자동 부여</td></tr>
+<tr><td>외부채번</td><td class="wrap">사용자가 직접 입력, <b>영숫자 가능</b></td></tr>
+<tr><td>연속형(Continuous)</td><td class="wrap">신규 회계연도에도 이전 번호를 이어간다</td></tr>
+<tr><td>연도별형</td><td class="wrap">회계연도마다 첫 번호부터 재시작</td></tr>
+</tbody>
+</table>
+</div>
+
+<p>하나의 번호범위를 <b>여러 전표유형에 공유 할당</b>할 수 있고, 번호 누락(gap)은 리포트 <code>RFBNUM00</code>으로 찾습니다.</p>
+
+<h3>필드상태그룹(Field Status Group)</h3>
+
+<p>문서 입력 시 필드상태 우선순위는 <span class="key">SUPPRESS/HIDE(최우선) &gt; REQUIRED ENTRY &gt; OPTIONAL ENTRY</span>입니다. <b>Suppress와 Required를 동시에 조합하면 오류</b>가 납니다 — 숨기면서 필수로 요구할 수는 없으니까요.</p>
+
+<p>G/L계정 그룹별로 Field Status Group을 정의하고, 이를 하나의 <b>Field Status Variant</b>로 묶어 Company Code에 할당합니다. <span class="bad">Variant가 완성되어야 전기가 가능</span>합니다.</p>
+
+<div class="note">
+  <div class="t">🔰 초보자 설명 — 왜 전기키는 많고 G/L은 40·50 둘뿐인가</div>
+  <p>하위원장(Subledger) 계정은 Field Status Group이 없어서 <b>전기키 자체로</b> 항목을 구분해야 합니다. 그래서 고객·공급업체용 전기키 종류가 많습니다. 반면 G/L계정은 Field Status Group으로 구분하니 <b>차변 40 · 대변 50</b> 두 개만으로 충분합니다. 하위원장 전기 시에는 조정계정의 필드상태그룹이 쓰입니다.</p>
+</div>
+
+<h3>전기기간(Posting Period) — 구간 3개</h3>
+
+<p>전기기간은 회계연도변형에서 정의되며, 잘못된 기간에 전기되는 것을 막기 위해 특정 기간을 닫아 둡니다. 여러 Company Code가 <b>동일한 Posting Period Variant를 공유</b>할 수 있고(Variant 원칙), <b>계정유형별로</b> 열림/닫힘 기간을 다르게 설정할 수 있습니다.</p>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>구간</th><th>용도</th></tr></thead>
+<tbody>
+<tr><td>Interval 1</td><td class="wrap"><b>특별기간(결산용)</b> — 권한객체 <code>F_BKPF_BUP</code>로 특정 사용자 그룹에만 개방할 수 있다</td></tr>
+<tr><td>Interval 2</td><td class="wrap"><b>정규기간용</b>으로 권장</td></tr>
+<tr><td>Interval 3</td><td class="wrap">CO → FI 전기 전용. <b>비어 있으면</b> Interval 1·2 설정이 대신 적용된다</td></tr>
+</tbody>
+</table>
+</div>
+
+<div class="note warn">
+  <div class="t">"+" 계정유형을 좁게 열면 전부 막힌다</div>
+  <p><code>+</code> 계정유형(전체 대표)은 다른 <b>모든 계정유형에 대해 열려야 할 기간을 최소한 포함</b>해야 합니다. 개별 계정유형을 아무리 열어 둬도 <code>+</code>가 그 기간을 덮지 않으면 전기가 거부됩니다. "특정 계정유형만 안 열린다"는 문의의 단골 원인입니다.</p>
+</div>
+
+<p>동시에 열 수 있는 구간은 <b>최대 2개</b>(Interval 1·2)이며, S/4HANA <b>1809</b>부터 <b>Manage Posting Periods</b> 앱으로 관리할 수 있습니다 — <code>OB52</code>와 <b>동일한 테이블</b>을 봅니다.</p>
+
+<div class="note warn">
+  <div class="t">확인 필요 — OB52와 Fiori 앱 중 어느 쪽을 쓸 것인가</div>
+  <p>두 경로가 같은 테이블을 보므로 어느 쪽으로 열어도 결과는 같습니다. 다만 <b>권한 오브젝트와 변경이력 추적 경로가 다를 수 있으므로</b>, 실제 시스템(winerp01 / MEP)에서 릴리스와 앱 활성 여부를 확인하고 한쪽으로 통일하는 편이 낫습니다.</p>
+</div>
+
+<h3>전기권한 — Tolerance Group (직원용)</h3>
+
+<p><b>Define Tolerance Groups for Employees</b>에서 직원별 상한을 정의합니다.</p>
+
+<div class="step"><span class="n">1</span><p><b>문서당</b> 최대 전기 가능 금액</p></div>
+<div class="step"><span class="n">2</span><p>고객/공급업체 계정 <b>항목당</b> 최대 입력 금액</p></div>
+<div class="step"><span class="n">3</span><p>항목당 <b>최대 현금할인율</b></p></div>
+<div class="step"><span class="n">4</span><p><b>지급차이</b> 허용 최대치 (과납 / 과소납)</p></div>
+
+<p>사용자를 특정 Tolerance Group에 명시적으로 할당하지 않으면 <span class="key">공백(기본) 그룹</span>의 값이 적용됩니다. 실무 설계는 <b>공백 그룹에 대다수 직원용 값을 넣고, 특별히 높거나 낮은 한도가 필요한 직원만 별도 그룹</b>을 만들어 할당하는 방식입니다.</p>
+
+<h3>단순 전표 생성</h3>
+
+<p>G/L계정 전기 · 고객 송장/크레딧메모 · 공급업체 송장/크레딧메모를 Fiori 앱으로 처리합니다. 문서헤더에 송장일자 · 전기일자 · 텍스트를 넣으면 거래유형별 <b>기본 전표유형이 제안</b>됩니다(공급업체 송장이면 <code>KR</code>).</p>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>기능</th><th>동작</th></tr></thead>
+<tbody>
+<tr><td>항목 텍스트 <code>*</code></td><td class="wrap">텍스트 앞에 별표를 붙이면 <b>대사통지서·독촉장 등 외부 서식에도 인쇄</b>된다(출력 시 별표는 제거). Customizing에서 4자리 키의 텍스트 템플릿을 정의해 재사용 가능</td></tr>
+<tr><td>Park / Post / Hold</td><td class="wrap">임시저장 / 전기 / 보류 중 선택</td></tr>
+<tr><td>Manage Journal Entry Templates</td><td class="wrap">반복입력용 템플릿을 만들어 조직 내 공유(Public)</td></tr>
+</tbody>
+</table>
+</div>
+
+<div class="note ok">
+  <div class="t">📌 개인 E2E 프로젝트와의 연결점</div>
+  <p>프로젝트에서 직접 만질 전표유형은 사실상 셋입니다 — SD 청구가 만드는 <code>RV</code>, MM 송장검증이 만드는 <code>RE</code>, 입고(<code>101</code>)가 만드는 자재문서에 딸린 회계전표. <b>이 세 개는 전부 표준이 만들어 주므로 CBO가 전표를 직접 만들 일이 없습니다.</b></p>
+  <p>다만 <code>ZGATE_INSPECT</code>의 <code>122</code> 반품은 재고 <b>금액</b>을 되돌리므로 회계전표가 따라옵니다. 개발 원칙("회계 영향이 있는 처리는 자동화하지 않는다")에 맞추려면 CBO는 <span class="key">대상 선별 + 상태필드 <code>W</code></span>까지만 하고, 실제 <code>122</code> 전기는 <b>승인 후</b> <code>BAPI_GOODSMVT_CREATE</code>로 태워야 합니다. 전표를 직접 <code>INSERT</code>하지 않는 이유가 바로 이 Unit에 다 있습니다 — 전표유형·전기키·필드상태·전기기간 검증을 전부 우회해 버리기 때문입니다.</p>
+  <p>전기기간도 CBO 설계에 영향을 줍니다. 배치로 도는 <code>ZBATCH_ZONE</code>(<code>311</code> 이동)은 재고 이동만 하므로 기간 영향이 적지만, 월초에 전기기간이 아직 안 열린 상태에서 돌면 실패합니다. <b>실패를 조용히 넘기지 말고 상태필드 <code>H</code>(보류)로 남겨</b> 다음 실행에서 재처리하는 구조가 필요합니다.</p>
+</div>
+
+</div>
+
+
+<!-- ══════════ LESSON 5 ══════════ -->
+<div class="lesson" id="l5">
+<h2><span class="no">LESSON 5</span>전기 통제 — 문서분할 · 역분개 · 지급조건 · 세금</h2>
+
+<p><span class="tag">Unit 5</span><span class="tag">레슨 7개</span>문서분할 · 기본값 · 변경통제 · 역분개 · 지급조건 · 세금 · CC 간 거래</p>
+
+<h3>문서분할(Document Splitting) — Entry View와 General Ledger View</h3>
+
+<p>FI 문서는 항상 두 가지 뷰를 가집니다 — <b>Entry View</b>(입력한 그대로)와 <b>General Ledger View</b>(문서분할이 적용돼 Profit Center · Business Area · Segment 등으로 항목이 쪼개진 모습). 이 전환은 <span class="bad">Customizing으로 껐다 켰다 할 수 없습니다</span> — 문서분할 활성화 여부에 따라 결정되며, 비활성이면 두 뷰가 동일합니다.</p>
+
+<figure class="figwrap">
+<svg class="dgm" viewBox="0 0 1000 450" role="img" aria-label="문서분할 숫자 예시 도해. 공급업체 송장 1100 중 비용 라인이 세그먼트별로 600 대 400으로 나뉘어 있으면 세그먼트 정보가 없는 매입채무 1100과 매입세 100이 그 60 대 40 비율로 자동 분할되어 세그먼트별로 차대변이 맞는 전표가 만들어진다.">
+  <defs>
+    <marker id="fi7" markerWidth="10" markerHeight="10" refX="8" refY="5" orient="auto">
+      <polygon class="arw-key" points="0,0 10,5 0,10"/></marker>
+  </defs>
+
+  <text class="t-h" x="40" y="58">Entry View — 입력한 그대로</text>
+  <rect class="b" x="40" y="72" width="370" height="156" rx="6"/>
+  <text class="t-xs" x="56" y="94">PK</text>
+  <text class="t-xs" x="90" y="94">계정</text>
+  <text class="t-xs" x="248" y="94">금액</text>
+  <text class="t-xs" x="300" y="94">Profit Center / Segment</text>
+  <path class="ln-d" d="M56 102 H394"/>
+
+  <text class="m" x="56" y="124">31</text>
+  <text class="t" x="90" y="124">매입채무</text>
+  <text class="m" x="286" y="124" text-anchor="end">1,100-</text>
+  <text class="m-s c-bad" x="300" y="124">없음</text>
+
+  <text class="m" x="56" y="150">40</text>
+  <text class="t" x="90" y="150">비용 A</text>
+  <text class="m" x="286" y="150" text-anchor="end">600</text>
+  <text class="m-s c-ok" x="300" y="150">PC A / SEG1</text>
+
+  <text class="m" x="56" y="176">40</text>
+  <text class="t" x="90" y="176">비용 B</text>
+  <text class="m" x="286" y="176" text-anchor="end">400</text>
+  <text class="m-s c-ok" x="300" y="176">PC B / SEG2</text>
+
+  <text class="m" x="56" y="202">40</text>
+  <text class="t" x="90" y="202">매입세</text>
+  <text class="m" x="286" y="202" text-anchor="end">100</text>
+  <text class="m-s c-bad" x="300" y="202">없음</text>
+
+  <text class="t-xs c-bad" x="40" y="250">세그먼트가 없는 라인 2개 — 이대로는 세그먼트별 재무제표가 나오지 않는다</text>
+
+  <text class="t-xs c-key" x="418" y="142">분할 기준 =</text>
+  <text class="t-xs c-key" x="418" y="158">비용 라인의 비율</text>
+  <text class="m-s c-key" x="418" y="176">60 : 40</text>
+  <path class="ln-key" d="M412 196 H582" marker-end="url(#fi7)"/>
+  <text class="t-xs" x="418" y="216">매입채무·매입세가</text>
+  <text class="t-xs" x="418" y="232">따라서 쪼개진다</text>
+
+  <text class="t-h c-ok" x="590" y="58">General Ledger View — 분할 후</text>
+  <rect class="b-ok" x="590" y="72" width="370" height="250" rx="6"/>
+
+  <text class="t-h c-ok" x="612" y="100">SEG1  (60%)</text>
+  <text class="t" x="612" y="126">비용 A</text>
+  <text class="m" x="800" y="126" text-anchor="end">600</text>
+  <text class="t" x="612" y="150">매입세</text>
+  <text class="m" x="800" y="150" text-anchor="end">60</text>
+  <text class="t" x="612" y="174">매입채무</text>
+  <text class="m" x="800" y="174" text-anchor="end">660-</text>
+  <text class="m-s c-ok" x="824" y="174">잔액 0</text>
+
+  <path class="ln-d" d="M612 192 H940"/>
+
+  <text class="t-h c-ok" x="612" y="218">SEG2  (40%)</text>
+  <text class="t" x="612" y="244">비용 B</text>
+  <text class="m" x="800" y="244" text-anchor="end">400</text>
+  <text class="t" x="612" y="268">매입세</text>
+  <text class="m" x="800" y="268" text-anchor="end">40</text>
+  <text class="t" x="612" y="292">매입채무</text>
+  <text class="m" x="800" y="292" text-anchor="end">440-</text>
+  <text class="m-s c-ok" x="824" y="292">잔액 0</text>
+
+  <rect class="b-mut" x="40" y="346" width="290" height="86" rx="6"/>
+  <text class="t-h" x="60" y="370">Passive  수동적 분할</text>
+  <text class="t-xs" x="60" y="392">정리(Clearing) 시 원본 문서의</text>
+  <text class="t-xs" x="60" y="410">배분비율을 정리문서에 그대로 복사</text>
+
+  <rect class="b-mut" x="355" y="346" width="290" height="86" rx="6"/>
+  <text class="t-h" x="375" y="370">Active  능동적 분할</text>
+  <text class="t-xs" x="375" y="392">정리가 아닌 문서에 대해</text>
+  <text class="t-xs" x="375" y="410">전표유형 기준 Splitting Rule 적용</text>
+
+  <rect class="b-mut" x="670" y="346" width="290" height="86" rx="6"/>
+  <text class="t-h" x="690" y="370">Zero Balance</text>
+  <text class="t-xs" x="690" y="392">이익센터·세그먼트를 0으로 맞추는</text>
+  <text class="t-xs" x="690" y="410">추가 정리라인을 자동 생성</text>
+</svg>
+<figcaption><span class="fno">그림 4</span>문서분할 숫자 예시. 세그먼트가 붙은 비용 라인의 비율(60:40)이 매입채무와 매입세를 쪼개는 기준이 된다.</figcaption>
+</figure>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>분할 유형</th><th>설명</th></tr></thead>
+<tbody>
+<tr><td>Passive (수동적)</td><td class="wrap">정리(Clearing) 시 <b>원본 문서의 배분비율을 그대로 정리문서에 복사</b> — 60:40으로 배분된 송장의 지급도 60:40으로 자동 분할</td></tr>
+<tr><td>Active (능동적)</td><td class="wrap">정리가 아닌 문서에 대해 Customizing에서 정의한 개별 배분규칙(<b>전표유형 기준</b>)에 따라 분할</td></tr>
+<tr><td>Zero Balance</td><td class="wrap">Profit Center · Segment 등 문서 내 균형대상 객체를 <b>0으로 맞추기 위한 추가 정리라인</b> 생성</td></tr>
+</tbody>
+</table>
+</div>
+
+<h3>Splitting Procedure의 4단계 개념</h3>
+
+<div class="step"><span class="n">1</span><p><b>Business Transaction</b> — SAP가 제공하는 표준 프로세스 분류</p></div>
+<div class="step"><span class="n">2</span><p><b>Business Transaction Variant</b> — 그것의 구체화 버전</p></div>
+<div class="step"><span class="n">3</span><p><b>Item Category</b> — 전기 항목의 기술적 유형. <b>계정유형에서 파생</b>된다</p></div>
+<div class="step"><span class="n">4</span><p><b>Splitting Rule</b> — 어떤 Item Category를 <span class="key">분할할지</span>, 어떤 것을 <span class="key">기준으로 삼을지</span></p></div>
+
+<p>SAP 기본 절차는 <code>0000000012</code>이고, 커스터마이징이 필요하면 <code>Z000000012</code>로 <b>복사해서</b> 씁니다. 활성화 옵션은 둘입니다.</p>
+
+<ul>
+  <li><b>Inheritance</b> — 문서 내에 고유값이 있으면 누락된 위치에 자동 상속. <span class="good">항상 켜는 것을 권장</span></li>
+  <li><b>Default Account Assignment</b> — 값이 없을 때 상수로 자동 채움. <span class="bad">데이터품질 저하 우려</span>가 있어 신중히</li>
+</ul>
+
+<div class="note warn">
+  <div class="t">문서분할은 Client 단위 결정이다 — 되돌리기 어렵다</div>
+  <p>문서분할은 <b>Client당 활성화</b>하고 Company Code별로 비활성화합니다. 그리고 한 Client 내의 <span class="bad">모든 Company Code는 동일한 분할절차만</span> 쓸 수 있습니다. 즉 "우리 회사코드만 다르게" 가 안 됩니다. 실습 시스템처럼 여러 사람이 한 Client를 공유하는 환경에서는 켜기 전에 반드시 합의가 필요합니다 — <b>실제 시스템(winerp01 / MEP)에서 현재 활성 여부를 먼저 확인</b>할 것.</p>
+</div>
+
+<h3>기본값(Default Values)</h3>
+
+<p><b>Parameter ID</b>로 Company Code · 통화 등 자주 바뀌지 않는 필드의 사용자별 기본값을 설정해 입력오류를 예방합니다. 사용자가 많으면 <b>더미 사용자를 하나 만들어 값을 세팅한 뒤 복사</b>하는 방식으로 관리를 단순화합니다.</p>
+
+<p>시스템도 최근 전기일자 · 직전 사용 Company Code 등을 자동 제안하고, 전표유형·전기키에도 기본값이 있습니다(전표유형 <code>KR</code>의 대변은 전기키 <code>31</code>). 회계연도변형이 <b>연도별 채번</b>을 쓰는 경우 최근 처리 문서번호·회계연도를 제안할 수 있습니다.</p>
+
+<p>환율 차이 허용 최대 퍼센트를 <b>Company Code 레벨</b>에서 설정해 두면, 문서헤더 환율과 환율테이블 환율의 차이가 기준을 넘을 때 <b>경고 메시지</b>가 뜹니다.</p>
+
+<h3>변경통제(Change Control) — 전기 후 무엇을 고칠 수 있나</h3>
+
+<p>전기가 끝난 문서도 일부 필드는 바꿀 수 있습니다 — 참조번호 · 문서헤더텍스트 · 배정필드 · 텍스트필드 · 지급조건 등. 반대로 <span class="bad">금액 · 전기키 · 계정</span>처럼 조정(reconciliation)에 영향을 주는 필드는 변경 불가입니다.</p>
+
+<p>변경 규칙은 <b>계정유형</b>(고객/공급업체/G,L) · <b>트랜잭션클래스</b>(환어음·선수금 등 특수 G/L 전용) · <b>Company Code</b>(공백이면 Client 전체 적용) 기준으로 차등 설정합니다.</p>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>변경 가능 조건</th><th>내용</th></tr></thead>
+<tbody>
+<tr><td>전기기간</td><td class="wrap">아직 <b>열려 있어야</b> 한다</td></tr>
+<tr><td>항목 상태</td><td class="wrap">아직 <b>미정리(Open)</b>여야 한다</td></tr>
+<tr><td>차대 방향</td><td class="wrap">고객계정의 <b>차변</b> 또는 공급업체계정의 <b>대변</b></td></tr>
+<tr><td>문서 종류</td><td class="wrap">송장에 대한 크레딧메모나 선수금 크레딧메모가 <b>아니어야</b> 한다</td></tr>
+</tbody>
+</table>
+</div>
+
+<p>모든 변경 이력(필드 · 신구값 · 사용자 · 일시)이 로깅되며 <code>RFBABL00</code> 리포트로 조회합니다.</p>
+
+<h3>역분개(Document Reversal) — 두 가지 방식</h3>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>방식</th><th>동작</th><th>거래액(Transaction Figures) 영향</th></tr></thead>
+<tbody>
+<tr><td>Normal Reversal</td><td class="wrap">차변 ↔ 대변을 반대로 재전기</td><td class="wrap">거래액이 <span class="bad">증가</span> — 원본과 역분개가 모두 누적된다</td></tr>
+<tr><td>Negative Posting</td><td class="wrap">반대로 재전기하되 <b>반대편에서 차감</b> 처리</td><td class="wrap">거래액이 <span class="good">원래 상태로 복원</span> — 증가하지 않는다</td></tr>
+</tbody>
+</table>
+</div>
+
+<p>Negative Posting은 <b>잘못된 계정에서 항목을 지우고 정확한 계정에 재전기하는 이관 작업</b>에도 씁니다. 다만 쓰려면 조건이 둘입니다 — <b>Company Code가 이를 허용</b>하고, <b>역분개 사유(Reversal Reason)도 이를 허용</b>하도록 설정되어야 합니다.</p>
+
+<div class="note warn">
+  <div class="t">정리된 항목이 섞여 있으면 역분개가 막힌다</div>
+  <p>이미 정리(clearing)된 항목이 포함된 문서는 <b>역분개 전에 반드시 정리를 취소(Reset)</b>해야 합니다. 순서를 거꾸로 시도하면 막히므로, 자동화 로직을 짤 때 <span class="key">Reset → Reverse</span> 순서를 코드에 박아 둬야 합니다.</p>
+</div>
+
+<h3>지급조건(Terms of Payment) — 어느 세그먼트에서 오는가</h3>
+
+<p>지급조건은 만기일과 현금할인 조건을 정의하며 Business Partner의 <b>Company Code · Sales Area · Purchasing Org 세그먼트</b>에 각각 저장됩니다. 그래서 <span class="key">송장이 어디서 만들어지느냐에 따라 적용되는 지급조건이 달라집니다</span>.</p>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>송장 생성 위치</th><th>적용되는 세그먼트</th><th>BP Role</th></tr></thead>
+<tbody>
+<tr><td>FI에서 직접 작성</td><td class="wrap">Company Code 세그먼트</td><td>FI</td></tr>
+<tr><td>SD 청구</td><td class="wrap"><b>Sales Area 세그먼트</b> → FI 송장에 자동 복사</td><td>SD</td></tr>
+<tr><td>MM 구매송장</td><td class="wrap"><b>Purchasing Org 세그먼트</b> → 회계문서에 자동 복사</td><td>MM</td></tr>
+</tbody>
+</table>
+</div>
+
+<div class="note">
+  <div class="t">🔰 초보자 설명 — "지급조건이 왜 다르게 붙었나" 문의의 정답</div>
+  <p>같은 고객인데 FI 송장과 SD 청구의 지급조건이 다르게 나온다면 <b>버그가 아닙니다.</b> BP의 Company Code 세그먼트와 Sales Area 세그먼트에 서로 다른 값이 들어 있는 것입니다. 고칠 곳은 송장이 아니라 <b>해당 세그먼트의 마스터</b>입니다.</p>
+</div>
+
+<h3>크레딧메모의 만기</h3>
+
+<ul>
+  <li><b>송장연계 크레딧메모</b>(Invoice Reference 필드에 원본 송장번호 입력) — 원본 송장과 <b>동일 만기일</b>로 지급조건이 복사된다</li>
+  <li>그 외 일반 크레딧메모 — <span class="bad">기준일(Baseline Date)에 즉시 만기</span> 처리된다. Invoice Reference에 <code>V</code>를 넣으면 지급조건을 활성화할 수 있다</li>
+  <li>고객마스터에는 별도 <b>Credit Memo Pmt Term</b> 필드도 있다</li>
+</ul>
+
+<h3>기준일(Baseline Date)과 현금할인</h3>
+
+<p>기준일 기본값은 <b>전기일자 · 문서일자 · 입력일자</b> 중 선택하고, <b>고정일</b>(Fixed Day, 예: 매월 15일)이나 <b>추가 개월수</b>로 보정합니다. day limit로 15일 이전/이후 등 이원화 조건도 만들 수 있습니다(<b>SAP Note 162885</b>).</p>
+
+<p>지급조건 라인마다 현금할인율과 유효일수를 지정하며 <b>최대 3개 구간</b>까지 설정할 수 있습니다. <b>차단키(Block Key)</b>로 지급을 임시 차단할 수 있고(2인 검증원칙 — 1인이 차단 설정, 2인이 검증 후 해제), 지급방법(수표·이체·환어음)도 지급조건에서 지정합니다.</p>
+
+<h3>분할납부와 순액/총액 처리</h3>
+
+<p><b>분할납부(Installment)</b>는 지급조건에서 Installment Payment를 선택하고(현금할인 구간은 지정하지 않음) 분납번호 · 비율(<b>합계 100%</b>) · 개별 지급조건을 정의하면 시스템이 분납 라인아이템을 자동 생성합니다.</p>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>방식</th><th>동작</th></tr></thead>
+<tbody>
+<tr><td>Gross Procedure (총액)</td><td class="wrap">정리 시점에 할인을 <b>사후 반영</b></td></tr>
+<tr><td>Net Procedure (순액)</td><td class="wrap">송장 전기와 <b>동시에</b> 할인액을 청산계정으로 선반영했다가 지급 시 정산. 할인기한 초과 지급 시 <b>손실 계정</b>으로 별도 처리</td></tr>
+</tbody>
+</table>
+</div>
+
+<p>현금할인 기준액을 순액(세금 제외)/총액(세금 포함) 중 무엇으로 볼지는 <b>국가 법규</b>에 따르며, Company Code 또는 세관할구역별로 설정합니다.</p>
+
+<h3>세금과 세금코드</h3>
+
+<p>S/4HANA는 판매·구매세(부가세류) · 미국판매세 · 국가별 추가세 · 원천징수세를 지원합니다. 국가별로 <b>전국 단일세율</b>과 <b>주/관할구역별 세율</b>이 있는데, 미국은 관할구역이 <b>67,000개 이상</b>이라 서드파티 세금엔진을 병행하는 경우가 흔합니다.</p>
+
+<p>국가마다 사전구성된 <b>계산절차(Tax Calculation Procedure)</b>가 있고, 절차는 <span class="key">단계순서 · 세금유형(Condition Type) · 계정키(Account Key)</span>로 구성됩니다. 계정키가 세금 자동계정결정의 연결고리입니다.</p>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>Tax Category</th><th>의미</th></tr></thead>
+<tbody>
+<tr><td><code>&lt;</code></td><td class="wrap">매입세 계정</td></tr>
+<tr><td><code>&gt;</code></td><td class="wrap">매출세 계정</td></tr>
+<tr><td><code>(공백)</code></td><td class="wrap">세금 무관</td></tr>
+<tr><td><code>-</code></td><td class="wrap">매입세 코드 필요</td></tr>
+<tr><td><code>+</code></td><td class="wrap">매출세 코드 필요</td></tr>
+<tr><td><code>*</code></td><td class="wrap">임의 세금코드 허용</td></tr>
+</tbody>
+</table>
+</div>
+
+<p>세금코드는 <b>국가키</b> 또는 <b>국가키 + 관할구역코드</b> 조합과 연결되며, 세율은 세금유형별로 부여합니다. <span class="key">하나의 세금코드에 여러 세율을 둘 수 있습니다</span> — 예를 들어 매입세 10% 중 40%가 손금불산입이면 <b>6% / 4%</b>로 분리해 설정합니다. 면세지만 신고의무가 있는 항목이나 면세거래(재고이동 등)에는 <b>세율 0의 특수 세금코드</b>를 부여합니다.</p>
+
+<h3>Company Code 간 거래(Cross-Company Code)</h3>
+
+<p>하나의 비즈니스 트랜잭션이 2개 이상 Company Code에 걸치는 경우입니다(한 CC가 다른 CC를 대신해 구매/지급, CC 간 판매 등). <span class="bad">문서는 Company Code당 1개로 제한</span>되므로, 시스템이 관련된 각 Company Code마다 별도 문서를 만들고 <b>정리계정</b>(수취/지급용)으로 차대변을 자동 균형시킵니다.</p>
+
+<ul>
+  <li>모든 관련 문서는 공통 <b>Cross-Company Code Transaction 번호</b>로 연결된다 (문서번호 + 첫 Company Code + 회계연도 조합). 조회는 <code>RFBVOR00</code></li>
+  <li>가능한 <b>모든 Company Code 쌍</b>마다 정리계정을 사전 할당해야 한다 — 3개 CC면 <b>3 × 2 = 6개</b></li>
+  <li>세금은 원칙적으로 <span class="bad">첫 번째 항목의 Company Code로 전액 전기</span>된다 → <b>송장 항목을 반드시 먼저 입력</b>해야 한다</li>
+  <li>일본·덴마크처럼 세금을 발생 Company Code별로 배분해야 하는 국가는 <code>RFBUST10</code> 리포트로 별도 배분</li>
+</ul>
+
+<div class="note ok">
+  <div class="t">📌 개인 E2E 프로젝트와의 연결점</div>
+  <p><b>문서분할은 이 프로젝트에서 켜지 않는 쪽이 맞습니다.</b> 회사코드가 <code>CL04</code> 하나이고 세그먼트 보고 요건이 없는데, 분할은 Client 단위 결정이라 실습 환경 전체에 영향을 줍니다. 대신 그림 4를 <b>"세그먼트 요건이 생기면 무엇이 달라지는가"의 참고</b>로 남겨 둡니다.</p>
+  <p>실제로 걸리는 것은 <span class="key">역분개</span>입니다. <code>ZGATE_INSPECT</code>의 <code>122</code>(반품)는 회계적으로 입고 전표의 되돌림이고, 원본 <code>101</code> 전표에 이미 송장이 붙어 정리가 끝났다면 <span class="bad">Reset 없이는 되돌릴 수 없습니다</span>. 그래서 CBO의 대상 선별 조건이 "<b>송장 미발생 건</b>"인 것은 우연이 아니라 필연입니다 — 송장이 붙은 순간 자동 반품은 성립하지 않습니다.</p>
+  <p>지급조건도 확인할 곳이 정해집니다. 사입 벤더의 지급조건은 <b>Purchasing Org 세그먼트</b>, 재판매 고객의 지급조건은 <b>Sales Area 세그먼트</b>에서 옵니다. FI 화면에서 값이 이상하다고 Company Code 세그먼트를 고치면 아무것도 바뀌지 않습니다. SD 쪽 청구 흐름은 <a href="../sd/s46150-billing.html">S46150 청구</a>에 정리돼 있습니다.</p>
+</div>
+
+</div>
+
+
+<!-- ══════════ LESSON 6 ══════════ -->
+<div class="lesson" id="l6">
+<h2><span class="no">LESSON 6</span>미결항목 처리 — 정리 · 지급차이 · 환차이</h2>
+
+<p><span class="tag">Unit 6</span><span class="tag">레슨 3개</span>Open Item Clearing · Payment Differences · Exchange Rate Differences</p>
+
+<h3>Open Item과 정리(Clearing)</h3>
+
+<p><span class="key">Open Item</span>(미결항목 — 예: 미지급 송장)은 <b>미완료 거래</b>입니다. 정리(Clearing)를 통해 잔액을 0으로 맞춰야 완료되고, <span class="bad">미결항목이 남아 있는 문서는 아카이빙할 수 없습니다</span>.</p>
+
+<figure class="figwrap">
+<svg class="dgm" viewBox="0 0 1000 440" role="img" aria-label="미결항목 처리 흐름 도해. 송장 전기로 생긴 미결항목을 지급이나 자동정리로 처리하며, 금액이 일치하면 정리문서가 생성되고 불일치하면 허용한도 내에서는 자동 조정, 초과하면 부분지급·잔액항목·사유코드·상각 네 가지 중 하나를 수동 선택한다.">
+  <defs>
+    <marker id="fi8" markerWidth="9" markerHeight="9" refX="7" refY="4.5" orient="auto">
+      <polygon class="arw" points="0,0 9,4.5 0,9"/></marker>
+  </defs>
+
+  <rect class="b" x="30" y="44" width="170" height="54" rx="6"/>
+  <text class="t-h" x="48" y="68">송장 전기</text>
+  <text class="t-xs" x="48" y="88">미결항목이 생긴다</text>
+  <path class="ln" d="M200 71 H226" marker-end="url(#fi8)"/>
+
+  <rect class="b-hl" x="230" y="44" width="180" height="54" rx="6"/>
+  <text class="t-h" x="248" y="68">Open (미결)</text>
+  <text class="t-xs" x="248" y="88">잔액 ≠ 0 · 아카이빙 불가</text>
+  <path class="ln" d="M410 71 H436" marker-end="url(#fi8)"/>
+
+  <rect class="b" x="440" y="44" width="190" height="54" rx="6"/>
+  <text class="t-h" x="458" y="68">지급 · 자동정리</text>
+  <text class="t-xs" x="458" y="88">Post with Clearing</text>
+  <path class="ln" d="M630 71 H638" marker-end="url(#fi8)"/>
+
+  <polygon class="b-key" points="760,34 880,71 760,108 640,71"/>
+  <text class="t" x="760" y="76" text-anchor="middle">금액 일치?</text>
+
+  <path class="ln" d="M760 108 V130"/>
+  <path class="ln" d="M505 130 H805"/>
+  <path class="ln-bad" d="M505 130 V148" marker-end="url(#fi8)"/>
+  <path class="ln-ok" d="M805 130 V148" marker-end="url(#fi8)"/>
+  <text class="t-xs c-bad" x="420" y="126">불일치</text>
+  <text class="t-xs c-ok" x="822" y="126">일치</text>
+
+  <rect class="b-bad" x="380" y="154" width="250" height="66" rx="6"/>
+  <text class="t-h c-bad" x="400" y="178">지급차이 발생</text>
+  <text class="t-xs" x="400" y="198">직원 + BP 허용한도를 비교한다</text>
+  <text class="t-xs" x="400" y="214">더 엄격한 쪽이 적용된다</text>
+
+  <rect class="b-ok" x="680" y="154" width="250" height="66" rx="6"/>
+  <text class="t-h c-ok" x="700" y="178">정리문서 생성</text>
+  <text class="t-xs" x="700" y="198">Cleared 상태로 전환</text>
+  <text class="t-xs" x="700" y="214">정리일자 · 정리문서번호 기록</text>
+
+  <path class="ln-d" d="M930 187 H950 V14 H320 V40" marker-end="url(#fi8)"/>
+  <text class="t-xs" x="340" y="30">Reset Cleared Items 앱(1709+) — 정리를 취소하고 역분개·재입력</text>
+
+  <path class="ln" d="M505 220 V242"/>
+  <path class="ln" d="M140 242 H890"/>
+  <path class="ln-ok" d="M140 242 V260" marker-end="url(#fi8)"/>
+  <path class="ln" d="M350 242 V260" marker-end="url(#fi8)"/>
+  <path class="ln" d="M530 242 V260" marker-end="url(#fi8)"/>
+  <path class="ln" d="M710 242 V260" marker-end="url(#fi8)"/>
+  <path class="ln" d="M890 242 V260" marker-end="url(#fi8)"/>
+
+  <rect class="b-ok" x="30" y="266" width="220" height="76" rx="6"/>
+  <text class="t-h c-ok" x="48" y="290">허용한도 내 — 자동</text>
+  <text class="t-xs" x="48" y="310">현금할인 조정 또는</text>
+  <text class="t-xs" x="48" y="328">특수계정 상각(write-off)</text>
+
+  <rect class="b" x="270" y="266" width="160" height="76" rx="6"/>
+  <text class="t-h" x="288" y="290">① 부분지급</text>
+  <text class="t-xs" x="288" y="310">원본 문서를</text>
+  <text class="t-xs" x="288" y="328">모두 미결 유지</text>
+
+  <rect class="b" x="450" y="266" width="160" height="76" rx="6"/>
+  <text class="t-h" x="468" y="290">② 잔액항목</text>
+  <text class="t-xs" x="468" y="310">원본은 정리하고</text>
+  <text class="t-xs" x="468" y="328">새 번호로 잔액 미결</text>
+
+  <rect class="b" x="630" y="266" width="160" height="76" rx="6"/>
+  <text class="t-h" x="648" y="290">③ 사유코드</text>
+  <text class="t-xs" x="648" y="310">사유코드 기반</text>
+  <text class="t-xs" x="648" y="328">별도 계정 전기</text>
+
+  <rect class="b" x="810" y="266" width="160" height="76" rx="6"/>
+  <text class="t-h" x="828" y="290">④ 상각</text>
+  <text class="t-xs" x="828" y="310">수동 계정지정</text>
+  <text class="t-xs" x="828" y="328">write-off</text>
+
+  <rect class="b-ghost" x="30" y="360" width="940" height="62" rx="6"/>
+  <text class="t-s" x="52" y="384">외화 미결항목을 정리하면 환율 변동분이 <tspan class="c-key">실현환차손익</tspan>으로 자동 전기된다 — 조정계정·G/L계정마다 손익 계정을 배정해야 한다.</text>
+  <text class="t-s" x="52" y="406">허용한도는 3종 — 직원(Employee) · G/L계정 · 고객/공급업체(BP). 자동처리는 <tspan class="c-bad">직원과 BP 양쪽 기준을 모두 충족</tspan>해야 한다.</text>
+</svg>
+<figcaption><span class="fno">그림 5</span>미결항목 처리 흐름. 금액이 맞으면 정리문서가 생기고, 안 맞으면 허용한도가 자동/수동을 가른다.</figcaption>
+</figure>
+
+<h3>정리 방식 두 가지</h3>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>기능</th><th>동작</th></tr></thead>
+<tbody>
+<tr><td>Post with Clearing</td><td class="wrap">정리문서 <b>금액을 입력</b>하고 정리 대상 미결항목을 선택. 선택 합계가 일치하면 자동 정리, 불일치하면 차액을 전기할 수 있다. <b>여러 계정 / 계정유형 / 통화를 동시에</b> 처리하고 은행수수료 등 추가 라인도 넣을 수 있다</td></tr>
+<tr><td>Account Clearing</td><td class="wrap"><b>하나의 계정 안에서</b> 합이 0이 되는 미결항목을 자동으로 찾아 정리. 은행 하위계정·정리계정, 데빗메모 절차 합의, 공급업체 환불 등에 수동으로 자주 쓴다</td></tr>
+</tbody>
+</table>
+</div>
+
+<h3>자동정리프로그램(Automatic Clearing Program)</h3>
+
+<p>다음이 <b>모두 동일한</b> 항목들을 그룹으로 묶고, 그룹 내 잔액(현지통화 기준)이 0이면 자동 정리합니다 — <span class="key">Company Code · 계정유형 · 계정번호 · 조정계정번호 · 통화 · 특수G/L지시자</span>. 여기에 <b>최대 5개의 추가 사용자기준</b>을 더할 수 있습니다.</p>
+
+<div class="note warn">
+  <div class="t">자동정리에서 빠지는 항목들</div>
+  <p><b>Noted Item</b>(메모항목) · 환어음 관련 특수G/L거래 · <b>선수금</b> · 원천징수세 항목은 자동정리 대상에서 제외됩니다. 선수금은 <b>동일 금액의 선수금정리항목이 이미 전기된 경우에만</b> 정리됩니다. "왜 이 건만 자동정리가 안 됐느냐"는 문의가 오면 이 목록부터 확인하는 것이 빠릅니다.</p>
+</div>
+
+<p><b>Assignment 필드</b>는 마스터레코드의 <b>Sort Key</b> 설정에 따라 자동으로 채워집니다(<span class="key">최대 4개 필드 조합, 18자</span>). 항목 정렬에도 쓰이지만, 실질적인 가치는 <b>SD 청구서와 FI 회계문서 사이의 추적</b>입니다 — 참조/배정 필드로 SD 원본 문서를 역추적할 수 있습니다.</p>
+
+<h3>수동 지급 프로세스</h3>
+
+<div class="step"><span class="n">1</span><p><b>지급헤더</b> — 문서일자 · 전표유형 · Company Code · 통화 · 환율</p></div>
+<div class="step"><span class="n">2</span><p><b>은행데이터</b> — G/L 계좌 · 총지급액 · 은행수수료 · 가치일자</p></div>
+<div class="step"><span class="n">3</span><p><b>미결항목 선택</b> — 입력액과 배정액이 <span class="bad">일치해야 전기 가능</span></p></div>
+
+<p>입금은 매출채권 미결 <b>차변</b>을, 출금은 매입채무 미결 <b>대변</b>을 정리합니다. 지급조건에 따라 현금할인이 자동 계산되며 퍼센트나 절대값으로 수동 조정할 수 있는데 <b>허용한도 내에서만</b> 가능합니다. 전기 전에 <code>Document → Simulate</code>로 차대변 일치를 미리 확인합니다.</p>
+
+<p>잘못 정리된 항목은 <b>Reset Cleared Items</b> 앱(S/4HANA <b>1709</b>+)으로 정리를 취소한 뒤 역분개·재입력합니다. 변경이력은 change document로 기록되고, 매출채권의 <b>지급이력과 신용한도가 자동 보정</b>됩니다.</p>
+
+<h3>지급차이 — Tolerance Group 3종</h3>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>그룹</th><th>통제 대상</th></tr></thead>
+<tbody>
+<tr><td>Employee</td><td class="wrap">전기 상한액, 허용 지급차이</td></tr>
+<tr><td>G/L Account</td><td class="wrap"><b>자동정리절차</b>의 허용 지급차이</td></tr>
+<tr><td>Customer/Vendor (BP)</td><td class="wrap">정리 거래, 허용 지급차이 처리, <b>잔액항목</b>(Residual Item) 전기, 지급통지서 허용한도</td></tr>
+</tbody>
+</table>
+</div>
+
+<p>지급차이가 자동 처리되려면 <span class="key">직원 Tolerance Group과 고객/공급업체 Tolerance Group 양쪽 기준을 모두 충족</span>해야 하며, <b>더 엄격한 쪽이 적용</b>됩니다. 모든 값은 현지통화 기준입니다.</p>
+
+<h3>지급차이 처리 4가지</h3>
+
+<p>허용범위 내의 차이는 <b>현금할인 조정</b> 또는 <b>특수계정 상각</b>으로 자동 처리됩니다. 범위를 넘으면 수동으로 골라야 합니다.</p>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>방식</th><th>결과</th></tr></thead>
+<tbody>
+<tr><td>① 부분지급 (Partial)</td><td class="wrap">원본 문서를 <b>모두 미결로 유지</b>한다</td></tr>
+<tr><td>② 잔액항목 (Residual)</td><td class="wrap">원본과 지급을 정리하고 <b>새 문서번호로 잔액만 미결</b> 생성</td></tr>
+<tr><td>③ 사유코드 전기</td><td class="wrap">사유코드 기반으로 <b>별도 계정</b>에 전기</td></tr>
+<tr><td>④ 상각 (Write-off)</td><td class="wrap">수동으로 계정을 지정해 털어낸다</td></tr>
+</tbody>
+</table>
+</div>
+
+<p>잔액항목의 지급조건을 원본과 동일하게 할지 고정할지, 현금할인 부분지급 여부, <b>독촉단계(Dunning Level) 상한</b> 등은 고객/공급업체 Tolerance Group에서 통제합니다. <b>사유코드(Reason Code)</b>는 지급통지서 유형 · 잔액항목 계정 · <b>신용한도체크 제외 여부</b>에도 쓰입니다.</p>
+
+<div class="note">
+  <div class="t">🔰 초보자 설명 — 부분지급과 잔액항목의 차이를 한 줄로</div>
+  <p><b>부분지급</b>은 원본 송장을 그대로 두고 "얼마 받았다"만 따로 답니다 — 원본 금액이 계속 보입니다. <b>잔액항목</b>은 원본을 닫아 버리고 "남은 금액"만 새 문서로 만듭니다 — 원본 금액은 문서 흐름에서만 보입니다. 채권 나이(aging) 분석을 원본 기준으로 하고 싶으면 부분지급, 남은 금액 관리가 편한 쪽을 원하면 잔액항목입니다.</p>
+</div>
+
+<h3>환차이(Exchange Rate Differences)</h3>
+
+<p>외화 미결항목을 정리할 때 환율 변동으로 환차이가 생기며, <b>실현손익으로 수익/비용 계정에 자동 전기</b>됩니다(정리된 항목에 실현차이가 저장됨).</p>
+
+<div class="step"><span class="n">1</span><p><b>재무제표 평가 시점</b> — 미결항목 환차이가 별도 비용/수익 계정으로 오프셋 전기된다</p></div>
+<div class="step"><span class="n">2</span><p><b>이미 평가된 항목을 정리할 때</b> — 재무상태표 조정계정을 리버스한 뒤, 남은 차이를 실현환차이 계정으로 전기한다</p></div>
+
+<p>외화 미결항목을 다룰 수 있는 <b>모든 조정계정과 G/L계정</b>에 손익 계정을 배정해야 합니다. 배정 단위는 전체통화 공통 / 통화유형별 / 통화별 / 통화 × 통화유형별 중에서 고릅니다.</p>
+
+<div class="note ok">
+  <div class="t">📌 개인 E2E 프로젝트와의 연결점</div>
+  <p>프로젝트에서 미결항목이 실제로 쌓이는 자리는 <span class="key">GR/IR 정리계정</span> 하나입니다. 입고(<code>101</code>)가 GR/IR 대변을, 송장검증이 GR/IR 차변을 만들고, 둘이 맞으면 자동정리로 닫힙니다. <b>여기 남아 있는 미결 잔액이 곧 "입고했는데 송장이 안 온 건"</b>이고, 그것이 <code>ZGATE_INSPECT</code>가 찾는 대상과 같은 집합입니다.</p>
+  <p>다만 CBO에서 판정 기준을 <b>GR/IR 미결 잔액으로 잡지는 않습니다</b>. 자동정리는 배치 주기에 따라 늦게 돌 수 있어 "아직 안 닫힌 것"과 "송장이 없는 것"이 항상 같지 않기 때문입니다. CBO는 <code>EKBE</code>의 이력(거래유형 <code>1</code> 입고 / <code>2</code> 송장)으로 판정하고, GR/IR 잔액은 <b>검증 단계의 대조용</b>으로만 씁니다. 두 숫자가 다르면 둘 중 하나가 틀린 것이므로 좋은 크로스체크가 됩니다.</p>
+  <p>환차이 설정은 <b>건너뜁니다</b> — 벤더 사입과 재판매가 모두 원화 기준이므로 외화 미결항목이 생기지 않습니다. 나중에 수입 벤더를 추가한다면 그때 조정계정별 손익계정 배정부터 하면 됩니다.</p>
+</div>
+
+</div>
+
+
+<!-- ══════════ APPENDIX ══════════ -->
+<div class="lesson" id="lx">
+<h2><span class="no">APPENDIX</span>정리 · 반드시 기억할 것</h2>
+
+<h3>한 장 요약</h3>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>질문</th><th>답</th></tr></thead>
+<tbody>
+<tr><td>FI의 최소 필수 단위는</td><td class="wrap"><b>Company Code</b> — 법적 실체이자 재무제표가 나오는 단위</td></tr>
+<tr><td>Leading Ledger는 몇 개인가</td><td class="wrap"><b>Client당 1개</b>. 모든 Company Code가 자동 할당되고 끌 수 없다. CO에는 표준적으로 Leading 값만 전기</td></tr>
+<tr><td>CC 횡단 원가회계 조건</td><td class="wrap">동일 Operating COA <b>+</b> 동일 Fiscal Year Variant</td></tr>
+<tr><td>회계연도 기간 수</td><td class="wrap">최대 <b>16개</b> — 정규 최대 12 + 특별 13~16. 특별기간은 결산 전용</td></tr>
+<tr><td>Segment는 어디서 파생되나</td><td class="wrap">원칙적으로 <b>Profit Center에서만</b> (SAP Note 1035140)</td></tr>
+<tr><td>G/L계정의 두 세그먼트</td><td class="wrap">Chart of Accounts Segment(공통, 1회) + Company Code Segment(CC마다)</td></tr>
+<tr><td>전기키 기본값</td><td class="wrap">G/L <b>40/50</b> · 고객 <b>01/11</b> · 공급업체 <b>21/31</b></td></tr>
+<tr><td>필드상태 우선순위</td><td class="wrap">전표 입력: <b>Suppress &gt; Required &gt; Optional</b> / BP Role 충돌: <b>Required &gt; Optional &gt; Display &gt; Hide</b> — <span class="bad">순서가 다르다</span></td></tr>
+<tr><td>전기기간 "+" 계정유형</td><td class="wrap">다른 모든 계정유형이 필요로 하는 기간을 <b>최소한 포함</b>해야 한다</td></tr>
+<tr><td>문서분할 활성 단위</td><td class="wrap"><b>Client당</b> 활성화, Company Code별 비활성화. 한 Client는 분할절차 하나만</td></tr>
+<tr><td>Negative Posting을 쓰는 이유</td><td class="wrap">거래액(Transaction Figures)을 <b>부풀리지 않고</b> 되돌리기 위해</td></tr>
+<tr><td>지급조건은 어디서 오나</td><td class="wrap">FI 직접 = Company Code 세그먼트 / SD 청구 = <b>Sales Area</b> / MM 송장 = <b>Purchasing Org</b></td></tr>
+<tr><td>CC 간 거래 정리계정 수</td><td class="wrap">모든 쌍마다 필요 — 3개 CC면 <b>6개</b></td></tr>
+<tr><td>지급차이 자동처리 조건</td><td class="wrap">직원 + BP 허용한도 <b>양쪽 모두</b> 충족. 엄격한 쪽 적용</td></tr>
+<tr><td>정리를 되돌리려면</td><td class="wrap"><b>Reset Cleared Items</b> 앱(1709+)으로 정리 취소 → 역분개 → 재입력</td></tr>
+</tbody>
+</table>
+</div>
+
+<div class="note warn">
+  <div class="t">반드시 지킬 것</div>
+  <p>· <b>전표를 직접 <code>INSERT</code>하지 않는다.</b> 전표유형·전기키·필드상태·전기기간 검증을 전부 우회한다. 반드시 BAPI를 쓴다.<br>
+     · <b>문서분할을 혼자 켜지 않는다.</b> Client 단위 결정이라 같은 Client를 쓰는 모든 사람에게 영향이 간다.<br>
+     · <b>Reset 없이 역분개를 시도하지 않는다.</b> 이미 정리된 항목이 있으면 막힌다 — 순서는 항상 Reset → Reverse.<br>
+     · <b>회계 영향이 있는 자동화는 승인 단계를 남긴다.</b> 재고 금액을 되돌리는 <code>122</code> 반품도 회계전표를 만든다.<br>
+     · <b>배치 실패를 조용히 넘기지 않는다.</b> 전기기간이 닫혀 있어 실패한 건은 상태필드 <code>H</code>로 남기고 재처리한다.<br>
+     · <b>필드상태 우선순위를 하나로 외우지 않는다.</b> 전표 입력(Suppress 우선)과 BP Role 충돌(Required 우선)은 순서가 반대다.</p>
+</div>
+
+<h3>확인 필요 — 실제 시스템에서 확정할 것</h3>
+
+<ul>
+  <li><b>환율 접두사 설정 시나리오</b> (공백 = direct / <code>/</code> = indirect 등 3가지 중 무엇인지) — 인터페이스로 환율을 밀어 넣을 때 부호가 뒤집힌다</li>
+  <li><b>문서분할 현재 활성 여부</b> — Client 단위이므로 다른 학습자·다른 회사코드와 공유된다</li>
+  <li><b>전기기간 관리 경로</b> — <code>OB52</code>와 Manage Posting Periods 앱 중 어느 쪽으로 통일할지 (같은 테이블이지만 권한·이력 경로가 다를 수 있다)</li>
+  <li><b>릴리스 버전</b> — 병행통화(1610+) · Manage Posting Periods(1809+) · Reset Cleared Items(1709+) 가용 여부</li>
+</ul>
+
+<h3>참고</h3>
+
+<ul>
+  <li>원본: 노션 <b>SAP Learning Hub</b> → Implementing Financial Accounting in SAP S/4HANA → 1-1 ~ 1-2 (Learning Hub 레슨 본문 <b>26개</b> 정리, 다운로드 PDF 없음)</li>
+  <li>SAP Note — <b>217338</b>(프로핏센터 수 권장상한) · <b>1035140</b>(세그먼트 파생 원칙) · <b>119428</b>(컨트롤링 영역 통화유형) · <b>783877</b>(환율변환 FAQ) · <b>2251160</b>(RFOB5200 실행권한) · <b>162885</b>(기준일 기본값 동작방식)</li>
+  <li>연결되는 노트: <a href="../sd/s46150-billing.html"><b>S46150</b> 청구 — 수익계정 결정</a> · <a href="../mm/s4515-invoice-verification.html"><b>S4515</b> 송장검증 — GR/IR</a></li>
+</ul>
+
+</div>
+
+</div>
+<script src="../../assets/hub.js" defer></script>
+</body>
+</html>

@@ -1,0 +1,1834 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>S42100 제조 기준정보 — 자재 · BOM · 작업장 · 라우팅</title>
+<meta name="description" content="SAP Learning Hub의 Exploring Basic Data for Manufacturing and Product Management(S42100) 노트. 자재마스터 조직레벨과 테이블, BOM 구조와 팬텀어셈블리, 작업장과 능력, 라우팅 시퀀스와 생산버전, ECM, 그리고 자재마스터·플랜트·저장위치·MRP영역 커스터마이징.">
+<link rel="icon" href="../../assets/favicon.svg">
+<link rel="stylesheet" href="../../assets/notes-paper.css">
+<style>
+/* ── 이 노트 전용: 도해(SVG) 스타일 ─────────────────────────── */
+.dgm{display:block; width:100%; height:auto;}
+.dgm text{font-family:"Malgun Gothic","맑은 고딕","Apple SD Gothic Neo",sans-serif; fill:#1e1e1e;}
+.dgm .t-h{font-size:15px; font-weight:700;}
+.dgm .t{font-size:13px;}
+.dgm .t-s{font-size:11.5px; fill:#555;}
+.dgm .t-xs{font-size:10.5px; fill:#6B7280;}
+.dgm .m{font-family:"D2Coding","Consolas",monospace; font-size:12px;}
+.dgm .m-s{font-family:"D2Coding","Consolas",monospace; font-size:10.5px;}
+.dgm .c-key{fill:#4338CA;} .dgm .c-bad{fill:#B91C1C;} .dgm .c-ok{fill:#047857;}
+.dgm .b{fill:#FFFFFF; stroke:#C7CBD6; stroke-width:1.2;}
+.dgm .b-key{fill:#EEF0FB; stroke:#4338CA; stroke-width:1.4;}
+.dgm .b-bad{fill:#FEF2F2; stroke:#B91C1C; stroke-width:1.3;}
+.dgm .b-ok{fill:#ECFDF5; stroke:#047857; stroke-width:1.3;}
+.dgm .b-mut{fill:#F3F4F6; stroke:#D1D5DB; stroke-width:1.1;}
+.dgm .b-hl{fill:#FEF08A; stroke:#CA8A04; stroke-width:1.2;}
+.dgm .b-ghost{fill:none; stroke:#9AA3B2; stroke-width:1.1; stroke-dasharray:5 4;}
+.dgm .ln{stroke:#7C8697; stroke-width:1.4; fill:none;}
+.dgm .ln-key{stroke:#4338CA; stroke-width:1.8; fill:none;}
+.dgm .ln-bad{stroke:#B91C1C; stroke-width:1.6; fill:none;}
+.dgm .ln-ok{stroke:#047857; stroke-width:1.6; fill:none;}
+.dgm .ln-d{stroke:#9AA3B2; stroke-width:1.2; stroke-dasharray:4 4; fill:none;}
+.dgm .arw{fill:#7C8697;} .dgm .arw-key{fill:#4338CA;}
+.dgm .arw-bad{fill:#B91C1C;} .dgm .arw-ok{fill:#047857;}
+.figwrap{background:#FAFAFE; border:1px solid var(--rule); border-radius:6px;
+  padding:18px 16px 10px; margin:22px 0;}
+.figwrap figcaption{margin-top:12px; padding-top:10px; border-top:1px solid var(--rule);}
+</style>
+</head>
+<body>
+<div class="crumb"><a href="../../index.html">← 자료실 홈</a> · <a href="../../journey.html?j=pp">PP 저니</a> · S42100 제조 기준정보</div>
+<div class="sheet">
+
+<div class="doc-head">
+  <div class="kicker">LEARNING HUB · S42100</div>
+  <h1>제조 기준정보 — 자재 · BOM · 작업장 · 라우팅</h1>
+  <div class="sub">
+    Learning Journey <b>Implementing Manufacturing in SAP S/4HANA Cloud Private Edition</b> · Course 7 / S42100 · 12 hr+ · 7 Unit · 38 레슨<br>
+    출처: 노션 <b>SAP Learning Hub</b> 노트 7-1 ~ 7-8 (Unit 1~7 전체) 변환 · Unit 7은 원문에서도 부록(Appendix)으로 분류된 커스터마이징 파트
+  </div>
+</div>
+
+<div class="lead">
+  <p><b>결론부터.</b> 생산을 돌리는 데 필요한 기준정보는 넷입니다 — <span class="key">자재마스터</span>가 "무엇을", <span class="key">BOM</span>이 "무엇으로", <span class="key">라우팅</span>이 "어떤 순서로", <span class="key">작업장</span>이 "어디서". 그리고 이 넷을 하나의 조합으로 묶어 "이번 오더는 이 방법으로 만든다"를 확정하는 것이 <span class="hl">생산버전(Production Version)</span>입니다. SAP S/4HANA에서는 생산오더에 생산버전이 <b>필수</b>이므로, 넷을 따로 만들어 두는 것만으로는 오더가 서지 않습니다.</p>
+  <p>이 코스는 그 넷을 각각 기본(Unit 1~4)과 고급(Unit 5~6)으로 두 번 훑고, 마지막 Unit 7에서 커스터마이징으로 내려갑니다. 분량이 크지만 구조는 단순합니다 — <b>각 오브젝트가 어느 조직레벨에서 유효하고, 어느 값이 어느 값을 재정의(Override)하는가</b>. 이 두 축만 잡으면 나머지는 옵션 설명입니다.</p>
+</div>
+
+<div class="toc">
+  <h4>목차</h4>
+  <ol>
+    <li><a href="#l1">자재마스터 — 조직레벨 · 자재유형 · 채번 · 분류 · 제품마스터</a></li>
+    <li><a href="#l2">BOM 기본 — 유효성 · 항목카테고리 · 대량변경 · 분석</a></li>
+    <li><a href="#l3">작업장 — 데이터 구조와 능력(풀링 · 참조)</a></li>
+    <li><a href="#l4">라우팅 기본 — 자재배정 · 서브오퍼레이션 · 생산버전 · PRT · EWB</a></li>
+    <li><a href="#l5">BOM 고급 — 팬텀 · 공동제품 · 대체구성부품 · 복수/변형BOM · ECM</a></li>
+    <li><a href="#l6">라우팅 고급 — 시퀀스 · 참조오퍼레이션세트 · 스케줄링 시간요소</a></li>
+    <li><a href="#l7">[부록] 커스터마이징 — 자재마스터 · 플랜트 · 저장위치 · MRP 영역</a></li>
+    <li><a href="#l8">[부록] 조직구조 · 배치관리 · 트리거포인트 · 스크랩</a></li>
+  </ol>
+</div>
+
+
+<!-- ══════════ LESSON 1 ══════════ -->
+<div class="lesson" id="l1">
+<h2><span class="no">LESSON 1</span>자재마스터 — 조직레벨 · 자재유형 · 채번 · 분류 · 제품마스터</h2>
+
+<p><span class="tag">Unit 1</span><span class="tag">레슨 6개</span>자재 소개 · 자재 생성 · 문서할당 · 분류 · 자재 관리 · 제품마스터</p>
+
+<h3>언제 이걸 알아야 하는가</h3>
+
+<p>가장 자주 올라오는 문의가 <b>"자재를 만들었는데 생산오더에서 안 잡힙니다"</b>입니다. 원인은 거의 항상 둘 중 하나입니다 — <span class="key">필요한 뷰(View)가 생성되지 않았거나</span>, <span class="key">해당 플랜트로 확장되지 않았거나</span>. 자재마스터는 한 덩어리가 아니라 부서별 뷰의 묶음이고, 각 뷰는 서로 다른 조직레벨에서 유효하기 때문입니다.</p>
+
+<p>그래서 "자재가 있다"는 말은 정확하지 않습니다. <b>어느 클라이언트에 어느 플랜트까지 어떤 뷰가 있는가</b>를 말해야 합니다. 이 LESSON이 그 좌표계입니다.</p>
+
+<h3>기준정보 4종이 어떻게 묶이는가</h3>
+
+<figure class="figwrap">
+<svg class="dgm" viewBox="0 0 1000 545" role="img" aria-label="제조 기준정보 4종의 관계 도해. 자재마스터가 BOM·생산버전·라우팅의 출발점이 되고, BOM의 대체안과 라우팅의 그룹카운터가 생산버전 하나로 묶이며, 라우팅의 오퍼레이션이 작업장을 지정하고 작업장은 능력헤더를 갖는다. 생산오더는 생산버전을 반드시 참조한다.">
+  <defs>
+    <marker id="a1" markerWidth="9" markerHeight="9" refX="7" refY="4.5" orient="auto">
+      <polygon class="arw" points="0,0 9,4.5 0,9"/></marker>
+    <marker id="a1k" markerWidth="9" markerHeight="9" refX="7" refY="4.5" orient="auto">
+      <polygon class="arw-key" points="0,0 9,4.5 0,9"/></marker>
+  </defs>
+
+  <rect class="b-key" x="370" y="30" width="260" height="68" rx="6"/>
+  <text class="t-h c-key" x="392" y="58">자재 마스터</text>
+  <text class="t-xs" x="392" y="80">MARA · MARC · MARD — 모든 것의 출발점</text>
+
+  <path class="ln" d="M420 98 V135 H155 V158" marker-end="url(#a1)"/>
+  <path class="ln-key" d="M500 98 V158" marker-end="url(#a1k)"/>
+  <path class="ln" d="M580 98 V135 H845 V158" marker-end="url(#a1)"/>
+
+  <text class="t-xs" x="188" y="128">헤더 자재</text>
+  <text class="t-xs" x="508" y="128">MRP 뷰에 등록</text>
+  <text class="t-xs" x="700" y="128">자재배정 · 생산할 자재</text>
+
+  <rect class="b" x="30" y="166" width="250" height="76" rx="6"/>
+  <text class="t-h" x="52" y="194">BOM</text>
+  <text class="t-xs" x="52" y="214">무엇으로 만드는가</text>
+  <text class="t-xs" x="52" y="232">대체안(Alternative) 단위</text>
+
+  <rect class="b-hl" x="370" y="166" width="260" height="76" rx="6"/>
+  <text class="t-h" x="392" y="194">생산버전</text>
+  <text class="t-xs" x="392" y="214">BOM 하나 + 라우팅 하나의 조합</text>
+  <text class="t-xs" x="392" y="232">일자 · 로트크기 구간별로 복수</text>
+
+  <rect class="b" x="720" y="166" width="250" height="76" rx="6"/>
+  <text class="t-h" x="742" y="194">라우팅</text>
+  <text class="t-xs" x="742" y="214">어떤 순서로 만드는가</text>
+  <text class="t-xs" x="742" y="232">그룹 · 그룹카운터로 식별</text>
+
+  <path class="ln-key" d="M280 204 H362" marker-end="url(#a1k)"/>
+  <path class="ln-key" d="M720 204 H638" marker-end="url(#a1k)"/>
+
+  <path class="ln" d="M845 242 V292" marker-end="url(#a1)"/>
+  <text class="t-xs" x="854" y="272">오퍼레이션이 지정</text>
+
+  <rect class="b" x="720" y="300" width="250" height="64" rx="6"/>
+  <text class="t-h" x="742" y="328">작업장</text>
+  <text class="t-xs" x="742" y="350">어디서 만드는가 · 표준값 키</text>
+
+  <path class="ln" d="M845 364 V404" marker-end="url(#a1)"/>
+
+  <rect class="b-mut" x="720" y="412" width="250" height="56" rx="6"/>
+  <text class="t" x="742" y="436">능력헤더(Capacity)</text>
+  <text class="t-xs" x="742" y="456">풀링 · 참조 능력으로 공유 가능</text>
+
+  <path class="ln-key" d="M500 242 V382" marker-end="url(#a1k)"/>
+  <text class="t-xs" x="510" y="320">S/4HANA는 생산버전 필수</text>
+
+  <rect class="b-ok" x="370" y="390" width="260" height="68" rx="6"/>
+  <text class="t-h c-ok" x="392" y="418">생산오더</text>
+  <text class="t-xs" x="392" y="440">오더헤더 + 작업목록 + 구성품목록</text>
+
+  <rect class="b-ghost" x="20" y="482" width="960" height="52" rx="6"/>
+  <text class="t-s" x="40" y="504">넷을 따로 만들어 두는 것만으로는 오더가 서지 않는다. <tspan class="c-key">생산버전</tspan>이 "이번엔 이 BOM과 이 라우팅"을 확정한다.</text>
+  <text class="t-s" x="40" y="524">같은 자재라도 로트크기·일자에 따라 다른 생산버전이 선택된다 — 그래서 대체BOM과 대체라우팅이 의미를 가진다.</text>
+</svg>
+<figcaption><span class="fno">그림 1</span>기준정보 4종의 관계. 자재마스터에서 시작해 생산버전으로 묶이고 생산오더로 떨어진다.</figcaption>
+</figure>
+
+<h3>PP가 사용하는 자재마스터 뷰 4종</h3>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>뷰</th><th>내용</th></tr></thead>
+<tbody>
+<tr><td>기초데이터<br>(Basic Data)</td><td class="wrap">자재번호, 자재설명, <span class="key">기본단위(Base UoM)</span>, 기술 데이터 등 일반 데이터</td></tr>
+<tr><td>분류<br>(Classification)</td><td class="wrap">자재의 사용자 정의 클래스 배정 정보</td></tr>
+<tr><td>자재계획<br>(Materials Planning)</td><td class="wrap">조달계획에 사용되는 <b>플랜트별</b> 데이터</td></tr>
+<tr><td>스케줄링<br>(Scheduling)</td><td class="wrap">생산 스케줄링에 사용되는 <b>플랜트별</b> 데이터</td></tr>
+</tbody>
+</table>
+</div>
+
+<p>여러 부서가 동일한 자재를 다루지만 각 부서가 저장하려는 정보는 다릅니다. 그래서 자재 데이터를 부서별로 세분화하고, 각 담당 영역이 자기 뷰의 정확성에 <b>책임</b>을 집니다.</p>
+
+<h3>조직레벨과 테이블 — 데이터가 어디에 앉는가</h3>
+
+<figure class="figwrap">
+<svg class="dgm" viewBox="0 0 1000 400" role="img" aria-label="자재마스터 조직레벨 도해. MARA는 클라이언트 레벨, MARC는 플랜트 레벨, MARD는 저장위치 레벨에 데이터를 두며, MAKT·MVKE·MLGN·MBEW·EINA/EINE는 조직레벨 계층 밖에서 자재를 참조한다.">
+  <rect class="b-key" x="40" y="46" width="520" height="76" rx="6"/>
+  <text class="t-h c-key" x="62" y="74">클라이언트 (Client)</text>
+  <text class="t-s" x="62" y="98">MARA — 자재설명 · 기본단위 · 대체단위 환산계수</text>
+  <text class="t-xs" x="62" y="114">회사 전체에 적용되는 일반 자재 데이터</text>
+
+  <rect class="b" x="100" y="140" width="460" height="76" rx="6"/>
+  <text class="t-h" x="122" y="168">플랜트 (Plant)</text>
+  <text class="t-s" x="122" y="192">MARC — MRP · 예측(Forecasting) 데이터</text>
+  <text class="t-xs" x="122" y="208">플랜트와 그에 배정된 저장위치에 적용</text>
+
+  <rect class="b" x="160" y="234" width="400" height="76" rx="6"/>
+  <text class="t-h" x="182" y="262">저장위치 (Storage Location)</text>
+  <text class="t-s" x="182" y="286">MARD — 저장위치 재고</text>
+  <text class="t-xs" x="182" y="302">수량 기준 재고관리 · 실사가 여기서 이뤄진다</text>
+
+  <rect class="b-mut" x="620" y="46" width="340" height="264" rx="6"/>
+  <text class="t-h" x="642" y="74">조직레벨 계층 밖의 테이블</text>
+  <text class="t-s" x="642" y="106">MAKT — 자재설명(다국어)</text>
+  <text class="t-s" x="642" y="136">MVKE — 영업 데이터</text>
+  <text class="t-s" x="642" y="166">MLGN — 창고관리 데이터</text>
+  <text class="t-s" x="642" y="196">MBEW — 자재평가(Valuation)</text>
+  <text class="t-s" x="642" y="226">EINA / EINE — 구매정보레코드</text>
+  <text class="t-xs" x="642" y="262">자재는 이 테이블들을 조직구조와의</text>
+  <text class="t-xs" x="642" y="280">관계에 따라 연결하는 매개체다</text>
+
+  <rect class="b-ghost" x="40" y="326" width="920" height="58" rx="6"/>
+  <text class="t-s" x="60" y="350">생산계획에 직접 영향을 주는 조직요소는 <tspan class="c-key">클라이언트 · 플랜트 · 저장위치</tspan> 셋. 자재 계층구조는 회사 조직구조와 일치한다.</text>
+  <text class="t-s" x="60" y="372">이 계층이 있어서 데이터를 중앙에서 관리하고 중복을 최소화할 수 있다.</text>
+</svg>
+<figcaption><span class="fno">그림 2</span>자재마스터의 조직레벨과 주요 테이블. "자재가 있다"가 아니라 "어느 레벨까지 있다"로 말해야 한다.</figcaption>
+</figure>
+
+<h3>자재 생성 — 첫 뷰를 만들 때 정해야 하는 것</h3>
+
+<p>자재의 <b>첫 번째 뷰</b>를 생성할 때 다음을 정의해야 합니다: 자재번호, 산업분야(Industry Sector), 자재유형(Material Type), 단위(UoM), 설명(Description).</p>
+
+<h4>자재유형(Material Type)이 결정하는 것</h4>
+
+<ul>
+  <li>어느 부서가 해당 자재를 유지보수할 수 있는지</li>
+  <li>자재번호가 <b>내부 채번인지 외부 채번인지</b>, 어느 번호범위 구간에서 나오는지</li>
+  <li>어떤 화면이 어떤 순서로 나타나는지, 어떤 부서별 데이터를 입력해야 하는지</li>
+  <li>자재의 <b>수량 변경</b> 갱신 여부, 재무회계 재고계정의 <b>가치 변경</b> 갱신 여부</li>
+  <li>자재가 사내생산인지 외부조달인지 둘 다인지 — 즉 <span class="key">조달유형(Procurement Type)</span></li>
+  <li>입고/출고 시 어떤 계정이 전기되는지</li>
+</ul>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>자재유형</th><th>설명</th></tr></thead>
+<tbody>
+<tr><td>FERT<br>완제품</td><td class="wrap">사내에서 생산되며, 구매팀이 발주할 수 없으므로 <b>구매 데이터를 포함하지 않는다</b></td></tr>
+<tr><td>ROH<br>원자재</td><td class="wrap">항상 외부에서 조달되어 가공됨. 구매 데이터는 있으나 판매할 수 없으므로 판매 데이터는 없다</td></tr>
+<tr><td>HALB<br>반제품</td><td class="wrap">외부 조달 · 사내 생산 모두 가능. 구매 및 작업일정계획 데이터를 모두 포함할 수 있다</td></tr>
+<tr><td>DIEN<br>서비스</td><td class="wrap">사내 수행 또는 아웃소싱 가능. <span class="bad">저장 · 운송 불가</span></td></tr>
+<tr><td>KMAT<br>가변형상자재</td><td class="wrap">다양한 변형(Variant)을 가질 수 있는 자재. 커스터마이징에서 "형상가능(Configurable)" 지시자가 이미 설정되어 있다</td></tr>
+<tr><td>INTR<br>중간자재</td><td class="wrap">두 가공 단계 사이에 <b>일시적으로만</b> 존재. 구매 · 판매 데이터 없음</td></tr>
+<tr><td>FHMI<br>생산자원/공구</td><td class="wrap">외부 조달되어 생산 또는 플랜트유지보수에 사용. 구매 데이터는 가능, 판매 데이터 없음. <b>수량 기준</b>으로 관리</td></tr>
+</tbody>
+</table>
+</div>
+
+<div class="note">
+  <div class="t">🔰 초보자 설명 — 산업분야(Industry Sector)는 왜 또 물어보나</div>
+  <p>자재유형이 "이건 어떤 성격의 물건인가"라면, 산업분야는 "어느 업종의 화면 구성으로 보여줄 것인가"입니다. 형상(Configuration)에서 산업분야는 <b>필드가 필수/변경가능/표시전용/숨김인지를 결정하는 키</b>로 작동할 수 있고, 사용자가 보는 뷰와 그 순서를 결정하는 데도 쓰입니다.</p>
+  <p>생성/변경/표시 트랜잭션 안에서 <code>Defaults → Industry Sector</code> 메뉴로 기본 산업분야를 제어할 수 있습니다. 이건 <b>사용자별</b> 트랜잭션이고, 기본값을 정한 뒤 산업분야 필드를 아예 숨길 수도 있습니다.</p>
+</div>
+
+<h4>채번(Numbering)</h4>
+
+<ul>
+  <li>채번 방식(내부/외부)은 <b>자재유형에 따라</b> 다르며 커스터마이징에서 정의한다. <span class="key">번호범위 그룹(Number Range Group)</span>을 유지보수하고 자재유형을 그룹에 배정한다</li>
+  <li>자재 채번은 <b>클라이언트 레벨</b>에서 정의된다. 하나의 구간(Interval)은 하나의 그룹에만 배정할 수 있고, 구간의 현재 번호는 수동 변경도 가능하다</li>
+  <li>자재 필드는 최대 40자, 내부 채번은 18자리. 커스터마이징에서 <b>장문 자재번호(Long Material Number, 40자리)</b> 사용 여부를 결정할 수 있으나, <span class="bad">내부 채번에는 적용되지 않고</span> DB상 18자리로 유지된다</li>
+  <li>자재번호에 구분자를 넣는 템플릿(예: <code>123-456-789</code>)과 선행 0(Leading Zero) 표시 여부를 구성할 수 있다. 이건 <b>표시 방식만</b> 결정하며 DB에는 변환 전 정보가 저장된다</li>
+</ul>
+
+<div class="note warn">
+  <div class="t">Caution — 표시 형식의 적용 범위</div>
+  <p>자재번호의 <b>표시 형식은 모든 클라이언트에 적용됩니다.</b> 한 클라이언트에서 바꾸면 전 클라이언트가 같이 바뀝니다.</p>
+</div>
+
+<h4>단위(Units of Measure)</h4>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>단위</th><th>사용 위치 / 설명</th></tr></thead>
+<tbody>
+<tr><td>기본단위<br>(Base Unit)</td><td class="wrap">Basic Data 1. <span class="key">재고관리단위</span>이며 다른 모든 단위는 여기로 환산된다. 표준 환산공식이 없으면 자재유지보수에서 환산계수를 직접 입력. 원칙적으로 <b>엔지니어링 부서</b>가 정의한다</td></tr>
+<tr><td>발주단위<br>(Order Unit)</td><td class="wrap">Purchasing. 자재 발주에 사용되며 구매 기능의 기본단위</td></tr>
+<tr><td>판매단위<br>(Sales Unit)</td><td class="wrap">Sales: Sales Org. Data 1. 판매오더에 표시되는 기본단위이며 판매오더에서 변경 가능</td></tr>
+<tr><td>생산단위<br>(Production Unit)</td><td class="wrap">Work Scheduling. <b>입고가 생성되는 단위.</b> 자재와 라우팅 양쪽에 생산단위가 있으면, 생산오더 생성 시 입력 수량이 라우팅의 로트크기 범위에 드는지 시스템이 검증한다</td></tr>
+<tr><td>출고단위<br>(Unit of Issue)</td><td class="wrap">Work Scheduling · WM 1. 재고에서 자재를 출고하는 단위. 출고·재고이동 트랜잭션과 <b>BOM 항목 수량</b>에도 쓸 수 있다</td></tr>
+</tbody>
+</table>
+</div>
+
+<p>SAP S/4HANA는 ISO 단위 테이블을 포함해 kg↔lb 같은 환산을 지원합니다. 다만 <b>개수↔팔레트</b> 같은 비차원 환산은 자재별로 다른 경우가 많아 자재 테이블에서 유지보수해야 합니다. 무게·치수 특성이 비슷한 자재들은 <span class="key">단위 그룹(Unit of Measure Group)</span>으로 묶어 그룹 내 각 단위의 환산계수를 한 번에 관리할 수 있고, 이 그룹은 커스터마이징(Logistics-General)에서 유지보수합니다.</p>
+
+<h4>MRP 프로파일 vs MRP 그룹</h4>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>구분</th><th>동작</th></tr></thead>
+<tbody>
+<tr><td>MRP 프로파일</td><td class="wrap">MRP 데이터 필드의 <b>기본값</b>을 설정하고, 자재유지보수에서 그 값을 변경 가능한지까지 지정. 프로파일 기본값을 바꿨는데 자재 쪽에서 변경 불가로 잠겨 있으면, 시스템이 <span class="key">연결된 모든 자재의 필드 값을 자동으로 변경</span>한다</td></tr>
+<tr><td>MRP 그룹</td><td class="wrap">MRP 1 뷰에 배정. MRP 섹션 커스터마이징에서 정의해 다수 자재에 필드 값을 적용</td></tr>
+<tr><td>예측 프로파일</td><td class="wrap">MRP 프로파일과 같은 방식으로 예측 데이터 필드의 기본값을 설정</td></tr>
+</tbody>
+</table>
+</div>
+
+<div class="note warn">
+  <div class="t">Caution — MRP 그룹은 값이 보이지 않는다</div>
+  <p>MRP 그룹을 쓰면 <b>필드 값이 자재에 표시되지 않습니다.</b> MRP 프로파일과 결정적으로 다른 점입니다. "자재에는 비어 있는데 MRP가 그 값으로 도는" 상황이 여기서 나옵니다.</p>
+</div>
+
+<p>MRP 데이터와 유효한 MRP 유형을 갖춰 자재가 생성되면 자동으로 <b>계획파일(Planning File)</b>에 포함됩니다. 다만 레거시에서 데이터를 로드하는 경우 해당 트랜잭션은 계획파일 항목을 만들지 않습니다. 또 BOM 유지보수는 일반적으로 <span class="bad">미래에만 계획된 자재로는 할 수 없습니다.</span></p>
+
+<h3>문서 할당 — 도면·사진을 자재에 붙이기</h3>
+
+<p>SAP 문서관리는 외부 파일(원본)을 SAP에 통합합니다. 파일 형식은 무엇이든 되고, 첨부파일의 표시·변경 프로세스를 제어하는 커스터마이징만 맞으면 됩니다.</p>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>요소</th><th>역할</th></tr></thead>
+<tbody>
+<tr><td>문서정보레코드<br>(Document Info Record)</td><td class="wrap">필수 오브젝트. SAP 내 처리를 제어하며 자재마스터 · 고객 · 공급업체 · 생산오더 등과 연결. <b>저장 가능한 파일 수에 제한이 없다</b></td></tr>
+<tr><td>지식제공자<br>(Knowledge Provider)</td><td class="wrap">파일을 보안 저장영역에 저장. S/4HANA에서 선호되는 저장영역은 <span class="key">SAP Content Server</span></td></tr>
+<tr><td>문서버전<br>(Document Version)</td><td class="wrap">상태네트워크(Status Network)와 연계해 릴리스를 관리. <b>릴리스하면 콘텐츠가 잠기므로</b> 새 문서상태를 가진 새 버전을 만들어야 한다</td></tr>
+<tr><td>상태네트워크</td><td class="wrap">문서유형에 따라 달라진다 → 어떤 상태네트워크가 어떤 문서유형에 관련되는지 결정 가능</td></tr>
+</tbody>
+</table>
+</div>
+
+<p>외부 CAD 시스템은 <b>PLM 인터페이스</b>로, 외부 아카이브 시스템은 <b>SAP ArchiveLink</b> 인터페이스로 연결됩니다. 원본은 Visual Enterprise Viewer 또는 Microsoft Office Integration으로 직접 표시·편집할 수 있습니다.</p>
+
+<h3>분류(Classification)와 가변형상</h3>
+
+<p>분류가 하는 일은 셋입니다 — <b>적절한 오브젝트 찾기, 유사한 오브젝트 찾기, 적절한 오브젝트가 없다는 것을 확인하기.</b> 이걸 하려면 데이터를 효율적으로 조직해야 합니다.</p>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>개념</th><th>설명</th></tr></thead>
+<tbody>
+<tr><td>오브젝트</td><td class="wrap">분류 가능한 단위 — 자재, 공급업체, 작업장 등</td></tr>
+<tr><td>특성<br>(Characteristic)</td><td class="wrap">길이 · 너비 · 무게 · 색상 등 사양을 기술. <b>마스터데이터로 정의되는 사용자 정의 필드</b>이며 숫자 · 문자 · 날짜 등 데이터 유형을 가진다. 회사가 필드 길이 · 템플릿 · 값 범위를 정의. 동일 특성을 여러 자재 분류에 재사용할 수 있다</td></tr>
+<tr><td>클래스유형<br>(Class Type)</td><td class="wrap">공통/유사 사양을 가진 오브젝트 그룹을 기술. 클래스 생성 시 <b>반드시 지정</b>해야 하며 분류가 사용되는 방식을 정의한다</td></tr>
+<tr><td>특성값</td><td class="wrap">특정 속성의 사양 — 예: 10cm, DIN 931, 주철</td></tr>
+</tbody>
+</table>
+</div>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>클래스유형</th><th>용도</th></tr></thead>
+<tbody>
+<tr><td><code>001</code></td><td class="wrap">자재 클래스</td></tr>
+<tr><td><code>023</code></td><td class="wrap"><span class="key">배치(Batch)</span></td></tr>
+<tr><td><code>200</code></td><td class="wrap">자재 — 형상가능 오브젝트</td></tr>
+<tr><td><code>300</code></td><td class="wrap">가변자재 — 가변형상에 사용</td></tr>
+</tbody>
+</table>
+</div>
+
+<div class="step"><span class="n">1</span><p>특성 및 허용 특성값을 정의한다</p></div>
+<div class="step"><span class="n">2</span><p>클래스를 유지보수한다 — 특성 배정 포함</p></div>
+<div class="step"><span class="n">3</span><p>오브젝트(예: 자재)를 유지보수한다 — 하나 이상의 클래스에 배정하고 값을 배정</p></div>
+<div class="step"><span class="n">4</span><p>오브젝트를 검색한다. 한 줄 안의 여러 항목은 <b>OR</b>, 여러 줄의 항목은 <b>AND</b>로 연결되며 F4로 가능한 입력값을 볼 수 있다</p></div>
+
+<h4>가변형상(Variant Configuration)</h4>
+
+<p>지게차처럼 구동 옵션 · 적재용량 · 색상 · 추가옵션 조합이 많으면, 가능한 최종제품을 전부 자재로 만들어 두는 순간 마스터데이터가 관리 가능한 수준을 넘습니다. 그래서 가변형상을 씁니다.</p>
+
+<div class="step"><span class="n">1</span><p>SAP 분류시스템으로 제품 특성을 기술한다</p></div>
+<div class="step"><span class="n">2</span><p>가변형상에 사용되는 클래스에 그 특성을 할당한다</p></div>
+<div class="step"><span class="n">3</span><p>특성·특성값에 <span class="key">오브젝트 종속성(Object Dependency)</span>을 유지보수한다 — 어떤 구성부품끼리 호환되는지 정의하는 규칙. 허용된 값만 선택되게 만든다</p></div>
+<div class="step"><span class="n">4</span><p>자재마스터에서 형상가능 자재에 필요한 설정을 유지보수한다</p></div>
+<div class="step"><span class="n">5</span><p>형상 파라미터를 지정하고 자재를 특성 클래스에 배정해 <b>형상 프로파일(Configuration Profile)</b>을 만든다. 구성부품과 오퍼레이션은 <span class="key">슈퍼BOM</span>과 <span class="key">슈퍼작업리스트</span>에 지정된다</p></div>
+<div class="step"><span class="n">6</span><p>특정 변형에만 선택되는 BOM 구성부품 · 작업리스트 오퍼레이션에 오브젝트 종속성을 유지보수한다</p></div>
+<div class="step"><span class="n">7</span><p>실제 생산에 쓰기 전 형상을 <b>시뮬레이션</b>해 모든 데이터가 올바른지 확인한다</p></div>
+
+<p>슈퍼BOM은 형상가능 자재 생산에 <b>필요할 수 있는 모든 부품</b>을 담고, 실제 필요한 부품은 오브젝트 종속성이 결정합니다. 슈퍼라우팅도 같은 방식으로 모든 오퍼레이션을 담고 실제 필요한 오퍼레이션과 PRT를 종속성이 고릅니다. 판매오더 처리 중에는 형상가능 자재에 대해 <b>특수한 제품구조가 동적으로 생성</b>됩니다.</p>
+
+<h3>자재 관리 — 확장 · 복사 · 대량유지보수 · 상태</h3>
+
+<h4>뷰 확장(Extend Material View)</h4>
+
+<p>자재 생성 시 정보가 다 없어서 일부 뷰를 안 만든 경우, <code>MM50</code>(경로: Logistics → Production → Master Data → Material Master → Other → Extend Material View(s))로 뷰를 추가합니다.</p>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>부서</th><th>유지보수 상태 코드</th></tr></thead>
+<tbody>
+<tr><td>작업일정계획</td><td><code>A</code></td></tr>
+<tr><td>회계</td><td><code>B</code></td></tr>
+<tr><td>분류</td><td><code>C</code></td></tr>
+<tr><td>자재소요계획(MRP)</td><td><code>D</code></td></tr>
+<tr><td>구매</td><td><code>E</code></td></tr>
+<tr><td>생산자원/공구(PRT)</td><td><code>F</code></td></tr>
+<tr><td>원가계산</td><td><code>K</code></td></tr>
+</tbody>
+</table>
+</div>
+
+<div class="note">
+  <div class="t">Hint — 단일 자재라면</div>
+  <p>뷰를 추가할 자재가 하나뿐이면 <code>MM50</code> 대신 <b>자재 생성(Create material)</b> 기능을 그대로 써도 됩니다. 기존 자재번호로 들어가 없는 뷰만 체크하면 추가됩니다.</p>
+</div>
+
+<h4>자재 복사(Copy a Material)</h4>
+
+<p>클래식 자재 트랜잭션으로 복사하면 <b>하나의 플랜트</b>에 대해 여러 뷰의 데이터만 복사됩니다. 프로그램 실행 시 테스트런 여부, 몇 개/어떤 자재를 생성·보강·변경할지, 어떤 조직레벨을 어느 테이블과 함께 복사할지, 참조자재의 어느 조직단위를 대상의 소스로 쓸지, 기존 데이터를 보호할지를 정합니다.</p>
+
+<div class="note warn">
+  <div class="t">복사되지 않는 것 — 통합 자재마스터 데이터</div>
+  <p>· <b>분류 데이터</b> · DMS 문서 데이터 · 형상 데이터<br>
+     · <b>MRP 영역 데이터</b> (MRP 데이터 자체는 복사된다)<br>
+     · QM 검사유형 · 판매조건 · <b>BOM · 라우팅 · 생산버전</b><br>
+     또한 복사 진행 중에는 참조 자재를 변경할 수 없고, <span class="bad">자재유형은 참조자재에서 복사되며 변경할 수 없습니다.</span></p>
+</div>
+
+<p>복사기의 커스터마이징은 <code>MMCU</code>로 접근합니다. 사용자별로 어느 소스 조직단위에서 어느 대상 조직단위로 복사할지(예: 플랜트 <code>0001</code> → <code>0005</code>) 지정할 수 있고, 사용자명에 <code>DEFAULT</code>를 넣으면 전 사용자에게 적용됩니다.</p>
+
+<h4>대량유지보수(Mass Maintenance)</h4>
+
+<div class="step"><span class="n">1</span><p>Fiori 런치패드에서 <b>Mass Maintenance Material</b> 앱(또는 <code>MM17</code>)을 실행</p></div>
+<div class="step"><span class="n">2</span><p>기존 변형(Variant)이 있으면 Variant Name 필드에 입력</p></div>
+<div class="step"><span class="n">3</span><p>조회할 테이블을 선택하고, 변경할 필드를 관련 탭에서 선택 후 실행</p></div>
+<div class="step"><span class="n">4</span><p>선택 기준을 입력(Select Fields로 다른 필드 선택 가능). 선택된 레코드 수에 따라 시스템이 <b>다이얼로그로 계속할지 백그라운드로 돌릴지</b> 확인을 요청한다 — 백그라운드면 이후 워크플로우로 완료를 통보</p></div>
+<div class="step"><span class="n">5</span><p>새 값을 컬럼에 입력하고 컬럼 헤더와 변경할 레코드를 선택한 뒤 <b>Change Field Values</b>. 현재 값이 확정된 필드만 변경 · 이전 값 표시 · 변경사항 테스트 옵션이 있다</p></div>
+
+<p>시스템은 변경 데이터에 일관성 체크를 수행하며, <b>데이터 불일치를 유발하는 변경은 실행하지 않고 로그에 기록</b>합니다. 자재 내 대부분의 필드에 영향을 주므로 <span class="bad">경험 있는 사용자만</span> 써야 하는 도구입니다.</p>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>트랜잭션</th><th>용도</th></tr></thead>
+<tbody>
+<tr><td><code>MM02</code></td><td class="wrap">기존 뷰 <b>즉시</b> 변경</td></tr>
+<tr><td><code>MM12</code></td><td class="wrap"><b>미래 시점</b>에 적용할 기존 뷰 변경 계획</td></tr>
+<tr><td><code>CC04</code></td><td class="wrap">제품구조 브라우저를 통한 변경</td></tr>
+<tr><td><code>MM17</code></td><td class="wrap">대량유지보수를 통한 즉시 변경</td></tr>
+<tr><td>Fiori</td><td class="wrap">Change Material · Mass Maintenance · Product Master 앱</td></tr>
+</tbody>
+</table>
+</div>
+
+<p>이 트랜잭션들은 한 번에 유지보수할 수 있는 필드의 종류나 수를 제한하지 않습니다. 자재유형 변경도 가능하지만 <span class="bad">이미 전기된 트랜잭션이 있으면 문제가 생길 수 있습니다.</span></p>
+
+<h4>자재 상태(Material Status)</h4>
+
+<p>자재 사용을 제한하는 방법은 둘입니다 — <b>삭제 지시자 설정</b>, 그리고 <b>자재 상태로 특정 업무 프로세스에서 잠금</b>. 자재 상태 생성 시 다음 영역에 경고 또는 오류를 설정할 수 있습니다: 구매, PP 마스터데이터, 수요관리, 생산실행, 품질관리, 플랜트유지보수, 재고관리, 원가계산.</p>
+
+<div class="note">
+  <div class="t">Hint — 상태가 겹치면 누가 이기나</div>
+  <p>자재 상태는 <b>전체 플랜트 대상</b>(기초데이터 뷰) 또는 <b>플랜트별</b>(작업일정계획 뷰)로 정의할 수 있습니다. 둘이 동시에 걸리면 — <span class="key">더 제한적인 상태가 우선</span>합니다. 플랜트횡단이냐 플랜트별이냐는 상관없습니다.</p>
+</div>
+
+<h3>제품마스터(Product Master) 앱</h3>
+
+<p>제품마스터 앱은 자재마스터에 대한 <b>대체 인터페이스</b>입니다. 이론적으로는 자재 트랜잭션으로 만들고, 제품마스터 앱으로 보강한 뒤, 다시 자재 트랜잭션으로 처리해도 됩니다.</p>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>클래식 자재 트랜잭션</th><th>제품마스터 앱</th></tr></thead>
+<tbody>
+<tr><td class="wrap">뷰 선택화면에서 시작 — 뷰와 조직레벨을 먼저 정해야 함</td><td class="wrap"><b>뷰 선택화면이 없다.</b> 플랜트 정보조차 처음에 필요하지 않다</td></tr>
+<tr><td class="wrap">화면시퀀스 순서대로 뷰를 넘기며 입력</td><td class="wrap">헤더 영역에 핵심 정보가 모이고, 플랜트별 정보(예: MRP)는 <b>플랜트 화면을 선택해</b> 상세를 연다</td></tr>
+<tr><td class="wrap">저장하면 바로 확정</td><td class="wrap"><span class="key">드래프트 저장(Draft Save)</span> 후 검증 → <b>최종 저장(Final Save)</b>의 2단계</td></tr>
+</tbody>
+</table>
+</div>
+
+</div>
+
+
+<!-- ══════════ LESSON 2 ══════════ -->
+<div class="lesson" id="l2">
+<h2><span class="no">LESSON 2</span>BOM 기본 — 유효성 · 항목카테고리 · 대량변경 · 분석</h2>
+
+<p><span class="tag">Unit 2</span><span class="tag">레슨 4개</span>BOM 개요 · BOM 관리 · 대량변경 · BOM 분석</p>
+
+<h3>언제 이걸 알아야 하는가</h3>
+
+<p><b>"BOM을 만들었는데 MRP가 전개를 안 합니다"</b> — 이 문의의 답은 대개 세 곳 중 하나에 있습니다. <span class="key">BOM 상태(BOM Status)</span>가 전개를 허용하지 않거나, <span class="key">유효기간</span>이 오늘을 포함하지 않거나, <span class="key">BOM 사용처(Usage)</span>가 MRP 애플리케이션이 찾는 것과 다르거나.</p>
+
+<p>BOM은 "부품 목록"이 아니라 <b>플랜트 · 사용처 · 유효기간 · 상태의 네 축으로 좌표가 찍힌 객체</b>입니다. 이 네 축을 모르면 "분명히 만들었는데 안 보인다"를 계속 겪습니다.</p>
+
+<h3>BOM이 통합되는 지점</h3>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>영역</th><th>BOM 활용</th></tr></thead>
+<tbody>
+<tr><td>자재소요계획<br>(MRP)</td><td class="wrap">특정 시점의 경제적 주문수량을 결정하기 위해 BOM을 <span class="key">전개(Explode)</span></td></tr>
+<tr><td>작업일정계획</td><td class="wrap">오퍼레이션 계획 및 현장관리(Shop Floor Control)의 기초</td></tr>
+<tr><td>생산오더 관리</td><td class="wrap">부품 공급을 계획하기 위해 사용</td></tr>
+<tr><td>예약 · 자재출고 · 판매오더</td><td class="wrap">데이터 입력 보조 수단</td></tr>
+<tr><td>제품원가계산</td><td class="wrap">제품의 자재사용원가 계산</td></tr>
+</tbody>
+</table>
+</div>
+
+<p>BOM을 만드는 주체는 엔지니어링 설계 부서이며, S/4HANA에서는 <b>CAD 인터페이스</b>로 CAD 프로그램에서 BOM을 생성할 수도 있습니다. 산업분야에 따라 BOM은 <b>레시피(Recipe)</b> 또는 <b>성분목록(List of Ingredients)</b>으로 불립니다.</p>
+
+<h3>BOM 작업 전에 답해야 하는 것</h3>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>항목</th><th>내용</th></tr></thead>
+<tbody>
+<tr><td>BOM 사용처<br>(Usage)</td><td class="wrap"><b>초기 화면에서 자재번호와 함께</b> 정의해야 한다. 같은 자재라도 사용처가 다르면 다른 BOM이다</td></tr>
+<tr><td>저수준코드<br>(Low-Level Code)</td><td class="wrap">모든 제품구조에서 해당 자재가 나타나는 <b>가장 낮은 전개 레벨</b>. MRP에서 자재가 계획되는 <span class="key">순서</span>를 결정하고, 제품원가계산에서 원가가 <span class="key">롤업(Roll up)</span>되는 방식을 결정한다. 한 자재가 여러 제품·여러 생산레벨에서 쓰일 수 있으므로, 가장 낮은 레벨에서 총 소요량을 집계한다</td></tr>
+<tr><td>BOM 상태<br>(Status)</td><td class="wrap">헤더 상태와 항목 상태로 정의. 예: 상태 <code>1</code>인 BOM A는 MRP 전개·계획오더 릴리스 가능, 상태 <code>2</code>인 BOM B는 <span class="bad">불가</span>. 커스터마이징에서 항목 상태 필드를 필수/선택/비허용으로 정의</td></tr>
+<tr><td>단위</td><td class="wrap">기본은 자재마스터의 <b>기본단위</b>. 작업일정계획 뷰에 출고단위가 유지보수되어 있으면 그걸 대신 쓸 수 있고, 이때 기본단위↔출고단위 환산계수를 출고단위 유지보수 시 입력해야 한다</td></tr>
+</tbody>
+</table>
+</div>
+
+<div class="note">
+  <div class="t">🔰 초보자 설명 — 조립 지시자(Assembly Indicator)</div>
+  <p>BOM에 구성부품을 넣었는데 그 구성부품이 <b>또 다른 BOM의 헤더 자재</b>인 경우가 있습니다. 이때 시스템이 조립 지시자를 표시합니다. "이 부품은 사서 쓰는 게 아니라 더 아래 부품들로 조립된다"는 뜻이고, 이것이 저수준코드와 대응합니다. 다단(Multilevel) BOM은 이 관계가 여러 겹 쌓인 것입니다.</p>
+</div>
+
+<h3>BOM 유효성 — 어디서, 언제 유효한가</h3>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>구분</th><th>설명</th></tr></thead>
+<tbody>
+<tr><td>플랜트별 BOM<br>(Plant-specific)</td><td class="wrap">생산에 직접 관련된 데이터를 관리할 때 쓴다. 플랜트는 MRP · 라우팅 생성 등 작업일정계획 활동이 조직되는 장소이므로 유효범위가 플랜트가 된다</td></tr>
+<tr><td>그룹 BOM<br>(Group BOM)</td><td class="wrap">특정 플랜트를 참조하지 않는 BOM. 엔지니어·설계자가 설계 단계에서 유지보수할 때 유용. <span class="bad">그대로는 로지스틱스에서 사용할 수 없고</span>, <b>플랜트 배정(Plant Assignment)</b> 기능으로 개별 플랜트에 유효하게 만들어야 한다</td></tr>
+</tbody>
+</table>
+</div>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>유효기간</th><th>설명</th></tr></thead>
+<tbody>
+<tr><td>유효시작일<br>(Valid-from)</td><td class="wrap">BOM 헤더 또는 항목이 유효해지는 시점. <b>변경번호(Change Number)로 생성·변경하면</b> 시스템이 변경 마스터 레코드에서 유효시작일을 복사한다</td></tr>
+<tr><td>유효종료일<br>(Valid-to)</td><td class="wrap">BOM 항목의 유효기간 종료. <b>시스템이 동적으로 계산</b>한다</td></tr>
+</tbody>
+</table>
+</div>
+
+<div class="note">
+  <div class="t">Hint — 9999.12.31과 00:00:00</div>
+  <p>시스템은 기본 유효종료일로 <code>9999.12.31</code>을 배정합니다. 유효시작일이 있는 변경번호로 BOM을 변경하면, <b>이전 상태 오브젝트의 유효기간은 그 날짜 00:00:00시에 종료</b>됩니다. BOM 전체와 개별 항목 각각에 유효시작일을 따로 정의할 수 있습니다.</p>
+</div>
+
+<h3>항목 카테고리(Item Category)</h3>
+
+<p>모든 자재 BOM 구성부품에는 항목 카테고리를 정의해야 하며, 이것이 답하는 질문은 다음과 같습니다: 자재 입력이 필요한가? 수량기준 재고관리를 지원하는가? 플러스·마이너스 부호를 모두 지원하는가? 하위항목(Subitem)을 지원하는가? 어떤 화면이 선택되고 상세화면 레이아웃은 어떤가?</p>
+
+<div class="note warn">
+  <div class="t">항목 카테고리는 나중에 못 바꾼다</div>
+  <p>항목을 입력한 뒤에는 항목 카테고리를 <span class="bad">변경할 수 없습니다.</span> 고치려면 항목을 <b>삭제하고 새로 생성</b>하는 방법밖에 없습니다. BOM 설계 초기에 항목 카테고리를 확정해야 하는 이유입니다.</p>
+</div>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>카테고리 / 기능</th><th>설명</th></tr></thead>
+<tbody>
+<tr><td><code>D</code> 문서화</td><td class="wrap">제품 또는 구성부품을 문서화. <b>문서정보레코드가 사전 조건</b>이며 문서관리에서 유지보수해야 한다. 문서유형에 따라 기술도면 · 사진 · 텍스트 관리 가능</td></tr>
+<tr><td><code>R</code> 가변크기항목</td><td class="wrap">자재 BOM에 따라 구성부품별 개별 크기를 정의</td></tr>
+<tr><td>클래스(Class)</td><td class="wrap"><b>헤더 자재가 형상가능(Configurable)한 경우에만</b> 자재 BOM 내에서 사용</td></tr>
+<tr><td>예비항목<br>(Preliminary)</td><td class="wrap">자재 배정이 아직 안 된 항목. <span class="key">엔지니어링 BOM에만</span> 해당하며, 이후 재고/비재고 항목으로 전환하고 자재를 배정</td></tr>
+<tr><td>비플랜트항목<br>(Non Plant Item)</td><td class="wrap">자재마스터에 플랜트 배정이 없는 구성부품. 서비스 자재유형을 플랜트 배정 없이 추가하기 위한 것. <span class="bad">SAP Fiori 앱(Maintain Bill of Material)에서만 유지보수 가능하며 버전 BOM에는 적용되지 않는다</span></td></tr>
+</tbody>
+</table>
+</div>
+
+<h3>항목 제어 지시자(Item Control Indicators)</h3>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>탭</th><th>지시자</th><th>제어 기능</th></tr></thead>
+<tbody>
+<tr><td>B</td><td>재귀(Recursive)</td><td class="wrap">재귀 허용 여부</td></tr>
+<tr><td>B</td><td>단종(Discon.)</td><td class="wrap">단종 처리</td></tr>
+<tr><td>B</td><td>공동제품(Co-product)</td><td class="wrap">공동제품으로 계획</td></tr>
+<tr><td>B</td><td>대체항목그룹</td><td class="wrap">대체항목으로 사용</td></tr>
+<tr><td>B</td><td>전개유형<br>(Explosion type)</td><td class="wrap"><span class="key">자재마스터 제어값을 재정의</span></td></tr>
+<tr><td>B</td><td>팬텀항목</td><td class="wrap">팬텀 조립(Phantom Assembly)</td></tr>
+<tr><td>B</td><td>고정수량</td><td class="wrap"><b>로트크기와 무관하게</b> 동일 소요량 적용</td></tr>
+<tr><td>S</td><td>항목상태(관련성)</td><td class="wrap">생산 · 원가계산 등에 대한 관련성</td></tr>
+<tr><td>S</td><td>자재제공 / 예비부품 지시자</td><td class="wrap">자재 제공 및 예비부품 처리</td></tr>
+<tr><td>S</td><td>대량자재(Bulk)</td><td class="wrap">간접자재(Overhead Material) 처리</td></tr>
+</tbody>
+</table>
+</div>
+
+<p>B는 Basic Data, S는 Status/Lng Text 탭입니다. 여기서 핵심은 <span class="hl">"대부분의 제어 지시자는 자재마스터에서 설정할 수 있지만, 대부분 BOM으로 복사되지 않는다"</span>는 점입니다. BOM 항목의 Basic Data 탭에서 MRP 설정을 별도로 지정해 <b>자재마스터의 지시자를 재정의</b>할 수 있으며, 여기서 설정 가능한 항목은 팬텀조립 · 개별소요량 지시자 · 직접생산(특수조달키 <code>SOBSL</code> <code>52</code>) · 장기계획입니다.</p>
+
+<h3>BOM 삭제</h3>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>구분</th><th>동작</th></tr></thead>
+<tbody>
+<tr><td>헤더 레벨 삭제</td><td class="wrap">전체 BOM 제거</td></tr>
+<tr><td>항목 레벨 삭제</td><td class="wrap">지정된 항목만 제거</td></tr>
+<tr><td>이력 없이 삭제</td><td class="wrap"><b>즉시 삭제</b>가 실행된다. 삭제 후 동일 자재 · 플랜트 · 사용처로 새 BOM 생성 가능</td></tr>
+<tr><td>이력(변경 마스터 레코드) 있는 BOM 삭제</td><td class="wrap">시스템이 <span class="key">변경 마스터 레코드의 유효시작일에</span> BOM을 삭제한다 — 즉시가 아니다</td></tr>
+</tbody>
+</table>
+</div>
+
+<p>삭제 체크박스는 다음 <b>재구성(Reorganization)</b> 실행 시 반영됩니다. 삭제 전 시스템은 두 가지를 확인합니다 — <b>오브젝트 종속성이 있는 항목</b>(변경 마스터가 형상가능 BOM의 종속성 유지보수를 지원하는지), <b>오퍼레이션 배정이 있는 항목</b>(배정이 있으면 관련 메시지 표시).</p>
+
+<h3>다단계 자재 BOM 관리 앱</h3>
+
+<p><b>Manage Multilevel Material BOM</b> 앱은 다단계 BOM을 계층적 트리로 표시·유지보수합니다. 하위조립품을 트리로 펼치고, 각 레벨의 생산 사용 정보와 부모-자식 관계를 봅니다. 앱에서 할 수 있는 일 중 실무에서 의미 있는 것들:</p>
+
+<ul>
+  <li>BOM 및 <b>대체 BOM</b> 생성, 여러 대체안 간 하위조립품 뷰 전환</li>
+  <li>하위조립품과 연관된 <span class="key">엔지니어링변경번호(ECN)</span> 조회, ECN 유무에 관계없이 단일/복수 BOM 항목 갱신</li>
+  <li>드래프트 상태의 단일/복수 하위조립품 삭제</li>
+  <li>하위항목 유지보수 — 설치 지점, 하위항목 수량, 하위항목 텍스트</li>
+  <li>형상가능 BOM의 오브젝트 종속성 유지보수는 <b>클래식 애플리케이션을 통해서만</b></li>
+  <li><b>그룹 유지보수</b> — 하위조립품 자재를 만들지 않고 BOM 항목을 그룹화해 구조화. 단, <span class="bad">이 그룹화는 해당 앱 내에서만 표시된다</span></li>
+  <li>테이블 뷰의 변형(Variant) 생성으로 개인화 저장, 정렬 · 필터 · 컬럼 고정</li>
+</ul>
+
+<h3>대량변경(Mass Changes)</h3>
+
+<p>단 한 번의 기능 호출로 여러 BOM의 항목을 변경합니다. 대상은 자재항목 · 문서항목 · 클래스항목이며 지원 동작은 다섯입니다 — 구성부품 수량 변경, 항목 데이터 변경, 항목 추가, <b>항목 교체</b>, 항목 삭제.</p>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>동작</th><th>옵션</th></tr></thead>
+<tbody>
+<tr><td>항목 교체</td><td class="wrap">선택된 모든 BOM에서 교체 · 필요 시 새 항목 수량 배정 · 필요 시 <span class="key">ECM 사용</span> · 플랜트/사용처 등 제한적 선택 기준 적용</td></tr>
+<tr><td>항목 삭제</td><td class="wrap">선택된 모든 BOM에서 삭제 · 필요 시 ECM 사용 · 플랜트/사용처 등 제한적 선택 기준 적용</td></tr>
+</tbody>
+</table>
+</div>
+
+<h3>BOM 분석 — 사용처 · 전개 · 비교</h3>
+
+<p>BOM 애플리케이션은 검색 절차를 위해 다음 기준을 정의합니다: <b>BOM 사용처 리스트의 우선순위</b>, 특정 다중 BOM에 대한 특정 <b>대체안의 우선순위</b>, 자재마스터의 <b>생산버전</b>, 특정 상태 지시자에 대한 체크. 사용자 마스터 레코드에서 BOM 애플리케이션 필드의 기본값을 정할 수 있고, 그 SET-/GET- 파라미터는 <code>CSA</code>입니다.</p>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>기능</th><th>내용</th></tr></thead>
+<tbody>
+<tr><td>사용처 리스트<br>(Where-Used)</td><td class="wrap">작업장 · 능력 · PRT · 참조오퍼레이션세트 · 자재 · 문서에 대해 생성 가능. 오브젝트 개요(Object Overview)에서 원하는 리스트를 선택. <b>단일레벨과 다단계</b> 모두 지원</td></tr>
+<tr><td>BOM 전개<br>(Explode)</td><td class="wrap">다단계 전개 또는 <b>요약 전개(Summarized)</b> 실행, 전체 확장/축소. 화면 설정에서 <span class="key">197개 컬럼</span> 중 표시할 것을 선택하고 스프레드시트로 내보내기 가능</td></tr>
+<tr><td>BOM 비교</td><td class="wrap">한 자재에 여러 BOM이 있을 때 · 사용처가 다를 때 · <b>변경 상태가 다를 때</b> 유용. 단일레벨/다단계 선택 가능하며 비교할 필드를 고를 수 있다</td></tr>
+</tbody>
+</table>
+</div>
+
+<p>사용처 리스트가 특히 값을 하는 상황은 넷입니다 — 특정 자재의 소요량 계산, <b>개별 부품 변경으로 영향받는 제품 식별</b>, 원자재 납품 지연으로 늦어질 조립품 식별, <b>원자재 원가 변경이 제품에 미치는 원가 영향 계산</b>.</p>
+
+</div>
+
+
+<!-- ══════════ LESSON 3 ══════════ -->
+<div class="lesson" id="l3">
+<h2><span class="no">LESSON 3</span>작업장 — 데이터 구조와 능력(풀링 · 참조)</h2>
+
+<p><span class="tag">Unit 3</span><span class="tag">레슨 2개</span>작업장 생성 · 작업장 능력 생성</p>
+
+<p>자재와 BOM이 "무엇을 무엇으로"였다면, 작업장은 <b>"누가 · 무엇이 조립하는가"</b>입니다. 작업장을 만들 때 먼저 정할 것은 <span class="key">기계(Machine) 정보가 필요한지, 노무(Labor) 정보가 필요한지, 둘 다인지</span>입니다.</p>
+
+<h3>기본 작업장(Default Work Center)</h3>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>상황</th><th>결과</th></tr></thead>
+<tbody>
+<tr><td>템플릿 없이 생성 + 기본 작업장 있음</td><td class="wrap">기본 작업장의 값을 사용한다</td></tr>
+<tr><td>템플릿 없이 생성 + 기본 작업장 없음</td><td class="wrap"><span class="bad">모든 화면이 공백</span>으로 표시된다</td></tr>
+<tr><td>복사 템플릿 사용</td><td class="wrap">기본 작업장은 <b>무관</b>하다</td></tr>
+</tbody>
+</table>
+</div>
+
+<p>기본 작업장은 <b>플랜트 및 작업장 카테고리별로</b> 생성합니다.</p>
+
+<h3>작업장 데이터 — 무엇이 라우팅으로 흘러가는가</h3>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>데이터</th><th>내용</th></tr></thead>
+<tbody>
+<tr><td>표준값 키<br>(Standard Value Key)</td><td class="wrap">라우팅과 직접 관련된 정보. 어떤 표준값(준비 · 처리 · 인건 등)을 어떤 이름으로 쓸지 규정</td></tr>
+<tr><td>기본값<br>(Default Values)</td><td class="wrap">오퍼레이션 생성 시 시스템이 복사하는 값. 오퍼레이션에서 변경 가능하지만, 작업장에서 <span class="key">참조(Ref. Ind.)</span>로 표시된 항목은 <span class="bad">오퍼레이션에서 변경할 수 없다.</span> 커스터마이징에서 <b>플랜트별 · 오더유형별</b>로 저장된다</td></tr>
+<tr><td>표준텍스트</td><td class="wrap">작업장을 라우팅 오퍼레이션에 추가할 때 필요한 설명을 작업장 안에서 사전 정의</td></tr>
+<tr><td>활동유형<br>(Activity Type)</td><td class="wrap"><code>Change Work Center: Cost Center Assignment</code> 화면에서 제안된다(라우팅 및 생산오더에서)</td></tr>
+</tbody>
+</table>
+</div>
+
+<div class="note">
+  <div class="t">설계 지침 — 가능한 한 작업장에서 정의하라</div>
+  <p>원문의 권고는 명확합니다. <b>SAP 생산계획 시스템을 구축할 때는 가능한 많은 데이터를 작업장 유지보수에서 정의하는 것이 좋습니다.</b> 작업장 한 곳에서 잡아두면 라우팅과 생산오더가 그 값을 받아가므로, 라우팅마다 같은 값을 반복 입력하는 일이 사라집니다.</p>
+</div>
+
+<h3>스케줄링 데이터와 시간</h3>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>시간요소</th><th>설명</th></tr></thead>
+<tbody>
+<tr><td>대기시간<br>(Queue Time)</td><td class="wrap">작업장과 라우팅 오퍼레이션 <b>양쪽에서</b> 유지보수 가능. <span class="key">오퍼레이션에 대기시간이 없을 때만</span> 작업장의 대기시간을 스케줄링에 쓴다. 단축조치가 필요하면 표준 대기시간 → 최소 대기시간으로 축소된다</td></tr>
+<tr><td>이동시간<br>(Move-Time)</td><td class="wrap">라우팅 오퍼레이션 상세화면의 <b>오퍼레이션 간 시간(Interoperation Times)</b> 섹션에서 최소·표준을 유지보수. 단축조치 시 최소 이동시간을 쓴다</td></tr>
+</tbody>
+</table>
+</div>
+
+<p>원칙적으로 <b>운반시간(Transport Time)은 후속 작업장의 위치그룹(Location Group)과 커스터마이징의 이동시간 매트릭스(Move Time Matrix)로 결정</b>되어야 합니다. 가까이 있는 작업장을 위치그룹으로 묶고, 작업장의 스케줄링 데이터 화면에서 작업장을 위치그룹에 배정합니다.</p>
+
+<div class="note warn">
+  <div class="t">이동시간 매트릭스는 언제 쓰이나</div>
+  <p>시스템은 <b>오퍼레이션 간 시간 섹션에 이동시간을 입력하지 않은 경우에만</b> 이동시간 매트릭스를 사용합니다. 오퍼레이션에 값을 직접 넣어두면 매트릭스는 무시됩니다 — "매트릭스를 고쳤는데 스케줄이 안 바뀐다"는 대부분 이 경우입니다.</p>
+</div>
+
+<h3>능력(Capacity) — 작업장과 분리된 마스터데이터</h3>
+
+<p>능력은 작업장이 특정 작업을 수행할 수 있는 역량입니다. 특징은 다섯입니다.</p>
+
+<ul>
+  <li><span class="key">능력범주(Capacity Category)</span>에 따라 구분된다</li>
+  <li>작업장 아래 <b>계층적으로</b> 배치된다</li>
+  <li>특정 작업장에 고유하다</li>
+  <li>인력 또는 기계의 <b>그룹</b>을 나타낸다</li>
+  <li>여러 작업장에 대한 <b>마스터 데이터 역할</b>을 한다</li>
+</ul>
+
+<p>SAP에서 능력 데이터는 <span class="hl">능력헤더(Capacity Header)라는 독립적인 마스터데이터 항목</span>입니다. 각 작업장은 하나 이상의 능력헤더를 가질 수 있고, 능력헤더가 작동하려면 <b>작업장에 시간으로 배정</b>되어야 합니다. 능력헤더 안에서 표준 능력 제공량 또는 <b>교대 정의(Shift Definition)</b>를 지정합니다.</p>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>유형</th><th>쓰는 이유</th></tr></thead>
+<tbody>
+<tr><td>풀링능력<br>(Pooled Capacity)</td><td class="wrap"><b>여러 작업장이 공유하는 생산자원</b>을 모델링. 자원 풀이 실제로 <span class="key">능력 제약(Capacity Constraint)</span>인 경우에만 모델링 목적에 부합한다. 작업장 정의에서 이 풀링능력을 참조해 능력계획 시 계획 제약으로 작동시킨다</td></tr>
+<tr><td>참조능력<br>(Reference Capacity)</td><td class="wrap"><b>하나의 능력 세트를 유지보수해</b> 여러 작업장에 독립적으로 연결. 능력을 갱신할 때 계획담당자는 참조자원만 고치면 연결된 모든 자원에 적용된다</td></tr>
+</tbody>
+</table>
+</div>
+
+<div class="note">
+  <div class="t">🔰 초보자 설명 — 풀링능력이 필요한 상황</div>
+  <p>생산라인이 5개 있고 각 라인은 기계가 도는 내내 운영자가 붙어 있어야 하는데, 자원 풀에 <b>운영자가 4명뿐</b>이라고 합시다. 라인이 5개여도 <span class="bad">언제든 최대 4대만 가동할 수 있습니다.</span></p>
+  <p>이 "4명"은 어느 한 작업장의 능력이 아니라 <b>5개 작업장이 나눠 쓰는 제약</b>입니다. S/4HANA에서 작업장과 무관하게 능력헤더를 모델링할 수 있는 이유가 이것입니다.</p>
+</div>
+
+<h4>참조자원 생성 절차</h4>
+
+<div class="step"><span class="n">1</span><p><b>능력헤더를 생성</b>한다. 참조능력의 능력헤더는 작업장 능력헤더와 유사하나, 풀링능력과 달리 특수 기능을 표시하는 필드가 없다</p></div>
+<div class="step"><span class="n">2</span><p>작업장 내 <b>동일한 능력범주</b>에 그 능력헤더를 참조한다 — 능력헤더에서 <code>Reference Availability Capacity</code> 선택. 이 단계는 <span class="key">해당 능력헤더를 참조 데이터로 쓸 모든 작업장마다</span> 수행해야 한다</p></div>
+
+<div class="note warn">
+  <div class="t">참조하면 작업장에서 직접 못 고친다</div>
+  <p>작업장 능력범주를 참조로 걸면 <span class="bad">더 이상 그 작업장에서 직접 유지보수할 수 없습니다.</span> 능력 데이터는 <b>참조능력헤더를 편집하는 방법으로만</b> 바꿀 수 있습니다. 이건 부작용이 아니라 의도된 통제 — 한 곳만 고치면 전부 반영되게 하려면 다른 곳에서 못 고치게 막아야 합니다.</p>
+</div>
+
+<p>올바른 스케줄링을 보장하려면 각 작업장에 <b>가용 능력</b>이 유지보수되어야 합니다. 이 값이 작업장이 언제 열려 있고 닫혀 있는지를 알려주기 때문입니다. 능력계획 및 스케줄링 정보 외에 <b>원가계산 정보</b>도 작업장에서 정의해야 합니다.</p>
+
+</div>
+
+
+<!-- ══════════ LESSON 4 ══════════ -->
+<div class="lesson" id="l4">
+<h2><span class="no">LESSON 4</span>라우팅 기본 — 자재배정 · 서브오퍼레이션 · 생산버전 · PRT · EWB</h2>
+
+<p><span class="tag">Unit 4</span><span class="tag">레슨 7개</span>작업리스트 개요 · 자재배정/구성부품할당 · 서브오퍼레이션과 사용자정의필드 · 생산버전 · PRT · 분석과 변경 · 엔지니어링워크벤치</p>
+
+<p>라우팅은 오퍼레이션을 순서대로 보여주며 <b>생산오더의 템플릿</b> 역할을 합니다. 각 오퍼레이션의 계획시간을 <span class="key">표준값(Standard Value)</span>으로 저장하고, 네 가지 질문에 답합니다 — 작업이 <b>어디서</b> 수행되는가, <b>얼마나</b> 걸리는가, 각 오퍼레이션에 <b>어떤 자재</b>가 필요한가, <b>어떤 공구·고정구</b>가 필요한가.</p>
+
+<h3>입력 노력을 줄이는 세 경로</h3>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>경로</th><th>설명</th></tr></thead>
+<tbody>
+<tr><td>자재마스터로부터</td><td class="wrap">데이터 제안</td></tr>
+<tr><td>작업장으로부터</td><td class="wrap"><b>참조(Reference) 또는 복사</b> — 참조면 라우팅에서 변경 불가</td></tr>
+<tr><td>프로파일로부터</td><td class="wrap"><span class="key">작업리스트 프로파일(Task List Profile)</span> = 헤더와 오퍼레이션에 대한 기본값의 집합. 라우팅 유지보수 시 프로파일을 입력하면 새 라우팅·헤더·오퍼레이션 생성 시 그 값이 제안되며, 저장하거나 덮어쓸 수 있다</td></tr>
+</tbody>
+</table>
+</div>
+
+<div class="step"><span class="n">1</span><p>회사에서 데이터 입력 작업량을 줄일 수 있는 기본값을 결정한다</p></div>
+<div class="step"><span class="n">2</span><p>필요하면 여러 프로파일을 정의한다</p></div>
+<div class="step"><span class="n">3</span><p>라우팅 유지보수용 기본값을 정의한다</p></div>
+<div class="step"><span class="n">4</span><p>품질보증용 기본값을 정의한다</p></div>
+
+<h3>필드선택(Field Selection)</h3>
+
+<p>필드선택을 정의할 수 있는 화면은 다섯입니다 — 작업리스트 헤더, 시퀀스, 오퍼레이션, PRT 개요, PRT 상세. 이 화면들은 개별 <b>화면그룹(Screen Group)</b>으로 묶이고, 각 화면그룹에 <span class="key">변경가능필드</span>와 <span class="key">영향필드</span>를 정의합니다.</p>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>구분</th><th>동작</th></tr></thead>
+<tbody>
+<tr><td>변경가능필드</td><td class="wrap">지시자로 화면 표시 방식을 결정 — 입력 가능(표준) · 필수 입력 · 표시전용 · 숨김 · 강조표시</td></tr>
+<tr><td>영향필드</td><td class="wrap">특정 값(예: 특정 오더유형)에 따라 변경가능필드가 어떻게 보일지 결정</td></tr>
+</tbody>
+</table>
+</div>
+
+<div class="note warn">
+  <div class="t">필수 입력으로 바꿔도 기존 데이터는 검사하지 않는다</div>
+  <p>영향필드 변경으로 어떤 필드가 필수 입력이 되는 경우, 시스템은 <span class="bad">기존 오브젝트에 이미 그 필드가 채워져 있는지 확인하지 않습니다.</span> 즉 과거 데이터는 비어 있는 채로 남고, 그걸 다음에 여는 사람이 값을 채워야 합니다. 또 애플리케이션에서 <b>이미 하드코딩된 필수 입력 필드는 수정할 수 없습니다.</b></p>
+  <p>참고로 정의한 필드선택 설정은 <b>전송(Transport) 가능하며 새 릴리스로 업그레이드해도 변경되지 않습니다.</b></p>
+</div>
+
+<h3>자재배정(Material Assignment)</h3>
+
+<p>자재배정은 "이 라우팅으로 <b>어떤 자재를 생산할지</b>"를 정합니다. 이 배정이 있어야 라우팅이 해당 자재의 판매및운영계획 · MRP · 생산오더 생성 · 제품원가계산에 쓰입니다. 전제는 둘 — 자재마스터가 존재할 것, 그리고 라우팅(또는 요율라우팅)에 <b>배정 가능한 자재유형</b>일 것.</p>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>방법</th><th>설명</th></tr></thead>
+<tbody>
+<tr><td>특정 자재용 라우팅 생성</td><td class="wrap">시스템이 <b>자동으로</b> 자재배정을 수행. 추가 설정 불필요하며 오더 생성 시 시스템이 이 배정을 식별해 적절한 라우팅을 쓴다</td></tr>
+<tr><td>헤더의 자재배정 기능</td><td class="wrap">자재비특정 라우팅 또는 그룹라우팅일 때 사용. 헤더의 <code>Material Assignment</code> 버튼으로 이 라우팅으로 생산되는 자재 리스트를 보고 자재를 <b>추가 배정</b>. 배정 대상 자재가 다른 플랜트에 있어도 되므로 <span class="key">한 플랜트에서 계획하고 다른 플랜트에서 생산</span>하도록 계획할 수 있다</td></tr>
+<tr><td>생산버전 사용</td><td class="wrap">자재 생산에 쓸 생산기법을 지정 — 일자 · 로트크기 유효성과 함께 <b>생산에 사용할 BOM과 라우팅</b>을 지정</td></tr>
+</tbody>
+</table>
+</div>
+
+<p>동일한 라우팅으로 여러 자재를 생산할 수 있습니다. 각 제품이 고유 BOM을 갖되 <b>표준시간이 같은 공통 활동 세트</b>로 만들어지는 경우입니다 — 원문 예시는 빨간 의자와 초록 의자.</p>
+
+<h3>구성부품 할당(Component Allocation)</h3>
+
+<p>라우팅을 먼저 정의하고 <b>이후 단계에서</b> BOM을 배정해도 됩니다. 구성부품 할당을 하려면 시스템에 셋이 있어야 합니다 — 라우팅 내 오퍼레이션, 생산할 자재의 마스터 레코드, 생산할 자재의 BOM.</p>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>상황</th><th>시스템 동작</th></tr></thead>
+<tbody>
+<tr><td>어느 오퍼레이션에도 배정되지 않은 BOM 구성부품</td><td class="wrap">생산오더 생성 시 시스템이 <span class="key">자동으로 첫 번째 오퍼레이션에 배정</span>(기본값)</td></tr>
+<tr><td>여러 BOM / 대체 BOM의 구성부품을 같은 라우팅에 배정</td><td class="wrap">생산오더 생성 시 BOM을 선택하면 배정될 구성부품이 함께 선택된다. 시스템 설정에 따라 <b>자동 수행</b>도 가능</td></tr>
+</tbody>
+</table>
+</div>
+
+<div class="note warn">
+  <div class="t">BOM 항목 하나는 오퍼레이션 하나에만</div>
+  <p>BOM의 각 항목은 <span class="bad">하나의 오퍼레이션에만 배정할 수 있습니다.</span> 수량이 1보다 크고 여러 오퍼레이션에서 써야 한다면 <b>BOM 쪽을 고쳐야 합니다.</b></p>
+  <p>예: BOM 항목 <code>10</code>이 2개인데 하나는 오퍼레이션 <code>20</code>, 다른 하나는 <code>40</code>에서 쓴다면 → 항목 <code>10</code>을 각각 수량 1인 <b>두 항목(<code>10</code>, <code>15</code>)으로 분할</b>한 뒤 <code>10</code>은 오퍼레이션 <code>20</code>에, <code>15</code>는 <code>40</code>에 배정합니다.</p>
+</div>
+
+<p>자재구성부품 개요(Material Component Overview)에서 오퍼레이션별 구성부품을 배정·표시하고, 필터·정렬로 개요를 정리할 수 있습니다. 가능한 작업은 셋 — 새 구성부품 배정, 자재배정 삭제 및 재배정, <b>여러 오퍼레이션 간 이동</b>. 배정된 구성부품의 항목 카테고리에 따라 처리 방식(재고항목의 <b>백플러시</b>, 가변크기항목의 <b>절단크기</b>)에 대한 추가 결정이 붙습니다.</p>
+
+<p>가변크기항목은 BOM 유지보수 시 최종 치수를 지정하고, 생산에 더 큰 <b>절단 치수</b>가 필요하면 오퍼레이션 배정 시 지정합니다. 이 치수는 자재스테이징에 관련된 항목에만 배정되며, <span class="key">재고관리는 BOM으로부터 치수를 읽습니다.</span></p>
+
+<h3>서브오퍼레이션(Suboperations)</h3>
+
+<p>서브오퍼레이션은 오퍼레이션에 종속되어 계층적으로 그 아래에 놓입니다. 쓰는 이유는 둘 — 오퍼레이션이 기술하는 프로세스 단계의 <b>상세 계획</b>, 그리고 오퍼레이션의 <b>능력계획 또는 원가계산을 위한 상세 계획</b>. 실제 예로는 동시에 필요한 여러 인력이나 기계를 하나의 오퍼레이션에 배정할 때 씁니다.</p>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>항목</th><th>동작</th></tr></thead>
+<tbody>
+<tr><td>작업장</td><td class="wrap">주 오퍼레이션과 <b>같은</b> 작업장으로 단계를 상세화할 수도, <b>다른</b> 작업장으로 병렬 운영할 수도 있다</td></tr>
+<tr><td>스케줄링</td><td class="wrap"><span class="bad">항상 주 오퍼레이션에서</span> 이루어진다. 서브오퍼레이션은 <b>상위 오퍼레이션에 상대적으로만</b> 스케줄된다</td></tr>
+<tr><td>원가계산 · 능력계획</td><td class="wrap">주 오퍼레이션 <b>및/또는</b> 서브오퍼레이션 측에서 가능 → <span class="key">이중 계산을 막으려면 제어키(Control Key)를 양쪽 레벨에서 올바르게 정의</span>해야 한다</td></tr>
+<tr><td>표준값 누적</td><td class="wrap">서브오퍼레이션의 표준값을 오퍼레이션에 누적할 수 있다. 단 <b>서브오퍼레이션이 병렬로 실행되면 누적값이 과대해지므로 누적 불가</b></td></tr>
+<tr><td>플랜트</td><td class="wrap">주 오퍼레이션과 다른 플랜트에 배정 가능. 단 <b>두 플랜트는 동일한 관리영역(Controlling Area)</b>에 속해야 한다</td></tr>
+<tr><td>단위</td><td class="wrap">오퍼레이션의 단위와 <b>달라도 된다</b></td></tr>
+</tbody>
+</table>
+</div>
+
+<p>오프셋 값을 지정하면 시스템이 서브오퍼레이션의 시작·완료일을 결정합니다. 참조 일자는 여섯입니다 — 준비 시작일, 처리 시작일, 해체 시작일, 실행 완료일, 대기시간 시작일, 대기시간 완료일. 예를 들어 <b>처리 시작 참조를 -5시간</b>으로 두면 서브오퍼레이션 처리가 주 오퍼레이션보다 5시간 먼저 시작됩니다.</p>
+
+<div class="note warn">
+  <div class="t">Caution — 서브오퍼레이션에 못 붙이는 것</div>
+  <p>서브오퍼레이션에는 <span class="bad">자재구성부품 · 생산자원/공구(PRT) · 검사특성을 배정할 수 없습니다.</span> 이 셋은 <b>오퍼레이션에만</b> 배정 가능합니다. "서브오퍼레이션 단위로 부품을 관리하겠다"는 설계는 여기서 막힙니다.</p>
+</div>
+
+<h3>사용자정의필드(User-Defined Fields)</h3>
+
+<p>표준에 없는 업무 정보나 공식 파라미터 값을 오퍼레이션·서브오퍼레이션에 넣는 장치입니다. <span class="key">필드키(Field Key)</span>에 따라 최대 12개의 데이터필드를 씁니다.</p>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>형식</th><th>설명</th></tr></thead>
+<tbody>
+<tr><td>일반 텍스트 (최대 4)</td><td class="wrap">텍스트 20자 2개 + 10자 2개. 예: 담당자 · 대체인력 · 전화번호</td></tr>
+<tr><td>수량 (최대 2)</td><td class="wrap">필드키에서 <b>추가 공식 파라미터</b>를 배정할 수 있다 → 작업장 공식에서 이 값을 써서 <span class="key">처리시간 · 능력소요량 · 원가를 계산</span>. 각 수량필드에 단위 필드가 딸리며, 커스터마이징의 공식 파라미터 기본값·단위가 전달되나 변경 가능</td></tr>
+<tr><td>값 (최대 2)</td><td class="wrap">값/통화. 각 값필드에 단위 필드가 있다</td></tr>
+<tr><td>일자 (최대 2)</td><td class="wrap">예: 내부 시작일</td></tr>
+<tr><td>체크박스 (최대 2)</td><td class="wrap">예: Info System 평가에 오퍼레이션 포함 여부</td></tr>
+</tbody>
+</table>
+</div>
+
+<div class="note warn">
+  <div class="t">시스템은 사용자정의필드 값을 검증하지 않는다</div>
+  <p>필드키를 배정하면 어떤 사용자정의필드를 쓸 수 있는지와 필드명/키워드가 정해집니다. 그 뒤 데이터를 입력할 수 있지만, <span class="bad">시스템은 해당 데이터의 유효성을 검증하지 않습니다.</span> 값이 잘못돼도 조용히 저장됩니다 — 이 필드로 공식을 돌린다면 검증은 업무 규칙이나 별도 체크로 직접 만들어야 합니다.</p>
+</div>
+
+<h3>생산버전(Production Version)</h3>
+
+<div class="note warn">
+  <div class="t">Caution — S/4HANA에서는 생산버전이 필수다</div>
+  <p>SAP ERP와 달리 <b>SAP S/4HANA에서는 생산오더에 생산버전이 필수</b>입니다. 따라서 반드시 <span class="key">자재 MRP 데이터 내에 생산버전을 정의</span>해야 합니다. BOM과 라우팅을 다 만들어 놓고도 오더가 서지 않는다면 여기부터 봅니다.</p>
+</div>
+
+<p>생산버전은 <b>라우팅과 지정된 BOM에 따라 생산 프로세스를 결정</b>합니다. 자재마스터에는 서로 다른 <b>로트크기 구간</b>에 대해 여러 생산버전을 저장할 수 있고, 개별 라우팅은 <span class="key">그룹카운터(Group Counter)</span> 값으로 구분합니다.</p>
+
+<div class="note">
+  <div class="t">🔰 초보자 설명 — 버전이 왜 둘 이상 필요한가</div>
+  <p>원문 예시가 정확합니다. 버전 <code>0001</code>은 대량 오더 로트용 브래킷을 <b>NC 펀칭기</b>로 금속판에서 통째로 펀칭합니다. 그런데 NC 펀칭기는 <b>셋업이 실제 펀칭보다 오래 걸립니다.</b></p>
+  <p>그래서 소량일 땐 셋업 시간이 통째로 낭비가 됩니다. 버전 <code>0002</code>는 금속 스트립을 쓰는 다른 프로세스로 <b>소량</b>을 만듭니다. 같은 제품, 다른 방법 — 그래서 BOM도 라우팅도 다르고, 로트크기 구간이 어느 버전을 쓸지를 가릅니다.</p>
+</div>
+
+<h3>생산자원/공구(PRT)</h3>
+
+<p>PRT는 라우팅이나 생산오더의 <b>오퍼레이션에 배정</b>합니다. <span class="key">PRT 카테고리</span>는 PRT의 요구사항과 특정 오브젝트(자재 · 설비 등)와의 <b>참조관계</b>에 따라 결정됩니다.</p>
+
+<div class="note warn">
+  <div class="t">확인 필요 — PRT 카테고리의 실제 값</div>
+  <p>원문(Unit 4-5)은 PRT 카테고리가 "요구사항과 참조관계에 따라 결정된다"까지만 설명하고 <span class="bad">카테고리 코드값과 각 카테고리에 대응하는 마스터 오브젝트를 나열하지 않습니다.</span> 자재 PRT · 설비 PRT · 문서 PRT · 기타 PRT의 구체적인 키 값과 유지보수 트랜잭션은 실제 시스템(winerp01 / MEP)에서 확인한 뒤 보강합니다. 기억에 있는 코드로 채워 넣지 않습니다.</p>
+</div>
+
+<h3>작업리스트 분석 및 변경</h3>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>기능</th><th>내용</th></tr></thead>
+<tbody>
+<tr><td>사용처 리스트</td><td class="wrap">특정 <b>작업장 · 능력 · 참조오퍼레이션세트 · 참조요율라우팅 · PRT</b>를 쓰는 라우팅을 표시. 작업장이나 참조오퍼레이션세트를 <span class="key">삭제하기 전에</span> 사용 중인지 확인할 때 필요하다. 온라인으로 삭제됐지만 DB에 남아있는 라우팅도 표시할 수 있다</td></tr>
+<tr><td>대량변경 · 리포팅</td><td class="wrap">작업장 · 참조오퍼레이션세트의 PRT에 대해 대량변경 수행. 시스템이 교체 대상 오브젝트를 쓰는 모든 라우팅 리스트를 만든다. <b>변경번호 없이 대량교체하면 새 오브젝트는 기존 오브젝트와 동일한 유효기간</b>을 갖는다</td></tr>
+</tbody>
+</table>
+</div>
+
+<h3>엔지니어링워크벤치(EWB)</h3>
+
+<p>EWB는 PP 컴포넌트의 일부로, <b>BOM과 라우팅을 하나의 인터페이스에서 동시에</b> 유지보수하는 복합 도구입니다. 가장 중요한 오브젝트는 <span class="key">BOM 항목과 오퍼레이션</span>이고, 이 오브젝트에 <b>뷰(View)</b>가 적용되어 기존 BOM 또는 라우팅 구조를 쓸 수 있습니다. 뷰에서 생성 · 변경 · 삭제 전 범위가 지원됩니다.</p>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>EWB의 이점</th><th>설명</th></tr></thead>
+<tbody>
+<tr><td>복잡한 계획 프로세스 지원</td><td class="wrap">복잡한 선택 기준으로 임의 개수의 오브젝트를 조합. 결과에 추가 정보가 붙지 않아 빠른 개요를 얻는다</td></tr>
+<tr><td>병렬 처리</td><td class="wrap">여러 오브젝트를 나란히 처리</td></tr>
+<tr><td>정확한 선택</td><td class="wrap">라우팅과 BOM에서 오브젝트를 정확히 선택</td></tr>
+<tr><td>통합 처리</td><td class="wrap">오퍼레이션과 항목을 함께 처리</td></tr>
+<tr><td><span class="key">정확한 잠금(Lock) 설정</span></td><td class="wrap">표준 트랜잭션은 세션당 한 사람만 오브젝트를 변경할 수 있는 <b>표준 잠금 시나리오</b>가 적용된다. EWB는 상황이 다르다</td></tr>
+<tr><td>변경 상태 추적</td><td class="wrap">변경 상태의 진행 과정을 표시</td></tr>
+</tbody>
+</table>
+</div>
+
+<p><b>작업리스트(Worklist)</b>에는 EWB에서 표시·변경·생성할 오브젝트가 담깁니다. 시스템이 이를 DB에서 작업리스트로 복사하며, <span class="hl">작업리스트를 저장하고 오브젝트를 처리하는 동안에만</span> DB에서 새 오브젝트를 만들거나 기존 것을 변경·삭제할 수 있습니다. 오브젝트 브라우저 · 각종 뷰어 · 디지털목업뷰어가 통합되어 EWB는 PLM 내 핵심 도구가 됩니다.</p>
+
+<div class="note warn">
+  <div class="t">확인 필요 — EWB의 잠금 동작</div>
+  <p>원문은 "표준 트랜잭션은 세션당 한 사람만 변경 가능하고, <b>EWB로 작업하는 경우 상황이 다르다</b>"라고만 쓰고 <span class="bad">어떻게 다른지를 설명하지 않습니다.</span> 동시 편집 시 어느 단위로 잠기는지(항목 단위인지 작업리스트 단위인지), 충돌 시 무엇이 우선하는지는 실제 시스템에서 확인 후 보강합니다. 동시성 문제는 추측으로 정리할 성격이 아닙니다.</p>
+</div>
+
+</div>
+
+
+<!-- ══════════ LESSON 5 ══════════ -->
+<div class="lesson" id="l5">
+<h2><span class="no">LESSON 5</span>BOM 고급 — 팬텀 · 공동제품 · 대체구성부품 · 복수/변형BOM · ECM</h2>
+
+<p><span class="tag">Unit 5</span><span class="tag">레슨 6개</span>팬텀어셈블리 · 공동제품과 부산물 · 대체구성부품 · 복수BOM · 변형BOM · ECM을 통한 BOM 변경</p>
+
+<h3>팬텀어셈블리(Phantom Assembly)</h3>
+
+<p>팬텀어셈블리는 <b>자재의 논리적 그룹화</b>입니다. 엔지니어링 부서가 다수의 구성부품을 하나의 단위로 기술·관리하려고 만듭니다. 결정적 차이는 하나입니다 — <span class="hl">팬텀어셈블리 내 구성부품은 상위 어셈블리에 직접 배치되고, 일반 어셈블리의 구성부품은 먼저 조립되어 헤더 자재를 만든 뒤 그 헤더 자재가 상위에 배치됩니다.</span></p>
+
+<figure class="figwrap">
+<svg class="dgm" viewBox="0 0 1000 516" role="img" aria-label="BOM 다단 전개와 팬텀어셈블리 비교 도해. 일반 어셈블리인 라이트는 전구와 반사경으로 먼저 조립된 뒤 완제품에 들어가지만, 팬텀인 바퀴세트는 재고로 존재하지 않고 전개 시 사라져 앞바퀴와 뒷바퀴가 상위 어셈블리에 직접 예약된다.">
+  <defs>
+    <marker id="a3" markerWidth="9" markerHeight="9" refX="7" refY="4.5" orient="auto">
+      <polygon class="arw" points="0,0 9,4.5 0,9"/></marker>
+    <marker id="a3o" markerWidth="9" markerHeight="9" refX="7" refY="4.5" orient="auto">
+      <polygon class="arw-ok" points="0,0 9,4.5 0,9"/></marker>
+  </defs>
+
+  <path class="ln-d" d="M500 12 V404"/>
+  <text class="t-h" x="20" y="26">일반 어셈블리 — 라이트</text>
+  <text class="t-h c-ok" x="540" y="26">팬텀어셈블리 — 바퀴세트</text>
+
+  <rect class="b-key" x="20" y="40" width="260" height="46" rx="6"/>
+  <text class="t" x="40" y="69">완제품 · 지게차 (Lvl 0)</text>
+  <path class="ln" d="M60 86 V145 H82" marker-end="url(#a3)"/>
+
+  <rect class="b" x="90" y="122" width="250" height="46" rx="6"/>
+  <text class="t" x="110" y="151">라이트 (어셈블리)</text>
+  <text class="t-xs" x="110" y="166"> </text>
+  <path class="ln" d="M130 168 V211 H152" marker-end="url(#a3)"/>
+  <path class="ln" d="M130 211 V271 H152" marker-end="url(#a3)"/>
+
+  <rect class="b-mut" x="160" y="190" width="220" height="42" rx="6"/>
+  <text class="t-s" x="180" y="216">전구 (Lvl 2)</text>
+  <rect class="b-mut" x="160" y="250" width="220" height="42" rx="6"/>
+  <text class="t-s" x="180" y="276">반사경 (Lvl 2)</text>
+
+  <rect class="b" x="20" y="318" width="450" height="76" rx="6"/>
+  <text class="t-h" x="40" y="344">BOM 전개 결과</text>
+  <text class="t-s" x="40" y="366">· 라이트 1개가 상위 오더에 예약된다</text>
+  <text class="t-s" x="40" y="386">· 전구·반사경은 라이트를 만드는 오더에서 소비</text>
+
+  <rect class="b-key" x="540" y="40" width="260" height="46" rx="6"/>
+  <text class="t" x="560" y="69">완제품 · 지게차 (Lvl 0)</text>
+  <path class="ln-ok" d="M580 86 V145 H602" marker-end="url(#a3o)"/>
+
+  <rect class="b-ghost" x="610" y="122" width="250" height="46" rx="6"/>
+  <text class="t c-ok" x="630" y="151">바퀴세트 (팬텀)</text>
+  <path class="ln-ok" d="M650 168 V211 H672" marker-end="url(#a3o)"/>
+  <path class="ln-ok" d="M650 211 V271 H672" marker-end="url(#a3o)"/>
+
+  <rect class="b-mut" x="680" y="190" width="220" height="42" rx="6"/>
+  <text class="t-s" x="700" y="216">앞바퀴</text>
+  <rect class="b-mut" x="680" y="250" width="220" height="42" rx="6"/>
+  <text class="t-s" x="700" y="276">뒷바퀴</text>
+
+  <rect class="b-ok" x="540" y="318" width="450" height="76" rx="6"/>
+  <text class="t-h c-ok" x="560" y="344">BOM 전개 결과</text>
+  <text class="t-s" x="560" y="366">· 팬텀은 플랜트에서 생산·재고관리되지 않는다</text>
+  <text class="t-s" x="560" y="386">· 앞바퀴·뒷바퀴가 상위에 직접 예약된다</text>
+
+  <rect class="b-ghost" x="20" y="412" width="970" height="92" rx="6"/>
+  <text class="t-s" x="40" y="436">팬텀 설정 위치는 둘. 자재 <tspan class="c-key">MRP 2 뷰의 특수조달키</tspan> 가 최상위, 구성부품용 BOM의 MRP 섹션에서 재정의한다.</text>
+  <text class="t-s" x="40" y="458">BOM 설정은 사용처·생산 프로세스에 특화되어 있으므로 <tspan class="c-key">자재마스터보다 우선</tspan>한다.</text>
+  <text class="t-s" x="40" y="480">전개유형(Explosion Type)으로 그 BOM에서만 팬텀을 끌 수 있고, 그러면 그 항목에 계획오더가 생성된다.</text>
+  <text class="t-s" x="40" y="500">팬텀 자체는 <tspan class="c-ok">미계획된 유효 예약</tspan>으로 오더에 이관되고, 구성부품은 상위와 계층 구조로 연결된 채 일반 예약이 된다.</text>
+</svg>
+<figcaption><span class="fno">그림 3</span>다단 BOM 전개와 팬텀. 팬텀은 "재고로 존재하지 않는 괄호"이고, 전개 시 그 괄호가 벗겨진다.</figcaption>
+</figure>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>용도</th><th>설명</th></tr></thead>
+<tbody>
+<tr><td>BOM의 단순 구조화</td><td class="wrap">팬텀은 일반적으로 <b>물리적으로 존재하지 않으며</b>, 자주 함께 쓰이는 구성부품 그룹을 감싸는 <span class="key">가상의 괄호</span>다. 마스터데이터 관리 부담을 크게 줄인다 — 단종자재 같은 변경 시 <b>하나의 BOM만 고치면</b> 그 팬텀을 쓰는 모든 BOM에 반영된다</td></tr>
+<tr><td>구성부품 할당 촉진</td><td class="wrap">팬텀의 구성부품은 <b>동일한 오퍼레이션에 배정</b>되므로 할당이 쉬워진다(구성부품에 별도 배정을 하지 않으면 팬텀 자체도 동일). 생산오더에서 BOM이 전개될 때 <b>팬텀의 BOM도 함께 전개</b>된다</td></tr>
+</tbody>
+</table>
+</div>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>설정 위치</th><th>설명</th></tr></thead>
+<tbody>
+<tr><td>자재<br>(Material)</td><td class="wrap">부품을 팬텀으로 결정할 수 있는 <b>최상위 레벨</b>. <code>MRP 2</code> 뷰에서 특수조달키를 설정하며, 이로써 해당 부품이 <span class="key">플랜트 레벨에서 생산되거나 재고관리되지 않도록</span> 보장한다</td></tr>
+<tr><td>구성부품용 BOM</td><td class="wrap">BOM 상세정보(MRP 섹션)에서 <b>전개유형</b> 또는 특수조달을 설정. 전개유형으로 그 BOM에 한해 팬텀을 <span class="bad">비활성화</span>할 수 있고, 이 경우 항목에 대한 <b>계획오더가 생성</b>되어 자재마스터 설정을 재정의한다</td></tr>
+</tbody>
+</table>
+</div>
+
+<h3>공동제품 · 부산물 · 폐기물</h3>
+
+<p>프로세스산업에서는 하나의 주제품을 만들어도 화학·생물학적 반응의 특성상 <b>여러 제품이 동시에 산출</b>됩니다. 셋으로 나눕니다.</p>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>구분</th><th>재고평가액</th><th>원가정산 대상</th><th>헤더정산규칙 표시</th></tr></thead>
+<tbody>
+<tr><td>공동제품<br>(Co-Product)</td><td>0이 아님</td><td class="wrap"><span class="good">대상</span> — 공정오더 라이프사이클 종료 시점에 정산</td><td class="wrap">표시된다</td></tr>
+<tr><td>부산물<br>(By-Product)</td><td>0이 아님</td><td class="wrap"><span class="bad">대상 아님</span></td><td class="wrap">표시되지 않는다</td></tr>
+<tr><td>폐기물<br>(Waste Product)</td><td><span class="bad">0</span></td><td class="wrap"><span class="bad">대상 아님</span></td><td class="wrap">표시되지 않는다</td></tr>
+</tbody>
+</table>
+</div>
+
+<p>셋 다 공통점은 같습니다 — <b>주요 자재가 이것들을 함께 생산하지 않고서는 단독으로 생산될 수 없습니다.</b> 기업은 일반적인 부산물보다 <span class="key">원가 가시성이 높은 제품</span>에 공동제품 명칭을 부여합니다. 그래서 공동제품만 원가정산 대상이 됩니다.</p>
+
+<div class="note">
+  <div class="t">🔰 초보자 설명 — BOM에 음수 수량이 왜 들어가나</div>
+  <p>공동제품 · 부산물 · 폐기물은 마스터레시피 BOM에서 <span class="key">음수 수량 구성부품(Negative Quantity Component)</span>으로 설정됩니다. BOM 항목의 수량이 양수면 "이만큼 소비한다", 음수면 <b>"이만큼 산출된다"</b>는 뜻입니다.</p>
+  <p>공동제품은 추가 원가정산이 필요하므로 손이 더 갑니다 — 모든 제품마스터와 음수 수량 구성부품에 <b>공동제품 지시자</b>를 켜야 하고, 관련 원가요소의 <b>원가배분비율(Cost Apportionment Ratio)</b>을 각 제품마스터에서 정의해야 합니다. 이 용어들은 식품 · 화학 · 전자 산업과 프로세스·반복·흐름 생산에서 자주 씁니다.</p>
+</div>
+
+<h3>대체구성부품 — 단종관리와 대체항목</h3>
+
+<p>자재 교체가 필요한 상황은 둘입니다 — 구성부품이 <b>더 이상 안전요건을 충족하지 못하는</b> 경우(신규 안전규정으로 특정 시점 이후 교체), 그리고 <b>원가가 높은 부품을 더 저렴한 부품으로</b> 교체하는 경우. 단종관리는 <b>장기 마스터 생산·소요량 계획에도 동일하게 작동</b>합니다.</p>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>유형</th><th>설명</th></tr></thead>
+<tbody>
+<tr><td>단순단종</td><td class="wrap">한 자재가 후속 자재로 교체된다</td></tr>
+<tr><td>병렬단종</td><td class="wrap">한 <b>그룹</b>의 자재가 다른 그룹으로 교체. 주요(Main) 구성부품이 단종되어 <span class="key">가용재고가 0이 되면 종속(Dependent) 구성부품도 함께 단종</span>되어야 한다 — 예: 특정 너트가 단종되면 대응 나사도 단종</td></tr>
+</tbody>
+</table>
+</div>
+
+<div class="step"><span class="n">1</span><p>주요 단종 구성부품의 자재마스터에서 <code>Discontinued</code> 필드를 <code>1</code>로 설정한다. 종속 단종 구성부품의 자재마스터에는 <code>Follow-up</code> 필드에 <code>3</code>이 표시된다</p></div>
+<div class="step"><span class="n">2</span><p>BOM 항목의 <code>Extras → Follow-up/Discontinued Dates</code> 아래에 <b>단종그룹(Discontinuation Group)</b>을 정의한다. 자유롭게 정의 가능한 문자열이며, 동일한 단종그룹으로 <span class="key">단종될 주요 구성부품과 종속 구성부품을 식별</span>한다</p></div>
+<div class="step"><span class="n">3</span><p>후속 구성부품은 <code>Follow-up</code> 필드로 정의한다. <b>후속그룹(Successor Group)의 문자열은 단종그룹의 문자열과 일치해야 한다</b> — 어떤 후속항목이 어떤 단종항목을 대체하는지가 이 일치로 결정된다</p></div>
+
+<h4>대체항목(Alternative Items)과 백플러시</h4>
+
+<p><b>대체항목그룹(Alternative Item Group)</b>은 항목 리스트 내 대체항목을 묶습니다. 그룹을 만들면 <span class="key">순위(Ranking Order) · 전략(Strategy) · 사용확률(Probability of Usage)</span>을 넣는 대화상자가 나타납니다.</p>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>상황</th><th>설명</th></tr></thead>
+<tbody>
+<tr><td>사용확률이 지정된 대체항목</td><td class="wrap">그룹 내 각 항목에 사용확률을 주면 소요량계획에서 <b>종속소요량이 생성</b>되고 생산오더에서 <b>예약</b>으로 변경된다</td></tr>
+<tr><td>정보용 대체항목</td><td class="wrap">정보 목적으로만. 예: 부품 부족 상황에서만 참조. <span class="bad">종속소요량이나 예약이 발생하지 않으므로 사용확률을 만들지 않는다</span></td></tr>
+</tbody>
+</table>
+</div>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>백플러시 방식</th><th>지정할 값</th></tr></thead>
+<tbody>
+<tr><td>사용확률 기준</td><td class="wrap">전략(값 <code>1</code> 또는 미입력), 순위(<b>자재 정렬에만</b> 영향), 사용확률</td></tr>
+<tr><td>100% 가용성 기준</td><td class="wrap">순위(미지정 시 가용성 체크로 전달된 순서대로 확인), 전략(값 <code>2</code>), 사용확률. 전략 <code>2</code>에서는 <b>지정된 순위에 따라 ATP 로직으로 가용성 체크</b>가 실행된다</td></tr>
+</tbody>
+</table>
+</div>
+
+<p>총소요량 100개일 때의 원문 예시입니다.</p>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>자재</th><th>사용확률</th><th>순위</th><th>계획소요량</th><th>ATP 수량</th><th>백플러시 수량</th></tr></thead>
+<tbody>
+<tr><td>A</td><td>20</td><td>1</td><td>20</td><td>30</td><td>0</td></tr>
+<tr><td><span class="good">B</span></td><td>30</td><td>2</td><td>30</td><td>150</td><td><span class="good">100</span></td></tr>
+<tr><td>C</td><td>50</td><td>3</td><td>50</td><td>180</td><td>0</td></tr>
+</tbody>
+</table>
+</div>
+
+<p>읽는 법은 이렇습니다 — <b>순위상 첫 번째로 소요일자를 100% 충족하는 자재</b>가 필요 수량만큼 예약됩니다. A는 순위 1이지만 ATP가 30뿐이라 100을 못 채우므로 탈락하고, 순위 2인 B가 150을 갖고 있어 <b>100 전부를 B로</b> 잡습니다. C는 더 많이 있어도 순위가 뒤라 쓰이지 않습니다.</p>
+
+<div class="note warn">
+  <div class="t">부분 백플러시는 한 번만 판정한다</div>
+  <p>생산오더에 부분 백플러시가 발생하면 <span class="bad">그 오더에 대해 추가 부분 백플러시 체크는 더 이상 이루어지지 않습니다.</span> 이후 부분 백플러시는 <b>첫 백플러시가 발생한 대체항목</b>에서 계속 진행됩니다. 전략 <code>2</code>에서 어떤 대체항목도 100%를 못 채우면, 가용성 체크가 각 가용 수량을 확정하고 그만큼씩 예약합니다.</p>
+</div>
+
+<h3>복수BOM과 변형BOM</h3>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>유형</th><th>설명</th></tr></thead>
+<tbody>
+<tr><td>단순BOM<br>(Simple)</td><td class="wrap">대체안이 없는 기본형</td></tr>
+<tr><td>복수BOM<br>(Multiple)</td><td class="wrap">제품이 <b>수량과 생산 시점에 따라</b> 서로 다른 구성부품 조합으로 만들어질 때. <span class="key">대체BOM(Alternative)</span>이라고도 하며 보통 구성부품 수량만 조금씩 다르다. 하나의 그룹으로 묶을 수 있고 <b>그룹 정의는 선택사항</b></td></tr>
+<tr><td>변형BOM<br>(Variant)</td><td class="wrap"><b>헤더 자재가 서로 다른</b> 유사 제품을 제공할 때. 그래도 데이터베이스 내에서는 <span class="hl">하나의 BOM일 뿐</span>이다</td></tr>
+</tbody>
+</table>
+</div>
+
+<p>복수BOM의 대체안은 자재마스터의 <span class="key">선택방법 지시자(Selection Method Indicator)</span>에 따라 <b>로트크기 · 일자 · 생산버전</b> 중 하나를 기준으로 선택됩니다.</p>
+
+<div class="note warn">
+  <div class="t">변형BOM 생성 조건 — 나중엔 못 만든다</div>
+  <p>· <b>해당 자재에 대한 BOM이 아직 존재하지 않아야 합니다.</b> 이미 BOM이 있으면 변형BOM으로 전환할 수 없습니다<br>
+     · <b>모든 변형 자재의 기본단위가 동일해야 합니다.</b> BOM의 기본단위와 자재마스터의 기본단위가 일치해야 하기 때문입니다</p>
+</div>
+
+<p>다중변형 제품은 특성 조합에 따라 방대한 변형이 생기고, 영업과 생산 양쪽에 복잡한 형상 작업(Configuration Task)을 가져옵니다. <b>표준제품(Standard Product)</b>은 여러 변형으로 생산되는 제품을 가리키는 일반 용어이며, 모든 가능한 특성을 포괄하므로 <span class="bad">특정 단일 품목을 가리키지 않습니다.</span> 이론적으로 가능한 조합도 허용되지 않을 수 있는데 이유는 둘 — <b>기술적 이유</b>, 그리고 <b>마케팅·영업상의 이유</b>(예: 고가 오토바이 모델에서는 특정 색상의 도장과 시트만 선택 가능).</p>
+
+<h3>ECM을 통한 BOM 변경</h3>
+
+<p>엔지니어링변경관리(ECM)는 <b>마스터데이터 변경을 위한 중앙 로지스틱스 기능</b>입니다. 하나의 변경으로 영향받는 여러 SAP 오브젝트의 변경사항을 <span class="key">그룹화</span>하고, 지원 문서 작성 의무를 충족하도록 <b>모니터링·문서화</b>합니다.</p>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>방식</th><th>설명</th></tr></thead>
+<tbody>
+<tr><td>이력 없는 변경</td><td class="wrap"><b>제품 개발 중</b> 발생하는 변경이라 문서화 불필요. 변경 전 상태는 저장되지 않으며 <span class="key">변경문서를 통해서만 간접적으로</span> 이전 상태를 파악할 수 있다</td></tr>
+<tr><td>이력 있는 변경</td><td class="wrap"><b>생산 중</b> 발생하는 변경이라 반드시 문서화. 변경 전·후 상태가 <span class="good">모두 저장</span>된다. 일부 오브젝트는 이때 생성되는 변경문서가 이력 없는 변경의 것과 다르다</td></tr>
+</tbody>
+</table>
+</div>
+
+<div class="note">
+  <div class="t">이력이 없어도 변경문서는 생긴다</div>
+  <p>자주 오해하는 지점입니다. <b>이력 없는 변경이라도 시스템은 변경문서를 생성합니다.</b> "이력 없음"은 <span class="key">오브젝트의 이전 상태(Change State)를 통째로 보존하지 않는다</span>는 뜻이지, 누가 언제 무엇을 바꿨는지를 안 남긴다는 뜻이 아닙니다.</p>
+</div>
+
+<ul>
+  <li><b>변경마스터(Change Master) 또는 변경레코드</b>에서 유효성(Validity)을 정의하면, 정의된 유효기간 내에서만 변경이 적용된다</li>
+  <li>변경은 해당 영역의 <span class="key">릴리스키(Release Key)</span>를 설정함으로써 로지스틱스 프로세스체인의 각 영역(판매오더 · MRP · 현장 · 생산관리)에서 <b>자동으로</b> 적용된다</li>
+  <li>모든 BOM과 작업리스트에 유효한 <b>변경정의(Change Definition)</b>를 만들 수도, 특정 BOM 카테고리와 작업리스트 유형에만 만들 수도 있다 — 예: 자재BOM만 변경번호로 변경 가능하고 문서구조는 불가</li>
+  <li>ECM으로 특정 오브젝트를 <b>여러 번 저장</b>해 모든 관련 변경 상태의 이력을 보존할 수 있다. <b>제조물책임(Product Liability)</b> 요건 대응이 대표적인 목적이다</li>
+</ul>
+
+</div>
+
+
+<!-- ══════════ LESSON 6 ══════════ -->
+<div class="lesson" id="l6">
+<h2><span class="no">LESSON 6</span>라우팅 고급 — 시퀀스 · 참조오퍼레이션세트 · 스케줄링 시간요소</h2>
+
+<p><span class="tag">Unit 6</span><span class="tag">레슨 6개</span>시퀀스 모델링 · 대체 생산 프로세스 · 참조오퍼레이션세트 · 리드타임스케줄링 · 시간요소와 단축 · ECM을 통한 라우팅 변경</p>
+
+<h3>시퀀스 — 선형을 벗어나는 두 가지 방법</h3>
+
+<p>단순하고 선형적인 생산 단계는 <b>단일 시퀀스</b>로 표현합니다. 복잡해지면 여러 시퀀스를 <span class="key">선행자(Predecessor) · 후행자(Successor) 관계</span>로 연결합니다. 라우팅의 기본은 하나의 <b>표준 시퀀스</b>이고, 나머지 시퀀스는 표준의 <b>대체안</b>으로 실행되느냐 <b>동시에</b> 실행되느냐에 따라 갈립니다.</p>
+
+<figure class="figwrap">
+<svg class="dgm" viewBox="0 0 1000 470" role="img" aria-label="라우팅 시퀀스 구조 도해. 표준 시퀀스의 오퍼레이션 사이에서 분기해 동시에 실행되는 병렬 시퀀스와, 로트크기 구간에 따라 표준 대신 실행되는 대체 시퀀스가 각각 분기 오퍼레이션과 복귀 오퍼레이션으로 표준 시퀀스에 연결된다.">
+  <defs>
+    <marker id="a4" markerWidth="9" markerHeight="9" refX="7" refY="4.5" orient="auto">
+      <polygon class="arw" points="0,0 9,4.5 0,9"/></marker>
+    <marker id="a4o" markerWidth="9" markerHeight="9" refX="7" refY="4.5" orient="auto">
+      <polygon class="arw-ok" points="0,0 9,4.5 0,9"/></marker>
+    <marker id="a4k" markerWidth="9" markerHeight="9" refX="7" refY="4.5" orient="auto">
+      <polygon class="arw-key" points="0,0 9,4.5 0,9"/></marker>
+  </defs>
+
+  <text class="t-h c-ok" x="360" y="34">병렬 시퀀스 — 표준과 동시에 실행</text>
+
+  <rect class="b-ok" x="360" y="50" width="120" height="52" rx="6"/>
+  <text class="t" x="392" y="82">OP 210</text>
+  <rect class="b-ok" x="555" y="50" width="120" height="52" rx="6"/>
+  <text class="t" x="587" y="82">OP 220</text>
+  <path class="ln-ok" d="M480 76 H547" marker-end="url(#a4o)"/>
+  <path class="ln-ok" d="M275 150 V76 H352" marker-end="url(#a4o)"/>
+  <path class="ln-ok" d="M615 102 V144" marker-end="url(#a4o)"/>
+
+  <text class="t-h" x="40" y="136">표준 시퀀스 (Standard Sequence)</text>
+
+  <rect class="b" x="40" y="150" width="130" height="52" rx="6"/>
+  <text class="t" x="78" y="182">OP 10</text>
+  <rect class="b-key" x="210" y="150" width="130" height="52" rx="6"/>
+  <text class="t c-key" x="248" y="182">OP 20</text>
+  <text class="t-xs c-key" x="218" y="222">분기(Branch)</text>
+  <rect class="b" x="380" y="150" width="130" height="52" rx="6"/>
+  <text class="t" x="418" y="182">OP 30</text>
+  <rect class="b-key" x="550" y="150" width="130" height="52" rx="6"/>
+  <text class="t c-key" x="588" y="182">OP 40</text>
+  <text class="t-xs c-key" x="556" y="222">복귀(Return)</text>
+  <rect class="b" x="720" y="150" width="130" height="52" rx="6"/>
+  <text class="t" x="758" y="182">OP 50</text>
+
+  <path class="ln" d="M170 176 H202" marker-end="url(#a4)"/>
+  <path class="ln" d="M340 176 H372" marker-end="url(#a4)"/>
+  <path class="ln" d="M510 176 H542" marker-end="url(#a4)"/>
+  <path class="ln" d="M680 176 H712" marker-end="url(#a4)"/>
+
+  <path class="ln-key" d="M275 202 V306 H352" marker-end="url(#a4k)"/>
+  <path class="ln-key" d="M615 280 V208" marker-end="url(#a4k)"/>
+
+  <rect class="b-key" x="360" y="280" width="120" height="52" rx="6"/>
+  <text class="t c-key" x="392" y="312">OP 310</text>
+  <rect class="b-key" x="555" y="280" width="120" height="52" rx="6"/>
+  <text class="t c-key" x="587" y="312">OP 320</text>
+  <path class="ln-key" d="M480 306 H547" marker-end="url(#a4k)"/>
+
+  <text class="t-h c-key" x="360" y="360">대체 시퀀스 — 로트크기 구간에 따라 표준 대신 실행</text>
+
+  <rect class="b-ghost" x="20" y="382" width="970" height="76" rx="6"/>
+  <text class="t-s" x="40" y="406">대체 시퀀스는 <tspan class="c-bad">라우팅에서만</tspan> 생성 가능 — 요율라우팅·참조오퍼레이션세트·참조요율라우팅에서는 불가.</text>
+  <text class="t-s" x="40" y="428">병렬 시퀀스는 라우팅과 요율라우팅 둘 다 가능 — 다만 <tspan class="c-bad">참조오퍼레이션세트에서는 불가.</tspan></text>
+  <text class="t-s" x="40" y="450">대체 시퀀스를 연결할 때 표준 시퀀스의 분기 오퍼레이션은 무시된다. 정렬키(Alignment Key)가 병렬 시퀀스의 시작점과 버퍼 위치를 정한다.</text>
+</svg>
+<figcaption><span class="fno">그림 4</span>라우팅 시퀀스 구조. 병렬은 "같이 돈다", 대체는 "대신 돈다" — 둘 다 분기와 복귀 오퍼레이션으로 표준에 붙는다.</figcaption>
+</figure>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>구분</th><th>병렬 시퀀스</th><th>대체 시퀀스</th></tr></thead>
+<tbody>
+<tr><td>실행 방식</td><td class="wrap">표준 시퀀스 내 해당 구간과 <b>동시에</b> 실행. 특수한 유형의 <span class="key">중첩 오퍼레이션</span>이다</td><td class="wrap">표준 시퀀스 내 오퍼레이션 시퀀스에 대한 <b>대체안</b>이 되는 선형 시퀀스</td></tr>
+<tr><td>생성 가능 위치</td><td class="wrap">라우팅 · 요율라우팅</td><td class="wrap"><b>라우팅에서만</b></td></tr>
+<tr><td>선택 기준</td><td class="wrap">구조상 항상 함께 실행</td><td class="wrap"><span class="key">로트크기 구간</span>을 입력해 오더가 그 구간에 들면 시스템이 <b>자동 선택</b></td></tr>
+<tr><td>대표 사례</td><td class="wrap">조립라인에서 BOM의 여러 구성부품을 최종 조립용 소단위로 준비 / 화학산업에서 생산과 병렬로 도는 분석 프로세스</td><td class="wrap">로트크기에 따라 재래식 기계 vs <b>NC 기계</b> 선택(NC는 셋업이 길지만 가공비가 훨씬 낮다) / 능력 문제가 있을 때 일부 단계를 외부 공급업체에 위탁</td></tr>
+</tbody>
+</table>
+</div>
+
+<div class="note warn">
+  <div class="t">대체 시퀀스의 로트크기 구간은 헤더와 겹쳐야 한다</div>
+  <p>대체 시퀀스의 로트크기 구간은 라우팅 헤더에 지정된 구간과 <b>달라도 되지만, 최소한 부분적으로는 겹쳐야 합니다.</b> 전혀 겹치지 않는 구간을 넣으면 그 대체 시퀀스는 영영 선택되지 않습니다.</p>
+</div>
+
+<div class="note">
+  <div class="t">분기·복귀에 쓸 수 있는 오퍼레이션 제한</div>
+  <p><b>잠금 해제되지 않은 참조오퍼레이션세트(또는 참조요율라우팅)의 첫 번째 오퍼레이션만</b> 대체·병렬 시퀀스의 분기 또는 복귀 오퍼레이션으로 쓸 수 있습니다. 참조오퍼레이션세트 내 다른 오퍼레이션을 쓰려면 <span class="key">먼저 참조를 잠금 해제</span>해야 합니다.</p>
+</div>
+
+<h3>대체 생산 프로세스(대체라우팅)</h3>
+
+<p>같은 제품을 다른 방법으로 만들 수 있으면 효율이 올라갑니다. 원문이 드는 예는 셋입니다.</p>
+
+<ul>
+  <li>동일 자재를 <b>서로 다른 플랜트</b>에 속한 서로 다른 라우팅으로 생산</li>
+  <li>하나의 BOM으로 서로 다른 기술을 사용 — 대량은 자동조립라인, 소량은 수동조립라인, 결과물은 <b>동일한 자재</b></li>
+  <li>로트크기에 따라 다른 구성부품 조합 → <span class="key">대체BOM</span>. <b>제품당 최대 1,000개</b>의 대체BOM을 가질 수 있으며 구성부품 수량이 조금씩 다르다</li>
+</ul>
+
+<p>핵심은 <span class="hl">각 라우팅은 그 생산 프로세스에서 소비되는 고유한 구성부품을 나타내는 BOM을 필요로 한다</span>는 점입니다. 원문 예시로, 기계 1은 <b>두 개의 사전 조립된 구성부품</b>으로 제품을 조립하는 구형 기술이고, 기계 2는 <b>4개의 원자재</b>로부터 조립합니다 — 같은 제품이지만 BOM이 다를 수밖에 없습니다. 자재마스터는 <b>로트크기 · 유효일자 · 생산버전</b>을 기준으로 선택 가능한 대체안을 정의합니다.</p>
+
+<h3>참조오퍼레이션세트(Reference Operation Set)</h3>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>항목</th><th>동작</th></tr></thead>
+<tbody>
+<tr><td>배정 가능</td><td class="wrap">세트 내 오퍼레이션에 <b>자재구성부품 · PRT · 트리거포인트</b>를 배정할 수 있다. 모든 배정은 라우팅으로 복사된다</td></tr>
+<tr><td>변경 전파</td><td class="wrap">참조오퍼레이션세트에 가한 <span class="key">모든 변경은 이를 사용하는 모든 라우팅을 갱신</span>한다</td></tr>
+<tr><td>생성 방법</td><td class="wrap">수동으로, 또는 라우팅/다른 참조오퍼레이션세트를 템플릿으로. <b>라우팅에서 복사하면 기본 시퀀스만</b> 복사되고, <b>기존 참조오퍼레이션세트에서 복사하면 참조관계가 없다</b></td></tr>
+<tr><td>제한</td><td class="wrap"><span class="bad">병렬 또는 대체 시퀀스를 허용하지 않는다</span></td></tr>
+</tbody>
+</table>
+</div>
+
+<h3>리드타임스케줄링으로 자재 갱신</h3>
+
+<p>MRP가 하는 일은 셋입니다 — 조립품의 BOM 전개, 구성부품에 대한 계획생산오더 또는 구매요청 생성, <b>기본오더일자(계획일자) 계산</b>. 그 일자를 계산할 때 쓰는 시간이 자재마다 다릅니다.</p>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>자재</th><th>MRP가 쓰는 시간</th></tr></thead>
+<tbody>
+<tr><td>사내조달</td><td class="wrap">로트크기 독립적 또는 <b>로트크기 종속적</b> 사내생산시간</td></tr>
+<tr><td>외부조달</td><td class="wrap">계획된 납품시간(Planned Delivery Time)</td></tr>
+</tbody>
+</table>
+</div>
+
+<p>여기서 유용한 기능이 하나 있습니다 — <span class="key">오더 없이 라우팅의 리드타임스케줄링을 실행해 자재의 사내생산시간을 계산한 뒤 그 값을 자재마스터로 복사</span>할 수 있습니다. MRP 실행 전에 라우팅이 실제로 며칠짜리인지 미리 알고 싶을 때 라우팅을 직접 스케줄링하는 것입니다.</p>
+
+<div class="note warn">
+  <div class="t">계산값과 자재마스터 값이 다를 수 있다</div>
+  <p>라우팅 스케줄링을 실행하면 <b>계산된 값이 자재마스터 MRP 뷰에 입력된 값과 다를 수 있습니다.</b> 이 차이 자체가 정보입니다 — 자재마스터의 사내생산시간이 실제 라우팅과 어긋나 있으면 MRP의 기본오더일자가 계속 어긋납니다.</p>
+</div>
+
+<h3>스케줄링 시간요소</h3>
+
+<p>생산의 오작동과 방해요인은 완전히 막을 수 없으므로, 시스템은 <b>여유시간(Float)</b>을 두고 스케줄링합니다. 자재마스터의 <span class="key">스케줄링여유키(Scheduling Margin Key)</span>가 생산 전·후 여유시간을 정의합니다.</p>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>여유시간</th><th>기능</th><th>계산</th></tr></thead>
+<tbody>
+<tr><td>생산 전<br>(Float before)</td><td class="wrap">자재구성부품 스테이징 지연 보완 / 작업장에 능력 병목이 있을 때 생산일자를 미래로 밀어 <b>능력평준화용 여유</b>로 작동</td><td class="wrap">기본시작일 <b>+</b> 생산 전 여유 = 스케줄된 시작일</td></tr>
+<tr><td>생산 후<br>(Float after)</td><td class="wrap">생산 프로세스의 예상치 못한 중단으로 완료일이 지연되지 않도록 보완</td><td class="wrap">기본완료일 <b>-</b> 생산 후 여유 = 스케줄된 완료일</td></tr>
+</tbody>
+</table>
+</div>
+
+<h4>오퍼레이션 소요시간의 구성</h4>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>시간요소</th><th>설명</th></tr></thead>
+<tbody>
+<tr><td>대기시간<br>(Queue time)</td><td class="wrap">오퍼레이션 내 오작동과 지연을 보완하는 <b>오퍼레이션 여유</b>. 오퍼레이션의 최조일자와 최지일자 사이의 간격이며, 매 스케줄링마다 시스템이 개별 오퍼레이션 구간의 최조·최지일자를 계산한다. <span class="key">작업장과 오퍼레이션 양쪽에서 유지보수 가능하나, 오퍼레이션에 없을 때만 작업장 값을 쓴다</span></td></tr>
+<tr><td>준비시간<br>(Setup)</td><td class="wrap">작업장에서 오퍼레이션을 준비하는 시간. <b>리드타임의 일부</b></td></tr>
+<tr><td>처리시간<br>(Processing)</td><td class="wrap">자재를 처리하는 시간. <b>오더수량에 따라 달라지며</b> 준비·해체를 포함하지 않는다. <b>실행시간(Execution Time)의 일부</b></td></tr>
+<tr><td>해체시간<br>(Teardown)</td><td class="wrap">처리 완료 후 작업장을 정상 상태로 복원하는 시간. 실행시간의 일부</td></tr>
+<tr><td>대기시간<br>(Wait time)</td><td class="wrap">실행시간 종료와 이동시간 시작 사이. SAP ERP에서 프로세스 관련 대기시간은 최대·최소가 있고 <span class="key">최소가 스케줄링에 쓰이며 최대는 정보 목적</span></td></tr>
+<tr><td>이동시간<br>(Move time)</td><td class="wrap">한 작업장에서 다음 작업장으로 자재를 옮기는 시간. <b>항상 두 오퍼레이션 사이에서 발생하고 선행 오퍼레이션에 배정</b>된다</td></tr>
+</tbody>
+</table>
+</div>
+
+<div class="note warn">
+  <div class="t">대기시간은 공장달력을 보지 않는다</div>
+  <p>시스템은 <b>공장달력(Factory Calendar)을 고려하지 않고 대기시간을 스케줄링</b>합니다. 즉 대기시간은 <span class="bad">매일 00:00부터 24:00까지</span> 스케줄될 수 있습니다 — 휴일에도 시계는 돕니다. 오퍼레이션 상세화면의 <code>Teardown/wait simul.</code> 필드로 해체시간과 대기시간을 <b>동시적</b>으로 볼지 <b>순차적</b>으로 볼지 지정할 수 있고, 동시적이면 리드타임이 짧아집니다.</p>
+</div>
+
+<h4>오퍼레이션 분할과 중첩</h4>
+
+<p><b>오퍼레이션 분할(Splits)</b>은 하나의 오퍼레이션을 여러 기계 또는 여러 인력이 동시에 수행하는 경우입니다. 효과는 양면입니다 — 처리·실행 시간이 짧아지지만, <span class="bad">해당 오퍼레이션에 대해 준비·해체를 여러 번 수행해야 합니다.</span></p>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>중첩 유형</th><th>설명</th></tr></thead>
+<tbody>
+<tr><td>필수 중첩</td><td class="wrap">오퍼레이션이 <b>항상</b> 중첩된다</td></tr>
+<tr><td>선택적 중첩</td><td class="wrap">스케줄링에서 <b>중첩을 허용하는 단축레벨을 쓰는 경우에만</b> 중첩된다</td></tr>
+<tr><td>흐름생산<br>(Flow)</td><td class="wrap">시스템이 중첩되는 모든 오퍼레이션의 리드타임을 <span class="key">그중 가장 긴 리드타임과 동일하게 연장</span>한다. 필수 중첩처럼 항상 중첩</td></tr>
+</tbody>
+</table>
+</div>
+
+<p>각 중첩 유형에는 두 가지 안전장치를 걸 수 있습니다 — <b>최소 중첩시간</b>(특정 최소 한계에 도달한 후에만 중첩 허용), <b>최소 선행발송수량(Send-Ahead Quantity)</b>(다음 오퍼레이션 시작 전 최소 수량이 처리되도록 보장).</p>
+
+<h4>단축조치(Reduction Measures)</h4>
+
+<p>스케줄링 결과 소요시간이 너무 길면 단축합니다. 오퍼레이션 상세화면의 오퍼레이션 간 시간 섹션에서 <b>단축전략(Reduction Strategy)</b>을 배정하며, 전략은 적용 가능한 <span class="key">단축레벨 수(최대 6단계)</span>와 각 레벨에서 실행할 조치를 지정합니다. 오더는 <b>각 단축레벨 이후 재스케줄링</b>되므로, 성능을 위해 단축단계 수는 최소화하는 것이 권장됩니다.</p>
+
+<div class="note">
+  <div class="t">🔰 초보자 설명 — 임계경로(Critical Path)</div>
+  <p>병렬 시퀀스가 있는 라우팅에서는 <b>아무 오퍼레이션이나 줄인다고 전체가 줄지 않습니다.</b> 병렬로 도는 두 갈래 중 짧은 쪽을 줄여봐야 긴 쪽이 여전히 전체를 붙잡고 있기 때문입니다.</p>
+  <p>그래서 "실행시간 단축이 오더 전체 리드타임 단축으로 이어지는 오퍼레이션"만 골라 단축하도록 지정할 수 있고, 이런 오퍼레이션들의 시퀀스를 <span class="key">임계경로</span>라고 부릅니다. 단축해도 전체가 안 줄어드는 오퍼레이션은 단축되지 않습니다. 반대로 <b>병렬 시퀀스가 없으면 임계경로 자체가 존재하지 않으므로</b>, 임계경로 옵션과 무관하게 모든 오퍼레이션이 단축됩니다.</p>
+</div>
+
+<h3>ECM을 통한 라우팅 변경</h3>
+
+<p>ECM은 BOM뿐 아니라 라우팅에도 씁니다. 용도는 다섯입니다 — 변경 모니터링 및 문서화, <b>특정 시점에 변경 계획 및 실행</b>, 오브젝트에 대한 여러 변경 상태 저장, 로지스틱스 프로세스체인 내 통합 지원, 관련된 변경사항 그룹화.</p>
+
+<p>변경마스터에 유효시작일을 쓰면 변경이 <b>사전 정의된 날짜에 유효</b>해지며, 이는 장기계획에 도움이 됩니다. 변경사항은 판매오더 · MRP · 현장관리 등 프로세스체인 전 영역에서 <b>사전 정의된 시점에 자동으로</b> 적용됩니다. 하나의 변경으로 영향받는 서로 다른 오브젝트를 그룹화해 <b>동시에 변경하거나 오브젝트별로 다른 변경일자를 정의</b>할 수 있습니다.</p>
+
+<div class="note warn">
+  <div class="t">유효성은 날짜만이 아니다</div>
+  <p>ECM의 유효성에는 날짜 외에 다른 유형의 <span class="key">파라미터 유효성(Parameter Effectivity)</span>이 존재합니다 — <b>일련번호 · 시간간격 · 고객</b>. "언제부터"가 아니라 "몇 번째 제품부터" 또는 "어느 고객에게" 적용하는 변경이 여기에 해당합니다.</p>
+  <p><b>확인 필요</b> — 원문은 파라미터 유효성의 존재만 언급하고 활성화 방법과 제약을 다루지 않습니다. 실제 시스템(winerp01 / MEP)에서 확인 후 보강합니다.</p>
+</div>
+
+</div>
+
+
+<!-- ══════════ LESSON 7 ══════════ -->
+<div class="lesson" id="l7">
+<h2><span class="no">LESSON 7</span>[부록] 커스터마이징 — 자재마스터 · 플랜트 · 저장위치 · MRP 영역</h2>
+
+<p><span class="tag warn">부록</span><span class="tag">Unit 7</span><span class="tag">레슨 4개</span>마스터데이터 커스터마이징 · 플랜트 정의 · 저장위치 · MRP 영역</p>
+
+<h3>자재마스터 커스터마이징 — 필드선택</h3>
+
+<p>새 자재유형을 만들 때 가장 쉬운 방법은 <b>기존 자재유형을 복사</b>하는 것입니다. 원문 그래픽의 약어는 <code>M</code> = 필수 활동, <code>O</code> = 선택 활동, <code>D</code> = 활동에 대한 기본값 제공입니다.</p>
+
+<div class="step"><span class="n">1</span><p>필드선택 옵션(숨김 등)을 결정한다</p></div>
+<div class="step"><span class="n">2</span><p>제어문자열(자재유형 등)을 결정한다</p></div>
+<div class="step"><span class="n">3</span><p>필드선택그룹을 결정한다 — <b>F1 도움말의 기술정보로 필드의 테이블명을 확인</b>하고, 커스터마이징에서 그 테이블명으로 적절한 필드선택그룹을 찾는다</p></div>
+<div class="step"><span class="n">4</span><p>해당 제어문자열에서 필드선택그룹의 제어지시자를 변경한다</p></div>
+<div class="step"><span class="n">5</span><p>변경사항을 테스트한다</p></div>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>기호</th><th>의미</th></tr></thead>
+<tbody>
+<tr><td><code>-</code></td><td class="wrap">숨김(Hide) — <b>우선순위 가장 높음</b></td></tr>
+<tr><td><code>*</code></td><td class="wrap">표시(Display)</td></tr>
+<tr><td><code>+</code></td><td class="wrap">필수 입력(Required entry)</td></tr>
+<tr><td><code>.</code></td><td class="wrap">선택 입력(Optional entry)</td></tr>
+</tbody>
+</table>
+</div>
+
+<p>영향요인마다 별도의 제어문자열이 있고, 제어문자열 내 <b>각 위치가 특정 필드선택그룹에 대응</b>합니다. 필드옵션은 <span class="key">전체 필드선택그룹과 거기 포함된 모든 마스터데이터에 적용</span>됩니다. 자재마스터 트랜잭션의 필드선택은 보통 여러 제어문자열이 함께 결정하며, 관련된 모든 제어문자열의 항목이 서로 연결됩니다 — <b>그래서 위 우선순위 순서가 중요합니다.</b></p>
+
+<div class="note ok">
+  <div class="t">📌 개인 E2E 프로젝트와의 연결점 — 필드선택은 트레이딩에서도 그대로 쓴다</div>
+  <p>진행 중인 개인 프로젝트는 <b>벤더 사입 → 재판매 트레이딩</b>이라 생산이 없습니다. 그런데 자재마스터 커스터마이징은 생산과 무관하게 닿습니다. 회사코드 <code>CL04</code>, 플랜트 <code>GATE</code>(입고 게이트) · <code>STOR</code>(보관)에서 쓸 자재를 만들 때, <span class="key">배치관리·유통기한 필드를 어느 자재유형에서 필수로 잠글 것인가</span>가 곧 필드선택 문제입니다.</p>
+  <p>구체적으로, 유통기한(<code>MARA-MHDRZ</code> 계열)과 배치관리 지시자는 <b>냉동·냉장 자재그룹(<code>CHKN</code> · <code>RICE</code>)에서 비워두면 안 되는 필드</b>입니다. 비어 있는 채로 입고되면 <code>MCHA-VFDAT</code>가 안 잡히고, 그러면 SD의 FEFO 배치결정과 CBO <code>ZBATCH_ZONE</code>(잔여 유통기한 30% 미달 시 정상→임박 <code>311</code> 이동)이 <span class="bad">계산할 근거 자체를 잃습니다.</span> 프로그램에서 "값이 없으면 skip"으로 막는 것보다, <b>필드선택에서 <code>+</code>(필수 입력)로 잠그는 쪽이 표준 우선 원칙에 맞습니다.</b></p>
+  <p><b>확인 필요</b> — 제어문자열을 자재유형으로 걸지 산업분야로 걸지, 온도군별로 자재유형을 분리할지는 아직 정하지 않았습니다. 실제 시스템에서 필드선택그룹 번호를 확인한 뒤 MM 설계서에 반영합니다.</p>
+</div>
+
+<h3>자재마스터 커스터마이징 — 화면시퀀스와 뷰</h3>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>개념</th><th>설명</th></tr></thead>
+<tbody>
+<tr><td>논리화면<br>(Logical Screen)</td><td class="wrap">자재마스터의 <b>뷰</b>에 대응하는, 표시되는 데이터 화면. 메인화면 <b>최대 29개</b>, 추가화면 <b>최대 15개</b>, 기타화면(구성 불가 — 예: 초기화면)</td></tr>
+<tr><td>추가화면</td><td class="wrap"><code>PB##</code> 기능코드(Screen Painter의 푸시버튼 이름에 대응)로 메인화면에 배정</td></tr>
+<tr><td>화면시퀀스</td><td class="wrap">논리화면(뷰)과 하위화면으로 구성. <b>화면 순서를 시퀀스별로 지정</b>할 수 있다</td></tr>
+<tr><td>하위화면</td><td class="wrap">논리화면은 여러 화면모듈로 구성되며, <b>최대 6개</b>의 하위화면 컨테이너를 가진다. 표준 화면모듈 <code>SAPLMGDI</code>는 정확히 하나의 프레임을 가지며 <b>최대 10줄 × 83열</b></td></tr>
+</tbody>
+</table>
+</div>
+
+<p>커스터마이징에서 할 수 있는 일: 화면시퀀스 생성·유지보수, 논리화면 유지보수, 시퀀스 내 논리화면 순서 유지보수, 어떤 하위화면이 어떤 논리화면에 나타나는지 결정, 필드선택 영향요인을 화면시퀀스에 배정, 사용자/사용자그룹을 화면시퀀스에 배정, 사용자별 기본 조직레벨·산업분야·논리화면 사전설정.</p>
+
+<div class="note warn">
+  <div class="t">변경은 그 화면시퀀스에만 저장된다</div>
+  <p>논리화면에 대한 변경은 <b>변경이 이루어진 화면시퀀스에 저장</b>됩니다. 즉 <span class="key">시퀀스 <code>99</code>에서 MRP 1 구조를 바꾸면 그 변경은 시퀀스 <code>99</code>에서만 적용</span>됩니다. 다른 시퀀스를 쓰는 사용자에게는 반영되지 않으므로, "나는 보이는데 옆 사람은 안 보인다"가 여기서 나옵니다.</p>
+  <p>서로 다른 논리화면의 하위화면을 하나로 묶을 수도 있는데, 이때 <b>화면모듈 필드의 유지보수 상태가 논리화면의 유지보수 상태와 같아야</b> 하며 필요 시 커스터마이징에서 논리화면 상태를 확장해야 합니다.</p>
+</div>
+
+<div class="note warn">
+  <div class="t">자체 하위화면 — 표준 오브젝트를 건드리는 지점</div>
+  <p>자체 논리화면을 만들 때는 <b>이미 제공되는 표준 하위화면을 쓰는 것이 권장</b>됩니다. 다른 필드그룹이나 새 필드가 필요할 때만 자체 하위화면을 만들고, 그 절차는 <span class="key">표준 프로그램 <code>SAPLMGD1</code>을 자체 기능그룹으로 복사</span>한 뒤 새 기능그룹에서 하위화면을 생성하는 것입니다(IMG 참조 필수).</p>
+  <p>다만 사용자정의 테이블 및 사용자정의 하위화면 컨테이너의 필드는 <span class="bad">수정(Modification)을 통해서만 프로그램 <code>SAPLMGMM</code>에 포함시킬 수 있습니다.</span> 자체 필드를 넣기 위한 <b>추가구조(Append Structure)</b>는 DDIC에 이미 정의되어 있습니다. 표준 수정이 걸리는 구간이므로 업그레이드 영향을 반드시 따져야 합니다.</p>
+</div>
+
+<p>자재마스터는 다른 테이블과 대조 검증되는 필드들을 포함하며, 자재마스터 레코드 생성 <b>전에</b> 그 체크테이블을 설정해야 합니다. 다만 <b>하드 체크가 수행되지 않는 체크테이블</b>도 있습니다 — 커스터마이징에 항목이 없어도 입력이 되고, 입력해도 커스터마이징 테이블을 갱신하지 않습니다(예: Basic Data 2의 기초자재).</p>
+
+<h3>BOM 커스터마이징</h3>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>영역</th><th>설정 내용</th></tr></thead>
+<tbody>
+<tr><td>유효성</td><td class="wrap">BOM의 ECM(이력요건)을 정의. <b>Low Date</b>를 켜면 BOM 생성 시 유효성이 최조 처리일자(<code>1900.01.01</code>)로 설정되며 <span class="bad">Low Date는 변경할 수 없다.</span> 끄면 시스템이 유효시작일로 <b>오늘 날짜</b>를 제안한다</td></tr>
+<tr><td>기술유형</td><td class="wrap">복수BOM(<code>M</code>) · 변형BOM(<code>V</code>)을 <b>비활성화</b>할 수 있다 — 즉 해당 유형의 유지보수를 아예 막을 수 있다</td></tr>
+<tr><td>항목</td><td class="wrap">전개유형으로 유효성별 표시를 정의, 가변크기항목에 어떤 텍스트가 표시될지 정의</td></tr>
+<tr><td>일반설정</td><td class="wrap">설비BOM · 문서구조 등 특수 BOM 카테고리의 헤더 및 특수 항목카테고리 기본단위 정의. <b>자재BOM에 한해 CAD 인터페이스 활성화</b> 가능</td></tr>
+</tbody>
+</table>
+</div>
+
+<p>기본값은 두 갈래로 나뉩니다. 커스터마이징에서 정의되는 것은 <b>BOM 기준수량 · BOM 상태 · 가변크기항목의 크기/개수 단위</b>이고, 사용자가 정의하거나 커스터마이징에서 사전설정할 수 있는 것은 <b>항목증분(Item Increment) · 항목카테고리 · 자재제공지시자 · BOM 리포팅 옵션</b>입니다. 각 사용자가 자체 기본값을 정의하려면 <span class="key">특정 권한</span>이 필요하며, 대안으로 커스터마이징에서 사용자별로 정의할 수도 있습니다.</p>
+
+<div class="note warn">
+  <div class="t">권한 오브젝트 C_STUE_NOH — 이력요건을 우회하는 권한</div>
+  <p>BOM 헤더에서 <b>이력요건</b>을 정의할 수 있고, 이력요건이 켜진 BOM을 처리할 때 추가 권한 오브젝트 <code>C_STUE_NOH</code>가 체크됩니다. 이 권한이 배정된 사용자는 <span class="bad">변경 마스터 레코드 없이도 이력요건이 있는 BOM을 변경할 수 있습니다.</span></p>
+  <p>ECM으로 변경 이력을 강제해 놓고 이 권한을 넓게 뿌리면 통제가 무력해집니다. 운영 이관 시 반드시 좁혀야 하는 권한입니다. 참고로 <b>BOM 항목의 오브젝트유형은 변경할 수 없습니다.</b></p>
+</div>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>설정</th><th>IMG 경로 / 내용</th></tr></thead>
+<tbody>
+<tr><td>BOM 상태 정의</td><td class="wrap"><code>Bill of Material → Define BOM Status</code>. BOM 처리를 허용/비허용하는 지시자별 상태를 정의</td></tr>
+<tr><td>BOM 사용처 정의</td><td class="wrap"><code>Bill of Material → BOM usage → Define BOM usages</code>. <b>각 사용처별로 허용/비허용되는 항목상태</b>를 정의. 일반 설정은 모든 항목에 유효하고, 개별 항목별로는 세밀한 제어를 정의한다</td></tr>
+<tr><td>대체안 결정</td><td class="wrap">한 자재에 사용처가 다른 여러 BOM이 있을 때, 시스템의 검색 순서를 정하는 <span class="key">선택ID(Selection ID)</span>를 지정. 각 사용처별로 <b>선택우선순위</b>를 가진 선택ID를 유지보수하며, <b>가장 낮은 숫자가 가장 높은 우선순위</b></td></tr>
+</tbody>
+</table>
+</div>
+
+<div class="note">
+  <div class="t">Hint — 사용처를 정의한 다음 할 일</div>
+  <p>BOM 사용처를 정의한 다음 단계로 <b>항목상태 기본값 설정을 확인·유지보수</b>해야 합니다. 사용처만 만들고 항목상태 기본값을 두면 나중에 "이 사용처에서는 이 항목이 생산 관련으로 안 잡힌다"가 됩니다.</p>
+</div>
+
+<p>가변크기항목은 하나의 자재번호 아래 서로 다른 크기의 부품을 표현합니다. 이점은 둘 — <b>추가 작업단계 없이 BOM 전개로 MRP 실행 가능</b>, <b>크기별로 별도 자재마스터를 만들 필요 없음</b>. 공식키를 넣지 않으면 기본공식이 적용됩니다.</p>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>기본공식</th><th>SAP의 해석</th></tr></thead>
+<tbody>
+<tr><td>크기1</td><td class="wrap">길이(Lengths)</td></tr>
+<tr><td>크기1 × 크기2</td><td class="wrap">면적(Areas)</td></tr>
+<tr><td>크기1 × 크기2 × 크기3</td><td class="wrap">부피(Volumes)</td></tr>
+</tbody>
+</table>
+</div>
+
+<div class="note warn">
+  <div class="t">Caution — 자체 공식에 쓸 수 있는 것</div>
+  <p>가변크기항목의 자체 공식에는 <span class="bad">변수 <code>ROMS1</code>~<code>ROMS3</code>, 상수 <code>pi</code>, 연산자 <code>+</code> <code>-</code> <code>*</code> <code>/</code> 만</span> 쓸 수 있습니다. 그 이상은 공식으로 표현할 수 없습니다.</p>
+</div>
+
+<h3>작업장 커스터마이징</h3>
+
+<p><span class="key">작업장카테고리(Work Center Category)</span>가 작업장 유지보수의 중앙 제어 요소입니다.</p>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>제어</th><th>내용</th></tr></thead>
+<tbody>
+<tr><td>화면제어</td><td class="wrap">카테고리별로 별도 화면시퀀스를 정의하며 여러 카테고리가 같은 시퀀스를 공유할 수 있다. 시퀀스는 <b>어떤 뷰가 어떤 순서로 나타나는지, 라우팅 체크에 어떤 뷰가 필요한지</b>를 제어. <span class="key">항상 기초데이터로 시작하며 기초데이터는 항상 필수.</span> 나머지 화면은 선택·정렬·필수 지정 가능하지만, <span class="bad">화면 구조(하위화면)는 자재마스터와 달리 커스터마이징으로 제어할 수 없다</span></td></tr>
+<tr><td>필드제어</td><td class="wrap">카테고리별로 정의하며 공유 가능. <b>작업장의 각 화면별로</b> 정의되고, 각 필드 설정을 모든 카테고리에 동일하게(일반) 또는 특정 카테고리에 특화되게 정의할 수 있다</td></tr>
+<tr><td>제어키</td><td class="wrap">프로세스의 중앙 제어 요소이며 <b>프로세스에 필수 필드</b>. 작업장으로부터 참조 또는 제안으로 유래할 수 있다</td></tr>
+<tr><td>능력범주 · 능력</td><td class="wrap">능력 생성, 작업장에 능력 배정(가용 능력 구간 · 교대순서 · 교대 포함)</td></tr>
+</tbody>
+</table>
+</div>
+
+<div class="note">
+  <div class="t">필수데이터 지시자는 Check 기능에만 걸린다</div>
+  <p><b>필수데이터(Mandatory Data) 지시자는 작업장 유지보수의 <code>Check work center</code> 기능에만 관련</b>됩니다. 화면을 아직 처리하지 않은 상태에서 Check를 실행하면 관련 메시지가 뜹니다. 저장 자체를 막는 장치가 아닙니다.</p>
+</div>
+
+<p>공식은 <b>공식당 최대 3줄</b>이며 가능한 산술연산은 <code>+</code> <code>-</code> <code>*</code> <code>/</code> <code>SIN</code> <code>COS</code> <code>DIV</code> <code>MOD</code> <code>SQRT</code> <code>EXP</code> <code>LOG</code>입니다. <b>단위 환산은 자동</b>으로 이루어집니다.</p>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>파라미터 유형</th><th>설명</th></tr></thead>
+<tbody>
+<tr><td>일반 오퍼레이션 값</td><td class="wrap">일반 오퍼레이션 데이터의 필드에 연결되어 그 값이 공식에 들어간다. 대표 필드: <b>로트크기 · 기준수량 · 분할(부분로트) 수 · 인원 수</b></td></tr>
+<tr><td>작업장 상수</td><td class="wrap">작업장에서 파라미터에 상수값을 배정</td></tr>
+<tr><td>표준값</td><td class="wrap">표준값 키로 공식의 파라미터가 될 표준값을 배정</td></tr>
+<tr><td>오퍼레이션의 사용자필드</td><td class="wrap">오퍼레이션 내 사용자정의필드 값이 파라미터에 배정</td></tr>
+<tr><td>PRT배정 값</td><td class="wrap">PRT의 수량 또는 사용값. <b>PRT관리용 공식에만</b> 사용 가능</td></tr>
+<tr><td>PRT 상수</td><td class="wrap">PRT 마스터 레코드에서 상수값 배정. PRT관리용 공식에만 사용 가능</td></tr>
+<tr><td>일반 공식 상수</td><td class="wrap">파라미터에 값이 배정되어 애플리케이션에서 사용</td></tr>
+</tbody>
+</table>
+</div>
+
+<p>기타 체크테이블은 커스터마이징에서, 일부는 작업장 메뉴 <code>Environment → Current settings</code>에서도 확인할 수 있습니다. <b>적합성(Suitability)과 임금그룹(Wage Group)은 인사(HR) 파라미터</b>이며, SAP HR 솔루션을 쓰지 않는 경우 여기서 정의합니다.</p>
+
+<h3>라우팅 커스터마이징</h3>
+
+<p>앞서 정의한 번호범위를 각 작업리스트유형에 배정합니다(내부·외부 모두). 작업리스트유형별로 활성화할 수 있는 옵션은 넷입니다.</p>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>옵션</th><th>설명</th></tr></thead>
+<tbody>
+<tr><td>변경문서 작성</td><td class="wrap">작업리스트 변경 시 변경문서를 남긴다</td></tr>
+<tr><td>최종 유지보수 값<br>기본 적용</td><td class="wrap">자재(및 플랜트) · 작업리스트그룹 · 판매문서에 대해 최종 유지보수된 값을 기본값으로 제안. <span class="key">"최종 유지보수"는 <b>특정 사용자의</b> 마지막 입력이며 시스템 전체의 마지막 입력이 아니다.</span> 고정 사용자 값을 쓰려면 이 옵션을 켜지 말고 해당 필드 속성에서 <b>SET / GET 파라미터</b>를 선택해야 한다 — <span class="bad">사용자 파라미터에 고정값만 넣는 것으로는 부족하다</span></td></tr>
+<tr><td>삭제 시 권한체크 활성화</td><td class="wrap">작업리스트 삭제 · 삭제지시자 변경 · 시퀀스/오퍼레이션/페이즈 삭제에 <b>삭제권한</b>을 요구. <span class="bad">이 지시자를 설정하지 않으면 사용자는 변경권한만으로 삭제할 수 있다</span></td></tr>
+<tr><td>구성부품 대비<br>자재유형 체크</td><td class="wrap">구성부품의 자재유형이 적합한지 검사</td></tr>
+</tbody>
+</table>
+</div>
+
+<p>오퍼레이션 개요의 표준값 컬럼 헤딩도 유지보수합니다. 오퍼레이션이 처리되는 모든 작업장이 표준값 키에서 <b>동일한 설명</b>을 쓰면 시스템이 공통 설명을 동적으로 결정하고, 공통 헤더를 결정할 수 없으면 작업리스트유형에 따라 커스터마이징 테이블의 설명을 씁니다. 라우팅 장문텍스트의 줄 길이도 지정하며, 개요·상세화면의 <b>짧은텍스트는 항상 40자</b>로 제한되고 장문이 40자를 넘으면 처음 40자만 표시됩니다. 이 설정은 헤더 · 시퀀스 · 오퍼레이션 · 서브오퍼레이션 · PRT배정의 장문텍스트에 영향을 줍니다. 마지막으로 <code>Define material type assignment</code>에서 <b>자재유형별로 라우팅 생성에 쓸 수 있는 작업리스트유형</b>을 정의합니다.</p>
+
+<h3>플랜트 정의</h3>
+
+<p>플랜트는 모든 로지스틱스 모듈이 쓰는 <b>로지스틱스 기반 조직요소</b>입니다. 회사코드에 배정되며 하나의 회사코드에 여러 플랜트를 배정할 수 있습니다. 세법·규정 때문에 플랜트는 보통 <b>회사코드 및 평가영역(Valuation Area)과 함께</b> 구성됩니다.</p>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>모듈</th><th>플랜트의 역할</th></tr></thead>
+<tbody>
+<tr><td>SD</td><td class="wrap">완제품·자재가 보관·유통되는 장소, 서비스가 제공되는 장소</td></tr>
+<tr><td>MM</td><td class="wrap">자재 흐름 및 입고·출고 관점의 재고소요가 관리되는 장소, 자재재고가 소비·계획·구매되는 장소</td></tr>
+<tr><td>PP</td><td class="wrap">자재가 생산되는 <b>제조시설</b></td></tr>
+</tbody>
+</table>
+</div>
+
+<ul>
+  <li>플랜트는 클라이언트 내에서 <b>고유한 4자리 영숫자 키</b>로 정의된다</li>
+  <li>신규 플랜트는 <b>플랜트복사</b> 기능으로 만들 수 있다 — 플랜트 테이블의 모든 항목과, 플랜트가 키로 쓰이는 <b>모든 커스터마이징·시스템 테이블</b>이 함께 고려된다</li>
+  <li>구성 후에는 교차기능적으로 쓰이도록 다른 조직요소에 배정해야 한다 — <b>회사코드 · 사업영역 · 영업조직 · 구매조직</b></li>
+  <li>플랜트 종속성의 예: <b>달력 · 자재마스터 · BOM · 작업장 · 라우팅 · 계획오더/생산오더 유형 · MRP 구성</b></li>
+</ul>
+
+<p>플랜트는 보통 <b>하나의 지리적 위치</b>로 잡지만, 근접한 여러 위치를 하나로 합쳐 계층을 단순화할 수도 있고, 반대로 <b>세법상의 이유로 하나의 위치를 여러 플랜트로 분할</b>하기도 합니다. 원문 예시는 생산 직후 완제품을 다른 회사에 판매하는 경우입니다 — 두 플랜트가 <span class="key">동일한 지리적 위치에 있으면서도 서로 다른 회사코드에 보고</span>하는 별개의 플랜트가 됩니다.</p>
+
+<h3>저장위치</h3>
+
+<p>저장위치는 <b>플랜트 내 자재 재고를 구분하는</b> 조직단위이며, 이 레벨에서 수행되는 기능은 둘 — <span class="key">수량 기준 재고관리</span>와 <span class="key">실사(Physical Inventory)</span>입니다.</p>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>규칙</th><th>내용</th></tr></thead>
+<tbody>
+<tr><td>키의 고유성</td><td class="wrap">플랜트 키는 <b>클라이언트 내에서</b> 고유. 저장위치 키는 <b>플랜트 내에서만</b> 고유하면 되며, 클라이언트 내 서로 다른 저장위치가 같은 키를 쓸 수 있다 — 플랜트 배정으로 <span class="key">복합키(Compound Key)</span>가 형성되기 때문이다</td></tr>
+<tr><td>정의 순서</td><td class="wrap">저장위치를 <b>먼저 정의한 뒤 플랜트에 배정</b>한다. 여러 저장위치를 하나의 플랜트에 배정할 수 있다</td></tr>
+<tr><td>플랜트↔회사코드</td><td class="wrap">S/4HANA에서 하나의 플랜트는 <b>하나의 회사코드에만</b> 속한다 → <span class="hl">플랜트를 지정하면 회사코드도 동시에 지정된다</span></td></tr>
+<tr><td>주소</td><td class="wrap">하위계약업체 위치(재고 보유), 배송주소가 다른 회사시설 등은 저장위치마다 <b>다른 주소</b>를 정의해야 할 수 있다</td></tr>
+</tbody>
+</table>
+</div>
+
+<p>IMG 경로는 <code>Enterprise Structure → Definition → Materials Management → Maintain storage location</code>입니다. 수동 생성은 <code>MMSC</code>(경로: Logistics → Production → Master Data → Material Master → Other → Enter Storage Locations)로 자재마스터의 저장위치를 일괄 입력합니다.</p>
+
+<h4>저장위치 자동 생성</h4>
+
+<div class="step"><span class="n">1</span><p><b>플랜트별로</b> 자동 생성을 허용한다</p></div>
+<div class="step"><span class="n">2</span><p><b>이동유형(Movement Type)별로</b> 저장위치 데이터 생성을 허용한다</p></div>
+
+<p>IMG 경로는 <code>Materials Management → Inventory Management and Physical Inventory → Goods Receipt → Create Storage Location Automatically</code>입니다. 표준 시스템은 참조 유무에 관계없는 입고 · 재고이동 · 재고잔액 초기입력 · 자재출고 취소 등 <b>모든 유형의 입고</b>에 대해 자동 생성되도록 설정되어 있습니다.</p>
+
+<div class="note warn">
+  <div class="t">특수재고에는 생성되지 않는다</div>
+  <p>저장위치 데이터는 <b>표준 저장위치 재고로 수량이 전기될 때만</b> 생성됩니다. <span class="bad">판매오더 재고와 같은 특수재고 입고에는 생성되지 않습니다.</span></p>
+</div>
+
+<h3>MRP 영역(MRP Area)</h3>
+
+<p>고객이 <b>재고 소요를 다른 소요 흐름과 분리</b>해야 하는 경우가 많습니다 — 예비/서비스 부품을 시설 나머지와 따로 보관해야 하거나, 위탁가공(Subcontracting) 요건 때문이거나. 이때 <span class="bad">별도의 플랜트를 만드는 것은 재무적 이점 없이 관리 부담만 키웁니다.</span></p>
+
+<p>MRP 영역은 <b>물리적 조직구조의 일부가 아니지만</b>, 계획 과정에서 소요와 재고를 구분하기 위해 <span class="key">플랜트 내 저장위치를 활용</span>합니다. IMG 경로는 <code>Production → Materials Requirements Planning → Master Data → MRP Areas → Define MRP Areas</code>입니다.</p>
+
+<div class="step"><span class="n">1</span><p>MRP 영역 생성 시 <b>MRP 영역유형 · 플랜트 · (유형 2 = 저장위치의 경우) 입고 저장위치</b>를 지정한다. 각 MRP 영역에 <b>하나 이상의 저장위치</b>를 배정할 수 있다</p></div>
+<div class="step"><span class="n">2</span><p>정의 후 <b>자재마스터를 MRP 영역에 배정</b>해 플랜트 나머지로부터 분리한다</p></div>
+
+<p>효과는 명확합니다 — 저장위치 레벨에서 소요가 발생하고(판매오더 · 수요관리 · 종속수요) 그 저장위치를 포함하는 MRP 영역에 자재마스터가 배정되어 있으면, <span class="hl">모든 소요와 재고가 플랜트로부터 분리되어 관리</span>됩니다.</p>
+
+<div class="note ok">
+  <div class="t">📌 개인 E2E 프로젝트와의 연결점 — GATE/STOR 2플랜트와 저장위치 6개는 여기 설계다</div>
+  <p>프로젝트는 회사코드 <code>CL04</code> 아래 플랜트 <b><code>GATE</code>(입고 게이트)</b>와 <b><code>STOR</code>(보관)</b> 둘을 두고, <code>STOR</code>의 저장위치를 <span class="key">온도군 × 정상·임박</span> 6개로 나눕니다 — 냉동 <code>1100</code>/<code>1900</code>, 냉장 <code>2100</code>/<code>2900</code>, 실온 <code>3100</code>/<code>3900</code>. 이 구조가 정확히 이 LESSON에서 다룬 것들입니다.</p>
+  <p>· <b>플랜트를 둘로 나눈 이유</b>는 세법이 아니라 원문이 말한 "근접한 여러 위치를 하나로 합칠지 나눌지"의 판단입니다. 게이트 입고(<code>101</code>)와 보관 이관(<code>301</code>)의 <b>차이를 수량으로 잡아내기 위해</b> 나눴고, 그 차이를 읽는 것이 CBO <code>ZGATE_INSPECT</code>입니다. 한 플랜트 안 저장위치 간 이동이었다면 이 차이가 재고전표에 남긴 해도 조직단위로는 구분되지 않았을 것입니다.</p>
+  <p>· <b>정상/임박 저장위치 분리</b>는 저장위치의 본래 역할(수량 기준 재고관리 · 실사 단위)에 정확히 맞습니다. CBO <code>ZBATCH_ZONE</code>이 <code>311</code>(저장위치 간 이동)로 정상→임박을 옮기는 것도, 저장위치가 <span class="key">평가(가치)에는 영향을 주지 않는 수량 구분 단위</span>이기 때문에 가능한 설계입니다. 회계 전표 없이 재고 위치만 바뀌므로 "회계 영향 있는 처리는 자동화하지 않는다"는 원칙에 걸리지 않습니다.</p>
+  <p>· <b>MRP 영역은 아직 쓰지 않기로 합니다.</b> 임박 저장위치(<code>1900</code>/<code>2900</code>/<code>3900</code>)의 재고를 정상 재고와 분리해 계획하고 싶다는 요구는 MRP 영역의 전형적인 사용처지만, 프로젝트가 트레이딩이라 MRP 자체를 돌릴지가 아직 미정입니다. 돌리기로 한다면 <b>임박 저장위치를 유형 2(저장위치) MRP 영역으로 묶어 정상 재고 계획에서 빼는 것</b>이 첫 후보입니다. <b>확인 필요 — 실제 시스템에서 MRP 적용 범위를 확정한 뒤 MM 설계서에 반영합니다.</b></p>
+  <p>· <b>저장위치 자동 생성은 켜지 않습니다.</b> 표준은 모든 입고 유형에 대해 자동 생성이 열려 있지만, 저장위치 6개가 온도군이라는 <span class="bad">업무 의미를 갖는 프로젝트에서는 자동 생성이 "의도하지 않은 저장위치에 재고가 앉는" 사고로 이어집니다.</span> <code>MMSC</code>로 미리 만들어 두고 자동 생성은 막는 쪽이 맞습니다.</p>
+</div>
+
+</div>
+
+
+<!-- ══════════ LESSON 8 ══════════ -->
+<div class="lesson" id="l8">
+<h2><span class="no">LESSON 8</span>[부록] 조직구조 · 배치관리 · 트리거포인트 · 스크랩</h2>
+
+<p><span class="tag warn">부록</span><span class="tag">Unit 7</span><span class="tag">레슨 3개</span>자재 추가정보(조직구조 · 아카이빙 · 배치관리) · 라우팅 트리거포인트 · 스크랩</p>
+
+<h3>생산계획의 조직단위</h3>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>단위</th><th>설명</th></tr></thead>
+<tbody>
+<tr><td>클라이언트<br>(Client)</td><td class="wrap">법적·조직적·데이터 관점에서 <b>독립된 단위</b>. 별도 마스터레코드와 독립적인 테이블 세트를 가지며 업무적으로는 기업 그룹을 대표한다. <span class="key">최상위 계층</span>이라 여기서 지정한 데이터는 모든 회사코드·조직단위에 적용되므로 <b>한 번만 입력하면 된다</b>(데이터 일관성). 접근권한은 클라이언트별로 배정되며, 클라이언트 키는 시스템 내 고유한 <b>3자리 숫자</b></td></tr>
+<tr><td>회사코드<br>(Company Code)</td><td class="wrap">완전하고 독립적인 부기시스템을 재현할 수 있는 <b>대외회계의 최소 조직단위</b>. 전기되어야 하는 모든 이벤트의 입력과 대차대조표·손익계산서에 대한 완전한 <span class="key">감사추적(Audit Trail)</span> 생성을 포함한다. 독립적인 대차대조표를 산출하는 단위이며, 클라이언트 내에서 고유한 <b>4자리 영숫자 키</b></td></tr>
+<tr><td>플랜트<br>(Plant)</td><td class="wrap">생산 · 조달 · 자재계획 관점에서 기업을 세분화하는 로지스틱스 조직단위</td></tr>
+<tr><td>저장위치<br>(Storage Location)</td><td class="wrap">플랜트 내 자재 재고를 구분. <b>수량 기준 재고관리와 실사</b>가 이 레벨에서 수행된다. 플랜트 내에서 고유한 <b>4자리 영숫자 키</b></td></tr>
+</tbody>
+</table>
+</div>
+
+<p>배정 예시는 이렇습니다 — 플랜트 <code>1010</code>은 회사코드 <code>1010</code>에, 회사코드 <code>1010</code>은 관리영역(Controlling Area) <code>A000</code>에 배정됩니다. 플랜트 <code>1010</code>에서 원가 관련 트랜잭션이 발생할 때마다 <b>관리영역 <code>A000</code>의 관련 레코드가 자동으로 갱신</b>됩니다.</p>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>평가 관련 개념</th><th>내용</th></tr></thead>
+<tbody>
+<tr><td>평가영역<br>(Valuation Area)</td><td class="wrap">자재 <b>수량과 가치</b>가 관리되는 조직레벨. <span class="key">제품원가계산을 하려면 각 플랜트마다 평가영역이 존재해야 한다</span></td></tr>
+<tr><td>평가유형<br>(Valuation Type)</td><td class="wrap">각 평가레벨 내에서 <b>사내생산 · 외부조달</b> 같은 구분으로 가치와 수량을 나눈다</td></tr>
+<tr><td>평가 레벨 선택</td><td class="wrap">대차대조표 평가는 <b>회사코드 또는 평가영역</b> 레벨에서 설정. 평가영역 레벨을 고르면 <b>각 플랜트마다 평가영역이 자동 생성</b>된다</td></tr>
+</tbody>
+</table>
+</div>
+
+<div class="note warn">
+  <div class="t">제품원가계산을 쓰려면 플랜트 레벨 평가</div>
+  <p>제품원가계산 및 오더원가계산을 사용하려면 <b>재고평가가 플랜트 레벨에서 수행되어야 합니다.</b> 회사코드 레벨 평가를 선택해 놓고 나중에 제품원가계산을 붙이려 하면 막힙니다 — 구현 초기에 확정해야 하는 결정입니다.</p>
+</div>
+
+<h4>자재마스터 아카이빙</h4>
+
+<div class="step"><span class="n">1</span><p>자재마스터에 <b>삭제 지시자</b>를 설정한다</p></div>
+<div class="step"><span class="n">2</span><p><b>재구성(Reorganization)</b> 실행 대상으로 자재마스터를 선택한다</p></div>
+<div class="step"><span class="n">3</span><p>재구성을 실행한다. 실행 중 시스템이 <span class="key">해당 자재를 삭제할지 아카이빙할지 확인</span>한다</p></div>
+
+<h3>배치관리(Batch Management)</h3>
+
+<p>일부 산업(특히 프로세스산업)에서는 <b>자재나 제품의 동질적인 부분집합</b>, 즉 배치를 다뤄야 합니다. 배치관리는 SAP ERP 애플리케이션과 통합되어 있으며, 특히 SCM에서 <span class="hl">원자재 입력부터 완제품 생산, 판매 및 고객 배송까지 전체 공급망을 통해 배치를 추적</span>할 수 있게 합니다.</p>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>항목</th><th>내용</th></tr></thead>
+<tbody>
+<tr><td>배치 마스터 레코드</td><td class="wrap">공급망의 여러 지점에서 배치를 자재에 배정하기 위해 생성. <b>영숫자 배치번호</b>가 이를 식별한다. SAP ERP에서 배치 마스터 레코드는 <span class="key">해당 자재마스터 레코드에 종속</span>된다 — 배치는 자재에 대해 생성된다</td></tr>
+<tr><td>핵심 필드</td><td class="wrap"><b>자재 · 배치 · 플랜트</b>. 단 플랜트 필드는 <span class="bad">플랜트 레벨을 배치 레벨로 사용하는 경우에만</span> 관련된다</td></tr>
+<tr><td>배치번호 고유성 레벨</td><td class="wrap">셋 중 선택 — <b>플랜트와 자재의 조합</b> / <b>자재번호와 배치번호의 조합</b> / <b>클라이언트</b>. 플랜트·회사·업무요구사항에 따라 고른다 (자재번호 자체는 클라이언트 레벨에서 고유)</td></tr>
+<tr><td>배치 분류</td><td class="wrap">일반적으로 자재마스터의 데이터는 그 자재의 <b>모든 배치에 유효</b>하다. 반면 배치 마스터 레코드는 <span class="key">그 배치를 고유하게 식별하고 재생산 불가능한 단위로 특징짓는</span> 데이터를 담는다. <b>클래스유형 <code>023</code></b>의 클래스로 분류해 속성을 더 상세히 기술할 수 있다</td></tr>
+<tr><td>활성화 위치</td><td class="wrap">자재가 배치로 생산되고 재고관리 대상이면 자재마스터 뷰(<b>구매 · 작업일정계획 · 창고관리</b>)에서 <code>Batch Management</code> 체크박스를 선택해야 한다</td></tr>
+</tbody>
+</table>
+</div>
+
+<div class="note ok">
+  <div class="t">📌 개인 E2E 프로젝트와의 연결점 — 배치 고유성 레벨을 어디로 잡을 것인가</div>
+  <p>프로젝트는 전 자재를 <b>배치관리 + 유통기한(<code>MCHA-VFDAT</code>)</b>으로 돌리고 SD는 FEFO 배치결정을 씁니다. 이 LESSON에서 실제로 결정을 요구하는 지점은 <span class="key">배치번호 고유성 레벨</span>입니다.</p>
+  <p>프로젝트 구조상 같은 로트가 <b>플랜트 <code>GATE</code>에 입고됐다가 <code>STOR</code>로 이관(<code>301</code>)</b>됩니다. 고유성을 <b>"플랜트와 자재의 조합"</b>으로 잡으면 같은 물리적 로트가 플랜트를 넘을 때 배치 동일성이 보장되지 않아, CBO <code>ZGATE_INSPECT</code>가 <code>101</code>과 <code>301</code>을 <span class="bad">배치 단위로 대사(對査)할 수 없게 됩니다.</span> 따라서 <b>"자재번호와 배치번호의 조합"</b> 또는 클라이언트 레벨이 맞습니다 — 두 플랜트를 가로지르는 추적이 설계의 전제이기 때문입니다.</p>
+  <p>또 하나. <code>Batch Management</code> 체크박스는 <b>구매 · 작업일정계획 · 창고관리</b> 뷰에 있는데, 프로젝트는 생산이 없어 작업일정계획 뷰를 안 만들고 WM도 안 씁니다. 따라서 실제로 켜는 자리는 <b>구매 뷰</b>가 됩니다. <b>확인 필요 — 상품(거래재) 성격의 자재유형에서 이 체크박스가 어느 뷰에 노출되는지, 그리고 유통기한 필드(<code>MHDRZ</code>/<code>MHDHB</code>)와 함께 켜야 하는 조합은 실제 시스템에서 확정합니다.</b></p>
+  <p>마지막으로 클래스유형 <code>023</code>(배치)은 지금 설계에 없습니다. 잔여 유통기한 계산은 <code>MCHA-VFDAT</code> 하나로 충분하고, <b>분류까지 들이면 관리 대상만 늘어납니다.</b> 온도군이 자재그룹(<code>CHKN</code> · <code>RICE</code> · <code>SHAK</code> · <code>PROT</code> · <code>PBAR</code>)과 저장위치로 이미 구분되므로 배치 특성으로 중복해 표현할 이유가 없습니다.</p>
+</div>
+
+<h3>라우팅 트리거포인트(Trigger Point)</h3>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>기능</th><th>설명</th></tr></thead>
+<tbody>
+<tr><td>후행 오퍼레이션 릴리스</td><td class="wrap">트리거포인트가 배정된 오퍼레이션 <b>이후의 모든</b> 오퍼레이션을 릴리스</td></tr>
+<tr><td>정지지시자까지 릴리스</td><td class="wrap"><code>RelStop</code> 지시자가 설정된 다음 오퍼레이션까지(<b>해당 오퍼레이션 포함</b>) 릴리스</td></tr>
+<tr><td>선행 오퍼레이션 릴리스</td><td class="wrap">트리거포인트가 배정된 오퍼레이션 <b>이전의 모든</b> 오퍼레이션을 릴리스</td></tr>
+<tr><td>복사를 통한 오더 생성</td><td class="wrap">참조오퍼레이션세트를 복사해 <b>자재 참조 없이</b> 새 오더 생성</td></tr>
+<tr><td>참조오퍼레이션세트 삽입</td><td class="wrap">기존 오더에 삽입. <b>어느 오퍼레이션 사이에 넣을지 지정</b>해야 한다</td></tr>
+<tr><td>워크플로우 태스크 시작</td><td class="wrap">표준 트리거포인트를 복사해 새로 만들 수 있다 — 예: 사용자에게 메일 발송</td></tr>
+</tbody>
+</table>
+</div>
+
+<p>표준 트리거포인트를 복사하면 필요한 모든 데이터가 자동으로 전달되어 생성 시간과 작업이 줄어듭니다. 여러 표준 트리거포인트를 <span class="key">트리거포인트그룹</span>으로 묶으면, 그룹에서 복사할 때 <b>그룹 내 모든 표준 트리거포인트가 오퍼레이션에 자동 전달</b>됩니다. 트리거포인트그룹은 커스터마이징에서 유지보수합니다.</p>
+
+<h3>스크랩(Scrap) 3종</h3>
+
+<p>생산에서 발생하는 스크랩 수량을 계산·계획하고, 이를 계획실행과 생산원가 계산에 반영할 수 있습니다. 계산은 <b>자재마스터 · BOM · 라우팅의 설정에 따라</b> 달라지며, 스크랩 수량은 <span class="key">순소요량(Net Requirements Quantity)에 대해 정산</span>됩니다. 용도는 MRP와 제품원가계산입니다.</p>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>종류</th><th>대상</th><th>효과</th></tr></thead>
+<tbody>
+<tr><td>조립품스크랩<br>(Assembly)</td><td class="wrap"><b>자재가 조립품인 경우에만</b> 사용. 원인: 품질 불량, 열·냉기·습기 등 열악한 작업조건</td><td class="wrap">조립품의 <b>오더수량을 증가</b>시키고, 그 결과 MRP 실행 중 생성되는 종속소요량을 조정해 <span class="key">BOM 내 각 구성부품의 오더수량도 증가</span>시킨다</td></tr>
+<tr><td>구성부품스크랩<br>(Component)</td><td class="wrap">조립품 생산 중 파손될 수 있는 <b>개별 구성부품</b>. BOM 항목상세 일반데이터에 넣으면 <b>그 BOM에만</b>, 자재마스터 <code>MRP 4</code> 뷰의 <code>Component scrap</code>에 넣으면 <b>모든 BOM에</b> 적용. <span class="key">BOM 쪽이 우선</span></td><td class="wrap">해당 구성부품의 <b>종속소요량을 증가</b>시킨다. BOM 전개 시 시스템은 <b>구성부품 수량만</b> 늘린다</td></tr>
+<tr><td>오퍼레이션스크랩<br>(Operation)</td><td class="wrap">고가치 구성부품을 조립품에 조립하기 <b>전에</b> 품질검사가 필요한 경우. 불량 자재를 다음 오퍼레이션으로 보내지 않고 프로세스에서 제거한다</td><td class="wrap"><b>다음 오퍼레이션에서의 수량 감소</b>를 초래하며 스케줄링과 원가계산에 반영. 오퍼레이션에 유지보수된 스크랩비율은 <b>스케줄링 갱신과 함께 자재마스터에 추가</b>된다</td></tr>
+</tbody>
+</table>
+</div>
+
+<div class="note warn">
+  <div class="t">조립품스크랩과 가용성 계산은 별개다</div>
+  <p>시스템은 생산할 수량을 스크랩비율만큼 자동으로 늘리지만, <span class="bad">조립품의 가용성 계산에는 항상 추정양품(Estimated Yield)을 사용</span>합니다. MRP 리스트나 재고/소요량 리스트에도 <b>항상 조립품의 추정양품</b>이 표시됩니다. "오더수량과 리스트 수량이 다르다"는 여기서 나옵니다.</p>
+  <p>또한 상위레벨 조립품에 스크랩이 계획되어 있으면 <b>조립품스크랩과 구성부품스크랩이 모두 구성부품 레벨에 더해집니다.</b> 두 개를 다 걸어놓고 "왜 이렇게 많이 나오나"를 묻게 되는 지점입니다.</p>
+</div>
+
+<div class="note">
+  <div class="t">🔰 초보자 설명 — 순지시자(Net Indicator)</div>
+  <p>조립품에 <b>조립품스크랩 수량이 유지보수된 구성부품</b>이 포함된 경우, 시스템은 <span class="key">오퍼레이션스크랩만 고려</span>합니다. 이때 계산 기준을 정하는 것이 순지시자입니다.</p>
+  <p>순지시자를 설정하면 시스템은 <b>조립품스크랩을 고려하지 않고</b> 구성부품 오퍼레이션스크랩을 계산합니다(순투입수량 기준). 중요한 건 다음입니다 — <span class="bad">오퍼레이션스크랩이 유지보수되지 않았는데 조립품스크랩이 입력된 경우에도 순지시자를 설정해야 하고, 이 경우 조립품스크랩은 고려되지 않습니다.</span> 고가치 자재에서 추정 조립품스크랩을 실제 값으로 대체해 MRP를 더 정밀하게 만드는 장치입니다.</p>
+</div>
+
+</div>
+
+
+<!-- ══════════ APPENDIX ══════════ -->
+<div class="lesson" id="lx">
+<h2><span class="no">APPENDIX</span>정리 · 반드시 기억할 것</h2>
+
+<h3>한 장 요약</h3>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>질문</th><th>답</th></tr></thead>
+<tbody>
+<tr><td>기준정보 4종</td><td class="wrap">자재마스터(무엇을) · BOM(무엇으로) · 라우팅(어떤 순서로) · 작업장(어디서). 넷을 묶는 것이 <b>생산버전</b></td></tr>
+<tr><td>BOM·라우팅 다 만들었는데 오더가 안 선다</td><td class="wrap">S/4HANA는 <span class="bad">생산오더에 생산버전이 필수.</span> 자재 MRP 데이터 내에 생산버전을 정의해야 한다</td></tr>
+<tr><td>자재 테이블 3층</td><td class="wrap">MARA(클라이언트) · MARC(플랜트) · MARD(저장위치). 그 밖에 MAKT · MVKE · MLGN · MBEW · EINA/EINE</td></tr>
+<tr><td>자재유형이 정하는 것</td><td class="wrap">유지보수 부서 · 내부/외부 채번과 번호범위 · 화면과 순서 · 수량/가치 갱신 여부 · <b>조달유형</b> · 입출고 전기 계정</td></tr>
+<tr><td>MRP 프로파일 vs MRP 그룹</td><td class="wrap">프로파일은 값이 자재에 <b>보인다</b>, 그룹은 <span class="bad">보이지 않는다</span></td></tr>
+<tr><td>자재 복사에서 안 따라오는 것</td><td class="wrap">분류 · DMS 문서 · 형상 · MRP 영역 · QM 검사유형 · 판매조건 · <b>BOM · 라우팅 · 생산버전</b>. 자재유형은 복사되며 변경 불가</td></tr>
+<tr><td>자재 상태가 겹치면</td><td class="wrap"><b>더 제한적인 상태가 우선</b>(플랜트횡단/플랜트별 무관)</td></tr>
+<tr><td>BOM이 MRP에서 안 전개된다</td><td class="wrap"><b>BOM 상태 · 유효기간 · 사용처</b> 셋 중 하나. 상태 <code>1</code>은 전개 가능, <code>2</code>는 불가</td></tr>
+<tr><td>항목 카테고리를 잘못 넣었다</td><td class="wrap">입력 후에는 <span class="bad">변경 불가.</span> 항목을 삭제하고 새로 생성하는 수밖에 없다</td></tr>
+<tr><td>자재마스터 지시자와 BOM 지시자가 다르면</td><td class="wrap"><b>BOM이 이긴다.</b> BOM 설정이 사용처·프로세스에 특화되어 있기 때문</td></tr>
+<tr><td>팬텀어셈블리가 하는 일</td><td class="wrap">재고로 존재하지 않고 전개 시 사라진다 → 구성부품이 상위에 <b>직접 예약</b>. 설정은 자재 <code>MRP 2</code> 특수조달키, BOM에서 재정의</td></tr>
+<tr><td>공동제품 · 부산물 · 폐기물</td><td class="wrap">셋 다 음수 수량 구성부품. <b>공동제품만</b> 원가정산 대상이고 헤더정산규칙에 표시된다. 폐기물만 평가액 0</td></tr>
+<tr><td>BOM 항목 하나를 두 오퍼레이션에</td><td class="wrap"><span class="bad">불가.</span> BOM에서 항목을 둘로 쪼개야 한다</td></tr>
+<tr><td>서브오퍼레이션에 못 붙이는 것</td><td class="wrap"><b>자재구성부품 · PRT · 검사특성.</b> 스케줄링도 주 오퍼레이션에서만</td></tr>
+<tr><td>병렬 시퀀스 vs 대체 시퀀스</td><td class="wrap">병렬은 <b>동시에</b>(라우팅+요율라우팅), 대체는 <b>대신</b>(라우팅에서만, 로트크기 구간으로 자동 선택). 참조오퍼레이션세트에서는 <span class="bad">둘 다 불가</span></td></tr>
+<tr><td>참조능력을 걸면</td><td class="wrap">그 작업장에서 능력을 <span class="bad">직접 못 고친다.</span> 참조능력헤더에서만 유지보수</td></tr>
+<tr><td>작업장 값이 라우팅에서 안 바뀐다</td><td class="wrap">작업장에서 <code>Ref. Ind.</code>(참조)로 표시한 기본값이다 — 의도된 잠금</td></tr>
+<tr><td>대기시간이 작업장과 오퍼레이션 양쪽에 있으면</td><td class="wrap"><b>오퍼레이션에 값이 없을 때만</b> 작업장 값을 쓴다. 이동시간 매트릭스도 같은 규칙</td></tr>
+<tr><td>이력 없는 변경이면 기록이 안 남나</td><td class="wrap"><b>남는다.</b> 이력 없는 변경이라도 <span class="key">변경문서는 생성</span>된다. 안 남는 건 오브젝트의 이전 상태</td></tr>
+<tr><td>필드선택 기호 우선순위</td><td class="wrap"><code>-</code> 숨김 → <code>*</code> 표시 → <code>+</code> 필수 → <code>.</code> 선택</td></tr>
+<tr><td>저장위치 키가 겹쳐도 되나</td><td class="wrap">된다. <b>플랜트 내에서만</b> 고유하면 된다(복합키). 플랜트 키는 클라이언트 내 고유</td></tr>
+<tr><td>MRP 영역을 왜 쓰나</td><td class="wrap">플랜트를 새로 만들지 않고 <b>저장위치 단위로 소요와 재고를 분리</b>하려고. 물리적 조직구조가 아니다</td></tr>
+<tr><td>스크랩 3종</td><td class="wrap">조립품(오더수량↑ → 종속소요량↑) · 구성부품(그 구성부품의 종속소요량↑) · 오퍼레이션(다음 오퍼레이션 수량↓)</td></tr>
+</tbody>
+</table>
+</div>
+
+<div class="note warn">
+  <div class="t">반드시 지킬 것</div>
+  <p>· <b>"자재가 있다"로 말하지 않는다.</b> 어느 클라이언트에 어느 플랜트까지 어떤 뷰가 있는지를 말해야 진단이 시작된다.<br>
+     · <b>항목 카테고리와 변형BOM은 되돌릴 수 없다.</b> 항목 카테고리는 입력 후 변경 불가, 변형BOM은 기존 BOM이 있으면 아예 생성 불가 — 설계 초기에 확정한다.<br>
+     · <b>재정의(Override) 방향을 외운다.</b> 자재마스터 ← BOM 항목이 이긴다. 작업장 ← 오퍼레이션이 이긴다(단, 작업장이 참조로 잠근 것은 예외).<br>
+     · <b>권한 오브젝트 <code>C_STUE_NOH</code>를 넓게 뿌리지 않는다.</b> ECM으로 이력을 강제해 놓고 이 권한을 열면 통제가 무력해진다.<br>
+     · <b>표준 하위화면을 먼저 쓴다.</b> 자체 하위화면은 <code>SAPLMGD1</code> 복사와 <code>SAPLMGMM</code> 수정을 부르며, 수정은 업그레이드 리스크를 그대로 안고 간다.<br>
+     · <b>사용자정의필드를 검증 장치로 착각하지 않는다.</b> 시스템은 그 값을 검증하지 않는다.<br>
+     · <b>필드선택을 필수로 바꿔도 기존 데이터는 검사되지 않는다.</b> 과거 데이터 보정은 별도 작업이다.</p>
+</div>
+
+<div class="note warn">
+  <div class="t">확인 필요 — 이 노트가 단정하지 않은 것</div>
+  <p>· <b>PRT 카테고리의 실제 코드값</b>과 유지보수 트랜잭션 (Unit 4-5는 개념만 다룬다)<br>
+     · <b>EWB의 잠금(Lock) 동작</b> — 원문은 "표준과 다르다"까지만 쓴다. 동시 편집 단위와 충돌 시 우선순위<br>
+     · <b>ECM 파라미터 유효성</b>(일련번호 · 시간간격 · 고객)의 활성화 방법과 제약<br>
+     · <b>트랜잭션 코드 전반</b> — 원문에 실제로 등장하는 것은 <code>MM02</code> <code>MM12</code> <code>MM17</code> <code>MM50</code> <code>MMCU</code> <code>MMSC</code> <code>CC04</code> 정도다. 나머지 기능의 T-Code와 Fiori 앱 ID는 <span class="bad">기억으로 채우지 않고</span> 실제 시스템(winerp01 / MEP)에서 확인한 뒤 보강한다<br>
+     · <b>프로젝트 자재유형</b> — 원문의 자재유형 표(FERT · ROH · HALB · DIEN · KMAT · INTR · FHMI)에는 사입 후 재판매하는 <b>상품(거래재)</b> 성격의 유형이 없다. 프로젝트에서 쓸 자재유형과 그 조달유형은 실제 시스템에서 확정한다</p>
+</div>
+
+<h3>이 노트의 범위에 대해</h3>
+
+<div class="note">
+  <div class="t">개인 프로젝트와의 거리</div>
+  <p>진행 중인 개인 E2E 프로젝트(식품 유통 · 벤더 사입 후 재판매)는 <b>생산과 외주가공이 없습니다.</b> 따라서 이 노트의 BOM · 팬텀 · 공동제품 · 작업장 · 라우팅 · 시퀀스 · 스크랩은 프로젝트에 직접 쓰이지 않습니다. PP는 <span class="key">자격증과 지식 목적</span>으로 학습합니다.</p>
+  <p>프로젝트와 실제로 닿는 지점은 <b>Unit 7(부록, 커스터마이징)</b>에 몰려 있고 📌도 거기에만 달았습니다 — LESSON 7의 <b>자재마스터 필드선택</b>(배치·유통기한 필드를 표준 장치로 잠그는 자리), <b>플랜트 · 저장위치 · MRP 영역</b>(<code>GATE</code>/<code>STOR</code> 2플랜트와 온도군 × 정상·임박 6개 저장위치 설계의 근거), 그리고 LESSON 8의 <b>배치관리</b>(배치번호 고유성 레벨 결정). 나머지는 억지로 연결하지 않았습니다.</p>
+</div>
+
+<h3>참고</h3>
+
+<ul>
+  <li>원본: 노션 <b>SAP Learning Hub</b> → Implementing Manufacturing in SAP S/4HANA Cloud Private Edition → <b>7-1 ~ 7-8</b> (Unit 1~7 전체 · 레슨 38개)</li>
+  <li>앞 노트: <b>S42000</b> 제조 기초 — 공급망계획 · 계획전략 · 생산오더 · <b>S42010</b> 생산계획 프로세스</li>
+  <li>이어지는 노트: <b>S42220</b> 생산계획 — 수요관리 · MRP Live</li>
+  <li>이 노트의 Unit 7(LESSON 7~8)은 원문에서도 <b>부록(Appendix)</b>으로 분류된 커스터마이징 파트입니다. 개념 학습보다 <b>구성 작업 시 참조용</b>으로 쓰는 것이 맞습니다.</li>
+</ul>
+
+</div>
+
+</div>
+<script src="../../assets/hub.js" defer></script>
+</body>
+</html>

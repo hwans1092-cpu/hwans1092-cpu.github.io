@@ -1,0 +1,954 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>S42025 프로세스생산 현장관리 — 마스터레시피 · 배치관리 · 공정오더</title>
+<meta name="description" content="SAP Learning Hub의 Exploring Business Processes in Process Shopfloor Control(S42025) 노트. 프로세스생산 마스터데이터(배치·마스터레시피·자원·생산버전), 생산계획 연계, 공정오더 라이프사이클, 계획오더 전환과 배치결정, 릴리스·자재출고·오더확인·입고까지 실행 전 구간.">
+<link rel="icon" href="../../assets/favicon.svg">
+<link rel="stylesheet" href="../../assets/notes-paper.css">
+<style>
+/* ── 이 노트 전용: 도해(SVG) 스타일 ─────────────────────────── */
+.dgm{display:block; width:100%; height:auto;}
+.dgm text{font-family:"Malgun Gothic","맑은 고딕","Apple SD Gothic Neo",sans-serif; fill:#1e1e1e;}
+.dgm .t-h{font-size:15px; font-weight:700;}
+.dgm .t{font-size:13px;}
+.dgm .t-s{font-size:11.5px; fill:#555;}
+.dgm .t-xs{font-size:10.5px; fill:#6B7280;}
+.dgm .m{font-family:"D2Coding","Consolas",monospace; font-size:12px;}
+.dgm .m-s{font-family:"D2Coding","Consolas",monospace; font-size:10.5px;}
+.dgm .c-key{fill:#4338CA;} .dgm .c-bad{fill:#B91C1C;} .dgm .c-ok{fill:#047857;}
+.dgm .b{fill:#FFFFFF; stroke:#C7CBD6; stroke-width:1.2;}
+.dgm .b-key{fill:#EEF0FB; stroke:#4338CA; stroke-width:1.4;}
+.dgm .b-bad{fill:#FEF2F2; stroke:#B91C1C; stroke-width:1.3;}
+.dgm .b-ok{fill:#ECFDF5; stroke:#047857; stroke-width:1.3;}
+.dgm .b-mut{fill:#F3F4F6; stroke:#D1D5DB; stroke-width:1.1;}
+.dgm .b-hl{fill:#FEF08A; stroke:#CA8A04; stroke-width:1.2;}
+.dgm .b-ghost{fill:none; stroke:#9AA3B2; stroke-width:1.1; stroke-dasharray:5 4;}
+.dgm .ln{stroke:#7C8697; stroke-width:1.4; fill:none;}
+.dgm .ln-key{stroke:#4338CA; stroke-width:1.8; fill:none;}
+.dgm .ln-bad{stroke:#B91C1C; stroke-width:1.6; fill:none;}
+.dgm .ln-ok{stroke:#047857; stroke-width:1.6; fill:none;}
+.dgm .ln-d{stroke:#9AA3B2; stroke-width:1.2; stroke-dasharray:4 4; fill:none;}
+.dgm .arw{fill:#7C8697;} .dgm .arw-key{fill:#4338CA;}
+.dgm .arw-bad{fill:#B91C1C;} .dgm .arw-ok{fill:#047857;}
+.figwrap{background:#FAFAFE; border:1px solid var(--rule); border-radius:6px;
+  padding:18px 16px 10px; margin:22px 0;}
+.figwrap figcaption{margin-top:12px; padding-top:10px; border-top:1px solid var(--rule);}
+</style>
+</head>
+<body>
+<div class="crumb"><a href="../../index.html">← 자료실 홈</a> · <a href="../../journey.html?j=pp">PP 저니</a> · S42025 프로세스생산 현장관리</div>
+<div class="sheet">
+
+<div class="doc-head">
+  <div class="kicker">LEARNING HUB · S42025</div>
+  <h1>프로세스생산 현장관리 — 마스터레시피 · 배치관리 · 공정오더</h1>
+  <div class="sub">
+    Learning Journey <b>Implementing Manufacturing in SAP S/4HANA Cloud Private Edition</b> · Course 6 / S42025 · 6 hr+ · 5 Unit · 8 레슨<br>
+    출처: 노션 <b>SAP Learning Hub</b> 노트 6-1(Unit 1~4) · 6-2(Unit 5) 변환 · 강의 전체가 자전거회사의 <b>자전거 페인트(캔 포장)</b> 생산 예시로 이어진다
+  </div>
+</div>
+
+<div class="lead">
+  <p><b>결론부터.</b> 프로세스생산은 이산생산과 다른 세계가 아니라 <span class="hl">같은 구조에 두 겹이 더 얹힌 것</span>입니다. 하나는 작업 아래 <span class="key">페이즈(Phase)</span>라는 층이 생긴다는 것, 다른 하나는 수량이 개수가 아니라 <span class="key">배치(Batch)</span> 단위 부분수량으로 흐른다는 것. 라우팅이 마스터레시피로, 작업장이 자원으로, 생산오더가 공정오더로 이름을 바꾸는 것은 그 결과입니다.</p>
+  <p>그래서 이 코스의 무게중심은 "무엇을 만드는가"가 아니라 <b>"어느 배치로 만드는가"</b>에 있습니다. 배치는 마스터데이터(Unit 1)에서 정의되고, 공정오더 생성(Unit 4) 시점에 <span class="key">배치 결정</span>으로 골라지며, 입고(Unit 5) 시점에 새 배치로 태어납니다. 개인 E2E 프로젝트(식품 유통)와 실제로 닿는 지점도 정확히 이 배치 축 하나입니다.</p>
+</div>
+
+<div class="toc">
+  <h4>목차</h4>
+  <ol>
+    <li><a href="#l1">프로세스생산 마스터데이터 — 배치 · 마스터레시피 · 생산버전</a></li>
+    <li><a href="#l2">생산계획과의 연계 — 계획오더에서 공정오더로</a></li>
+    <li><a href="#l3">공정오더 라이프사이클 — 5단계와 그 사이의 지원기능</a></li>
+    <li><a href="#l4">공정오더 생성 — 계획오더 전환 · 가용성 체크 · 배치 결정</a></li>
+    <li><a href="#l5">공정오더 실행 — 릴리스 · 자재출고 · 오더확인 · 입고</a></li>
+  </ol>
+</div>
+
+
+<!-- ══════════ LESSON 1 ══════════ -->
+<div class="lesson" id="l1">
+<h2><span class="no">LESSON 1</span>프로세스생산 마스터데이터 — 배치 · 마스터레시피 · 생산버전</h2>
+
+<p><span class="tag">Unit 1</span><span class="tag">레슨 1개</span>Analyzing Master Data for Process Manufacturing</p>
+
+<h3>언제 이걸 알아야 하는가</h3>
+
+<p>프로세스생산 쪽에서 가장 먼저 걸리는 문의가 두 개입니다. <b>"공정오더를 만들려는데 생산버전이 없다고 막힙니다"</b>와 <b>"같은 자재인데 배치마다 값이 달라서 어느 걸 써야 할지 모르겠습니다"</b>.</p>
+
+<p>둘 다 마스터데이터 문제입니다. 앞엣것은 <span class="key">BOM과 마스터레시피의 조합</span>을 묶어 주는 생산버전이 없다는 뜻이고, 뒤엣것은 <span class="key">배치 클래스에 정의된 특성</span>을 보고 고르는 것이 정답인데 그 구조를 모른다는 뜻입니다. 이 LESSON이 그 다섯 개 마스터데이터의 지도입니다.</p>
+
+<h3>공정오더를 위한 마스터데이터 5종</h3>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>마스터데이터</th><th>무엇을 정의하는가</th><th>페인트 예시</th></tr></thead>
+<tbody>
+<tr><td>자재<br>(Material)</td><td class="wrap">완제품 · 반제품(사내 생산 조립품) · 원자재(구매품)의 자재 마스터 레코드</td><td class="wrap">완제품 = 캔 포장 페인트 / 반제품 = 기초 페인트 / 원자재 = 캔 · 안료</td></tr>
+<tr><td>BOM</td><td class="wrap">완제품 · 조립품 생산에 필요한 <b>구성부품과 수량</b></td><td class="wrap">페인트 1,000캔 ← 기초 페인트 1,000L + 캔 1,000개 + 안료 100kg</td></tr>
+<tr><td><span class="key">마스터레시피</span><br>(Master Recipe)</td><td class="wrap">수행할 <b>단계</b>를 상세 정의. 기술적으로 오퍼레이션 + 페이즈로 모델링</td><td class="wrap">오퍼레이션 10 혼합 / 20 충전·라벨링</td></tr>
+<tr><td>자원<br>(Resource)</td><td class="wrap">오퍼레이션이 수행되는 <b>물리적 장소 · 생산수단</b></td><td class="wrap">혼합 유닛 · 페인트 충전 스테이션</td></tr>
+<tr><td><span class="key">생산버전</span><br>(Production Version)</td><td class="wrap">특정 BOM과 특정 마스터레시피의 <b>조합</b>을 연결</td><td class="wrap">버전 A(1,000L 유닛) / 버전 B(100L 유닛)</td></tr>
+</tbody>
+</table>
+</div>
+
+<h3>이산생산과 무엇이 다른가</h3>
+
+<figure class="figwrap">
+<svg class="dgm" viewBox="0 0 1000 404" role="img" aria-label="이산생산과 프로세스생산 비교 도해. 라우팅·생산오더·작업장·작업에 각각 마스터레시피·공정오더·자원·오퍼레이션과 페이즈가 1대1로 대응하며, 실질적 차이는 작업 아래 페이즈 층이 한 겹 더 있다는 것과 수량이 배치 단위로 흐른다는 두 가지뿐이다.">
+  <defs>
+    <marker id="mp1" markerWidth="9" markerHeight="9" refX="7" refY="4.5" orient="auto">
+      <polygon class="arw" points="0,0 9,4.5 0,9"/></marker>
+  </defs>
+
+  <rect class="b-mut" x="12" y="20" width="196" height="46" rx="6"/>
+  <text class="t-h" x="30" y="50">비교 항목</text>
+
+  <rect class="b" x="220" y="20" width="376" height="46" rx="6"/>
+  <text class="t-h" x="240" y="50">이산생산 (Discrete)</text>
+  <text class="t-xs" x="452" y="50">S42020 노트</text>
+
+  <rect class="b-key" x="608" y="20" width="380" height="46" rx="6"/>
+  <text class="t-h c-key" x="628" y="50">프로세스생산 (Process)</text>
+  <text class="t-xs" x="866" y="50">이 노트</text>
+
+  <rect class="b-mut" x="12" y="76" width="196" height="44" rx="5"/>
+  <text class="t" x="30" y="104">작업순서 정의</text>
+  <rect class="b" x="220" y="76" width="376" height="44" rx="5"/>
+  <text class="t" x="240" y="104">라우팅 (Routing)</text>
+  <rect class="b-key" x="608" y="76" width="380" height="44" rx="5"/>
+  <text class="t c-key" x="628" y="104">마스터레시피 (Master Recipe)</text>
+
+  <rect class="b-mut" x="12" y="126" width="196" height="44" rx="5"/>
+  <text class="t" x="30" y="154">실행 오더</text>
+  <rect class="b" x="220" y="126" width="376" height="44" rx="5"/>
+  <text class="t" x="240" y="154">생산오더 (Production Order)</text>
+  <rect class="b-key" x="608" y="126" width="380" height="44" rx="5"/>
+  <text class="t c-key" x="628" y="154">공정오더 (Process Order)</text>
+
+  <rect class="b-mut" x="12" y="176" width="196" height="44" rx="5"/>
+  <text class="t" x="30" y="204">수행 장소</text>
+  <rect class="b" x="220" y="176" width="376" height="44" rx="5"/>
+  <text class="t" x="240" y="204">작업장 (Work Center)</text>
+  <rect class="b-key" x="608" y="176" width="380" height="44" rx="5"/>
+  <text class="t c-key" x="628" y="204">자원 (Resource)</text>
+
+  <rect class="b-mut" x="12" y="226" width="196" height="44" rx="5"/>
+  <text class="t" x="30" y="254">작업 단위</text>
+  <rect class="b" x="220" y="226" width="376" height="44" rx="5"/>
+  <text class="t" x="240" y="254">작업 (Operation)</text>
+  <rect class="b-hl" x="608" y="226" width="380" height="44" rx="5"/>
+  <text class="t" x="628" y="254">오퍼레이션 + 페이즈(Phase)</text>
+
+  <rect class="b-mut" x="12" y="276" width="196" height="44" rx="5"/>
+  <text class="t" x="30" y="304">수량이 흐르는 단위</text>
+  <rect class="b" x="220" y="276" width="376" height="44" rx="5"/>
+  <text class="t" x="240" y="304">개수로 세는 개별 제품</text>
+  <rect class="b-hl" x="608" y="276" width="380" height="44" rx="5"/>
+  <text class="t" x="628" y="304">배치(Batch) 단위 부분수량</text>
+
+  <rect class="b-ghost" x="12" y="334" width="976" height="58" rx="6"/>
+  <text class="t-s" x="32" y="360">이름만 갈릴 뿐 구조는 <tspan class="c-key">1:1 대응</tspan>이다. 실제로 다른 것은 노란 두 줄 — 작업 아래 페이즈 층이 한 겹 더 있고, 수량이 배치로 흐른다.</text>
+  <text class="t-s" x="32" y="382">그래서 프로세스생산에서만 <tspan class="c-key">배치 결정</tspan>(LESSON 4)과 <tspan class="c-key">입고 시 배치 생성</tspan>(LESSON 5)이 라이프사이클의 정식 단계로 들어온다.</text>
+</svg>
+<figcaption><span class="fno">그림 1</span>이산생산 vs 프로세스생산. 대응 구조는 같고, 실질 차이는 페이즈와 배치 두 가지다.</figcaption>
+</figure>
+
+<h3>배치(Batch) — 무엇이고 왜 있는가</h3>
+
+<p>프로세스산업을 포함한 여러 업종은 물류상의 수량 · 가치 흐름을 <b>동질적인 부분수량(Homogeneous Partial Quantity)</b> 단위로 계속 관리해야 합니다. SAP S/4HANA에서 <span class="key">배치</span>는 재고로 보유한 자재 총수량 중 일부를 별도로 관리하는 부분수량으로 정의됩니다.</p>
+
+<ul>
+  <li>같은 배치에 속한 자재는 <b>동일한 물리적 · 화학적 특성</b>을 공유한다</li>
+  <li>같은 자재라도 <b>다른 배치는 다른 특성</b>을 가질 수 있다</li>
+  <li>생산 관점에서 배치는 특정 <b>생산 실행(Run)</b> 동안 생산된 반제품 수량인 경우가 많다</li>
+  <li>원자재의 경우 특정 시점에 <b>특정 공급업체로부터 구매한 수량</b>인 경우가 많다</li>
+</ul>
+
+<p>수량 외에 배치 마스터 레코드로 부분수량의 속성도 관리합니다. <span class="key">배치 클래스(Batch Class)</span>에서 마스터데이터 담당자가 밀도 · 색상 · pH 값 같은 속성 목록을 정의하고, 배치 마스터 레코드를 만들 때(= 입고를 등록하는 창고 담당자가) 그 배치의 특성값을 기록합니다. 기초 페인트의 pH 값이 배치 C1은 7.0, 배치 C2는 6.9인 식입니다.</p>
+
+<p>물류 체인 전반에서 원자재 · 반제품 · 완제품의 개별 배치를 <b>사용처 리스트(Where-used List)</b>로 추적할 수 있습니다.</p>
+
+<div class="note">
+  <div class="t">🔰 초보자 설명 — 배치가 오더 개수를 정한 사례</div>
+  <p>자전거회사가 1리터들이 캔에 담긴 빨간 페인트 <b>1,200리터</b>를 생산해야 합니다. 자원 제약으로 한 번에 못 만들어서 공정오더를 2건(<code>60114</code>, <code>60225</code>) 만들고 각각 기초 페인트 배치 <b>C1 · C2</b>를 배정합니다. 두 배치는 점도 · pH · 최대 흡수 파장이 다릅니다.</p>
+  <p>여기서 중요한 건 오더를 <b>둘로 나눈 이유</b>입니다. 자원 용량 때문만이 아니라, <span class="bad">업무 규정상 하나의 공정오더 안에서 서로 다른 두 구성부품 배치를 혼합할 수 없기</span> 때문입니다. 그리고 시스템이 배치를 개별 관리하므로 계획 담당자는 각 배치의 잔여 수량(567kg · 693kg)을 보고 각 오더 수량을 맞춰 조정할 수 있습니다.</p>
+</div>
+
+<div class="note ok">
+  <div class="t">📌 개인 E2E 프로젝트와의 연결점 — 배치 특성을 어디까지 쓸 것인가</div>
+  <p>프로젝트(식품 유통 · 회사코드 <code>CL04</code>)도 <b>전 품목 배치관리</b>입니다. 다만 성격이 다릅니다. 강의의 배치 특성은 pH · 점도 같은 <b>품질값</b>이고, 프로젝트가 관리하는 것은 <code>MCHA-VFDAT</code>(유통기한) 하나입니다. 자재그룹 <code>CHKN</code> · <code>RICE</code> · <code>SHAK</code> · <code>PROT</code> · <code>PBAR</code> 전부 동일합니다.</p>
+  <p>그래서 프로젝트에서는 <b>배치 클래스에 특성을 더 만들 이유가 없습니다.</b> 유통기한은 배치 마스터의 표준 필드(<code>MCHA-VFDAT</code>)라 클래스 특성을 새로 정의하지 않아도 배치결정 정렬키로 쓸 수 있기 때문입니다. 여기서 배운 "클래스 → 특성 → 배치별 값" 구조는 <span class="key">왜 프로젝트가 그 구조를 안 쓰는지</span>를 설명할 근거로 씁니다 — 안 쓰는 이유를 말할 수 있어야 쓴 것과 같습니다.</p>
+  <p>반대로 그대로 가져오는 것이 하나 있습니다. <b>사용처 리스트(Where-used List)</b>입니다. 벤더 사입 → <code>GATE</code> 입고 → <code>STOR</code> 이관 → 출하로 이어지는 흐름에서 배치 하나가 어디까지 갔는지 추적하는 것은 식품 리콜의 기본 요건입니다.</p>
+</div>
+
+<h3>BOM — 계획과 실행에서 각각 다르게 쓰인다</h3>
+
+<p>완제품 · 조립품에 필요한 구성부품은 BOM으로 정의됩니다. 기초 페인트 같은 <b>조립품 자체도 BOM을 가질 수 있어</b> 다단계 BOM 구조가 만들어집니다. BOM에는 제품 1단위 조립에 필요한 구성부품 수량도 들어갑니다.</p>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>어디서 쓰이는가</th><th>무엇을 위해</th></tr></thead>
+<tbody>
+<tr><td>생산계획</td><td class="wrap">특정 기간에 필요한 <b>구매 원자재 수량</b> 산정. 시스템이 재고 수량과 필요 수량을 비교해 필요 시 <span class="key">구매요청</span>을 생성</td></tr>
+<tr><td>생산실행</td><td class="wrap">공정오더 내 BOM으로 <b>요청 수량 생산에 필요한 원자재 수량</b>을 산정</td></tr>
+</tbody>
+</table>
+</div>
+
+<h3>마스터레시피 — 오퍼레이션과 페이즈</h3>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>구분</th><th>설명</th></tr></thead>
+<tbody>
+<tr><td>오퍼레이션<br>(Operation)</td><td class="wrap"><b>하나의 자원으로 전체가 수행되는</b> 독립적인 단계</td></tr>
+<tr><td><span class="key">페이즈</span><br>(Phase)</td><td class="wrap">오퍼레이션을 업무적으로 논리적인 하위 단계로 세분화한 것. <b>상위 오퍼레이션에 배정된 자원이 자동으로 페이즈에도 적용</b>된다</td></tr>
+</tbody>
+</table>
+</div>
+
+<p>마스터데이터 담당자는 페이즈의 실행 순서, 페이즈 간 연결관계, 각 페이즈의 <b>소요시간</b>까지 정의합니다. 페이즈 소요시간이 공정오더의 처리시간을 계산하는 근거가 됩니다.</p>
+
+<figure class="figwrap">
+<svg class="dgm" viewBox="0 0 1000 452" role="img" aria-label="마스터레시피 구조 도해. 마스터레시피 아래 오퍼레이션이 있고 그 아래 페이즈가 있으며, 자원은 오퍼레이션에 배정되어 하위 페이즈에 자동 적용되고, BOM 구성부품은 오퍼레이션이 아니라 개별 페이즈에 배정된다.">
+  <defs>
+    <marker id="mp2" markerWidth="9" markerHeight="9" refX="7" refY="4.5" orient="auto">
+      <polygon class="arw" points="0,0 9,4.5 0,9"/></marker>
+    <marker id="mp2k" markerWidth="9" markerHeight="9" refX="7" refY="4.5" orient="auto">
+      <polygon class="arw-key" points="0,0 9,4.5 0,9"/></marker>
+    <marker id="mp2o" markerWidth="9" markerHeight="9" refX="7" refY="4.5" orient="auto">
+      <polygon class="arw-ok" points="0,0 9,4.5 0,9"/></marker>
+  </defs>
+
+  <rect class="b-key" x="330" y="14" width="340" height="44" rx="6"/>
+  <text class="t-h c-key" x="352" y="42">마스터레시피 — 캔 포장 페인트</text>
+
+  <path class="ln-key" d="M500 58 V76 H240 V96" marker-end="url(#mp2k)"/>
+  <path class="ln-key" d="M500 58 V76 H760 V96" marker-end="url(#mp2k)"/>
+
+  <rect class="b" x="24" y="100" width="432" height="52" rx="6"/>
+  <text class="t-h" x="44" y="124">오퍼레이션 10 — 페인트 혼합</text>
+  <text class="t-xs" x="44" y="143">자원 하나로 전체 수행 · 50°C 3시간 교반</text>
+
+  <rect class="b" x="544" y="100" width="432" height="52" rx="6"/>
+  <text class="t-h" x="564" y="124">오퍼레이션 20 — 충전 및 라벨링</text>
+  <text class="t-xs" x="564" y="143">1리터 캔에 충전 후 라벨 부착</text>
+
+  <path class="ln" d="M96 152 V178" marker-end="url(#mp2)"/>
+  <path class="ln" d="M240 152 V178" marker-end="url(#mp2)"/>
+  <path class="ln" d="M384 152 V178" marker-end="url(#mp2)"/>
+  <path class="ln" d="M640 152 V178" marker-end="url(#mp2)"/>
+
+  <rect class="b-hl" x="24" y="182" width="144" height="62" rx="5"/>
+  <text class="t" x="40" y="206">페이즈 — 기초</text>
+  <text class="t" x="40" y="224">페인트 투입</text>
+  <text class="t-xs" x="40" y="240">0.5h · 50°C 가열</text>
+
+  <rect class="b-hl" x="168" y="182" width="144" height="62" rx="5"/>
+  <text class="t" x="184" y="206">페이즈 —</text>
+  <text class="t" x="184" y="224">안료 투입</text>
+  <text class="t-xs" x="184" y="240">2.5h 추가 교반</text>
+
+  <rect class="b-hl" x="312" y="182" width="144" height="62" rx="5"/>
+  <text class="t" x="328" y="206">페이즈 —</text>
+  <text class="t" x="328" y="224">배출(Discharge)</text>
+  <text class="t-xs" x="328" y="240">배관으로 이송</text>
+
+  <rect class="b-hl" x="568" y="182" width="200" height="62" rx="5"/>
+  <text class="t" x="584" y="206">페이즈 —</text>
+  <text class="t" x="584" y="224">충전 및 라벨링</text>
+  <text class="t-xs" x="584" y="240">이 오퍼레이션의 유일한 페이즈</text>
+
+  <path class="ln-d" d="M456 213 H568" marker-end="url(#mp2)"/>
+  <text class="t-xs" x="462" y="206">동시 시작</text>
+
+  <path class="ln-ok" d="M240 244 V272" marker-end="url(#mp2o)"/>
+  <path class="ln-ok" d="M668 244 V272" marker-end="url(#mp2o)"/>
+
+  <rect class="b-ok" x="24" y="276" width="432" height="46" rx="6"/>
+  <text class="t c-ok" x="44" y="304">자원 — 혼합 유닛 (세 페이즈 모두 여기서)</text>
+
+  <rect class="b-ok" x="544" y="276" width="432" height="46" rx="6"/>
+  <text class="t c-ok" x="564" y="304">자원 — 페인트 충전 스테이션</text>
+
+  <rect class="b-mut" x="24" y="336" width="432" height="44" rx="5"/>
+  <text class="t-s" x="44" y="363">BOM 구성부품 &#8220;기초 페인트&#8221; → 기초 페인트 투입 페이즈</text>
+
+  <rect class="b-mut" x="544" y="336" width="432" height="44" rx="5"/>
+  <text class="t-s" x="564" y="363">BOM 구성부품 &#8220;캔&#8221; → 충전 및 라벨링 페이즈</text>
+
+  <rect class="b-ghost" x="24" y="392" width="952" height="50" rx="6"/>
+  <text class="t-s" x="44" y="416">자원은 <tspan class="c-ok">오퍼레이션에 배정</tspan>하고 하위 페이즈는 자동 상속. 구성부품은 반대로 <tspan class="c-key">페이즈 단위로 배정</tspan>한다 — 언제 꺼내오느냐가 페이즈로 갈리기 때문.</text>
+  <text class="t-s" x="44" y="436">페이즈 간 관계(선후 · 동시)를 시스템이 읽어 전체 생산 소요시간과 각 페이즈 소요시간을 계산한다.</text>
+</svg>
+<figcaption><span class="fno">그림 2</span>마스터레시피 구조. 자원은 오퍼레이션에, 구성부품은 페이즈에 붙는다.</figcaption>
+</figure>
+
+<p>페이즈끼리는 서로 관계를 가집니다. 안료 투입은 기초 페인트 투입이 끝난 뒤에만 시작할 수 있지만, <b>배출과 충전 · 라벨링은 동시에 시작</b>합니다. 다만 배출이 더 짧게 끝나므로 완료 시점은 다릅니다. 시스템은 이 관계를 고려해 전체 소요시간을 계산합니다.</p>
+
+<p>각 오퍼레이션에는 <b>자원</b>이 배정됩니다. 화학 산업에서는 믹서 · 반응조 같은 처리 유닛을 자원으로 둡니다. 자원을 배정하면 그 오퍼레이션의 <span class="key">원가 · 계획 관련 파라미터도 함께 지정</span>되는데, 자원 마스터 레코드에 능력계획 · 스케줄링 · 공정오더 원가계산에 쓰이는 핵심 정보가 들어 있기 때문입니다.</p>
+
+<h3>생산버전 — 같은 제품, 다른 조합</h3>
+
+<p>완제품 · 조립품에 대한 공정오더는 <b>항상 그 자재의 생산버전을 참조해</b> 생성됩니다. 생산버전은 공정오더가 사용할 <span class="key">BOM + 마스터레시피 조합</span>을 정의하며, 생산 수량과 생산 시점 같은 기준에 따라 오더 생성 시 적합한 버전이 자동 선택됩니다.</p>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>생산버전</th><th>조합</th><th>선택 기준</th></tr></thead>
+<tbody>
+<tr><td>버전 A</td><td class="wrap">첫 오퍼레이션이 자원 <b>혼합 유닛(1,000L)</b>에서 실행되는 마스터레시피 + 캔 포장 페인트 BOM</td><td class="wrap">로트 <b>100캔 초과</b></td></tr>
+<tr><td>버전 B</td><td class="wrap">첫 오퍼레이션이 자원 <b>혼합 유닛(100L)</b>에서 실행되는 마스터레시피 + <span class="key">동일 BOM</span></td><td class="wrap">로트 <b>100캔 이하</b></td></tr>
+</tbody>
+</table>
+</div>
+
+<p>로트가 작은데(예: 75L) 대형 유닛을 쓰면 배출 후 유닛 크기 때문에 잔여물이 많이 남아 비효율적이고, 로트가 크면(예: 500L) 소형 유닛에는 아예 담기지 않습니다. 그래서 버전을 둘로 나눕니다.</p>
+
+<p>같은 완제품에 생산버전이 여럿 있을 수 있고, 조합은 세 가지가 가능합니다 — <b>마스터레시피만 다름</b> / <b>BOM만 다름</b> / <b>둘 다 다름</b>.</p>
+
+<div class="note">
+  <div class="t">🔰 초보자 설명 — BOM까지 갈리는 경우</div>
+  <p>일부 화학 반응에서는 구성부품 수량(예: 촉매)이 <b>반응조의 크기나 표면적에 따라 달라집니다.</b> 같은 화학반응인데 들어가는 촉매 양이 다르다는 뜻입니다. 이때는 마스터레시피뿐 아니라 BOM도 달라야 하므로, 서로 다른 마스터레시피와 서로 다른 BOM을 참조하는 <b>두 개의 생산버전</b>으로 모델링합니다.</p>
+</div>
+
+<div class="note warn">
+  <div class="t">확인 필요 — 조회 T-Code</div>
+  <p>레슨에는 BOM · 자재 마스터 · 생산버전 · 마스터레시피 조회, 그리고 <b>배치 정보 코크핏(Batch Information Cockpit)</b>으로 배치를 조회하는 데모가 포함되지만, <span class="bad">원문에 T-Code는 한 건도 등장하지 않습니다.</span> 마스터레시피 조회(<code>C203</code> 계열) · 배치 조회(<code>MSC3N</code>) · 배치 정보 코크핏(<code>BMBC</code>) 같은 코드는 <b>기억으로 채워 넣지 않고</b> 실제 시스템(winerp01 / MEP)에서 확인한 뒤 보강합니다.</p>
+</div>
+
+</div>
+
+
+<!-- ══════════ LESSON 2 ══════════ -->
+<div class="lesson" id="l2">
+<h2><span class="no">LESSON 2</span>생산계획과의 연계 — 계획오더에서 공정오더로</h2>
+
+<p><span class="tag">Unit 2</span><span class="tag">레슨 1개</span>Applying the Integration with Production Planning</p>
+
+<h3>언제 이걸 알아야 하는가</h3>
+
+<p><b>"어제 MRP가 만든 계획오더가 오늘 보니 수량이 바뀌어 있습니다"</b> — 버그가 아닙니다. 계획오더는 <span class="key">MRP의 동적 입고 예정</span>이라서 정기 계획실행 때마다 조정됩니다. 반대로 공정오더는 한 번 만들어지면 <span class="key">MRP 자동 조정의 영향을 받지 않습니다.</span></p>
+
+<p>그래서 "언제 공정오더로 전환하느냐"가 곧 <b>"언제부터 이 수량을 고정할 것이냐"</b>입니다. 이 LESSON은 그 경계선 이야기입니다.</p>
+
+<h3>공정오더가 정의하는 것</h3>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>항목</th><th>내용</th></tr></thead>
+<tbody>
+<tr><td>제품 유형</td><td class="wrap">어떤 종류의 자전거 페인트를 생산할 것인가</td></tr>
+<tr><td><span class="key">수량 / 배치</span></td><td class="wrap"><b>어떤 배치에 대해</b> 얼마나 생산할 것인가</td></tr>
+<tr><td>일정</td><td class="wrap">소요일자(예: 자전거 생산오더의 필요일)를 맞추려면 언제 생산해야 하는가</td></tr>
+<tr><td><span class="key">구성부품 / 배치</span></td><td class="wrap">어떤 자재 구성부품과 <b>어떤 배치</b>가 필요한가</td></tr>
+<tr><td>페이즈</td><td class="wrap">어떤 자원에서 어떤 페이즈를 수행할 것인가</td></tr>
+</tbody>
+</table>
+</div>
+
+<p>다섯 항목 중 둘에 <b>배치</b>가 들어갑니다. 이산생산의 생산오더에는 없는 축입니다.</p>
+
+<h3>공정오더는 어디서 파생되는가</h3>
+
+<p>공정오더는 <b>계획독립소요량(PIR)</b> 또는 <b>판매오더</b>에서 파생됩니다. 사내생산은 수요 프로그램 정의에서 시작하고, 계획전략은 크게 둘입니다.</p>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>계획전략</th><th>무엇이 수요를 만드는가</th><th>자전거회사</th></tr></thead>
+<tbody>
+<tr><td>재고생산<br>(Make-to-Stock)</td><td class="wrap"><b>예측(Forecast)</b> 기반으로 계획독립소요량을 생성</td><td class="wrap"><span class="key">주로 이쪽</span> — 월별 페인트 소비량이 비교적 일정하기 때문</td></tr>
+<tr><td>수주생산<br>(Make-to-Order)</td><td class="wrap">영업담당자가 <b>판매오더</b>를 생성</td><td class="wrap">일부</td></tr>
+</tbody>
+</table>
+</div>
+
+<div class="note">
+  <div class="t">🔰 초보자 설명 — 실행 단계에서는 둘이 같다</div>
+  <p>생산 <b>실행</b> 관점에서는 공정오더가 재고생산 시나리오에서 왔든 수주생산 시나리오에서 왔든 <span class="key">실행 방식에 차이가 없습니다.</span> 릴리스 · 출고 · 확인 · 입고 절차가 동일합니다. MTS/MTO 구분은 "이 오더가 왜 생겼나"의 문제이지 "어떻게 돌리나"의 문제가 아닙니다.</p>
+</div>
+
+<h3>MRP에서 오더 실행으로</h3>
+
+<div class="step"><span class="n">STEP 1</span><p><b>수요 프로그램 유지</b> — 재고생산 시나리오만 다루는 이 교육에서는, 계획 담당자가 개별 판매오더나 다른 생산 · 공정오더를 고려하지 않고 <span class="key">계획독립소요량만으로</span> 수요 프로그램을 유지한다</p></div>
+<div class="step"><span class="n">STEP 2</span><p><b>MRP 실행</b> — 시스템이 소요량과 재고 현황을 <b>시점별로</b> 평가해 충족 여부를 판단한다. 자전거회사는 MRP를 <b>매일</b> 실행한다</p></div>
+<div class="step"><span class="n">STEP 3</span><p><b>계획오더 생성 여부</b> — 기존 재고 · 계획오더 · 공정오더로 충족되면 <span class="bad">추가 계획오더를 만들지 않는다.</span> 충족되지 않을 때만 계획오더를 생성한다</p></div>
+<div class="step"><span class="n">STEP 4</span><p><b>공정오더 전환</b> — 생산 시점이 가까워지면 계획오더를 공정오더로 전환한다. 자전거회사는 <span class="key">백그라운드 처리</span>로 매일 만기된 계획오더를 자동 전환한다</p></div>
+<div class="step"><span class="n">STEP 5</span><p><b>오더 실행</b> — 자재 구성부품 스테이징, 완료된 페이즈 확인 등을 거쳐, 재고관리에서 <b>완제품 입고</b>로 공정오더 처리가 마무리된다</p></div>
+
+<div class="note warn">
+  <div class="t">계획오더와 공정오더의 결정적 차이</div>
+  <p>· <b>계획오더</b> = MRP의 <span class="key">동적</span> 입고 예정. 정기 계획실행으로 조정된다<br>
+     · <b>공정오더</b> = 상세 <span class="key">생산지시</span>. MRP 자동 조정의 영향을 <span class="bad">받지 않는다</span><br>
+     이 차이 때문에 "너무 일찍 전환하면 계획 유연성을 잃고, 너무 늦게 전환하면 현장이 준비할 시간이 없다"는 트레이드오프가 생긴다. 전환 시점은 업무 결정이지 시스템 결정이 아니다.</p>
+</div>
+
+</div>
+
+
+<!-- ══════════ LESSON 3 ══════════ -->
+<div class="lesson" id="l3">
+<h2><span class="no">LESSON 3</span>공정오더 라이프사이클 — 5단계와 그 사이의 지원기능</h2>
+
+<p><span class="tag">Unit 3</span><span class="tag">레슨 1개</span>Describing the Lifecycle of a Process Order</p>
+
+<h3>언제 이걸 알아야 하는가</h3>
+
+<p><b>"공정오더를 만들었는데 자재출고가 안 됩니다"</b> — 대부분 오더 상태가 아직 <span class="key">생성됨(Created)</span>인 경우입니다. 이 상태에서는 자재이동도 확인도 실행할 수 없습니다. <b>릴리스</b>가 그 잠금을 여는 장치입니다.</p>
+
+<p>라이프사이클을 아는 것은 곧 <span class="key">"지금 이 오더가 어느 상태라서 이 기능이 막혀 있는가"</span>를 읽는 것입니다.</p>
+
+<h3>주요 5단계</h3>
+
+<figure class="figwrap">
+<svg class="dgm" viewBox="0 0 1000 424" role="img" aria-label="공정오더 라이프사이클 도해. 계획오더 전환으로 생성됨 상태가 되고 릴리스로 릴리스됨 상태가 되어야 자재출고 오더확인 입고가 가능해지며, 생성과 릴리스 사이에 가용성 체크 배치 결정 등 지원기능이 배치된다.">
+  <defs>
+    <marker id="mp3" markerWidth="9" markerHeight="9" refX="7" refY="4.5" orient="auto">
+      <polygon class="arw" points="0,0 9,4.5 0,9"/></marker>
+    <marker id="mp3k" markerWidth="9" markerHeight="9" refX="7" refY="4.5" orient="auto">
+      <polygon class="arw-key" points="0,0 9,4.5 0,9"/></marker>
+    <marker id="mp3b" markerWidth="9" markerHeight="9" refX="7" refY="4.5" orient="auto">
+      <polygon class="arw-bad" points="0,0 9,4.5 0,9"/></marker>
+  </defs>
+
+  <rect class="b-mut" x="12" y="14" width="180" height="42" rx="6"/>
+  <text class="t" x="30" y="41">계획오더 (MRP 산출)</text>
+  <path class="ln-key" d="M192 35 H236" marker-end="url(#mp3k)"/>
+  <text class="t-xs" x="196" y="26">전환</text>
+
+  <rect class="b-key" x="242" y="14" width="200" height="42" rx="6"/>
+  <text class="t c-key" x="262" y="41">① 오더 생성</text>
+  <text class="m-s c-key" x="376" y="41">CRTD</text>
+
+  <path class="ln-key" d="M442 35 H486" marker-end="url(#mp3k)"/>
+  <text class="t-xs" x="446" y="26">릴리스</text>
+
+  <rect class="b-ok" x="492" y="14" width="200" height="42" rx="6"/>
+  <text class="t c-ok" x="512" y="41">② 오더 릴리스</text>
+  <text class="m-s c-ok" x="638" y="41">REL</text>
+
+  <rect class="b-bad" x="242" y="72" width="200" height="54" rx="6"/>
+  <text class="t-s c-bad" x="258" y="96">이 상태에서는 자재이동 ·</text>
+  <text class="t-s c-bad" x="258" y="116">확인을 실행할 수 없다</text>
+  <path class="ln-bad" d="M342 56 V72" marker-end="url(#mp3b)"/>
+
+  <rect class="b-ok" x="492" y="72" width="200" height="54" rx="6"/>
+  <text class="t-s c-ok" x="508" y="96">여기서부터 출고 · 확인 ·</text>
+  <text class="t-s c-ok" x="508" y="116">입고 · 인쇄가 열린다</text>
+  <path class="ln-ok" d="M592 56 V72"/>
+
+  <path class="ln-key" d="M692 35 H736" marker-end="url(#mp3k)"/>
+  <rect class="b" x="742" y="14" width="246" height="42" rx="6"/>
+  <text class="t" x="762" y="41">③④⑤ 출고 · 확인 · 입고</text>
+
+  <rect class="b-ghost" x="742" y="72" width="246" height="54" rx="6"/>
+  <text class="t-s" x="758" y="96">출고 → 재고 수량 · 가치 감소</text>
+  <text class="t-s" x="758" y="116">입고 → 재고 수량 · 가치 증가</text>
+
+  <text class="t-h" x="12" y="164">생성과 릴리스 사이에 들어가는 지원기능</text>
+  <path class="ln-d" d="M12 176 H988"/>
+
+  <rect class="b" x="12" y="190" width="234" height="60" rx="5"/>
+  <text class="t" x="30" y="214">자재 가용성 체크</text>
+  <text class="t-xs" x="30" y="234">필요 수량 · 시점에 확보됐나 (ATP)</text>
+
+  <rect class="b" x="258" y="190" width="234" height="60" rx="5"/>
+  <text class="t" x="276" y="214">능력 평가 · 평준화</text>
+  <text class="t-xs" x="276" y="234">자원 과부하 · 저활용 방지</text>
+
+  <rect class="b-hl" x="504" y="190" width="234" height="60" rx="5"/>
+  <text class="t" x="522" y="214">구성부품 배치 결정</text>
+  <text class="t-xs" x="522" y="234">속성 맞는 배치 · 수량 식별</text>
+
+  <rect class="b-hl" x="750" y="190" width="238" height="60" rx="5"/>
+  <text class="t" x="768" y="214">완제품 배치번호 배정</text>
+  <text class="t-xs" x="768" y="234">자동 또는 수동 생성</text>
+
+  <rect class="b" x="12" y="258" width="234" height="60" rx="5"/>
+  <text class="t" x="30" y="282">오더 인쇄</text>
+  <text class="t-xs" x="30" y="302">종이 기반 현장용 전표</text>
+
+  <rect class="b" x="258" y="258" width="234" height="60" rx="5"/>
+  <text class="t" x="276" y="282">프로세스 컨트롤 연계</text>
+  <text class="t-xs" x="276" y="302">MES 다운로드 · 업로드</text>
+
+  <rect class="b" x="504" y="258" width="234" height="60" rx="5"/>
+  <text class="t" x="522" y="282">자재 스테이징</text>
+  <text class="t-xs" x="522" y="302">중앙 → 생산 저장위치 이동</text>
+
+  <rect class="b-ghost" x="750" y="258" width="238" height="60" rx="5"/>
+  <text class="t-s" x="768" y="284">노란 두 칸이</text>
+  <text class="t-s" x="768" y="304">프로세스생산 고유</text>
+
+  <rect class="b-ghost" x="12" y="330" width="976" height="82" rx="6"/>
+  <text class="t-s" x="32" y="356">릴리스는 <tspan class="c-bad">상태 변경 그 이상이 아니다</tspan> — 기술적으로는 CRTD → REL 한 줄. 그런데 그 한 줄이 회계를 움직이는 모든 후속 처리의 게이트다.</text>
+  <text class="t-s" x="32" y="378">그래서 릴리스 <tspan class="c-key">앞</tspan>에 체크(가용성 · 능력)를 몰아넣는다. 릴리스 후에는 현장이 막힘없이 돌아야 하기 때문.</text>
+  <text class="t-s" x="32" y="400">배치 결정은 오더 <tspan class="c-key">생성 시점 또는 릴리스 시점</tspan>에 시작된다 — 둘 다 릴리스 이전이다.</text>
+</svg>
+<figcaption><span class="fno">그림 3</span>공정오더 라이프사이클. 릴리스 전후로 할 수 있는 일이 완전히 갈린다.</figcaption>
+</figure>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>단계</th><th>무슨 일이 일어나는가</th><th>상태</th></tr></thead>
+<tbody>
+<tr><td>① 오더 생성</td><td class="wrap">일반적으로 <b>계획오더 전환</b>으로 생성. 필요한 마스터데이터가 선택되고 오더가 스케줄링된다</td><td>생성됨(Created)</td></tr>
+<tr><td>② 오더 릴리스</td><td class="wrap">생산 처리가 가능해진다 — 자재출고 · 확인 · 입고가 열린다</td><td>릴리스됨(Released)</td></tr>
+<tr><td>③ 자재출고</td><td class="wrap">구성부품 소비가 기록되어 <span class="bad">재고 수량과 가치가 감소</span></td><td>—</td></tr>
+<tr><td>④ 확인</td><td class="wrap">생산 진척과 소요시간 문서화 (LESSON 5)</td><td>PCNF / CNF</td></tr>
+<tr><td>⑤ 입고</td><td class="wrap">생산 수량이 문서화되어 <span class="good">재고 수량과 가치가 증가</span></td><td>부분입고 / 입고완료</td></tr>
+</tbody>
+</table>
+</div>
+
+<h3>지원기능 6종</h3>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>지원기능</th><th>설명</th></tr></thead>
+<tbody>
+<tr><td>자재 가용성 체크<br>능력 평가 · 평준화</td><td class="wrap"><b>오더 생성과 릴리스 사이</b>에 실행. 가용성 체크는 필요한 구성부품이 필요 수량 · 시점에 확보됐는지 확인. 능력 평가 · 평준화는 생산 작업장이 <b>과부하되거나 저활용되지 않도록</b> 보장</td></tr>
+<tr><td><span class="key">구성부품 배치 결정</span></td><td class="wrap">필요한 속성을 갖춘 정확한 구성부품 수량을 식별. 요구 농도가 5~10%일 때 배치 A(7%)와 배치 B(15%) 중 <b>A를 추천</b>. 여럿이 조건을 충족하면 요구에 가장 근접한 배치를 제안하고, <b>선입선출(FIFO) 전략</b>을 적용할 수도 있다. 수량이 부족하면 두 배치를 조합하거나 다른 배치를 제안</td></tr>
+<tr><td>완제품 배치번호 배정</td><td class="wrap">마스터데이터 설정에 따라 <b>자동 또는 수동</b>으로 완제품 배치번호를 생성. 현장 인력이 입고를 등록할 때 사용</td></tr>
+<tr><td>오더 인쇄</td><td class="wrap">종이 기반 프로세스에서 오퍼레이션 리스트 · 관리 티켓 · 자재출고 전표 · 임금 전표를 <b>릴리스 후</b> 인쇄. SAP S/4HANA 접근 권한이 없는 현장 인력에게 전달</td></tr>
+<tr><td>프로세스 컨트롤<br>다운로드 · 업로드</td><td class="wrap"><b>MES</b>로 현장 오더 흐름을 조정하는 경우. 오더 정보는 SAP → MES로, 실제 생산 데이터(소비 · 확인)는 MES → SAP로 업로드</td></tr>
+<tr><td>자재 스테이징</td><td class="wrap">자재출고 등록 전, 구성부품을 <b>중앙 저장위치에서 생산 저장위치로</b> 이동</td></tr>
+</tbody>
+</table>
+</div>
+
+</div>
+
+
+<!-- ══════════ LESSON 4 ══════════ -->
+<div class="lesson" id="l4">
+<h2><span class="no">LESSON 4</span>공정오더 생성 — 계획오더 전환 · 가용성 체크 · 배치 결정</h2>
+
+<p><span class="tag">Unit 4</span><span class="tag">레슨 1개</span>Creating Process Orders</p>
+
+<h3>언제 이걸 알아야 하는가</h3>
+
+<p><b>"전환은 됐는데 오더에 배치가 안 붙었습니다"</b> 또는 <b>"자재는 재고에 있는데 가용성 체크가 실패로 뜹니다"</b>. 전자는 배치 결정이 적합한 배치를 못 찾은 것이고, 후자는 <span class="key">ATP 기준으로 그 시점에 가용하지 않다</span>는 뜻입니다 — 총재고가 아니라 <b>시점별 가용량</b>을 보기 때문입니다.</p>
+
+<h3>계획오더 전환 옵션</h3>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>방식</th><th>설명</th><th>대응</th></tr></thead>
+<tbody>
+<tr><td>일괄 전환<br>(Collective)</td><td class="wrap">다수 계획오더를 동시에 전환. 플랜트 · MRP 관리자 · 오픈일자 · 자재 등 선택 기준 지정</td><td class="wrap">계획오더 1건 → 공정오더 <b>정확히 1건</b> (n → n)</td></tr>
+<tr><td>개별 전환<br>(Individual)</td><td class="wrap">수동으로 1건씩. <b>부분 전환</b>도 가능 — 생산자원 미가용, 구성부품 부족 시</td><td class="wrap">계획오더 1건 → 공정오더 <b>여러 건</b> 가능</td></tr>
+</tbody>
+</table>
+</div>
+
+<p>계획오더가 전환되면 <span class="bad">삭제되고</span> 공정오더로 대체됩니다. 구성부품 레벨에서는 <b>종속소요량이 예약(Reservation)으로</b> 대체됩니다.</p>
+
+<div class="note">
+  <div class="t">🔰 초보자 설명 — 미계획 오더는 어떻게 만드나</div>
+  <p>긴급 고객주문처럼 계획에 없던 건은 <b>언제든 수동으로 공정오더를 생성</b>할 수 있습니다. 대신 참조할 계획오더가 없으므로 <b>자재 · 수량 · 일자를 직접 지정</b>해야 합니다. 전환은 "이미 계획된 것을 확정하는 일"이고, 수동 생성은 "계획 없이 바로 확정하는 일"입니다.</p>
+</div>
+
+<h3>시점 기준 일괄 전환 — 계획오픈일</h3>
+
+<p>계획오더를 스케줄링하면 <b>시작일 · 완료일 · 계획오픈일</b>이 결정됩니다. 이 중 <span class="key">계획오픈일(Planned Opening Date)</span>이 "이 계획오더가 공정오더로 전환되어야 하는 날짜"입니다.</p>
+
+<p>일괄 전환 시 <b>오픈 기간</b>을 지정하면, 계획오픈일이 그 기간 안에 있는 모든 계획오더가 전환됩니다. LESSON 2에서 본 "매일 백그라운드로 만기 계획오더 전환"이 바로 이 구조입니다.</p>
+
+<h3>가용성 체크 — 총재고가 아니라 시점별 가용량</h3>
+
+<p>공정오더 생성 시 시스템은 선택된 BOM과 오더의 <b>계획 생산수량</b>을 기반으로 구성부품의 소요 수량과 소요 일자를 자동 산정합니다. 소요 일자는 그 구성부품이 배정된 <span class="key">오퍼레이션 · 페이즈의 시작일</span>에서 나옵니다 — 그림 2에서 구성부품을 페이즈에 붙여 둔 것이 여기서 값을 냅니다.</p>
+
+<div class="step"><span class="n">예시 1</span><p>빨간 페인트 <b>100캔</b> 공정오더 → BOM상 캔 100개 필요</p></div>
+<div class="step"><span class="n">예시 2</span><p>스케줄링 결과 <b>충전 페이즈가 4월 12일 14:30 시작</b> → 그 일자에 캔 100개가 필요</p></div>
+<div class="step"><span class="n">예시 3</span><p>시스템이 여러 저장위치의 가용 수량을 검색 — 저장위치 A에 <b>75개</b>, 저장위치 B에 <b>150개</b></p></div>
+<div class="step"><span class="n">예시 4</span><p>필요 수량 100개를 <span class="key">저장위치 B에서</span> 공정오더에 확정(Commit). A는 75개뿐이라 단독으로는 못 맞춘다</p></div>
+
+<div class="note warn">
+  <div class="t">가용성 체크가 실패하면</div>
+  <p>시스템은 공정오더에 <b>해당 상태를 부여</b>하고, <span class="bad">MRP 관리자가 부족분을 해소해야</span> 생산 인력이 공정오더를 실행할 수 있습니다. 체크 방식은 <span class="key">ATP(Available to Promise)</span> — 각 소요건에 대해 <b>요청 시점에</b> 필요 수량이 가용한지를 봅니다. 그래서 "재고는 있는데 체크가 실패"가 정상 동작일 수 있습니다.</p>
+</div>
+
+<h3>배치 결정 — 3단계</h3>
+
+<p>배치 결정은 생산 프로세스에 사용할 자재에 대해 <b>적합한 배치를 자동으로 찾아 배정</b>하는 프로세스입니다. 자재 배치별 특성이 다양하고 <span class="key">유효기한 · 생산일 · 품질규격</span> 같은 기준에 따라 특정 배치를 써야 하는 업종에서 특히 중요합니다.</p>
+
+<p>공정오더의 자재 리스트에는 필요한 원자재 · 반제품과 <b>그 필요 속성</b>이 들어 있습니다. 예를 들어 구성부품 "기초 페인트"의 pH 값은 6.5~7.5 사이여야 한다는 식입니다. 생산 감독자가 공정오더를 <b>생성 또는 릴리스</b>하면 배치 결정이 시작됩니다.</p>
+
+<figure class="figwrap">
+<svg class="dgm" viewBox="0 0 1000 392" role="img" aria-label="배치 결정 3단계 도해. 1단계 검색에서 요구 pH 범위를 벗어난 배치를 걸러내고, 2단계에서 남은 배치를 정렬 기준으로 순위를 매기며, 3단계에서 1순위 배치를 오더에 배정하고 수량이 모자라면 다음 순위 배치로 보충한다.">
+  <defs>
+    <marker id="mp4" markerWidth="9" markerHeight="9" refX="7" refY="4.5" orient="auto">
+      <polygon class="arw" points="0,0 9,4.5 0,9"/></marker>
+    <marker id="mp4k" markerWidth="9" markerHeight="9" refX="7" refY="4.5" orient="auto">
+      <polygon class="arw-key" points="0,0 9,4.5 0,9"/></marker>
+  </defs>
+
+  <rect class="b-key" x="12" y="14" width="976" height="38" rx="6"/>
+  <text class="t c-key" x="32" y="39">요구 조건 — 구성부품 &#8220;기초 페인트&#8221;의 pH 값은 6.5 ~ 7.5</text>
+
+  <text class="t-h" x="12" y="84">1단계 · 배치 검색</text>
+  <rect class="b-ok" x="12" y="96" width="300" height="42" rx="5"/>
+  <text class="t c-ok" x="30" y="123">배치 6641 — pH 6.5</text>
+  <text class="t-xs c-ok" x="228" y="123">적합</text>
+
+  <rect class="b-bad" x="12" y="144" width="300" height="42" rx="5"/>
+  <text class="t c-bad" x="30" y="171">배치 1476 — pH 높음</text>
+  <text class="t-xs c-bad" x="212" y="171">범위 초과 · 제외</text>
+
+  <rect class="b-ok" x="12" y="192" width="300" height="42" rx="5"/>
+  <text class="t c-ok" x="30" y="219">배치 9701 — pH 7.0</text>
+  <text class="t-xs c-ok" x="228" y="219">적합</text>
+
+  <path class="ln-key" d="M312 165 H356" marker-end="url(#mp4k)"/>
+
+  <text class="t-h" x="362" y="84">2단계 · 정렬</text>
+  <rect class="b-hl" x="362" y="96" width="276" height="138" rx="5"/>
+  <text class="t" x="380" y="124">pH 값 기준 내림차순</text>
+  <text class="t" x="380" y="154">1순위  배치 9701 (pH 7.0)</text>
+  <text class="t" x="380" y="180">2순위  배치 6641 (pH 6.5)</text>
+  <text class="t-xs" x="380" y="208">정렬 기준은 바꿀 수 있다 —</text>
+  <text class="t-xs" x="380" y="224">유효기한 기준 FIFO 등</text>
+
+  <path class="ln-key" d="M638 165 H682" marker-end="url(#mp4k)"/>
+
+  <text class="t-h" x="688" y="84">3단계 · 배정</text>
+  <rect class="b-key" x="688" y="96" width="300" height="66" rx="5"/>
+  <text class="t c-key" x="706" y="124">배치 9701을 오더에 배정</text>
+  <text class="t-xs" x="706" y="146">필요 수량을 예약(Reservation)</text>
+
+  <rect class="b" x="688" y="168" width="300" height="66" rx="5"/>
+  <text class="t" x="706" y="194">9701 재고가 모자라면</text>
+  <text class="t-xs" x="706" y="216">6641로 대체 또는 9701 소진 후 6641</text>
+
+  <rect class="b-ghost" x="12" y="250" width="976" height="128" rx="6"/>
+  <text class="t-h" x="32" y="276">읽는 법</text>
+  <text class="t-s" x="32" y="302">1단계는 <tspan class="c-bad">걸러내기</tspan>(조건 충족 여부), 2단계는 <tspan class="c-key">줄 세우기</tspan>(무엇을 먼저), 3단계는 <tspan class="c-ok">묶기</tspan>(수량 채우기). 세 단계가 하는 일이 전부 다르다.</text>
+  <text class="t-s" x="32" y="326">2단계의 정렬 기준이 업무 정책이 들어가는 자리다. 품질 최적(특성값 근접)으로 줄 세울 수도, 폐기 최소(유효기한 FIFO)로 줄 세울 수도 있다.</text>
+  <text class="t-s" x="32" y="350">3단계에서 수량이 부족할 때 <tspan class="c-key">두 배치를 조합할지 여부</tspan>는 허용 설정에 달렸다 — LESSON 1의 페인트 사례는 조합이 금지된 경우였다.</text>
+  <text class="t-s" x="32" y="372">속성뿐 아니라 <tspan class="c-key">배치별 필요 수량</tspan>도 평가 대상이다. 조건만 맞고 양이 없으면 의미가 없기 때문.</text>
+</svg>
+<figcaption><span class="fno">그림 4</span>배치 결정 3단계. 걸러내기 → 줄 세우기 → 묶기, 정책이 들어가는 곳은 2단계다.</figcaption>
+</figure>
+
+<div class="note ok">
+  <div class="t">📌 개인 E2E 프로젝트와의 연결점 — 이 구조가 그대로 SD FEFO다</div>
+  <p>프로젝트의 SD 출하 배치결정은 <b>FEFO(First Expired, First Out)</b>입니다. 그림 4의 세 단계에 그대로 대응합니다.</p>
+  <p>· <b>1단계 검색</b> — 프로젝트는 pH 같은 품질 조건이 없으므로 걸러내는 축이 다릅니다. 온도군에 맞는 저장위치(냉동 <code>1100</code>/<code>1900</code> · 냉장 <code>2100</code>/<code>2900</code> · 실온 <code>3100</code>/<code>3900</code>)와 <b>유통기한이 아직 남아 있는가</b>가 필터입니다.<br>
+     · <b>2단계 정렬</b> — 강의가 "유효기한 기준 FIFO도 가능하다"고 한 바로 그 자리입니다. 프로젝트는 <code>MCHA-VFDAT</code> <b>오름차순</b>, 즉 먼저 만료되는 배치부터 나갑니다.<br>
+     · <b>3단계 배정</b> — 한 배치로 출하 수량이 안 채워지면 다음 배치로 넘어가 채웁니다. 식품은 <span class="key">배치 혼합 제약이 없으므로</span> 페인트 사례와 달리 조합이 허용됩니다.</p>
+  <p>여기서 얻는 판단 근거가 하나 있습니다. <b>CBO <code>ZBATCH_ZONE</code>(잔여 유통기한 30% 미달 시 정상 → 임박 SLoc <code>311</code> 자동이동)이 왜 배치결정 로직이 아니라 별도 이동으로 설계됐는가.</b> 표준 배치결정은 정렬 기준을 바꿀 수는 있어도 <span class="bad">"임박 재고를 물리적으로 갈라놓는" 일은 하지 못하기</span> 때문입니다. 정렬은 순서만 바꾸지 재고를 나누지 않습니다. 임박품을 별도 SLoc으로 떼어 놓아야 현장 피킹과 재고 조회에서 눈에 보입니다 — 그래서 정렬(표준)과 분리(CBO)를 둘 다 씁니다.</p>
+</div>
+
+<div class="note warn">
+  <div class="t">확인 필요 — 배치결정 커스터마이징 경로</div>
+  <p>원문은 배치 결정의 <b>업무 동작</b>만 설명하고, 이를 구성하는 오브젝트(전략유형 · 검색전략 · 선택클래스 · 정렬규칙, 그리고 <code>COB1</code> · <code>CU70</code> 계열 T-Code)는 <span class="bad">한 건도 언급하지 않습니다.</span> 프로젝트의 FEFO 정렬을 실제로 세팅할 때 필요한 IMG 경로와 T-Code는 실제 시스템(winerp01 / MEP)에서 확인해 <b>MM/SD 설계서에 따로 기록</b>합니다. 이 노트에서는 확정하지 않습니다.</p>
+</div>
+
+</div>
+
+
+<!-- ══════════ LESSON 5 ══════════ -->
+<div class="lesson" id="l5">
+<h2><span class="no">LESSON 5</span>공정오더 실행 — 릴리스 · 자재출고 · 오더확인 · 입고</h2>
+
+<p><span class="tag">Unit 5</span><span class="tag">레슨 4개</span>Executing Process Orders — 5-1 릴리스 · 5-2 자재출고 · 5-3 오더확인 · 5-4 입고</p>
+
+<h3>언제 이걸 알아야 하는가</h3>
+
+<p><b>"오더 확인을 등록했는데 다른 방식으로 다시 등록이 안 됩니다"</b> — 하나의 공정오더에는 <span class="bad">오더 관련 확인 또는 페이즈 관련 확인 중 한 가지만</span> 쓸 수 있고, 한쪽을 등록한 뒤에는 다른 쪽을 쓸 수 없습니다. 잘못 등록했다면 확인을 <b>취소</b>해야 합니다. 이런 일방통행 규칙이 실행 4단계 곳곳에 있습니다.</p>
+
+<h3>5-1. 오더 릴리스</h3>
+
+<p>릴리스 전에 두 가지가 끝나 있어야 합니다 — <b>구성부품 확보</b>(가용성 체크, LESSON 4)와 <b>생산자원의 여유 능력 확보</b>(능력 평가).</p>
+
+<p><span class="key">능력 평가(Capacity Evaluation)</span>는 반응조 같은 생산자원이 오더 오퍼레이션 실행에 충분한 여유 능력을 가지고 있는지를 봅니다. <b>자원이 제공하는 능력</b>과 <b>오퍼레이션 · 페이즈가 요구하는 능력</b>을 비교하며, 부족하면 생산 감독자가 그 반응조에 배정된 다른 오더를 재조정해야 합니다.</p>
+
+<p>기술적으로 릴리스는 오더 상태를 "생성됨"에서 "릴리스됨"으로 바꾸는 것에 해당하며, <b>이 상태 변경 이후에만</b> 인쇄 · 자재출고 · 입고 등록 · 확인이 허용됩니다.</p>
+
+<h4>전체 릴리스 vs 페이즈 릴리스</h4>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>범위</th><th>동작</th><th>언제</th></tr></thead>
+<tbody>
+<tr><td>공정오더 전체</td><td class="wrap">시스템이 <b>모든 페이즈를 자동으로</b> 릴리스</td><td class="wrap"><span class="key">대부분의 경우</span> — 현장이 추가 제약 없이 모든 단계를 실행하게</td></tr>
+<tr><td>개별 페이즈</td><td class="wrap"><b>페이즈 순서를 준수</b>해야 한다</td><td class="wrap">후속 페이즈가 이전 페이즈 완료 후에만 실행되도록 엄격히 보장할 때 (예: <b>제약산업</b>). 페이즈가 많고 순서 준수가 엄격한 복잡한 오더</td></tr>
+</tbody>
+</table>
+</div>
+
+<div class="note">
+  <div class="t">🔰 초보자 설명 — 오퍼레이션 릴리스는 왜 안 쓰나</div>
+  <p>기술적으로는 공정오더의 <b>오퍼레이션</b>을 릴리스하는 것도 가능하지만, 실무에서는 거의 쓰이지 않습니다. 프로세스생산에서 실제 실행 단위는 <b>페이즈</b>이기 때문입니다 — 통제하려면 페이즈 단위로, 안 할 거면 오더 전체로 가는 것이 자연스럽고, 그 중간인 오퍼레이션 단위는 쓸 자리가 마땅치 않습니다.</p>
+</div>
+
+<h4>개별 릴리스 vs 일괄 릴리스</h4>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>방식</th><th>설명</th></tr></thead>
+<tbody>
+<tr><td>개별 릴리스</td><td class="wrap">공정오더 또는 페이즈를 하나씩 릴리스. 예: 긴급 고객주문을 즉시 생성 · 릴리스해 바로 생산 시작. 제약산업처럼 순서를 엄격히 따라야 하면 이전 페이즈를 검증한 뒤 다음 페이즈를 릴리스. <span class="bad">수동 단계가 많아 실무에서는 자주 안 쓴다</span></td></tr>
+<tr><td><span class="key">일괄 릴리스</span></td><td class="wrap">다수의 공정오더(또는 페이즈)를 선택해 한 번에 릴리스 — <code>Manage Process Orders</code> 또는 <code>Mass Processing: Process Orders</code> 앱. 플랜트 · 생산 스케줄러 · 릴리스일 · 자재 등 선택 기준 지정. 자전거회사는 <b>실행 예정 주 이전에</b> 그 주 실행 예정인 모든 오더를 일괄 릴리스</td></tr>
+</tbody>
+</table>
+</div>
+
+<p>구조가 LESSON 4의 <b>시점 기준 일괄 전환</b>과 원리상 동일합니다 — "기간을 지정해 그 안에 드는 것을 한꺼번에 처리한다"는 같은 패턴입니다.</p>
+
+<p>시스템 설정에 따라 릴리스 시 <b>숍오더 문서가 자동 인쇄</b>됩니다. 타임티켓 · 확인전표에 실적을 기록하거나, 피킹리스트 · 자재출고 전표로 재고에서 구성부품을 인출하는 데 씁니다. MES를 쓰는 경우에는 릴리스 후 데이터가 MES로 전송되어 <b>그 시점부터 실행을 MES가 담당</b>하고, 확인 데이터가 다시 SAP로 업로드되어 시스템 간 일관성을 유지합니다.</p>
+
+<h3>5-2. 자재출고(Goods Issue)</h3>
+
+<p>오더가 지시되면 창고 담당자 또는 현장 인력이 필요 항목(캔 · 기초 페인트 · 안료)을 창고에서 인출하고, 이를 <b>오더에 대한 자재출고</b>로 등록합니다. 재고 수량이 감소하고 오더에는 해당 항목이 소비되었음이 표시됩니다.</p>
+
+<p>오더 생성 시 시스템은 자동으로 BOM을 확인해 필요한 모든 구성부품에 대해 <span class="key">예약(Reservation)</span>을 생성합니다. 각 구성부품이 예약 내 별도 항목이 됩니다.</p>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>예약 항목이 가진 정보</th><th>비고</th></tr></thead>
+<tbody>
+<tr><td>구성부품 자재번호</td><td class="wrap">—</td></tr>
+<tr><td><span class="key">배치번호</span></td><td class="wrap">자재가 <b>배치관리 대상이고</b> 공정오더에서 <b>배치 결정을 수행한</b> 경우에만</td></tr>
+<tr><td>구성부품 필요 수량</td><td class="wrap">—</td></tr>
+<tr><td>구성부품 저장위치</td><td class="wrap">플랜트 내 저장위치를 <b>시스템이 자동 결정</b></td></tr>
+</tbody>
+</table>
+</div>
+
+<div class="note warn">
+  <div class="t">예약 자재는 아무 때나 못 꺼낸다</div>
+  <p>예약된 자재는 <span class="bad">해당 자재가 배정된 페이즈가 릴리스된 이후에만</span> 창고에서 인출할 수 있습니다. 구성부품이 페이즈에 배정되어 있다는 그림 2의 구조가, 여기서 <b>출고 가능 시점을 통제하는 장치</b>로 작동합니다.</p>
+</div>
+
+<h4>등록 옵션 3가지</h4>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>방식</th><th>설명</th></tr></thead>
+<tbody>
+<tr><td>수동 등록</td><td class="wrap"><code>Post Goods Movement</code> 또는 <code>Pick Components for Process Orders</code> 앱. 시스템이 예약 항목 정보(수량 · 출고 저장위치 · 배치번호)를 <b>제안</b>하며 필요 시 변경 가능</td></tr>
+<tr><td>자동 등록<br>(오더 확인과 함께)</td><td class="wrap"><code>Confirm Process Order</code> 앱에서 오더 확인 시 자동 등록</td></tr>
+<tr><td>자동 등록<br>(페이즈 확인과 함께)</td><td class="wrap"><code>Confirm Process Order Phase</code> 앱에서 페이즈 확인 시 자동 등록</td></tr>
+</tbody>
+</table>
+</div>
+
+<p><span class="key">백플러시(Backflush)</span> 지시자가 설정된 구성부품은 확인 등록과 함께 자동으로 출고가 등록되며, 출고 수량은 <b>확인 수량에 비례</b>해 산정됩니다. 빨간 페인트 500캔을 확인하면 캔 500개와 기초 페인트 500리터의 출고가 각각 등록되는 식입니다.</p>
+
+<div class="note">
+  <div class="t">🔰 초보자 설명 — 백플러시를 언제 쓰나</div>
+  <p>특정 오더에 대해 자재를 <b>따로 스테이징하지 않으려는 경우</b>에 씁니다. 프로세스산업에서는 배관으로 연결된 반응조를 통해 구성부품이 공급되거나, 물 · 용제처럼 값이 싼 자재라 일일이 관리할 이유가 없을 때 주로 적용합니다.</p>
+  <p>배관 공급 시나리오에서는 순서가 거꾸로입니다. 확인과 함께 <b>추정 소비량이 먼저 등록</b>되고, 나중에 정확한 <b>계량 전표(Weight Note)</b>가 확보되면 생산 감독자가 추정치를 실제 값으로 갱신합니다.</p>
+</div>
+
+<h4>자재출고 등록의 효과</h4>
+
+<ul>
+  <li>인출된 구성부품의 <b>재고 수량이 출고 수량만큼 감소</b>하고 예약이 감소</li>
+  <li>예약 수량 <b>전체가 인출되면 최종출고 지시자</b>가 설정되고, 예약이 재고/소요량 리스트에서 제거</li>
+  <li><b>실제 구성부품 원가</b>가 산정되어 오더에 배부</li>
+  <li>오더 헤더 상태에 <b>"자재이동 등록됨"</b> 설정</li>
+  <li><span class="key">자재문서</span> 생성</li>
+</ul>
+
+<div class="note warn">
+  <div class="t">Caution — 자재이동 문서화</div>
+  <p>공정오더에 대한 자재출고를 쉽게 분석할 수 있도록, <b>커스터마이징에서 자재이동 문서화를 활성화</b>하는 것을 SAP가 권장합니다. 원문은 여기까지만 말하고 구체적 IMG 경로는 제시하지 않으므로, 설정 위치는 <span class="bad">실제 시스템에서 확인</span>합니다.</p>
+</div>
+
+<h3>5-3. 오더 확인(Confirmation)</h3>
+
+<p>현장 인력이 자재를 인출하고 레시피대로 페인트를 혼합 · 충전한 뒤, 각 페이즈에 대해 <b>혼합한 리터 수 · 충전한 캔 수 · 시작과 완료 시점 · 소요시간</b>을 기록하는 것이 확인입니다.</p>
+
+<p>확인은 <span class="key">진척 관리</span>와 <span class="key">오더에 대한 내부 활동 원가 배부</span>의 근거가 됩니다. 가능한 신속하게 해야 하고, 전제조건으로 <b>오더 또는 페이즈가 릴리스</b>되어 있어야 합니다.</p>
+
+<h4>페이즈 확인에 무엇이 들어가는가</h4>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>항목</th><th>설명</th><th>예시</th></tr></thead>
+<tbody>
+<tr><td>페이즈 수량<br>(양품 / 불량)</td><td class="wrap"><b>양품</b> = 해당 페이즈에서 생산되어 다음 페이즈로 넘어갈 수 있는 부분생산 수량. <b>불량</b> = 그 페이즈 실행 중 폐기해야 했던 수량</td><td class="wrap">믹서 배출 시 점도가 높아 벽면에 잔여물 — 1,000L 중 <b>995L만</b> 충전으로 이동, <b>5L는 세척 시 폐기</b></td></tr>
+<tr><td>실제 일자<br>(시작 / 완료)</td><td class="wrap">페이즈의 실제 시작 · 완료일. 생산 감독자가 분석 또는 <b>후속 생산 재스케줄링</b>에 활용</td><td class="wrap">—</td></tr>
+<tr><td>기계시간<br>노무시간</td><td class="wrap">각각 <b>자원</b>과 <b>작업자</b>의 작업시간으로 <span class="key">생산 수량에 비례</span>. 여기에 수량과 무관한 <b>고정 준비시간</b>이 별도로 붙는다</td><td class="wrap">100캔당 기계 15분 · 노무 5분, 세척 준비 1.5h 고정 → <b>500캔</b>이면 기계 5×15=<b>75분</b>, 노무 5×5=<b>25분</b>, 준비 <b>1.5h</b></td></tr>
+</tbody>
+</table>
+</div>
+
+<div class="note">
+  <div class="t">🔰 초보자 설명 — 준비시간은 왜 곱하지 않나</div>
+  <p>기계시간 · 노무시간은 만드는 양이 늘면 같이 늡니다(500캔 = 100캔의 5배). 그런데 <b>충전 전후 자원 세척</b>은 500캔을 만들든 100캔을 만들든 한 번만 하면 됩니다. 그래서 준비시간은 수량에 곱하지 않고 <span class="key">고정</span>으로 붙습니다. 로트가 작을수록 단위당 준비시간 부담이 커지는 이유이기도 하고, LESSON 1에서 로트 크기에 따라 생산버전을 나눈 것과 같은 결의 이야기입니다.</p>
+</div>
+
+<h4>확인 후 상태</h4>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>상태</th><th>조건</th></tr></thead>
+<tbody>
+<tr><td>부분확인<br>(PCNF)</td><td class="wrap"><b>하나 이상(전체는 아님)</b>의 페이즈가 확인됨</td></tr>
+<tr><td>확인완료<br>(CNF)</td><td class="wrap"><b>모든 페이즈</b>가 최종 확인됨</td></tr>
+</tbody>
+</table>
+</div>
+
+<h4>확인 레벨 — 둘 중 하나만</h4>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>방식</th><th>설명</th><th>적합한 오더</th></tr></thead>
+<tbody>
+<tr><td>오더 헤더 레벨</td><td class="wrap">오더 전체에 대해 확인. 시스템이 <b>모든 페이즈를 자동 확인 처리</b></td><td class="wrap">페이즈 수가 적거나 상세 진척 관리가 필요 없는 오더</td></tr>
+<tr><td>페이즈 레벨<br>(타임티켓)</td><td class="wrap">오더 내 <b>각 페이즈에 대해 개별</b> 확인</td><td class="wrap">페이즈가 많아 단계별 진척을 상세히 봐야 하는 대규모 오더</td></tr>
+</tbody>
+</table>
+</div>
+
+<div class="note warn">
+  <div class="t">Caution — 확인 방식은 오더당 한 가지</div>
+  <p>하나의 공정오더에 대해서는 <b>오더 관련 확인 또는 페이즈 관련 확인 중 한 가지만</b> 쓸 수 있습니다. 한 유형을 등록한 뒤에는 <span class="bad">다른 유형을 등록할 수 없으며(반대도 마찬가지)</span>, 잘못 등록했다면 확인을 <b>취소</b>해야 합니다. 앱은 <code>Confirm Process Order</code> · <code>Confirm Process Order Phase</code> 등이 제공됩니다.</p>
+</div>
+
+<p>MES를 쓰는 기업의 현장 인력은 SAP S/4HANA 대신 MES와 상호작용하고, MES에 기록된 확인 데이터가 <b>인터페이스를 통해 자동으로</b> SAP로 전송됩니다.</p>
+
+<h3>5-4. 입고(Goods Receipt)</h3>
+
+<p>생산 프로세스의 마지막 단계입니다. 캔에 담긴 페인트를 창고 내 지정 보관 구역으로 옮기고 입고를 공식 등록하면, <b>재고 수량이 증가</b>하고 공정오더는 생산 관점에서 더 이상 관련이 없어집니다 — 시스템상으로는 <code>Monitor Material Coverage</code> 앱에 더 이상 표시되지 않습니다.</p>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>방식</th><th>설명</th></tr></thead>
+<tbody>
+<tr><td>수동 등록</td><td class="wrap"><code>Post Goods Movement</code> 앱 등. 현장 인력이 마지막 단계로 등록하거나, 완성품이 창고 입고구역에 도착한 후 창고 담당자가 등록</td></tr>
+<tr><td>자동 등록<br>(오더 확인과 함께)</td><td class="wrap"><code>Confirm Process Order</code> 앱</td></tr>
+<tr><td>자동 등록<br>(페이즈 확인과 함께)</td><td class="wrap"><code>Confirm Process Order Phase</code> 앱. <b>저장 시스템이 현장에서 창고로 완성품을 자동 이관</b>하는 경우 등</td></tr>
+</tbody>
+</table>
+</div>
+
+<p>입고는 <b>오더 헤더에 저장된 저장위치</b>(예: <code>101A</code>)에서 등록되며 시스템이 이를 제안합니다. 자동 · 수동을 가리지 않고 <b>부분 입고</b>(여러 차례 나눠 등록)와 <b>전체 수량 일괄 입고</b> 모두 가능합니다. 단일 등록 시 시스템은 오더 또는 <b>마지막 페이즈의 양품 수량</b>을 입고 수량으로 제안하고, 나눠 등록하는 경우 이미 입고된 수량만큼 <b>차감한 수량</b>을 제안합니다.</p>
+
+<h4>배치관리 제품의 입고</h4>
+
+<p>프로세스산업에서는 생산된 자재를 배치로 관리하는 것이 일반적입니다. 배치 생성 시점은 둘입니다.</p>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>시점</th><th>동작</th></tr></thead>
+<tbody>
+<tr><td><span class="key">오더 릴리스 시</span></td><td class="wrap">입고용 배치를 미리 생성. 이후 자동 · 수동으로 입고를 등록할 때 <b>이 배치가 입고 수량에 사용</b>된다</td></tr>
+<tr><td>입고 등록 시</td><td class="wrap">릴리스 시 배치를 만들지 않았다면, 입고 등록 시 시스템이 <b>자동으로 배치를 생성</b>한다</td></tr>
+</tbody>
+</table>
+</div>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>상황</th><th>처리 방식</th></tr></thead>
+<tbody>
+<tr><td>오더 전체에서 생산 품질이 <b>일정</b>한 경우</td><td class="wrap">전체 입고를 <b>하나의 배치</b>로 등록</td></tr>
+<tr><td>생산 조건 변화 등으로 <b>자재 속성이 변하는</b> 경우</td><td class="wrap"><b>여러 배치로 나누어</b> 입고 등록</td></tr>
+</tbody>
+</table>
+</div>
+
+<p>SAP S/4HANA는 생산 자재의 속성(점도 · pH · 밀도)을 <b>각 배치의 배치 특성</b>으로 기록하며, 입고 등록 시 이 값을 입고 앱에서 직접 입력할 수 있습니다. 일부 생산 프로세스는 품질관리 부서의 물리적 · 화학적 분석이 필요하고, 검사 후에야 배치 특성값이 확보됩니다.</p>
+
+<div class="note ok">
+  <div class="t">📌 개인 E2E 프로젝트와의 연결점 — 배치는 언제 태어나는가</div>
+  <p>강의가 말하는 두 시점(<b>릴리스 시</b> 미리 생성 / <b>입고 시</b> 자동 생성) 중, 프로젝트는 생산이 없으므로 <b>입고 시 생성</b>만 존재합니다. 벤더 사입 GR(<code>101</code>, 플랜트 <code>GATE</code>) 시점에 배치가 만들어지고 그때 <code>MCHA-VFDAT</code>가 확정됩니다.</p>
+  <p>그런데 강의의 "릴리스 시 미리 만든다"가 프로젝트에도 시사점을 줍니다. <b>배치번호를 입고 순간이 아니라 그 이전에 확정할 수 있다면 후속 처리가 단순해진다</b>는 발상입니다. 프로젝트로 옮기면 <span class="key">벤더가 사전 통보한 배치번호 · 유통기한을 입고 전에 받아 두는 구조</span>에 해당합니다. 다만 이 코스 범위 밖이므로 <b>인터페이스 설계서에서 다시 볼 항목</b>으로만 적어 둡니다.</p>
+  <p>그대로 가져오는 것이 하나 더 있습니다. <b>"자재 속성이 변하면 배치를 나눈다"</b>는 규칙입니다. 프로젝트에서 한 번의 벤더 GR에 <span class="bad">유통기한이 서로 다른 물건이 섞여 들어오면 배치를 반드시 나눠야</span> 합니다. 한 배치로 뭉쳐 버리면 <code>MCHA-VFDAT</code>가 하나만 남아 FEFO가 무너지고, <code>ZBATCH_ZONE</code>의 30% 판정도 잘못된 기준일로 돌게 됩니다. GR 화면에서 배치를 나누는 것은 <b>입력 규칙이지 시스템이 막아 주는 것이 아니므로</b>, 검수 절차로 통제해야 합니다.</p>
+</div>
+
+<h4>입고 등록의 효과</h4>
+
+<ul>
+  <li>재고 수량이 입고 수량만큼 <b>증가</b></li>
+  <li>오더 상태가 <b>부분입고 또는 입고완료</b>로 갱신되고, 오더 내 입고 수량이 갱신</li>
+  <li><b>실제 원가</b>가 산정되어 오더에 대체(Credit) 처리</li>
+  <li>완전 입고된 공정오더는 <b>자재가용성 모니터링 리스트에서 제거</b></li>
+  <li>입고에 대한 <span class="key">자재문서</span> 생성</li>
+</ul>
+
+<p>사용자 입력을 줄이려면 <b>오더 헤더 레벨 확인 + 자동 재고 입고</b>를 묶어 한 번에 처리할 수 있습니다.</p>
+
+<div class="note warn">
+  <div class="t">확인 필요 — 실행 단계 T-Code</div>
+  <p>원문 6-2는 <b>Fiori 앱 이름</b>(<code>Manage Process Orders</code> · <code>Mass Processing: Process Orders</code> · <code>Post Goods Movement</code> · <code>Pick Components for Process Orders</code> · <code>Confirm Process Order</code> · <code>Confirm Process Order Phase</code> · <code>Monitor Material Coverage</code>)만 제시하고 <span class="bad">앱 ID(F####)도 T-Code도 주지 않습니다.</span> 공정오더 생성 · 변경 · 조회(<code>COR1</code>/<code>COR2</code>/<code>COR3</code> 계열), 확인(<code>CORK</code>/<code>COR6N</code> 계열), 입고(<code>MIGO</code>) 매핑은 <b>실제 시스템(winerp01 / MEP)에서 확인한 뒤</b> 이 노트에 보강합니다. 기억으로 채우지 않습니다.</p>
+</div>
+
+</div>
+
+
+<!-- ══════════ APPENDIX ══════════ -->
+<div class="lesson" id="lx">
+<h2><span class="no">APPENDIX</span>정리 · 반드시 기억할 것</h2>
+
+<h3>한 장 요약</h3>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>질문</th><th>답</th></tr></thead>
+<tbody>
+<tr><td>프로세스생산이 이산생산과 다른 점</td><td class="wrap">구조는 1:1 대응(라우팅↔마스터레시피, 생산오더↔공정오더, 작업장↔자원). 실제 차이는 <b>페이즈 층</b>과 <b>배치 단위 수량</b> 둘뿐</td></tr>
+<tr><td>오퍼레이션과 페이즈</td><td class="wrap">오퍼레이션 = <b>하나의 자원으로 전체 수행</b>되는 단계 / 페이즈 = 그 하위 논리 단계. 자원은 상위에서 <b>자동 상속</b></td></tr>
+<tr><td>자원과 구성부품은 어디에 붙나</td><td class="wrap">자원은 <b>오퍼레이션</b>에, 구성부품은 <b>페이즈</b>에. 언제 꺼내오느냐가 페이즈로 갈리기 때문</td></tr>
+<tr><td>생산버전이 하는 일</td><td class="wrap"><b>BOM + 마스터레시피 조합</b>을 연결. 수량 · 시점 기준으로 오더 생성 시 자동 선택. 공정오더는 <b>항상</b> 생산버전을 참조</td></tr>
+<tr><td>같은 자재에 생산버전이 여럿인 이유</td><td class="wrap">레시피만 다름 / BOM만 다름 / 둘 다 다름. 로트 크기에 맞는 자원을 쓰기 위해서가 대표 사례</td></tr>
+<tr><td>배치가 뭔가</td><td class="wrap">재고 총수량 중 <b>동질적인 부분수량</b>. 같은 배치 = 같은 특성, 다른 배치 = 다른 특성. 특성 목록은 <b>배치 클래스</b>가 정의</td></tr>
+<tr><td>계획오더와 공정오더의 차이</td><td class="wrap">계획오더 = MRP의 <b>동적</b> 입고 예정(계획실행마다 조정) / 공정오더 = 상세 생산지시, <b>MRP 조정 영향 없음</b></td></tr>
+<tr><td>전환하면 계획오더는</td><td class="wrap"><b>삭제</b>되고 공정오더로 대체. 구성부품 레벨에서는 종속소요량 → <b>예약</b></td></tr>
+<tr><td>계획오픈일이 뭔가</td><td class="wrap">그 계획오더가 <b>공정오더로 전환되어야 하는 날짜</b>. 일괄 전환 시 오픈 기간으로 걸러낸다</td></tr>
+<tr><td>가용성 체크 기준</td><td class="wrap"><b>ATP</b> — 총재고가 아니라 <b>요청 시점의 가용량</b>. 소요일자는 그 구성부품이 배정된 페이즈의 시작일에서 나온다</td></tr>
+<tr><td>배치 결정 3단계</td><td class="wrap">① 검색(조건 충족 배치 걸러내기) → ② 정렬(줄 세우기) → ③ 배정 · 예약(수량 채우기). <b>정책은 ②에 들어간다</b></td></tr>
+<tr><td>배치 결정은 언제 시작되나</td><td class="wrap">공정오더 <b>생성 또는 릴리스</b> 시. 둘 다 릴리스 이전 또는 그 시점</td></tr>
+<tr><td>릴리스를 안 하면</td><td class="wrap">인쇄 · 자재출고 · 확인 · 입고 <b>전부 불가</b>. 기술적으로는 상태 변경 한 줄이지만 모든 후속 처리의 게이트</td></tr>
+<tr><td>예약 자재를 꺼낼 수 있는 시점</td><td class="wrap">그 자재가 배정된 <b>페이즈가 릴리스된 이후</b></td></tr>
+<tr><td>백플러시</td><td class="wrap">확인과 함께 자동 출고, 수량은 <b>확인 수량에 비례</b>. 스테이징을 안 하려는 경우(배관 공급 · 저가 자재)</td></tr>
+<tr><td>확인 상태 두 가지</td><td class="wrap"><b>PCNF</b> = 일부 페이즈 확인 / <b>CNF</b> = 모든 페이즈 최종 확인</td></tr>
+<tr><td>확인 레벨을 섞을 수 있나</td><td class="wrap"><b>없다.</b> 오더당 헤더 레벨 또는 페이즈 레벨 하나만. 바꾸려면 확인을 취소해야 한다</td></tr>
+<tr><td>기계 · 노무시간과 준비시간</td><td class="wrap">기계 · 노무시간은 <b>수량 비례</b>, 준비시간은 <b>고정</b>. 500캔 = 기계 75분 · 노무 25분 · 준비 1.5h</td></tr>
+<tr><td>완제품 배치는 언제 생기나</td><td class="wrap"><b>릴리스 시</b> 미리 생성하거나, 안 했으면 <b>입고 시</b> 자동 생성</td></tr>
+<tr><td>입고를 하나의 배치로 할까</td><td class="wrap">품질이 일정하면 하나, <b>속성이 변하면 여러 배치로 분할</b></td></tr>
+</tbody>
+</table>
+</div>
+
+<div class="note warn">
+  <div class="t">반드시 지킬 것</div>
+  <p>· <b>"자재출고가 안 된다"를 권한 문제로 먼저 보지 않는다.</b> 오더 상태(CRTD/REL)와 <b>해당 페이즈의 릴리스 여부</b>가 순서상 먼저다.<br>
+     · 가용성 체크 실패를 <b>재고 부족과 동일시하지 않는다.</b> ATP는 시점별 가용량이라 총재고가 충분해도 실패할 수 있다.<br>
+     · 확인 레벨(헤더 / 페이즈)은 <b>오더 생성 전에 정한다.</b> 등록 후 바꾸려면 취소밖에 없다.<br>
+     · 배치 결정의 <b>정렬 기준을 "표준이 알아서 한다"고 넘기지 않는다.</b> 품질 근접 정렬과 유효기한 FIFO는 결과가 정반대다.<br>
+     · 한 오더 안에서 두 구성부품 배치를 혼합할 수 있는지는 <b>업무 규정</b>이지 시스템 기본값이 아니다. 페인트 사례는 금지된 경우였다.<br>
+     · T-Code · 앱 ID를 <b>기억으로 채우지 않는다.</b> 이 코스 원문에는 T-Code가 한 건도 없다.</p>
+</div>
+
+<h3>이 노트의 범위에 대해</h3>
+
+<div class="note">
+  <div class="t">개인 프로젝트와의 거리</div>
+  <p>진행 중인 개인 E2E 프로젝트(식품 유통 · 벤더 사입 후 재판매 · 회사코드 <code>CL04</code>)는 <b>생산과 외주가공이 없습니다.</b> 마스터레시피 · 오퍼레이션 · 페이즈 · 자원 · 생산버전 · 공정오더는 프로젝트에 직접 쓰이지 않습니다. PP는 <span class="key">자격증과 지식 목적</span>으로 학습합니다.</p>
+  <p>프로젝트와 실제로 닿는 축은 <b>배치 하나</b>이고, 📌는 그 세 곳에만 달았습니다 — LESSON 1의 <b>배치 클래스와 특성</b>(프로젝트가 왜 <code>MCHA-VFDAT</code> 하나로 끝내는가), LESSON 4의 <b>배치 결정 3단계</b>(SD의 FEFO와 <code>ZBATCH_ZONE</code>의 역할 분담), LESSON 5의 <b>배치 생성 시점과 분할</b>(벤더 GR에서 유통기한이 다르면 배치를 나눠야 하는 이유). 생산 쪽은 억지로 연결하지 않았습니다.</p>
+</div>
+
+<h3>참고</h3>
+
+<ul>
+  <li>원본: 노션 <b>SAP Learning Hub</b> → Implementing Manufacturing in SAP S/4HANA Cloud Private Edition → <b>6-1</b>(Unit 1~4 · 레슨 4개) · <b>6-2</b>(Unit 5 · 레슨 4개)</li>
+  <li>짝이 되는 노트: <b>S42020</b> <a href="s42020-discrete-shopfloor.html">이산생산 현장관리</a> — 같은 라이프사이클을 라우팅 · 작업장 · 생산오더로 다룬다. 그림 1의 왼쪽 열이 그 노트의 내용이다</li>
+  <li>앞 노트: <b>S42000</b> 제조 기초(공급망계획 · 계획전략 · 생산오더) · <b>S42010</b> 생산계획 프로세스</li>
+  <li>이 코스에 포함된 실습(Exercise)은 원문에서 생략되어 노트에도 반영하지 않았습니다 — 멀티레벨 BOM 분석, 생산버전 · 마스터레시피 분석, PIR 생성과 MRP 실행, 계획오더 전환 스케줄, 공정오더 분석, 자재출고 · 페이즈 확인 · 입고 등록</li>
+</ul>
+
+</div>
+
+</div>
+<script src="../../assets/hub.js" defer></script>
+</body>
+</html>

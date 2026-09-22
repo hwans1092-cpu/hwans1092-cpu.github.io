@@ -1,0 +1,2025 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>S4510 Inventory Management — 이동유형 · 이전기표 · 실사재고조사</title>
+<meta name="description" content="SAP Learning Hub의 Inventory Management and Physical Inventory(S4510) 노트. 이동유형의 통제기능, 입고·출고·이전기표, 저장위치/플랜트 간 재고이전과 재고수송중, 예약과 가용성체크, 특별조달 K·O·P, 분할평가, 실사재고조사 전 절차와 Customizing.">
+<link rel="icon" href="../../assets/favicon.svg">
+<link rel="stylesheet" href="../../assets/notes-paper.css">
+<style>
+/* ── 이 노트 전용: 도해(SVG) 스타일 ─────────────────────────── */
+.dgm{display:block; width:100%; height:auto;}
+.dgm text{font-family:"Malgun Gothic","맑은 고딕","Apple SD Gothic Neo",sans-serif; fill:#1e1e1e;}
+.dgm .t-h{font-size:15px; font-weight:700;}
+.dgm .t{font-size:13px;}
+.dgm .t-s{font-size:11.5px; fill:#555;}
+.dgm .t-xs{font-size:10.5px; fill:#6B7280;}
+.dgm .m{font-family:"D2Coding","Consolas",monospace; font-size:12px;}
+.dgm .m-s{font-family:"D2Coding","Consolas",monospace; font-size:10.5px;}
+.dgm .c-key{fill:#4338CA;} .dgm .c-bad{fill:#B91C1C;} .dgm .c-ok{fill:#047857;}
+.dgm .b{fill:#FFFFFF; stroke:#C7CBD6; stroke-width:1.2;}
+.dgm .b-key{fill:#EEF0FB; stroke:#4338CA; stroke-width:1.4;}
+.dgm .b-bad{fill:#FEF2F2; stroke:#B91C1C; stroke-width:1.3;}
+.dgm .b-ok{fill:#ECFDF5; stroke:#047857; stroke-width:1.3;}
+.dgm .b-mut{fill:#F3F4F6; stroke:#D1D5DB; stroke-width:1.1;}
+.dgm .b-hl{fill:#FEF08A; stroke:#CA8A04; stroke-width:1.2;}
+.dgm .b-ghost{fill:none; stroke:#9AA3B2; stroke-width:1.1; stroke-dasharray:5 4;}
+.dgm .ln{stroke:#7C8697; stroke-width:1.4; fill:none;}
+.dgm .ln-key{stroke:#4338CA; stroke-width:1.8; fill:none;}
+.dgm .ln-bad{stroke:#B91C1C; stroke-width:1.6; fill:none;}
+.dgm .ln-ok{stroke:#047857; stroke-width:1.6; fill:none;}
+.dgm .ln-d{stroke:#9AA3B2; stroke-width:1.2; stroke-dasharray:4 4; fill:none;}
+.dgm .arw{fill:#7C8697;} .dgm .arw-key{fill:#4338CA;}
+.dgm .arw-bad{fill:#B91C1C;} .dgm .arw-ok{fill:#047857;}
+.figwrap{background:#FAFAFE; border:1px solid var(--rule); border-radius:6px;
+  padding:18px 16px 10px; margin:22px 0;}
+.figwrap figcaption{margin-top:12px; padding-top:10px; border-top:1px solid var(--rule);}
+</style>
+</head>
+<body>
+<div class="crumb"><a href="../../index.html">← 자료실 홈</a> · <a href="../../journey.html?j=mm">MM 저니</a> · S4510 재고관리</div>
+<div class="sheet">
+
+<div class="doc-head">
+  <div class="kicker">LEARNING HUB · S4510</div>
+  <h1>재고관리 — 이동유형 · 이전기표 · 실사재고조사</h1>
+  <div class="sub">
+    Learning Journey <b>Implementing SAP S/4HANA Cloud Private Edition, Sourcing and Procurement</b> · Course 4 / S4510 · 10 Unit · 35 레슨<br>
+    출처: 노션 <b>SAP Learning Hub</b> 노트 4-1 ~ 4-10 변환
+  </div>
+</div>
+
+<div class="lead">
+  <p><b>결론부터.</b> 재고관리에서 실제로 무언가를 결정하는 것은 화면도 앱도 아니고 <span class="hl">이동유형 세 자리</span>입니다. 같은 MIGO 화면에서 <code>311</code>을 넣느냐 <code>301</code>을 넣느냐에 따라 수량이 어디서 어디로 가는지, 회계전표가 생기는지 안 생기는지, 어떤 필드가 필수가 되는지가 전부 갈립니다.</p>
+  <p>이 코스는 그 이동유형을 축으로 <b>입고(GR) → 이전기표 → 예약 → 출고(GI) → 특별조달 → 평가 → 실사재고조사 → 분석 → Customizing</b> 순으로 재고관리 전 구간을 훑습니다. 마지막 Unit 10에서 이동유형이 무엇을 통제하는지 다시 뜯어보는 구성이라, <span class="key">Unit 10을 먼저 읽고 나머지를 읽어도 됩니다.</span></p>
+</div>
+
+<div class="toc">
+  <h4>목차</h4>
+  <ol>
+    <li><a href="#l1">재고관리 개요와 입고(GR) — 참조 있음 · 없음 · 취소 · 반출</a></li>
+    <li><a href="#l2">이전기표와 재고이전 — 311 · 301 · 303/305와 재고수송중</a></li>
+    <li><a href="#l3">예약과 가용성체크 — 정적 · 동적 · 결품체크</a></li>
+    <li><a href="#l4">출고(GI) · 재고결정 · 마이너스재고</a></li>
+    <li><a href="#l5">특별조달 — 공급업체수탁(K) · 위탁가공(O) · 파이프라인(P)</a></li>
+    <li><a href="#l6">자재평가의 특수기능 — UNBW/NLAG · 분할평가</a></li>
+    <li><a href="#l7">실사재고조사 — 절차 · 간소화 · Situation Handling</a></li>
+    <li><a href="#l8">사이클카운팅 · 표본기반실사</a></li>
+    <li><a href="#l9">재고분석 — Fiori 분석앱 · 클래식 리스트 · 주기처리</a></li>
+    <li><a href="#l10">Customizing — 번호할당 · 이동유형 설정 · 필드선택</a></li>
+  </ol>
+</div>
+
+
+<!-- ══════════ LESSON 1 ══════════ -->
+<div class="lesson" id="l1">
+<h2><span class="no">LESSON 1</span>재고관리 개요와 입고(GR)</h2>
+
+<p><span class="tag">Unit 1-2</span><span class="tag">레슨 9개</span>재고관리 환경 · 재화이동 문서 · Post Goods Movement/MIGO · 참조 없는 GR · 참조 있는 GR · PO 자동생성 · 취소/반출 · 주문가격단위 · 공차와 납품완료지시자</p>
+
+<h3>언제 이걸 알아야 하는가</h3>
+
+<p>입고 담당자가 제일 자주 들고 오는 말이 <b>"입고를 잘못 쳤는데 어떻게 지웁니까"</b>입니다. 자재문서는 지워지지 않습니다. <span class="key">취소문서를 하나 더 만드는 것</span>뿐이고, 그것도 원본을 참조해서 만들어야 평가금액이 원본과 같아집니다. 참조 없이 반대 이동유형으로 치면 오늘자 평가가격으로 잡혀서 금액이 안 맞습니다.</p>
+
+<p>두 번째로 많은 것이 <b>"PO 수량보다 더 왔는데 입고가 안 됩니다"</b>입니다. 이건 과다납품공차 문제이고, 답은 자재마스터 구매가치키 · 정보레코드 · PO 아이템 Delivery 탭 셋 중 하나에 있습니다.</p>
+
+<h3>재고관리가 관리하는 두 축 — 수량과 가치</h3>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>축</th><th>관리 조직레벨</th><th>내용</th></tr></thead>
+<tbody>
+<tr><td>수량 기준</td><td><code>저장위치</code></td><td class="wrap">가용재고 · 품질검사중재고 · 차단재고, 발주완료 미입고 수량, 예약된 재고를 구분. 고객수탁재고 등 일부 특수재고는 <b>플랜트 레벨에서만</b> 관리</td></tr>
+<tr><td>가치 기준</td><td><code>평가영역</code></td><td class="wrap">모든 재화이동마다 재고수량·재고가치, 자동계정결정을 통한 G/L 계정, (CO 활성화 시) 원가회계 계정지정을 함께 갱신</td></tr>
+</tbody>
+</table>
+</div>
+
+<div class="note">
+  <div class="t">🔰 초보자 설명 — 평가영역은 왜 따로 있나</div>
+  <p>재고를 <b>세는 단위</b>와 <b>값을 매기는 단위</b>가 다르기 때문입니다. 세는 건 저장위치 단위로 세지만, 값은 플랜트(또는 회사코드) 단위로 붙습니다. 그래서 같은 플랜트 안에서 저장위치만 옮기면 회계가 안 움직이고, 플랜트를 넘어가면 회계가 움직입니다. 이 한 문장이 LESSON 2 전체의 핵심입니다.</p>
+  <p>재화이동 입력 시에는 플랜트와 저장위치만 넣으면 되고, 회사코드는 시스템이 평가영역을 통해 자동으로 끌어옵니다.</p>
+</div>
+
+<h3>재화이동 4종과 남는 문서</h3>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>재화이동</th><th>정의</th></tr></thead>
+<tbody>
+<tr><td>입고 (GR)</td><td class="wrap">외부공급업체 또는 생산으로부터 접수. 창고재고 <b>증가</b></td></tr>
+<tr><td>출고 (GI)</td><td class="wrap">자재출고 · 소비 · 고객 대상 선적. 창고재고 <b>감소</b></td></tr>
+<tr><td>재고이전</td><td class="wrap">저장위치에서 빼내 다른 저장위치로. 동일 플랜트 내 / 플랜트 간 모두 가능</td></tr>
+<tr><td><span class="key">이전기표</span></td><td class="wrap">재고이전을 <b>포함하는 상위 개념</b>. 실물이동 여부와 무관하게 재고식별·자격을 변경 (품질검사 해제, 자재 간 이전, 수탁→자사 전환)</td></tr>
+</tbody>
+</table>
+</div>
+
+<p>기표하면 <b>자재문서</b>(문서번호 + 자재문서연도로 식별, 헤더 + 1개 이상 아이템)가 생기고, FI에 영향이 있는 이동이면 <b>회계문서</b>(회사코드 + 문서번호 + 회계연도)가 병행 생성됩니다. <span class="hl">자재문서번호와 회계문서번호는 일반적으로 다릅니다.</span></p>
+
+<h3>이동유형이 동시에 통제하는 것</h3>
+
+<figure class="figwrap">
+<svg class="dgm" viewBox="0 0 1000 400" role="img" aria-label="이동유형 통제기능 도해. 세 자리 이동유형 하나가 수량 업데이트, 가치 업데이트와 계정결정, 필드선택, 부가 체크 로직을 동시에 결정한다.">
+  <defs>
+    <marker id="mvA" markerWidth="9" markerHeight="9" refX="7" refY="4.5" orient="auto">
+      <polygon class="arw-key" points="0,0 9,4.5 0,9"/></marker>
+  </defs>
+
+  <rect class="b-hl" x="350" y="16" width="300" height="60" rx="6"/>
+  <text class="t-h" x="374" y="42">이동유형 (3자리 키)</text>
+  <text class="m" x="374" y="62">101 · 122 · 301 · 311 · 561 …</text>
+
+  <path class="ln-key" d="M420 76 V108 H120 V142" marker-end="url(#mvA)"/>
+  <path class="ln-key" d="M470 76 V108 H370 V142" marker-end="url(#mvA)"/>
+  <path class="ln-key" d="M530 76 V108 H620 V142" marker-end="url(#mvA)"/>
+  <path class="ln-key" d="M580 76 V108 H870 V142" marker-end="url(#mvA)"/>
+
+  <rect class="b-key" x="20" y="144" width="200" height="128" rx="6"/>
+  <text class="t-h c-key" x="40" y="168">① 수량 업데이트</text>
+  <text class="t-s" x="40" y="190">어느 재고에서 빼서</text>
+  <text class="t-s" x="40" y="208">어느 재고로 넣는지</text>
+  <text class="t-s" x="40" y="232">근거: 수량스트링</text>
+  <text class="t-xs c-bad" x="40" y="252">SAP 고정값 · 변경 불가</text>
+
+  <rect class="b-key" x="270" y="144" width="200" height="128" rx="6"/>
+  <text class="t-h c-key" x="290" y="168">② 가치 · 계정결정</text>
+  <text class="t-s" x="290" y="190">회계문서 생성 여부와</text>
+  <text class="t-s" x="290" y="208">상대계정을 결정</text>
+  <text class="t-s" x="290" y="232">근거: 가치스트링</text>
+  <text class="t-xs" x="290" y="252">+ 계정그룹화코드</text>
+
+  <rect class="b-key" x="520" y="144" width="200" height="128" rx="6"/>
+  <text class="t-h c-key" x="540" y="168">③ 필드선택</text>
+  <text class="t-s" x="540" y="190">입력화면에서 어떤 필드가</text>
+  <text class="t-s" x="540" y="208">필수 · 선택 · 숨김인지</text>
+  <text class="t-s" x="540" y="232">Field selection (Enjoy)</text>
+  <text class="t-xs" x="540" y="252">이동유형별로 따로 유지</text>
+
+  <rect class="b-key" x="770" y="144" width="210" height="128" rx="6"/>
+  <text class="t-h c-key" x="790" y="168">④ 부가 통제</text>
+  <text class="t-s" x="790" y="190">유효기간(SLED) 체크</text>
+  <text class="t-s" x="790" y="208">저장위치 자동생성</text>
+  <text class="t-s" x="790" y="226">재고결정 · 동적가용성체크</text>
+  <text class="t-s" x="790" y="244">PO 자동생성 · 메시지결정</text>
+  <text class="t-xs" x="790" y="262">사유 필수/선택, 취소 MvT</text>
+
+  <rect class="b-ghost" x="20" y="292" width="960" height="92" rx="6"/>
+  <text class="t-s" x="42" y="316">이 넷이 <tspan class="c-key">한 키에 묶여 있다</tspan>는 것이 핵심이다. 수량만 바꾸고 계정은 그대로 두는 식의 부분 변경은 불가능하다.</text>
+  <text class="t-s" x="42" y="338">그래서 신규 이동유형은 항상 <tspan class="t-h">기존 이동유형 복사</tspan>로만 만든다. 키는 반드시 <tspan class="m-s">9 · X · Y · Z</tspan> 로 시작해야 한다.</text>
+  <text class="t-s" x="42" y="360">복사할 때 취소이동유형(대개 원본+1)도 같이 복사해 배정하지 않으면, 나중에 취소가 안 된다.</text>
+</svg>
+<figcaption><span class="fno">그림 1</span>이동유형 하나가 동시에 통제하는 네 가지. Unit 10 Customizing의 내용을 앞당겨 정리한 것이다.</figcaption>
+</figure>
+
+<h3>Post Goods Movement 앱 / MIGO</h3>
+
+<p>둘은 같은 트랜잭션의 두 인터페이스입니다. 창고담당자(<code>SAP_BR_WAREHOUSE_CLERK</code>) · 재고관리자(<code>SAP_BR_INVENTORY_MANAGER</code>) 비즈니스롤에 포함되며, 참조 있음/없음 입고·출고·이전기표를 전부 기록하고 자재문서 조회·변경·취소까지 합니다.</p>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>화면영역</th><th>내용</th></tr></thead>
+<tbody>
+<tr><td>헤더데이터</td><td class="wrap">문서일자 · 전기일자 · 헤더텍스트 · 작성자 · 입력일. 회계문서로 이동 가능</td></tr>
+<tr><td>아이템개요</td><td class="wrap">문서아이템 목록. 아이템 번호 클릭 시 상세로 이동</td></tr>
+<tr><td>아이템상세</td><td class="wrap">플랜트 · 저장위치 · 이동유형, 참조문서 · 계정지정</td></tr>
+<tr><td>개요트리</td><td class="wrap">최근 10건의 구매오더 · 오더 · 예약 · 자재문서 · 보류데이터</td></tr>
+</tbody>
+</table>
+</div>
+
+<div class="note warn">
+  <div class="t">두 개 알아두면 실수가 줄어드는 기능</div>
+  <p>· <b>Check(점검)</b> — 기표 전에 경고·오류를 미리 본다. 점검을 먼저 돌리면 아이템개요에 신호등 상태 컬럼이 생긴다. Customizing으로 <span class="hl">트랜잭션·참조 조합별로 기표 전 점검을 강제</span>할 수 있다.<br>
+     · <b>Hold(보류)</b> — 입력 중 데이터를 임시 저장. Reference 체크박스를 켜면 반복 트랜잭션용 템플릿이 되어 자동삭제되지 않는다(개요트리에 별표). 단 <span class="bad">배치분류 · 수입데이터 · 수익성세그먼트는 보류 저장이 안 되어 다시 입력해야 한다.</span> 남의 보류데이터 삭제는 Manage Held Data - Inventory Management 앱 / <code>MBPM</code>.</p>
+  <p>아이템상세를 열어둔 상태에서는 그 아이템 변경이 상세화면에서만 가능하고 아이템개요에서는 불가합니다.</p>
+</div>
+
+<h3>참조 없는 입고 (기타입고) — 비계획 재화이동</h3>
+
+<p>자재 · 수량 · 납품일 · 수령플랜트 · 출처 정보가 사전에 시스템에 없는 입고입니다. 이동유형으로 성격을 구분합니다.</p>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>재고유형</th><th>재고잔액 최초입력</th><th>PO 없음</th><th>생산오더 없음</th></tr></thead>
+<tbody>
+<tr><td>가용재고</td><td><code>561</code></td><td><code>501</code></td><td><code>521</code></td></tr>
+<tr><td>품질검사중재고</td><td><code>563</code></td><td><code>503</code></td><td><code>523</code></td></tr>
+<tr><td>차단재고</td><td><code>565</code></td><td><code>505</code></td><td><code>525</code></td></tr>
+</tbody>
+</table>
+</div>
+
+<p><code>561/563/565</code>는 Go-live 시 레거시 재고를 옮기는 용도로, <b>실물이동이 없습니다.</b> 모든 특수재고지시자와 함께 쓸 수 있어 수탁재고 · 프로젝트재고 · 판매오더재고의 최초입력도 됩니다. 평가는 외부금액을 입력했는지에 따라 갈립니다 — 입력하지 않으면 자재마스터 평가가격(이동평균가 또는 표준가), 입력하면 그 금액(이동평균가 자재는 MAP가 그에 맞춰 조정됨). 상대기표는 <b>재고잔액 최초입력용 특별계정</b>입니다.</p>
+
+<div class="note warn">
+  <div class="t">대량 이관은 수작업으로 하지 않는다</div>
+  <p>레거시 재고수치를 옮길 때는 <span class="key">SAP S/4HANA 마이그레이션 코크핏</span>을 씁니다. <code>561</code>을 손으로 수천 건 치는 방식은 표준 절차가 아닙니다.</p>
+</div>
+
+<p><b>무상납품(Free-of-Charge)</b>은 이동유형 <code>511</code>, Vendor · Text 필드 필수. 평가방식에 따라 결과가 다릅니다.</p>
+
+<ul>
+  <li>이동평균가 자재 — 수량만 늘고 총가치는 그대로 → <span class="bad">이동평균가가 내려간다</span></li>
+  <li>표준가 자재 — 수량 · 가치 모두 갱신, 상대기표는 <b>가격차이 수익계정</b></li>
+</ul>
+
+<h4>기타입고 전용 앱</h4>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>앱 / 트랜잭션</th><th>용도</th></tr></thead>
+<tbody>
+<tr><td>Post Goods Movement / <code>MIGO</code></td><td class="wrap">모든 기타입고 입력 가능</td></tr>
+<tr><td>Manage Stock</td><td class="wrap">재고잔액 최초입력 전용(표준재고 · 프로젝트재고 Q · 공급업체수탁재고 K). 여러 건을 리스트로 모아 일괄기표</td></tr>
+<tr><td class="wrap">Post Goods Receipt without Reference</td><td class="wrap">PO 없는 입고(<code>501/503/505</code>) 전용. <b>이동유형을 직접 입력하지 않고</b> 재고유형 선택으로 자동결정. 특수재고 E/K/Q 지원</td></tr>
+</tbody>
+</table>
+</div>
+
+<h3>참조 있는 입고 — 계획된 재화이동</h3>
+
+<p>무엇을 · 언제 · 얼마나 · 어디서 · 어디로가 기표 전에 이미 시스템에 있는 입고입니다. 구매오더 · 생산오더 참조 입고의 표준 이동유형은 <code>101</code>이고, 재고유형에 따라 가용/품질검사중/차단재고로 받을 수 있습니다.</p>
+
+<figure class="figwrap">
+<svg class="dgm" viewBox="0 0 1000 440" role="img" aria-label="입고 경로 도해. 101은 즉시 평가되고, 103은 비평가 GR차단재고로 받았다가 105로 해제하거나 124로 반송하며, 107은 원산지검수로 가치를 먼저 잡고 109로 해제한 뒤 필요하면 122로 반품한다.">
+  <defs>
+    <marker id="grA" markerWidth="9" markerHeight="9" refX="7" refY="4.5" orient="auto">
+      <polygon class="arw-key" points="0,0 9,4.5 0,9"/></marker>
+    <marker id="grB" markerWidth="9" markerHeight="9" refX="7" refY="4.5" orient="auto">
+      <polygon class="arw-bad" points="0,0 9,4.5 0,9"/></marker>
+    <marker id="grC" markerWidth="9" markerHeight="9" refX="7" refY="4.5" orient="auto">
+      <polygon class="arw-ok" points="0,0 9,4.5 0,9"/></marker>
+  </defs>
+
+  <rect class="b-key" x="20" y="180" width="150" height="66" rx="6"/>
+  <text class="t-h c-key" x="40" y="206">구매오더 / </text>
+  <text class="t-h c-key" x="40" y="226">생산오더</text>
+
+  <path class="ln-key" d="M170 200 H236 V70" marker-end="url(#grA)"/>
+  <path class="ln-key" d="M170 213 H236" marker-end="url(#grA)"/>
+  <path class="ln-key" d="M170 226 H236 V336" marker-end="url(#grA)"/>
+
+  <rect class="b-ok" x="240" y="44" width="180" height="56" rx="6"/>
+  <text class="m c-ok" x="260" y="68">101</text>
+  <text class="t-s" x="300" y="68">표준 입고</text>
+  <text class="t-xs" x="260" y="88">즉시 평가 · 회계문서 생성</text>
+
+  <rect class="b" x="240" y="186" width="180" height="56" rx="6"/>
+  <text class="m" x="260" y="210">103</text>
+  <text class="t-s" x="300" y="210">비평가 GR차단재고</text>
+  <text class="t-xs c-bad" x="260" y="230">가치 미반영 · 회계 없음</text>
+
+  <rect class="b" x="240" y="310" width="180" height="56" rx="6"/>
+  <text class="m" x="260" y="334">107</text>
+  <text class="t-s" x="300" y="334">평가 GR차단재고</text>
+  <text class="t-xs" x="260" y="354">원산지검수 · 가치 선반영</text>
+
+  <path class="ln-ok" d="M420 214 H486 V132" marker-end="url(#grC)"/>
+  <path class="ln-bad" d="M420 222 H486 V266" marker-end="url(#grB)"/>
+  <path class="ln-ok" d="M420 338 H486 V386" marker-end="url(#grC)"/>
+
+  <rect class="b-ok" x="490" y="106" width="180" height="52" rx="6"/>
+  <text class="m c-ok" x="510" y="128">105</text>
+  <text class="t-s" x="550" y="128">차단재고 해제</text>
+  <text class="t-xs" x="510" y="148">이때 비로소 평가 · 재고갱신</text>
+
+  <rect class="b-bad" x="490" y="248" width="180" height="52" rx="6"/>
+  <text class="m c-bad" x="510" y="270">124</text>
+  <text class="t-s" x="550" y="270">공급업체 반송</text>
+  <text class="t-xs" x="510" y="290">접수조건 미충족 시</text>
+
+  <rect class="b-ok" x="490" y="366" width="180" height="52" rx="6"/>
+  <text class="m c-ok" x="510" y="388">109</text>
+  <text class="t-s" x="550" y="388">실물 접수 반영</text>
+  <text class="t-xs" x="510" y="408">오기표 취소는 108</text>
+
+  <path class="ln-key" d="M670 132 H736 V186" marker-end="url(#grA)"/>
+  <path class="ln-key" d="M670 392 H710 V232" marker-end="url(#grA)"/>
+
+  <rect class="b-hl" x="740" y="186" width="240" height="66" rx="6"/>
+  <text class="t-h" x="762" y="212">가용 · 품질검사중 · 차단재고</text>
+  <text class="t-s" x="762" y="234">평가된 자사재고로 확정</text>
+
+  <path class="ln-bad" d="M860 252 V300" marker-end="url(#grB)"/>
+  <rect class="b-bad" x="740" y="302" width="240" height="66" rx="6"/>
+  <text class="m c-bad" x="762" y="326">122</text>
+  <text class="t-s" x="800" y="326">반출 (Return Delivery)</text>
+  <text class="t-xs" x="762" y="348">취소는 123 · 평가GR차단재고는 반출 불가</text>
+
+  <rect class="b-ghost" x="20" y="392" width="450" height="40" rx="6"/>
+  <text class="t-s" x="42" y="410">취소는 <tspan class="m-s">원본 자재문서를 참조</tspan>해서 만든다 — 그래야 원본 가치로</text>
+  <text class="t-s" x="42" y="426">평가된다. 대체로 취소이동유형 = 원본 + 1 (101↔102, 103↔104)</text>
+</svg>
+<figcaption><span class="fno">그림 2</span>구매오더 참조 입고의 세 갈래와 그 뒤의 해제 · 반송 · 취소 경로. <code>103</code>은 회계가 안 움직이고 <code>107</code>은 움직인다는 것이 두 차단재고의 결정적 차이다.</figcaption>
+</figure>
+
+<h4>비평가 GR차단재고 <code>103</code> — 조건 미충족 접수</h4>
+
+<p>입고조건이 아직 충족되지 않았는데 물건은 받아야 할 때 씁니다. 조회는 PO이력 <b>Blocked Stock</b> 뷰(<code>ME23N</code>), 재고개요(<code>MMBE</code>), <b>Overdue Materials - Goods Receipt Blocked Stock</b> 앱.</p>
+
+<h4>평가 GR차단재고 <code>107</code> — 원산지검수</h4>
+
+<p>공급업체 현지에서 검수를 끝내고 <span class="key">검수 직후 인보이스를 발행</span>하기로 계약한 경우입니다. 실물이 도착하기 전에 자재가치를 자사재고에 선반영합니다. PO 아이템상세 Delivery 탭의 <b>Origin Acceptance</b> 체크박스로 사전계획해 두면, 인보이스검증 때 검수수량이 청구금액으로 자동 제안됩니다. 조회는 PO이력 <b>Val. Blocked Stock</b> 뷰, Display Valuated GR Blocked Stock 앱 / <code>MB5OA</code>.</p>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>앱 / 트랜잭션</th><th>제약</th></tr></thead>
+<tbody>
+<tr><td>Post Goods Movement / <code>MIGO</code></td><td class="wrap">PO · 생산오더 참조. <code>101</code>(표준) · <code>103</code> · <code>107</code> 전부 가능</td></tr>
+<tr><td class="wrap">Post Goods Receipt for Purchasing Document</td><td class="wrap">PO <b>1건만</b> 참조 · 영숫자 혼합 문서번호 미지원 · 계정지정범주 A/C/F/K/M/P/Q/R/S/X만 복사 · Delivery Completed 설정 아이템 미복사 · 바코드스캐닝 지원. <span class="bad">평가 GR차단재고 입고 불가</span>, GR기반 인보이스검증 대상 PO아이템은 비평가 GR차단재고 입고도 불가</td></tr>
+<tr><td class="wrap">Post Goods Receipt for Production Order</td><td class="wrap">생산오더 1건만 참조. GR차단재고 입고 불가</td></tr>
+</tbody>
+</table>
+</div>
+
+<h3>PO 자동생성 입고</h3>
+
+<p>구매오더 없이 입고를 치면 시스템이 PO를 만들어주는 기능입니다.</p>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>구분</th><th>조건</th></tr></thead>
+<tbody>
+<tr><td>Customizing</td><td class="wrap">이동유형별 활성화(<span class="key"><code>101</code> · <code>161</code>만 가능</span>) · 플랜트에 복수 구매조직이면 표준구매조직 배정 · 입고용 PO 기본문서유형 지정(<code>MB01</code>)</td></tr>
+<tr><td>애플리케이션</td><td class="wrap">평가대상 자재일 것 · 공급업체+자재+표준구매조직 조합의 <b>구매정보레코드가 존재</b>할 것</td></tr>
+<tr><td>제약</td><td class="wrap">창고입고에만 적용(소비용도 불가) · GR차단재고 기표 불가</td></tr>
+<tr><td>자동 결정값</td><td class="wrap">구매조직=플랜트 표준구매조직 / 구매그룹=자재마스터 / 납품일=입고전기일 / 가격=정보레코드가</td></tr>
+</tbody>
+</table>
+</div>
+
+<h3>취소 · 반출 · 반품구매오더</h3>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>재화이동</th><th>이동유형</th><th>취소</th></tr></thead>
+<tbody>
+<tr><td>PO / 생산오더 입고</td><td><code>101</code></td><td><code>102</code></td></tr>
+<tr><td>비평가 GR차단재고 입고</td><td><code>103</code></td><td><code>104</code></td></tr>
+<tr><td>반출</td><td><code>122</code></td><td><code>123</code></td></tr>
+<tr><td>재고잔액 최초입력</td><td><code>561</code></td><td><code>562</code></td></tr>
+</tbody>
+</table>
+</div>
+
+<p>취소된 자재문서 목록은 Display Cancelled Material Documents 앱 / <code>MBSM</code>. <b>후속입고(Subsequent Delivery)</b>는 특히 GR기반 인보이스검증에서 중요합니다 — <span class="hl">입고를 취소하고 새 입고를 치는 경우, 새 입고는 반드시 후속입고여야 합니다.</span></p>
+
+<p><b>반품구매오더</b>는 PO 입고와 같은 방식으로 입력하되, MIGO에서 Goods Receipt + Purchase Order 참조를 고르면 반품아이템에 <code>161</code> + 방향지시자 Issue(−)가 자동 제안됩니다. 배송처리를 쓰려면 공급업체마스터 구매조직데이터의 <b>Returns Supplier</b> 체크박스가 켜져 있어야 합니다.</p>
+
+<div class="note warn">
+  <div class="t">Customizing 두 개 — 실무에서 반드시 걸린다</div>
+  <p>· <code>OMBZ</code> — 이동유형별로 <span class="key">인보이스가 이미 입력된 경우 입고 취소 · 반출을 허용할지</span> 지정한다. 이걸 안 막아두면 회계가 이미 잡힌 건을 창고에서 되돌린다.<br>
+     · <code>OMBS</code> — 이동유형별 <b>이동사유(Reason for Movement)</b>를 필수/선택/불가로 설정하고 선택 가능한 사유목록을 정의한다. 사유가 없으면 나중에 "왜 반품했는지"를 분석할 근거가 없다.</p>
+</div>
+
+<h3>주문가격단위 (OPUn)</h3>
+
+<p>구매오더에서 <b>주문단위(OUn)</b>와 <b>주문가격단위(OPUn)</b>를 다르게 지정할 수 있습니다. 순가격은 OPUn에 붙고, 입고평가 · 인보이스검증이 그 기준으로 계산됩니다. 그래서 입고 시 <span class="key">두 단위 모두로 수량을 입력</span>해야 합니다.</p>
+
+<p>원문 예시: 냉동거위 10마리를 kg당 5유로에 주문, 마리당 4kg으로 가정(40kg × 5유로). 실제 입고 시 총중량이 45kg이면 평가와 인보이스검증은 <b>45kg × 5유로</b>로 갑니다.</p>
+
+<div class="note warn">
+  <div class="t">Post Goods Receipt to Purchasing Document 앱의 한계</div>
+  <p>이 앱에서는 아직 주문가격단위로 수량을 직접 입력할 수 없고, PO 아이템의 환산계수가 자동 적용됩니다. <span class="bad">중량이 실제로 달라지는 품목에서는 금액이 틀어집니다.</span> 이런 PO는 Post Goods Movement 앱을 쓰고, <code>OMJX</code>에서 필드 <code>GOITEM_BPMNG</code>를 필수입력으로 걸어 OPUn 입력을 강제하는 것이 안전합니다.</p>
+</div>
+
+<h3>과부족공차와 납품완료지시자</h3>
+
+<p>시스템은 입고 · 후속입고 · 반출 · 취소 때마다 <b>미결구매오더수량</b>을 자동 조정합니다. 단 <span class="hl">GR차단재고로의 입고와 GR차단재고에서의 반출은 미결수량을 바꾸지 않습니다.</span></p>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>공차 지정 위치</th><th>적용 범위</th></tr></thead>
+<tbody>
+<tr><td class="wrap">자재마스터 구매데이터 → 구매가치키</td><td class="wrap">그 자재는 항상 같은 공차. Customizing: Purchasing→Material Master→Define Purchasing Value Keys</td></tr>
+<tr><td>구매정보레코드</td><td class="wrap">공급업체+자재 조합별로 다른 공차</td></tr>
+<tr><td class="wrap">PO 아이템 Delivery 탭</td><td class="wrap">건별 지정. 과소납품공차한도 · 과다납품공차한도 · 무제한 과다납품 허용</td></tr>
+</tbody>
+</table>
+</div>
+
+<h4>납품완료지시자 (Delivery Completed Indicator)</h4>
+
+<p>PO 아이템이 마감되었음을 나타냅니다. 설정하면 전량 납품이 아니어도 <b>미결수량이 0</b>이 됩니다.</p>
+
+<ul>
+  <li>미결 PO수량 0 처리 · 자재계획 대상 제외 · 납품독촉 대상 제외</li>
+  <li>해당 PO 아이템의 <b>커밋먼트 취소</b>, PO 아이템 삭제 · 아카이빙 가능</li>
+  <li>추가 입고는 <span class="key">예상되지 않지만 여전히 가능</span></li>
+</ul>
+
+<div class="note warn">
+  <div class="t">앱마다 동작이 다르다</div>
+  <p>MIGO / Post Goods Movement에서는 Delivery Completed가 켜져 있어도 <b>과다납품공차를 넘지 않는 한 추가 입고가 계속 가능</b>하고 부족분을 계속 제안합니다. 반면 Post Goods Receipt for Purchasing Document 앱에서는 <span class="bad">그 PO 아이템 자체가 더 이상 복사되지 않습니다.</span> 같은 PO를 놓고 두 담당자가 다른 앱을 쓰면 서로 다른 결과를 보게 됩니다.</p>
+  <p>자동설정은 플랜트별 Customizing <code>OMCD</code>(공차 이내 납품수량에 대해 자동 설정). 추가 입고 자체를 막으려면 시스템메시지 <code>M7 433</code> + BAdI <code>MB_GOODSMOVEMENT_DCI</code> 조합을 씁니다.</p>
+</div>
+
+<h3>유효기간 · 납품일자 체크</h3>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>체크</th><th>내용</th><th>설정</th></tr></thead>
+<tbody>
+<tr><td class="wrap">최소유효기간 (SLED)</td><td class="wrap">입고 시점에 최소유효기간을 체크. <b>배치관리 아닌 자재</b>는 입고 시에만 입력·체크하고 GR/GI전표 인쇄 가능. <span class="key">배치관리 자재는 출고 시 배치결정·배치분석에도 SLED를 쓴다</span></td><td class="wrap">이동유형 Customizing (최적사용기한체크)</td></tr>
+<tr><td>조기납품 체크</td><td class="wrap">시스템메시지 <code>M7 254</code>. 오류로 설정해도 <b>GR차단재고로는 입고 가능</b> — 창고용량이 모자랄 때 쓴다</td><td><code>OMCQ</code></td></tr>
+<tr><td>지연납품 체크</td><td class="wrap">시스템메시지 <code>M7 163</code>. 경고로 설정하면 <span class="bad">MIGO에서 Check를 눌렀을 때만 뜨고</span>, Post Goods Receipt for Purchasing Document 앱에서는 아예 안 뜬다</td><td><code>OMCQ</code></td></tr>
+</tbody>
+</table>
+</div>
+
+<h3>단위</h3>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>단위</th><th>설명</th></tr></thead>
+<tbody>
+<tr><td>기본단위 (Base Unit)</td><td class="wrap">자재 재고가 관리되는 단위. 재고보유단위</td></tr>
+<tr><td>입력단위 (Unit of Entry)</td><td class="wrap">자재마스터에 대체단위·표준환산이 있으면 다른 단위로 입력 가능(g→kg). 시스템이 기본단위로 자동 환산</td></tr>
+<tr><td>구매오더 가격단위</td><td class="wrap">PO 가격 산정 기준 단위</td></tr>
+</tbody>
+</table>
+</div>
+
+<div class="note ok">
+  <div class="t">📌 개인 E2E 프로젝트와의 연결점</div>
+  <p>프로젝트에서 벤더 사입은 <b>GATE 플랜트에 <code>101</code>로 GR</b> → <b>STOR 플랜트로 <code>301</code> 이관</b>의 2단 구조입니다. CBO <code>ZGATE_INSPECT</code>가 정확히 이 <code>101</code>과 <code>301</code>의 수량 차이를 잡고, 그중 <span class="key">송장 미발생 건만</span> <code>122</code>로 자동반품하도록 설계했습니다. 여기서 이 LESSON이 두 가지를 확정해 줍니다.</p>
+  <p>① <b><code>122</code>의 취소는 <code>123</code></b>입니다 — 자동반품이 잘못 돌았을 때 되돌릴 이동유형을 CBO 설계서에 같이 적어 둬야 합니다.<br>
+     ② <b><code>OMBZ</code>를 반드시 확인</b>해야 합니다. 이 설정이 "인보이스 입력된 건은 취소·반출 불가"로 되어 있으면, 송장 미발생 건만 반품한다는 CBO 조건을 <span class="hl">표준이 이미 막아 주는 셈</span>입니다. 프로젝트 원칙(회계 영향은 자동화하지 않는다)에 맞게, CBO에서 직접 판정하기 전에 IMG로 먼저 막는 쪽이 맞습니다.</p>
+  <p>유통기한 쪽도 이 LESSON에 걸립니다. 자재가 배치관리 대상이므로 입고 시 <code>MCHA-VFDAT</code>가 잡히고, 그 값이 SD FEFO 배치결정과 CBO <code>ZBATCH_ZONE</code>의 잔여 유통기한 계산 기준이 됩니다. 입고 시 SLED 체크를 켜 두면 <b>이미 유통기한이 임박한 물건을 받는 것 자체</b>를 GR 시점에 막을 수 있습니다.</p>
+</div>
+
+<div class="note warn">
+  <div class="t">확인 필요 — 실제 시스템(winerp01 / MEP)에서 확정할 것</div>
+  <p>· 평가영역이 <b>플랜트 단위인지 회사코드 단위인지</b>. 이 값에 따라 GATE→STOR <code>301</code>에서 회계문서가 생기는지가 갈린다(LESSON 2 참조).<br>
+     · <code>OMBZ</code>의 <code>122</code> 설정 현황.<br>
+     · <code>OMCD</code>(납품완료지시자 자동설정)가 GATE 플랜트에 켜져 있는지.</p>
+</div>
+
+</div>
+
+
+<!-- ══════════ LESSON 2 ══════════ -->
+<div class="lesson" id="l2">
+<h2><span class="no">LESSON 2</span>이전기표와 재고이전 — 311 · 301 · 303/305</h2>
+
+<p><span class="tag">Unit 3</span><span class="tag">레슨 3개</span>이전기표와 실물재고이전의 구분 · 1단계/2단계 절차 · 저장위치 간 · 플랜트 간 · 재고수송오더와 재고수송중</p>
+
+<h3>언제 이걸 알아야 하는가</h3>
+
+<p><b>"물건은 이미 저쪽 창고에 가 있는데 시스템에는 아직 안 보입니다"</b> — 2단계 이전에서 출고(<code>303</code>·<code>351</code>)만 치고 입고(<code>305</code>·<code>101</code>)를 안 친 상태입니다. 재고는 사라진 게 아니라 <span class="key">이전중재고 / 수송중재고</span>에 들어가 있고, 그건 저장위치가 아니라 <b>플랜트 레벨</b>에 붙어 있어서 평소 보던 재고 화면에 안 나옵니다.</p>
+
+<p>그리고 결산 때 반드시 한 번 걸립니다 — <span class="bad">실사재고조사 시점에 이전중재고가 있으면 안 됩니다.</span> 이전중재고는 실사 대상이 될 수 없기 때문입니다.</p>
+
+<h3>두 개념의 구분</h3>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>구분</th><th>내용</th><th>예</th></tr></thead>
+<tbody>
+<tr><td>이전기표</td><td class="wrap">재고 간(재고유형 변경) 또는 <b>자재 간</b> 이전. 실물이 안 움직여도 성립</td><td class="wrap">품질검사중 → 가용 (<code>321</code>), 자재A → 자재B (<code>309</code>)</td></tr>
+<tr><td>실물재고이전</td><td class="wrap">저장위치 간 또는 플랜트 간 이전. 실물이 움직인다</td><td class="wrap">저장위치 간 <code>311</code>, 플랜트 간 <code>301</code></td></tr>
+</tbody>
+</table>
+</div>
+
+<div class="note warn">
+  <div class="t">QM이 켜져 있으면 재고관리에서 품질검사중재고를 못 건드린다</div>
+  <p>품질관리(QM)의 <b>검사처리(Inspection Processing)</b>가 활성화된 자재는, 재고관리에서 직접 품질검사중재고로부터 출고를 기표할 수 없습니다. <span class="key">검사처리 프레임워크 안에서만</span> 가능합니다. <code>321</code>이 안 먹으면 이 설정을 먼저 봐야 합니다.</p>
+</div>
+
+<h3>자재 간 이전기표의 제약</h3>
+
+<ul>
+  <li>두 자재의 <b>기본단위와 표준절차가 동일</b>해야만 가능</li>
+  <li>예약으로 사전계획 <span class="bad">불가</span></li>
+  <li><b>가용재고 → 가용재고</b>로만 기표 가능</li>
+  <li><b>1단계로만</b> 기표 가능</li>
+</ul>
+
+<h3>1단계 vs 2단계 — 무엇을 얻고 무엇을 잃는가</h3>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>절차</th><th>장점</th><th>대가</th></tr></thead>
+<tbody>
+<tr><td>1단계</td><td class="wrap">트랜잭션 1건으로 끝. 자재문서 1건 안에 GI 아이템 + GR 아이템</td><td class="wrap">이전 진행 중인 재고를 <b>볼 수 없다</b></td></tr>
+<tr><td>2단계</td><td class="wrap">이전중재고를 모니터링할 수 있다</td><td class="wrap">기표가 2번. 두 번째를 안 치면 재고가 중간에 떠 있다</td></tr>
+</tbody>
+</table>
+</div>
+
+<figure class="figwrap">
+<svg class="dgm" viewBox="0 0 1000 520" role="img" aria-label="재고이전 세 가지 방식 비교 도해. 저장위치 간 311은 회계문서가 없고, 플랜트 간 301은 평가영역이 다르면 회계문서가 생기며, 2단계 303과 305 사이 구간에 이전중재고가 생긴다.">
+  <defs>
+    <marker id="trA" markerWidth="9" markerHeight="9" refX="7" refY="4.5" orient="auto">
+      <polygon class="arw-key" points="0,0 9,4.5 0,9"/></marker>
+    <marker id="trB" markerWidth="9" markerHeight="9" refX="7" refY="4.5" orient="auto">
+      <polygon class="arw-ok" points="0,0 9,4.5 0,9"/></marker>
+    <marker id="trC" markerWidth="9" markerHeight="9" refX="7" refY="4.5" orient="auto">
+      <polygon class="arw-bad" points="0,0 9,4.5 0,9"/></marker>
+  </defs>
+
+  <text class="t-h c-key" x="20" y="26">A · 저장위치 간 — 1단계</text>
+  <rect class="b" x="20" y="38" width="190" height="52" rx="6"/>
+  <text class="t" x="40" y="60">SLoc 1100 정상</text>
+  <text class="t-xs" x="40" y="78">플랜트 STOR</text>
+  <path class="ln-key" d="M210 64 H330" marker-end="url(#trA)"/>
+  <rect class="b-hl" x="232" y="26" width="78" height="26" rx="4"/>
+  <text class="m" x="252" y="44">311</text>
+  <rect class="b" x="334" y="38" width="190" height="52" rx="6"/>
+  <text class="t" x="354" y="60">SLoc 1900 임박</text>
+  <text class="t-xs" x="354" y="78">플랜트 STOR</text>
+  <rect class="b-ok" x="560" y="30" width="420" height="68" rx="6"/>
+  <text class="t-h c-ok" x="582" y="54">회계문서 없음</text>
+  <text class="t-s" x="582" y="76">자재 · 플랜트(= 평가영역)가 그대로 → 가치 변동 없음</text>
+
+  <line class="ln-d" x1="20" y1="118" x2="980" y2="118"/>
+
+  <text class="t-h c-key" x="20" y="146">B · 플랜트 간 — 1단계</text>
+  <rect class="b" x="20" y="158" width="190" height="52" rx="6"/>
+  <text class="t" x="40" y="180">플랜트 GATE</text>
+  <text class="t-xs" x="40" y="198">입고 게이트</text>
+  <path class="ln-key" d="M210 184 H330" marker-end="url(#trA)"/>
+  <rect class="b-hl" x="232" y="146" width="78" height="26" rx="4"/>
+  <text class="m" x="252" y="164">301</text>
+  <rect class="b" x="334" y="158" width="190" height="52" rx="6"/>
+  <text class="t" x="354" y="180">플랜트 STOR</text>
+  <text class="t-xs" x="354" y="198">보관</text>
+  <rect class="b-bad" x="560" y="150" width="420" height="68" rx="6"/>
+  <text class="t-h c-bad" x="582" y="174">평가영역이 다르면 회계문서 생성</text>
+  <text class="t-s" x="582" y="196">출고플랜트 평가가격으로 평가 · 회사코드 간이면 전표 2건 + 정산계정</text>
+
+  <line class="ln-d" x1="20" y1="238" x2="980" y2="238"/>
+
+  <text class="t-h c-key" x="20" y="266">C · 2단계 — 시간축</text>
+
+  <line class="ln" x1="60" y1="330" x2="940" y2="330"/>
+  <text class="t-xs" x="60" y="352">t0</text>
+  <text class="t-xs" x="330" y="352">t1  출고 기표</text>
+  <text class="t-xs" x="700" y="352">t2  입고 기표</text>
+  <circle cx="60" cy="330" r="5" class="arw"/>
+  <circle cx="340" cy="330" r="5" class="arw-key"/>
+  <circle cx="720" cy="330" r="5" class="arw-ok"/>
+
+  <rect class="b-hl" x="292" y="282" width="100" height="26" rx="4"/>
+  <text class="m" x="304" y="300">303 / 351</text>
+  <path class="ln-key" d="M342 308 V322" marker-end="url(#trA)"/>
+
+  <rect class="b-ok" x="672" y="282" width="100" height="26" rx="4"/>
+  <text class="m c-ok" x="684" y="300">305 / 101</text>
+  <path class="ln-ok" d="M722 308 V322" marker-end="url(#trB)"/>
+
+  <rect class="b-bad" x="380" y="364" width="300" height="62" rx="6"/>
+  <text class="t-h c-bad" x="400" y="388">이 구간 = 이전중 / 수송중재고</text>
+  <text class="t-s" x="400" y="410">입고플랜트의 플랜트 레벨에만 존재 · 저장위치 없음</text>
+
+  <rect class="b-ghost" x="20" y="364" width="340" height="62" rx="6"/>
+  <text class="t-s" x="42" y="386">평가는 항상 <tspan class="t-h">첫 번째 단계(출고) 시점</tspan>에</text>
+  <text class="t-s" x="42" y="408">이루어진다. t2에서는 재평가하지 않는다.</text>
+
+  <rect class="b-ghost" x="700" y="364" width="280" height="62" rx="6"/>
+  <text class="t-s" x="722" y="386">STO 없으면 = 이전중재고</text>
+  <text class="t-s" x="722" y="408">STO 쓰면 = 수송중재고 (MB5T)</text>
+
+  <rect class="b-bad" x="20" y="444" width="960" height="60" rx="6"/>
+  <text class="t-h c-bad" x="42" y="468">실사재고조사 시점에 이전중재고가 있으면 안 된다</text>
+  <text class="t-s" x="42" y="490">이전중재고는 실사 대상이 될 수 없다. 결산 전에 t2를 전부 털어야 한다 — Overdue Materials - Stock in Transit 앱이 그 용도.</text>
+</svg>
+<figcaption><span class="fno">그림 3</span>세 가지 이전 방식과 회계 · 재고수송중의 발생 지점. 회계가 움직이는 유일한 조건은 <b>평가영역이 바뀌는 것</b>이다.</figcaption>
+</figure>
+
+<h3>저장위치 간 재고이전 <code>311</code></h3>
+
+<p>동일 플랜트 내, <b>모든 재고유형에 대해 1단계로</b> 기표 가능합니다. 자재문서 아이템은 출고저장위치 GI 1건 + 입고저장위치 GR 1건. <span class="hl">자재와 플랜트(= 평가영역)가 그대로이므로 회계문서가 생기지 않습니다.</span></p>
+
+<p>입력 기능: Post Goods Movement / <code>MIGO</code>, <b>Transfer Stock – In-Plant</b> 앱(플랜트 내 전용, SAP S/4HANA 2023부터 Add To List로 여러 자재 일괄기표).</p>
+
+<h3>플랜트 간 재고이전 <code>301</code> / <code>303</code>+<code>305</code></h3>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>영향</th><th>내용</th></tr></thead>
+<tbody>
+<tr><td>FI</td><td class="wrap"><b>두 플랜트가 서로 다른 평가영역일 때만</b> 발생. 재고계정 가치 갱신 + 회계문서 생성. <span class="key">출고플랜트의 평가가격으로 평가</span>. 회사코드 간이면 회사코드별 회계문서 2건, 상대기표는 회사코드 정산계정</td></tr>
+<tr><td>MRP</td><td class="wrap">플랜트 재고의 변화가 MRP에 반영</td></tr>
+</tbody>
+</table>
+</div>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>절차</th><th>이동유형</th><th>내용</th></tr></thead>
+<tbody>
+<tr><td>1단계</td><td><code>301</code></td><td class="wrap">GI·GR을 단일 자재문서로. 자재·출고플랜트·출고SLoc·입고플랜트·입고SLoc을 한 번에 입력</td></tr>
+<tr><td>2단계 출고</td><td><code>303</code></td><td class="wrap"><b>입고플랜트를 추가 지정</b>해야 한다 — 이 시점에 평가되어 입고플랜트의 이전중재고로 잡히기 때문</td></tr>
+<tr><td>2단계 입고</td><td><code>305</code></td><td class="wrap">출고 자재문서를 참조하거나 전체 수동입력. 이전중재고 → 가용재고. <b>별도 평가 없음</b>(동일 플랜트이므로)</td></tr>
+<tr><td class="wrap">STO 없음</td><td>—</td><td class="wrap">2단계로만 가능</td></tr>
+<tr><td class="wrap">STO + 배송</td><td><code>351</code> → <code>101</code></td><td class="wrap">1단계 · 2단계 모두 가능. 청구서와도 연계 가능</td></tr>
+</tbody>
+</table>
+</div>
+
+<h3>재고수송오더(STO)를 쓰면 얻는 것</h3>
+
+<ul>
+  <li>MRP 통합 — MRP가 만든 구매요청을 STO로 전환 가능</li>
+  <li>MRP담당자가 <b>입고플랜트에서의 입고를 계획</b>할 수 있다</li>
+  <li>배송비용 · 운송업체 입력 가능</li>
+  <li>아이템에 <b>계정지정</b> 입력 가능 → GR을 소비용도로 직접 기표</li>
+  <li>창고 입고 시 품질검사중재고 · 차단재고로도 기표 가능</li>
+  <li><span class="key">PO이력으로 GI · GR 전 구간 모니터링</span></li>
+</ul>
+
+<h4>재고수송중 (Stock in Transit)</h4>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>재고구간</th><th>STO</th><th>조회</th></tr></thead>
+<tbody>
+<tr><td>이전중재고</td><td>미사용</td><td class="wrap">자재마스터 입고플랜트 플랜트재고 뷰 · 재고개요</td></tr>
+<tr><td>수송중재고</td><td>사용</td><td class="wrap">위 + <b>Stock in Transit <code>MB5T</code></b>(입고 또는 출고 플랜트 기준 선택) · <code>MB5TD</code>(기준일 제한)</td></tr>
+</tbody>
+</table>
+</div>
+
+<p>Warehouse Stocks of Material 리포트에서는 <span class="bad">수송중재고와 이전중재고가 플랜트 레벨에서 저장위치 없는 한 줄로 합산 표시</span>되므로 둘을 구분할 수 없습니다. 구분하려면 <code>MB5T</code>를 써야 합니다.</p>
+
+<div class="note warn">
+  <div class="t">Overdue Materials - Stock in Transit 앱의 적용 범위</div>
+  <p>이 앱은 이동유형 <code>351</code> · <code>641</code> · <code>643</code> · <code>654</code>의 출고와 <code>101</code> · <code>103</code> · <code>107</code> · <code>109</code>의 입고 프로세스<b>만</b> 지원합니다. <span class="key"><code>303</code>/<code>305</code> 2단계 이전은 이 앱으로 안 잡힙니다</span> — 그 경우는 재고개요나 자체 리포트로 따로 봐야 합니다.</p>
+</div>
+
+<h4>Transfer Stock – Cross-Plant 앱</h4>
+
+<p>플랜트 간 · 플랜트 내 재고이전, 재고유형 간 이전기표를 모두 처리합니다. 자재 선택 → 플랜트 레벨에서 출고/입고 재고 선택 → 저장위치 선택 → 수량 · 문서일자 · 전기일자 입력 → 기표. 관련 Customizing이 되어 있으면 <b>이 앱에서 STO를 직접 생성</b>하는 버튼도 나옵니다.</p>
+
+<div class="note">
+  <div class="t">🔰 초보자 설명 — 복사규칙(Copying Rules)</div>
+  <p>MIGO에서 이전기표 아이템을 여러 줄 넣을 때, 매번 출고/입고 플랜트·저장위치를 다시 치는 것이 번거롭습니다. <b>복사규칙</b>을 설정해 두면 이동유형+특수재고지시자 조합별로 그 값들이 기본 제안됩니다. 최초 사용 시 뜨는 대화상자에서 어떤 필드를 새 아이템에 물려줄지 고르고, 이후에는 Menu→Settings→Copying Rules Transfer Postings에서 수정합니다.</p>
+</div>
+
+<div class="note ok">
+  <div class="t">📌 개인 E2E 프로젝트와의 연결점</div>
+  <p>이 LESSON이 CBO <code>ZBATCH_ZONE</code>의 설계 근거를 그대로 줍니다. 잔여 유통기한 30% 미달 배치를 <b>정상 SLoc → 임박 SLoc</b>(냉동 1100→1900, 냉장 2100→2900, 실온 3100→3900)으로 옮기는 처리인데, 셋 다 <span class="key">같은 STOR 플랜트 안</span>입니다. 따라서 그림 3의 A 케이스 — <b><code>311</code> 1단계, 회계문서 없음</b>입니다.</p>
+  <p>이게 프로젝트 원칙("회계 영향이 있는 처리는 자동화하지 않는다")과 정확히 맞물립니다. <code>311</code>은 평가영역이 바뀌지 않아 <span class="hl">가치가 1원도 움직이지 않으므로</span>, 승인 없이 자동으로 돌려도 되는 몇 안 되는 이동입니다. 설계서에 "왜 자동인가"를 쓸 때 근거가 이것입니다 — 수량의 위치만 바뀌고 장부가치는 불변.</p>
+  <p>반대로 GATE→STOR 이관 <code>301</code>은 <b>플랜트가 바뀝니다.</b> 평가영역이 플랜트 단위라면 여기서 회계문서가 생기고, 출고플랜트(GATE) 평가가격으로 평가됩니다. <code>ZGATE_INSPECT</code>가 이 <code>301</code>을 자동으로 치는 구조였다면 원칙 위반이 되는데, 실제 설계는 <b><code>101</code>과 <code>301</code>의 차이를 잡아내는 것</b>이지 <code>301</code>을 자동 생성하는 것이 아니므로 문제 없습니다.</p>
+  <p>그리고 <b><code>311</code>을 2단계로 만들 이유가 없습니다.</b> 2단계를 쓰면 이전중재고가 생기고, 그 상태로 결산을 맞으면 실사를 못 합니다. 온도군 이동은 같은 창고 안에서 몇 미터 옮기는 일이라 모니터링할 중간 구간 자체가 없습니다.</p>
+</div>
+
+<div class="note warn">
+  <div class="t">확인 필요 — 실제 시스템(winerp01 / MEP)에서 확정할 것</div>
+  <p>GATE와 STOR이 <b>같은 평가영역인지</b>. 평가영역 = 플랜트이면 <code>301</code>에서 회계문서가 생기고, 평가영역 = 회사코드(CL04)이면 두 플랜트가 같은 평가영역이므로 회계문서가 생기지 않는다. 이 한 가지로 <code>ZGATE_INSPECT</code>의 "회계 영향" 판정이 통째로 달라지므로, <code>OX14</code> / 플랜트 정의에서 먼저 확인할 것.</p>
+</div>
+
+</div>
+
+
+<!-- ══════════ LESSON 3 ══════════ -->
+<div class="lesson" id="l3">
+<h2><span class="no">LESSON 3</span>예약과 가용성체크</h2>
+
+<p><span class="tag">Unit 4</span><span class="tag">레슨 3개</span>예약의 기능과 발생원인 · 예약 평가 · 가용성체크와 결품체크</p>
+
+<h3>예약으로 사전계획할 수 있는 것</h3>
+
+<p>출고와 이전기표는 예약으로 사전계획하는 것이 일반적이고, 입고도 예외적으로 가능합니다.</p>
+
+<div class="note warn">
+  <div class="t">이전기표의 사전계획은 두 가지뿐</div>
+  <p><span class="key">1단계 절차의 저장위치 간(<code>311</code>)과 플랜트 간(<code>301</code>) 이전</span>만 예약으로 계획할 수 있습니다. 2단계 이전은 예약이 안 됩니다.</p>
+  <p>입고 예약은 예외적인 경우에만 씁니다 — 구매·생산을 쓰면 입고는 구매오더·생산오더로 이미 계획되므로 별도 예약이 불필요합니다.</p>
+</div>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>자동예약</th><th>설명</th></tr></thead>
+<tbody>
+<tr><td>종속예약</td><td class="wrap">오더 · 네트워크 · WBS요소에 대한 예약. 오더를 열면 창고구성품이 자동 예약됨. <span class="bad">직접 변경 불가</span> — 오더의 구성품을 바꾸면 시스템이 예약을 갱신한다</td></tr>
+<tr><td>재고이전예약</td><td class="wrap">저장위치 레벨 재주문점계획에서 가용재고가 재주문점 아래로 떨어지면, 플랜트 내 보충수량만큼 자동 생성</td></tr>
+</tbody>
+</table>
+</div>
+
+<div class="note warn">
+  <div class="t">예약 하나 = 목적 하나</div>
+  <p>예약 하나에는 <span class="hl">이동유형 1개, 계정지정 1건</span>만 들어갑니다. 기표 후에는 이 둘을 변경할 수 없습니다. 목적이 두 개면 예약을 두 개 만듭니다.</p>
+</div>
+
+<h3>예약 처리 · 평가 기능</h3>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>앱 / 트랜잭션</th><th>용도</th></tr></thead>
+<tbody>
+<tr><td class="wrap">Manage Manual Reservations</td><td class="wrap">수동예약 생성·조회·편집, 인출 없으면 삭제. <span class="bad">Advanced ATP(aATP)만 지원</span> — 동적가용성체크를 쓰려면 체크그룹 Customizing에서 aATP를 활성화해야 한다. <code>SAP_BR_WAREHOUSE_CLERK</code></td></tr>
+<tr><td class="wrap">Manage Reservation Items</td><td class="wrap">개별 예약아이템 단위 목록. 목록에서 직접 완료처리 · 삭제표시</td></tr>
+<tr><td><code>MB21</code>/<code>MB22</code>/<code>MB23</code></td><td class="wrap">생성/변경/조회. <span class="key">개요화면에서는 변경 불가</span> — Goto→Collective Processing으로 가야 한다</td></tr>
+<tr><td class="wrap">Display Reservation List / <code>MB25</code></td><td class="wrap">아이템 레벨 평가. 자재·소요일자·작성자·수령인·계정지정 기준 선택. <b>입고예약은 노란색 강조</b></td></tr>
+<tr><td class="wrap">Manage Reservations / <code>MBVR</code></td><td class="wrap">이동허용지시자 일괄변경, 예약 삭제</td></tr>
+<tr><td><code>MB26</code> Pick List</td><td class="wrap">여러 예약의 재화이동을 한 처리단계에서 입력·기표</td></tr>
+</tbody>
+</table>
+</div>
+
+<h4>두 개의 지시자</h4>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>지시자</th><th>의미</th></tr></thead>
+<tbody>
+<tr><td>이동허용 (Movement Allowed)</td><td class="wrap"><b>이 지시자가 켜진 예약아이템만</b> 재화이동에서 참조할 수 있다. 소요일자가 먼 미래인 예약을 미리 못 빼가게 막는 용도. 플랜트별 기본값은 Reservation→Define Default Values</td></tr>
+<tr><td>최종출고 (Final Issue)</td><td class="wrap">예약아이템 완료 표시. 전량 인출되면 자동 설정. 일부만 출고하고 잔여가 불필요하면 수동 설정</td></tr>
+</tbody>
+</table>
+</div>
+
+<div class="note warn">
+  <div class="t">MB26은 필터로 숨긴 것까지 기표한다</div>
+  <p>피킹리스트에서 재화이동을 기표하면 <span class="bad">선택기준에 해당하는 모든 예약·생산오더가 처리됩니다 — 필터로 화면에서 숨긴 아이템까지 포함됩니다.</span> 특정 아이템을 빼려면 필터가 아니라 <b>Edit→Delete로 목록에서 제거</b>해야 합니다.</p>
+</div>
+
+<p><code>MBVR</code>에서 <b>기준일자는 이중 의미</b>입니다 — 선택기준(헤더 기준일자가 지정일자 이하인 예약만)이자, 일괄변경·삭제의 시간간격 계산기준. 삭제는 <span class="key">완료된 아이템만</span> 대상이며, 완료란 전량 인출되었거나 최종출고로 표시된 상태입니다. 예약관리용 일수는 <code>OMBN</code>에서 정의하고 플랜트·이동유형별로 활성화해야 합니다.</p>
+
+<h3>정적 vs 동적 가용성체크</h3>
+
+<figure class="figwrap">
+<svg class="dgm" viewBox="0 0 1000 400" role="img" aria-label="정적 가용성체크와 동적 가용성체크 비교 도해. 정적은 현재 장부잔액이 마이너스가 되는 것만 막고, 동적은 미래의 계획 입출고까지 반영해 실질 가용수량을 계산한다.">
+  <defs>
+    <marker id="avA" markerWidth="9" markerHeight="9" refX="7" refY="4.5" orient="auto">
+      <polygon class="arw-key" points="0,0 9,4.5 0,9"/></marker>
+    <marker id="avB" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto">
+      <polygon class="arw-bad" points="0,0 8,4 0,8"/></marker>
+    <marker id="avC" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto">
+      <polygon class="arw-ok" points="0,0 8,4 0,8"/></marker>
+  </defs>
+
+  <rect class="b-key" x="20" y="16" width="440" height="50" rx="6"/>
+  <text class="t-h c-key" x="42" y="40">정적 가용성체크</text>
+  <text class="t-s" x="42" y="58">모든 재화이동에 자동 수행 · 설정 불가 · 끌 수 없다</text>
+
+  <rect class="b" x="20" y="78" width="440" height="128" rx="6"/>
+  <text class="t" x="42" y="104">보는 것: <tspan class="t-h">입력 시점에 존재하는 재고</tspan>뿐</text>
+  <text class="t-s" x="42" y="128">범위: 플랜트 · 저장위치 · 특수재고 레벨</text>
+  <text class="t-s" x="42" y="150">어느 재고를 볼지는 <tspan class="m-s">이동유형</tspan>이 결정한다</text>
+  <text class="t-s" x="42" y="176">목적: 실물 재고유형의 장부잔액이</text>
+  <text class="t-h c-bad" x="42" y="196">마이너스가 되는 것을 막는다</text>
+
+  <rect class="b-mut" x="20" y="218" width="440" height="62" rx="6"/>
+  <text class="t-s" x="42" y="242">예) 321로 20개 이전기표 →</text>
+  <text class="t-s" x="42" y="264">지정 플랜트·SLoc의 품질검사중재고에 20개가 실제로 있는지만 본다</text>
+
+  <line class="ln-d" x1="480" y1="16" x2="480" y2="390"/>
+
+  <rect class="b-key" x="500" y="16" width="480" height="50" rx="6"/>
+  <text class="t-h c-key" x="522" y="40">동적 가용성체크</text>
+  <text class="t-s" x="522" y="58">MRP 관점 — 계획된 입고 · 출고까지 함께 본다</text>
+
+  <line class="ln" x1="530" y1="140" x2="960" y2="140"/>
+  <text class="t-xs" x="522" y="162">오늘</text>
+  <text class="t-xs" x="640" y="162">+2일</text>
+  <text class="t-xs" x="790" y="162">+4일</text>
+  <circle cx="532" cy="140" r="5" class="arw-key"/>
+  <circle cx="660" cy="140" r="5" class="arw-bad"/>
+  <circle cx="810" cy="140" r="5" class="arw-ok"/>
+
+  <text class="m c-key" x="512" y="116">재고 100</text>
+  <text class="m-s c-bad" x="612" y="116">예약출고 −80</text>
+  <text class="m-s c-ok" x="768" y="116">PO입고 +50</text>
+  <path class="ln-bad" d="M660 122 V132" marker-end="url(#avB)"/>
+  <path class="ln-ok" d="M810 122 V132" marker-end="url(#avC)"/>
+
+  <rect class="b" x="500" y="180" width="480" height="140" rx="6"/>
+  <text class="t-h" x="522" y="204">30개(또는 80개)를 추가로 예약하려 하면</text>
+  <text class="t-s" x="522" y="230">소요일자 오늘+1일  →  30개 미가용</text>
+  <text class="t-s" x="522" y="252">소요일자 오늘+3일  →  30개 미가용</text>
+  <text class="t-s" x="522" y="274">소요일자 오늘+5일  →  30개는 가용, 80개는 미가용</text>
+  <text class="t-s c-ok" x="522" y="298">RLT 만료 이후 일자  →  80개 가용</text>
+
+  <rect class="b-ghost" x="500" y="332" width="480" height="58" rx="6"/>
+  <text class="t-s" x="522" y="356">RLT = 구매처리시간 + 계획납품시간 + 입고처리시간.</text>
+  <text class="t-s" x="522" y="378">RLT를 무시하려면 Result After Check Horizon = Ignore Check Horizon</text>
+
+  <rect class="b-ghost" x="20" y="300" width="440" height="90" rx="6"/>
+  <text class="t-s" x="42" y="324">동적체크 Customizing</text>
+  <text class="m-s" x="42" y="346">OMCP  출고·이전기표용    OMCM  입고용</text>
+  <text class="m-s" x="42" y="366">OMB1  예약용              OVZ2  체크그룹 정의</text>
+  <text class="t-xs" x="42" y="384">동적체크는 재고관리 · 판매 · 생산 · 구매(STO)에서 함께 쓰인다</text>
+</svg>
+<figcaption><span class="fno">그림 4</span>정적 · 동적 가용성체크의 차이. 정적은 <b>지금</b>만, 동적은 <b>앞으로</b>까지 본다.</figcaption>
+</figure>
+
+<h3>결품체크 (Missing Parts Check)</h3>
+
+<p><b>결품</b>이란 입고 시점에 이미 출고용으로 배정되어 있으면서, 자재부족·소요미충당으로 기존재고로 충당할 수 없는 소요입니다. 보통 창고를 거치지 않고 입고 즉시 필요한 곳으로 바로 보내는데, <span class="key">입고 담당자와 자재계획담당자가 둘 다 그 상황을 알고 있을 때만</span> 가능합니다. 결품체크는 그 통보를 자동화합니다.</p>
+
+<p>결품체크는 <b>동적 가용성체크를 기반</b>으로 하며 같은 요소(체크그룹 · 체크규칙 · 가용성체크통제)를 씁니다. Customizing은 <code>OMBC</code>.</p>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>설정 항목</th><th>내용</th></tr></thead>
+<tbody>
+<tr><td>활성화</td><td class="wrap">플랜트별</td></tr>
+<tr><td>메시지 형식</td><td class="wrap"><b>비요약</b> — 결품자재별로 최대 5개 MRP요소를 담은 개별 이메일 / <b>요약</b> — MRP담당자·자재문서·플랜트별로 MRP요소 없이 결품자재 목록</td></tr>
+<tr><td>체크지평</td><td class="wrap">며칠 앞까지 부족수량을 볼지. <span class="bad">미지정하면 과거의 미충당소요만 본다.</span> 당일도 1일로 계산 — 체크지평 2일이면 오늘·내일이 대상</td></tr>
+<tr><td>체크규칙 배정</td><td class="wrap">트랜잭션 레벨은 가용성체크와 동일 규칙. 이동유형 레벨에 따로 유지 가능하며 <span class="key">이동유형 규칙이 트랜잭션 규칙보다 우선</span>. 단 트랜잭션 지정 없이 이동유형만 지정하면 효과 없음</td></tr>
+<tr><td>수신자</td><td class="wrap">자재계획담당자에게 사용자ID가 있으면 그 MRP담당자에게 발송. 없으면 플랜트별 <b>결품처리담당자(Missing Part Expediter)</b>에게</td></tr>
+</tbody>
+</table>
+</div>
+
+<div class="note warn">
+  <div class="t">혼동 주의</div>
+  <p>입고 시 결품메시지 수신자(<b>Recipient Name</b>)와 MRP담당자에게 보내는 일반메일 수신자(<b>Recipient</b>)는 다른 필드입니다.</p>
+</div>
+
+<div class="note ok">
+  <div class="t">📌 개인 E2E 프로젝트와의 연결점</div>
+  <p>두 지점이 직접 걸립니다.</p>
+  <p>① <b>표준으로 <code>ZBATCH_ZONE</code>을 대체할 수 있는지 확인해야 합니다.</b> 이 LESSON에 따르면 <code>311</code> 1단계 이전은 <span class="key">예약으로 사전계획이 가능</span>합니다. "유통기한 임박분을 옮겨라"를 재고이전예약으로 걸어두고 창고가 <code>MB26</code> 피킹리스트로 처리하는 방식이 표준 경로입니다. 프로젝트 원칙이 "표준 우선"이므로, CBO 설계서의 <b>표준의 한계</b> 절에 "표준 재고이전예약은 재주문점 기준으로만 자동 생성되고, <code>MCHA-VFDAT</code> 기반 잔여 유통기한 비율로는 트리거되지 않는다"를 근거로 명시해야 합니다. 이게 CBO가 메우는 지점입니다.</p>
+  <p>② <b>정적 가용성체크가 안전장치입니다.</b> <code>ZBATCH_ZONE</code>이 계산 오류로 실제 재고보다 많은 수량을 <code>311</code>로 옮기려 하면, 정적 체크가 오류메시지를 내고 기표를 막습니다. 끌 수도 없고 설정할 수도 없는 체크라 CBO가 이를 우회할 방법이 없습니다 — <span class="hl">BAPI 호출 결과에서 이 오류를 반드시 받아 상태필드 H(보류)로 남기고 다음 배치에서 재시도</span>하도록 설계하면 됩니다. 조용히 넘기면 안 됩니다.</p>
+</div>
+
+</div>
+
+
+<!-- ══════════ LESSON 4 ══════════ -->
+<div class="lesson" id="l4">
+<h2><span class="no">LESSON 4</span>출고(GI) · 재고결정 · 마이너스재고</h2>
+
+<p><span class="tag">Unit 5</span><span class="tag">레슨 4개</span>참조 없는 출고 · 예약/오더 참조 출고 · 재고결정 · 마이너스재고</p>
+
+<h3>출고가 한 번에 건드리는 것</h3>
+
+<ul>
+  <li>자재문서 + <b>회계문서</b> 생성</li>
+  <li>재고 감소</li>
+  <li>인출금액을 재고계정에서 차감, 상대계정(소비계정 등)으로 기표 — <span class="key">기표시점의 자재마스터 값이 기준</span></li>
+  <li>이동유형에 소비업데이트가 설정돼 있으면 소비량 증가</li>
+  <li>필요 시 계정지정(코스트센터 등)에 차변기표</li>
+</ul>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>인출 성격</th><th>소비 업데이트</th></tr></thead>
+<tbody>
+<tr><td>계획된 인출</td><td class="wrap">총소비만</td></tr>
+<tr><td>비계획 인출</td><td class="wrap">총소비 + <b>비계획소비</b> 둘 다</td></tr>
+<tr><td>폐기 · 샘플링</td><td class="wrap"><span class="bad">소비량 업데이트 없음</span></td></tr>
+</tbody>
+</table>
+</div>
+
+<p>소비현황은 자재마스터 플랜트 레벨 Additional Details 화면영역의 <b>Consumption</b> 탭에서 확인합니다.</p>
+
+<h3>어느 재고에서 뺄 수 있는가</h3>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>인출 목적</th><th>가용</th><th>품질검사중</th><th>차단</th></tr></thead>
+<tbody>
+<tr><td>소비용 (생산오더·판매오더·코스트센터)</td><td>○</td><td>×</td><td>×</td></tr>
+<tr><td>샘플링 · 폐기</td><td>○</td><td>○</td><td>○</td></tr>
+</tbody>
+</table>
+</div>
+
+<p>주요 이동유형: <code>201</code> 창고→코스트센터 · <code>221</code> 창고→프로젝트 · <code>241</code> 창고→자산 · <code>261</code> 창고→오더 · <code>551</code> 폐기.</p>
+
+<div class="note warn">
+  <div class="t">출고처럼 보이지만 출고가 아닌 것</div>
+  <p>공급업체에 발주재화를 반송하거나 시스템이 재고를 이전할 때도 재고는 줄지만, 이는 각각 <b>반출</b>과 <b>이전기표</b>라는 별도 오퍼레이션입니다. 이동유형도 다르고 상대계정도 다릅니다.</p>
+</div>
+
+<h4>샘플채취 — 검사지점을 별도 저장위치로</h4>
+
+<p>비파괴샘플링이면 검사지점·실험실을 <b>별도 저장위치</b>로 정의하는 것이 합리적입니다. 검사대상 샘플을 그 저장위치로 이전기표하면, 수량은 여전히 품질검사중재고에 속하면서도 나머지와 분리되어 <span class="key">지금 검사 중인 수량을 정확히 추적</span>할 수 있습니다. 이 이전기표는 총수량·총가치에 영향이 없고, 검사 성공 후에는 그 저장위치에서 바로 해제하면 됩니다.</p>
+
+<h3>오더 참조 출고 3종</h3>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>유형</th><th>내용</th></tr></thead>
+<tbody>
+<tr><td>계획된 출고</td><td class="wrap">오더의 <b>종속예약을 참조</b>해 입력. 시스템이 <code>261</code>을 자동 결정</td></tr>
+<tr><td>비계획 출고</td><td class="wrap">예약 참조 없이 기타출고로. <code>261</code>을 직접 고르고 <span class="key">계정지정으로 오더번호를 지정</span>해야 함</td></tr>
+<tr><td>역송 (Backflush)</td><td class="wrap">구성품이 이미 생산현장에 있음. 실물은 소비되지만 보고는 <b>오더 완료확인 시점</b>에. 재고관리에서 별도 재화이동 입력 불필요</td></tr>
+</tbody>
+</table>
+</div>
+
+<p>예약 참조 인출은 <span class="bad">이동허용지시자가 켜져 있어야만</span> 가능합니다. 예약번호를 모르면 자재·플랜트·계정지정으로 검색할 수 있고, 미완료(최종출고 미표시) 예약만 또는 완료(취소가능) 예약만 보이도록 지정할 수 있습니다.</p>
+
+<h3>재고결정 (Stock Determination)</h3>
+
+<p>출고·재고이전 시 <b>어느 저장위치·어느 재고에서 뺄지의 우선순위</b>를 시스템이 자동 결정하게 하는 기능입니다. 재고관리뿐 아니라 판매·배송에서도 쓰이며, <span class="key">규칙배정(Rule Assignment)만 애플리케이션별로 다릅니다.</span></p>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>자재</th><th>애플리케이션1 (규칙 IM1)</th><th>애플리케이션2 (규칙 PP2)</th></tr></thead>
+<tbody>
+<tr><td>자재A (그룹 0001)</td><td>전략 0001/IM1</td><td>전략 0001/PP2</td></tr>
+<tr><td>자재B (그룹 0002)</td><td>전략 0002/IM1</td><td>전략 0002/PP2</td></tr>
+</tbody>
+</table>
+</div>
+
+<p>즉 <b>재고결정그룹(자재 축) × 재고결정규칙(애플리케이션 축)</b>의 교차점이 전략입니다. 같은 자재라도 애플리케이션이 다르면 다른 전략이 적용됩니다.</p>
+
+<h4>Customizing 순서</h4>
+
+<div class="step"><span class="n">STEP 1</span><p>플랜트종속 <b>재고결정그룹</b> 정의 (키 · 텍스트)</p></div>
+<div class="step"><span class="n">STEP 2</span><p><b>재고결정규칙</b> 정의 (키 · 텍스트)</p></div>
+<div class="step"><span class="n">STEP 3</span><p>플랜트 + 재고결정규칙 + 재고결정그룹 조합의 <b>재고결정전략</b>을 헤더테이블에서 정의</p></div>
+<div class="step"><span class="n">STEP 4</span><p>헤더테이블 상세뷰와 아이템테이블에서 세부조정</p></div>
+
+<p>경로: Materials Management→Inventory Management and Physical Inventory→Stock Determination→Define Strategies for Stock Determination</p>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>Other Settings 항목</th><th>내용</th></tr></thead>
+<tbody>
+<tr><td>창고관리(WM) 처리</td><td class="wrap">재고결정과 WM 간 상호작용</td></tr>
+<tr><td>재고결정 온라인</td><td class="wrap">백그라운드 / 온라인 선택. <span class="key">테스트 단계에 온라인으로 두면 결과를 즉시 본다</span></td></tr>
+<tr><td>파이프라인 인출</td><td class="wrap">부족분을 파이프라인 인출로 보충할지. 자재유형이 허용하고 파이프라인정보레코드가 있어야 함</td></tr>
+<tr><td>사용자exit</td><td class="wrap">아이템테이블에 <code>EXIT_SAPLMDBF_002</code>를 쓰려면 체크박스 유지</td></tr>
+</tbody>
+</table>
+</div>
+
+<h3>마이너스재고</h3>
+
+<p>장부재고보다 큰 수량으로 출고를 기표하면 발생합니다. 조직상 <b>입고보다 먼저 출고를 쳐야 하고 물건은 이미 창고에 있는</b> 경우에 필요합니다. 마이너스재고는 언제나 <span class="hl">"나중에 실물이동을 입력해야 한다"는 표시</span>입니다.</p>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>구분</th><th>가능 범위</th></tr></thead>
+<tbody>
+<tr><td>재고유형</td><td class="wrap">가용재고 · 차단재고 (<span class="bad">품질검사중재고는 불가</span>)</td></tr>
+<tr><td>특수재고</td><td class="wrap">K 공급업체수탁 · O 공급업체제공자재 · W 고객수탁 · E 판매오더 · Q 프로젝트 · V 고객반환포장재 · M 반환수송포장재</td></tr>
+<tr><td>전제</td><td class="wrap">Customizing에서 허용 + <b>해당 자재에 대해서도 허용</b></td></tr>
+</tbody>
+</table>
+</div>
+
+<div class="note warn">
+  <div class="t">마이너스재고를 쓰기로 했다면 두 시점은 반드시 0으로 턴다</div>
+  <p><span class="bad">대차대조표 기준일과 실사재고조사 시점에는 마이너스재고가 없어야 합니다.</span> 표준가 자재는 큰 문제가 없지만, <span class="key">이동평균가 자재는 입고 시 가격차이계정으로 기표될 수 있습니다</span> — 마이너스 상태에서 단가 계산이 성립하지 않기 때문입니다.</p>
+</div>
+
+<p>분석: 자재마스터 회계뷰 · 플랜트재고뷰 · 저장위치재고뷰에 표시되며, <b>Display Warehouse Stocks of Material <code>MB52</code></b> / Display Warehouse Stock 앱의 <b>Only display negative stocks</b> 체크박스로 마이너스재고 자재만 뽑을 수 있습니다.</p>
+
+<div class="note ok">
+  <div class="t">📌 개인 E2E 프로젝트와의 연결점</div>
+  <p>프로젝트는 <b>이동평균가(V)</b>를 쓰기로 했으므로 마이너스재고를 허용하면 안 됩니다. 위 경고대로 입고 시 가격차이계정이 튀고, 그러면 CBO <code>ZPRICE_CHECK</code>가 비교하는 <code>MBEW-VERPR</code> 자체가 오염됩니다. <span class="key">Customizing에서 마이너스재고를 끄는 것이 <code>ZPRICE_CHECK</code>의 전제조건</span>입니다 — 설계서에 이걸 "가정(Assumption)"으로 명시해야 합니다.</p>
+  <p>재고결정은 프로젝트에서 <b>당장 쓰지 않습니다.</b> SD 출고는 FEFO 배치결정으로 유통기한이 가장 이른 배치를 잡는데, 배치결정과 재고결정은 별개 메커니즘입니다. 다만 STOR의 6개 저장위치(정상 3 · 임박 3) 구조에서 <span class="hl">"임박 SLoc을 먼저 털어라"</span>를 시스템이 자동으로 하게 만들고 싶다면, 그때 쓸 도구가 이 재고결정 전략입니다(임박 SLoc에 높은 우선순위). 지금은 CBO <code>ZBATCH_ZONE</code>이 물리적으로 자리를 나눠 주는 것까지만 하고, 인출 순서는 FEFO에 맡기는 것으로 단순화했습니다.</p>
+</div>
+
+</div>
+
+
+<!-- ══════════ LESSON 5 ══════════ -->
+<div class="lesson" id="l5">
+<h2><span class="no">LESSON 5</span>특별조달 — 공급업체수탁(K) · 위탁가공(O) · 파이프라인(P)</h2>
+
+<p><span class="tag">Unit 6</span><span class="tag">레슨 3개</span>Vendor Consignment · Subcontracting · Pipeline</p>
+
+<h3>세 특수재고를 한 표로</h3>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>구분</th><th>K 공급업체수탁</th><th>O 공급업체제공자재</th><th>P 파이프라인</th></tr></thead>
+<tbody>
+<tr><td>물건 위치</td><td>자사 창고</td><td>위탁가공업체</td><td class="wrap">창고에 없음 (배관·도관)</td></tr>
+<tr><td>소유권</td><td>공급업체</td><td>자사</td><td>공급업체</td></tr>
+<tr><td>관리 레벨</td><td><span class="key">저장위치</span></td><td><span class="key">플랜트</span></td><td>재고관리 대상 아님</td></tr>
+<tr><td>평가</td><td><b>비평가</b></td><td><b>평가 대상</b></td><td>—</td></tr>
+<tr><td>재고유형</td><td class="wrap">가용 · 품질검사중 · 차단</td><td class="wrap">가용 · 품질검사중</td><td>—</td></tr>
+<tr><td>정보레코드</td><td>Consignment</td><td>—</td><td>Pipeline</td></tr>
+<tr><td>채무 발생 시점</td><td class="wrap"><b>인출할 때</b></td><td>—</td><td class="wrap"><b>인출할 때</b></td></tr>
+<tr><td>정산</td><td><code>MRKO</code></td><td class="wrap">일반 인보이스검증</td><td><code>MRKO</code></td></tr>
+<tr><td>실사재고조사</td><td>대상</td><td>대상</td><td><span class="bad">대상 아님</span></td></tr>
+</tbody>
+</table>
+</div>
+
+<h3>공급업체수탁 (K)</h3>
+
+<p>공급업체가 준 자재가 자사 창고에 있지만 소유권은 공급업체에 있습니다. <span class="hl">인출할 때 비로소 채무가 생깁니다.</span></p>
+
+<h4>마스터데이터</h4>
+
+<ul>
+  <li><b>자재마스터</b> — 자사자재로 이미 관리 중이면 수탁용 신규 자재마스터가 <span class="key">불필요</span>. 같은 자재번호로 수탁재고와 자사 가용재고를 함께 관리한다</li>
+  <li><b>공급업체마스터</b></li>
+  <li><b>구매정보레코드</b> — 정보카테고리 <b>Consignment</b>로 생성 (<code>ME11</code>). 수탁재고를 관리할 플랜트의 표준구매조직 기준. 외화·기간별·다양한 단위, 할인과 가격/수량 스케일도 사용 가능</li>
+</ul>
+
+<h4>구매 — 품목범주 K</h4>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>특징</th><th>내용</th></tr></thead>
+<tbody>
+<tr><td>자재번호</td><td>필수 입력</td></tr>
+<tr><td>PO 가격 · 조건</td><td><span class="bad">입력 불가</span> (정보레코드가 가격 원천)</td></tr>
+<tr><td>입고</td><td class="wrap">필요 — <b>비평가로 수탁재고에 입고</b></td></tr>
+<tr><td>인보이스</td><td><span class="bad">입력 불가</span></td></tr>
+</tbody>
+</table>
+</div>
+
+<p>품목범주 K는 구매계약·구매요청에도 쓸 수 있고, 특정 자재가 항상 특정 플랜트의 수탁창고로 조달된다면 <b>자재마스터 특별조달키</b>로 MRP에 반영해 계획실행 시 품목범주 K 구매요청이 자동 생성되게 할 수 있습니다.</p>
+
+<h4>재고관리 — 인출과 자사재고 전환</h4>
+
+<p>가용 수탁재고에서만 소비용 출고가 가능합니다. 품질검사중·차단재고에 있으면 먼저 가용재고로 대체해야 합니다(샘플링·폐기는 세 재고유형 모두 가능). 출고 입력 시 <span class="key">이동유형 외에 특수재고지시자 K와 수탁공급업체를 반드시 지정</span>합니다.</p>
+
+<div class="note warn">
+  <div class="t">수탁 → 자사 전환은 <code>411</code> + K</div>
+  <p>소비용 출고와 달리 이 이전기표는 <span class="key">평가재고를 증가시키고 소비기표는 발생하지 않습니다.</span> 둘 다 공급업체 채무를 발생시키며, 인출·이전기표 <b>당일의 수탁정보레코드 가격</b>으로 평가됩니다.</p>
+</div>
+
+<p>조회: Display Stock Overview <code>MMBE</code>(저장위치 레벨 합계, 더블클릭 시 공급업체별 상세) · <b>Consignment Stocks</b> 앱 / <code>MB54</code>(여러 자재 동시, 공급업체별 평가) · Stock – Multiple Material 앱의 사전정의뷰 <b>Stock Value for Sales Supplier Consignment (K)</b>.</p>
+
+<h4>정산 — 인보이스가 없다</h4>
+
+<p>수탁재화는 <span class="bad">인보이스 영수 없이 정산</span>됩니다. 공급업체가 우리 인출을 직접 추적할 수 없기 때문입니다 — 공급업체 입장에서는 자기 납품과 우리 결제만 보입니다. 정산은 <code>MRKO</code>(Consignment and Pipeline Settlement)로, 정산완료/미완료 인출을 조회하고 미정산분을 정산합니다. 정산문서 외에 메시지유형 <b><code>KONS</code></b>로 공급업체에 정산 내역과 credit memo 금액을 통보합니다.</p>
+
+<h3>위탁가공 (O)</h3>
+
+<p>외부업체에 발주하되 생산에 필요한 구성품을 우리가 제공하는 형태입니다. 제공한 구성품은 특수재고 O로 관리되며, <span class="key">자재가 우리 손을 떠나 있으므로 플랜트 레벨</span>에서 갱신됩니다. 단 <b>평가 대상</b>이고 계획에도 쓰입니다.</p>
+
+<div class="note">
+  <div class="t">🔰 초보자 설명 — 위탁가공업체 MRP영역</div>
+  <p>제공한 수량은 플랜트 가용재고에 포함되지 않습니다. 그래서 자재계획에서 이 수량을 반영하려면 <b>위탁가공업체 MRP영역</b>을 씁니다. 이걸 쓰면 업체별로 제공재고를 분리해서 볼 수 있습니다.</p>
+</div>
+
+<h4>구성품 제공</h4>
+
+<p>재고관리 관점에서 <b>가용재고 → 공급업체제공자재재고</b> 이전기표입니다.</p>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>절차</th><th>이동유형</th></tr></thead>
+<tbody>
+<tr><td>1단계</td><td><code>541</code></td></tr>
+<tr><td>2단계</td><td><code>30A</code> · <code>30C</code></td></tr>
+</tbody>
+</table>
+</div>
+
+<p>MIGO에서 PO의 위탁가공아이템(SC item)을 참조하면 구성품·수량이 제안됩니다(변경 가능). <span class="bad">PO 참조 구성품 제공은 PO이력에 반영되지 않습니다</span> — 제공재고가 PO 기준으로 관리되는 것이 아니기 때문입니다. 참조 없이 수동입력도 가능합니다.</p>
+
+<p>구매 쪽에서는 <b>Subcontracting Cockpit <code>ME2ON</code></b> / Display Subcontracting Stocks by Supplier 앱으로 구성품 출고를 기표합니다 — 소요·재고·배정소요(Pegged Requirements) 목록에서 라인을 골라 Edit→Post goods issue. 출고예정납품도 여기서 생성합니다(배송 데이터가 Customizing·자재마스터·업체 BP레코드에 유지되어 있어야 함).</p>
+
+<div class="note warn">
+  <div class="t">제3자 직납이어도 입고 기표는 생략할 수 없다</div>
+  <p>구성품을 다른 공급업체로부터 위탁가공업체에 직접 납품시키는 경우(PO 아이템 납품주소에 업체번호 + <b>SC Supp</b> 지시자), 업체가 도착을 통보하면 반드시 그 구성품 PO에 대한 입고를 기표해야 합니다. <span class="key">이것이 제공재고와 자사재고를 갱신하는 유일한 방법</span>이기 때문입니다.</p>
+</div>
+
+<p>제공재고 이전기표로 허용되는 것: 플랜트 간 1단계 <code>301</code> · 자재 간 <code>309</code> · 품질검사중→가용 <code>321</code>. 특수재고지시자 O를 지정하는 것 외에는 일반 이전기표와 같습니다.</p>
+
+<h4>완제품 입고와 후속조정</h4>
+
+<p>완제품 입고의 자재문서는 <b>납품자재 GR 아이템 + 구성품 GI 아이템(들)</b>로 구성됩니다. 기표 전에 구성품 수량을 바꿀 수 있습니다.</p>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>기능</th><th>절차</th></tr></thead>
+<tbody>
+<tr><td>MIGO / Post Goods Movements</td><td class="wrap">트랜잭션 목록에서 <b>Subsequent Adjustment</b> 선택(참조문서는 자동으로 PO) → PO아이템 지정 후 구성품별 차이수량 입력. 과다소비는 추가수량만. 과소소비는 <b>Underconsumption / Short Receipt</b> 지시자도 설정 → 제공재고가 차이만큼 증가(소비 반대기표)</td></tr>
+<tr><td class="wrap">Post Subsequent Adjustment 앱 (2021~)</td><td class="wrap">PO번호 입력 → 아이템상세 Components 섹션의 Goods Movement 필드에서 구성품별 Overconsumption/Underconsumption 선택 후 수량 입력 → 조정 불필요분은 <b>No Posting</b> 유지 → Apply → 기표</td></tr>
+</tbody>
+</table>
+</div>
+
+<p><span class="bad">위탁가공 PO에 입고가 먼저 기표되어야만 후속조정을 입력할 수 있습니다.</span></p>
+
+<h3>파이프라인 (P)</h3>
+
+<p>배관(석유)·도관(전기)으로 생산공정에 직접 유입되는 자재. <span class="key">구매를 통해 취득할 필요가 없고 창고에 물리적으로 존재하지 않습니다.</span> 언제든 어떤 수량으로도 인출 가능합니다.</p>
+
+<h4>자재유형 PIPE</h4>
+
+<ul>
+  <li>모든 평가영역에서 <b>파이프라인이동만</b> 가능 — 다른 재화이동 기표 불가</li>
+  <li>조달·계획 대상 아님 · 보관되지 않음 · 재고관리 대상 아님</li>
+  <li><span class="bad">실사재고조사 대상 아님</span></li>
+  <li>생산오더의 역송 구성품으로는 사용 가능</li>
+</ul>
+
+<p>다른 자재유형에서는 평가영역별로 파이프라인이동이 <b>필수인지 허용인지</b>를 지정할 수 있습니다(<code>OMS2</code>). 허용으로 두면 그 자재는 파이프라인이동과 일반 재화이동을 둘 다 할 수 있습니다.</p>
+
+<h4>인출</h4>
+
+<p>재고자재 출고와 같은 방식으로 입력하되 <b>특수재고지시자 P + 공급업체</b>를 지정합니다. 가능한 이동유형은 소비용 네 가지: <code>201</code> 코스트센터 · <code>261</code> 오더 · <code>281</code> 네트워크 · <code>291</code> 전체 계정지정.</p>
+
+<p>공급업체 결정 순서: 정보레코드가 <b>1개</b>면 자동 제안 → 여러 개면 <b>소스리스트</b>의 선호공급업체 → 소스리스트에 없으면 <span class="key">MIGO 실행 시 가장 유리한 조건의 공급업체를 자동 선택</span>(다른 기능에서는 수동 선택). 채무 금액 = 인출수량 × 파이프라인정보레코드 가격이며, <b>기존 창고재고나 가용성에는 영향이 없습니다.</b></p>
+
+<div class="note ok">
+  <div class="t">📌 개인 E2E 프로젝트와의 연결점</div>
+  <p>프로젝트는 <b>벤더 사입 → 재판매 트레이딩</b> 모델이고 생산·외주가공이 없으므로, 셋 중 O(위탁가공)와 P(파이프라인)는 <span class="key">범위 밖입니다.</span> 억지로 넣지 않습니다.</p>
+  <p>다만 <b>K(공급업체수탁)는 식품 유통에서 실제로 흔한 형태</b>이고, 이 코스가 알려주는 한 가지가 프로젝트 판단에 직접 걸립니다 — 수탁재고는 <span class="hl">비평가</span>라 <code>MBEW-VERPR</code>(이동평균가)이 생기지 않습니다. CBO <code>ZPRICE_CHECK</code>는 <code>EINE-NETPR</code>과 <code>MBEW-VERPR</code>의 괴리를 보는 프로그램이므로, <b>수탁 품목이 하나라도 섞이면 비교 대상이 없어 조용히 건너뛰게 됩니다.</b></p>
+  <p>따라서 <code>ZPRICE_CHECK</code> 설계서에 "특수재고지시자가 있는 품목은 대상에서 제외하고, 제외 건수를 로그에 남긴다"를 명시해야 합니다. 조용히 넘어가는 로직을 만들지 않기 위해서입니다. 지금 프로젝트는 K를 쓰지 않으므로 실제로는 0건이지만, <span class="key">0건이라는 사실을 로그로 확인할 수 있는 구조</span>와 아예 체크하지 않는 구조는 다릅니다.</p>
+</div>
+
+</div>
+
+
+<!-- ══════════ LESSON 6 ══════════ -->
+<div class="lesson" id="l6">
+<h2><span class="no">LESSON 6</span>자재평가의 특수기능 — UNBW/NLAG · 분할평가</h2>
+
+<p><span class="tag">Unit 7</span><span class="tag">레슨 2개</span>비평가 자재유형의 재화이동 · 분할평가 설정</p>
+
+<h3>UNBW와 NLAG</h3>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>자재유형</th><th>수량 관리</th><th>가치 관리</th><th>조달</th><th>입고 시 일어나는 일</th></tr></thead>
+<tbody>
+<tr><td><code>UNBW</code></td><td>○</td><td><span class="bad">×</span></td><td class="wrap">계정지정을 통해서만</td><td class="wrap">자재마스터에 회계데이터가 유지되지 않고 재고가치도 갱신되지 않음</td></tr>
+<tr><td><code>NLAG</code></td><td><span class="bad">×</span></td><td><span class="bad">×</span></td><td class="wrap">계정지정을 통해서만</td><td class="wrap">수량이 <b>소비로 기표</b>되고 소비통계 갱신, 가치는 소비계정으로 기표되며 비용이 계정지정대상에 차변</td></tr>
+</tbody>
+</table>
+</div>
+
+<div class="note">
+  <div class="t">🔰 초보자 설명 — UNBW와 NLAG의 차이</div>
+  <p>둘 다 계정지정으로만 조달한다는 점은 같고, 차이는 <b>재고관리 범위</b>입니다. UNBW는 수량은 관리하고 가치는 관리하지 않습니다. NLAG는 둘 다 관리하지 않고 <span class="key">입고 즉시 소비로 처리되어 재고 자체가 시스템에 남지 않습니다.</span></p>
+  <p>재고로 추적할 필요가 없는 소모성 사무용품은 NLAG, 수량만 파악하면 되는 저가 자재는 UNBW 식으로 나눕니다.</p>
+</div>
+
+<p>평가대상·비평가대상 자재의 기타입고·이전기표·출고는 <span class="hl">모두 FI 기표를 만들지 않습니다.</span> 이동유형 필드통제 때문에 계정지정 입력이 요구될 수는 있지만, 그래도 FI 기표는 발생하지 않습니다. 소비용 출고를 입력하면 소비통계는 갱신됩니다. 설정 경로는 <code>OMS2</code>.</p>
+
+<h3>분할평가 (Split Valuation)</h3>
+
+<p>한 플랜트 안에서 자재의 <b>부분재고(Partial Stock)</b>를 기준에 따라 나누고 평가를 다르게 가져가는 기능입니다. 필요한 경우:</p>
+
+<ul>
+  <li>사내생산 재고와 외부조달 재고의 평가가격이 다를 때</li>
+  <li>품질에 따라 재고를 나누고 품질별로 가치를 다르게 볼 때</li>
+  <li><span class="key">자재의 배치별 재고가 서로 다른 평가가격을 가질 때</span></li>
+</ul>
+
+<div class="note warn">
+  <div class="t">"활성화"의 의미를 오해하지 말 것</div>
+  <p>분할평가 활성화는 <span class="hl">개별 자재에 대해 필요하면 분할평가를 쓸 수 있게 하는 것</span>일 뿐, 모든 자재를 분리평가해야 한다는 뜻이 아닙니다. SAP 표준시스템에서 분할평가는 기본적으로 <b>Active</b> 상태입니다.</p>
+</div>
+
+<h4>구조 — 평가카테고리 1개 + 평가유형 최소 2개</h4>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>요소</th><th>역할</th><th>예 (조달유형 기준)</th></tr></thead>
+<tbody>
+<tr><td>평가카테고리</td><td class="wrap">부분재고를 <b>나누는 기준</b></td><td>조달유형</td></tr>
+<tr><td>평가유형</td><td class="wrap">부분재고가 가질 수 있는 <b>특성</b></td><td>Internal / External</td></tr>
+</tbody>
+</table>
+</div>
+
+<h4>Customizing</h4>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>활동</th><th>T-Code</th></tr></thead>
+<tbody>
+<tr><td>분할평가 활성화</td><td><code>OMW0</code></td></tr>
+<tr><td>평가카테고리 · 평가유형 정의 및 배정</td><td><code>OMWC</code></td></tr>
+</tbody>
+</table>
+</div>
+
+<p>설정 구성요소는 네 층입니다 — ① 평가영역 무관한 <b>평가유형의 전역 정의</b> ② 평가영역 무관한 <b>평가카테고리의 전역 정의</b> ③ 평가유형을 평가카테고리에 배정 ④ 전역 카테고리 중 특정 평가영역에서 쓸 것을 결정(= <b>로컬 정의</b>).</p>
+
+<p>평가유형별로 내부조달·외부조달 중 어디에 쓸 수 있는지 정의할 수 있고, 평가카테고리로 특정 프로세스에서 평가유형이 필수인지도 통제합니다. 또 <span class="key">평가유형별로 다른 계정클래스참조를 지정</span>하면 사내생산 재고와 외부조달 재고를 서로 다른 재고계정에서 관리할 수 있습니다.</p>
+
+<h4>자재마스터 쪽 설정</h4>
+
+<div class="step"><span class="n">STEP 1</span><p>평가영역종속 회계데이터에 <b>평가카테고리</b>를 입력하고 <span class="key">가격통제 V(이동평균가)</span>를 선택한다</p></div>
+<div class="step"><span class="n">STEP 2</span><p>가능한 모든 평가유형에 대해, <b>평가영역 + 평가유형 조합별로</b> 회계데이터를 추가 생성한다. 이 레벨에서는 표준가·이동평균가를 자유롭게 고를 수 있고 평가클래스도 다르게 줄 수 있다</p></div>
+
+<div class="note warn">
+  <div class="t">헤더레코드는 반드시 V</div>
+  <p>분리평가 자재의 평가헤더레코드는 <span class="bad">가격통제 V로만 생성할 수 있습니다.</span> 개별 부분재고의 가치가 합산되어 총가치가 헤더레코드에 갱신되는 구조이기 때문입니다. 부분재고 레벨에서는 S여도 됩니다.</p>
+  <p>평가카테고리에서 평가유형 자동설정을 지정하면 <b>최초 입고 시 평가유형이 자동 생성</b>됩니다 — 개별 배치평가를 쓰는 배치관리 자재에 유용합니다.</p>
+</div>
+
+<h4>적용 결과</h4>
+
+<p>평가와 관련된 모든 트랜잭션(입고 · 출고 · 인보이스영수 · <b>실사재고조사</b>)이 <span class="hl">부분재고 레벨에서 실행</span>됩니다. 처리할 때마다 어느 부분재고인지 지정해야 하고, 영향받는 부분재고에만 가치변동이 생기며 총재고도 함께 갱신됩니다. 총재고 가치 = 개별 부분재고들의 가치·수량 합계.</p>
+
+<div class="note ok">
+  <div class="t">📌 개인 E2E 프로젝트와의 연결점</div>
+  <p>프로젝트는 가격통제를 <b>V(이동평균가)</b>로 잡았으므로 분할평가의 전제조건(헤더레코드 V)을 이미 만족합니다. 그리고 이 LESSON은 프로젝트가 내린 한 가지 결정의 근거를 뒤늦게 확인해 줍니다.</p>
+  <p>온도군 정상/임박 구분을 <b>저장위치로 나눌 것인가, 분할평가로 나눌 것인가</b>는 실제로 갈림길이었습니다. 분할평가로 하면 "임박 재고는 평가가격을 낮춘다"까지 시스템이 해 줍니다 — 유통기한 임박분의 가치가 떨어지는 것은 식품 유통의 현실이기도 합니다. 그런데 그렇게 하면 <span class="bad">정상→임박 전환이 곧 재고가치 변동</span>이 되어, <code>ZBATCH_ZONE</code>이 회계를 건드리는 프로그램이 됩니다. 프로젝트 원칙상 그건 자동화 대상이 아닙니다.</p>
+  <p>저장위치(<code>311</code>)로 나눈 덕분에 <span class="key">가치는 그대로 두고 위치만 옮기는 무해한 이동</span>이 되었습니다. 이것이 LESSON 2에서 "왜 <code>311</code>이고 왜 자동인가"의 나머지 절반입니다. 분할평가는 <b>의도적으로 쓰지 않은 것</b>이고, 이유는 회계 영향을 자동화 범위에서 빼기 위해서입니다.</p>
+  <p>참고로 자재유형은 프로젝트에서 <code>HAWA</code>(상품) 계열이 맞습니다. <code>UNBW</code>/<code>NLAG</code>는 재고가치를 안 잡으므로 <code>ZPRICE_CHECK</code>의 비교 대상 자체가 없어져 프로젝트에서 쓰지 않습니다.</p>
+</div>
+
+</div>
+
+
+<!-- ══════════ LESSON 7 ══════════ -->
+<div class="lesson" id="l7">
+<h2><span class="no">LESSON 7</span>실사재고조사 — 절차 · 간소화 · Situation Handling</h2>
+
+<p><span class="tag">Unit 8 전반</span><span class="tag">레슨 3개</span>실사절차 전 구간 · Fiori/배치입력 간소화 · Situation Handling</p>
+
+<h3>언제 이걸 알아야 하는가</h3>
+
+<p>결산 직전에 반드시 한 번은 나옵니다 — <b>"실사 수량을 다 넣었는데 재고가 안 맞습니다"</b>. 카운트를 입력한 것과 <span class="key">차이를 기표한 것은 완전히 다른 단계</span>인데, 입력만 하고 기표를 안 하면 장부재고는 1원도 안 움직입니다. 회계가 움직이는 시점은 마지막 한 걸음뿐입니다.</p>
+
+<p>그리고 <b>"차이 기표를 누르면 금액 초과라고 막힙니다"</b> — 사용자그룹별 공차(<code>OMJ2</code>)에 걸린 겁니다. 이건 권한 문제도 버그도 아니고 설계된 통제입니다.</p>
+
+<h3>재고관리단위 (Stock Management Unit)</h3>
+
+<p>실사는 <b>재고관리단위</b> 기준으로 합니다. 별도의 장부재고가 존재하는, 더 이상 나눌 수 없는 재고 단위입니다.</p>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>정의 축</th></tr></thead>
+<tbody>
+<tr><td class="wrap">자재 · 플랜트/저장위치 · 재고유형 · 평가유형/배치 · 특수재고</td></tr>
+</tbody>
+</table>
+</div>
+
+<p>즉 <span class="hl">한 플랜트의 각 저장위치에서 가용재고 · 품질검사중재고 · 차단재고를 각각 따로 셉니다.</span> 차이도 재고관리단위별로 기표됩니다. WM 대상 창고에서는 관트(Quant)와 저장빈 기준으로 수행됩니다.</p>
+
+<h3>전체 절차</h3>
+
+<figure class="figwrap">
+<svg class="dgm" viewBox="0 0 1000 470" role="img" aria-label="실사재고조사 4단계 도해. 문서 생성, 카운트 입력, 차이 분석, 차이 기표 순으로 진행되며 회계가 움직이는 시점은 마지막 차이 기표 한 곳뿐이다.">
+  <defs>
+    <marker id="piA" markerWidth="9" markerHeight="9" refX="7" refY="4.5" orient="auto">
+      <polygon class="arw-key" points="0,0 9,4.5 0,9"/></marker>
+    <marker id="piB" markerWidth="9" markerHeight="9" refX="8" refY="4.5" orient="auto">
+      <polygon class="arw-ok" points="0,0 9,4.5 0,9"/></marker>
+  </defs>
+
+  <text class="t-s c-key" x="20" y="22">재고관리 (MM-IM)</text>
+  <text class="t-s c-ok" x="20" y="322">회계 (FI)</text>
+
+  <rect class="b-key" x="20" y="36" width="216" height="86" rx="6"/>
+  <text class="t-h c-key" x="40" y="60">① 실사문서 생성</text>
+  <text class="t-s" x="40" y="82">플랜트 · 저장위치별</text>
+  <text class="m-s" x="40" y="102">MI01 / Create PI Documents</text>
+  <text class="t-xs" x="40" y="116">기표차단 · 장부재고동결 선택</text>
+  <path class="ln-key" d="M236 79 H272" marker-end="url(#piA)"/>
+
+  <rect class="b-key" x="280" y="36" width="216" height="86" rx="6"/>
+  <text class="t-h c-key" x="300" y="60">② 카운트 입력</text>
+  <text class="t-s" x="300" y="82">카운트일자가 두 가지를 결정</text>
+  <text class="t-xs" x="300" y="100">· 어느 시점 재고가 장부재고인가</text>
+  <text class="t-xs" x="300" y="116">· 차이를 어느 기간에 기표하는가</text>
+  <path class="ln-key" d="M496 79 H532" marker-end="url(#piA)"/>
+
+  <rect class="b-key" x="540" y="36" width="216" height="86" rx="6"/>
+  <text class="t-h c-key" x="560" y="60">③ 차이 분석</text>
+  <text class="t-s" x="560" y="82">차이목록 — 여러 문서를 한 번에</text>
+  <text class="t-xs" x="560" y="100">카운트수량 · 장부재고 · 차이수량 · 차이금액</text>
+  <text class="t-xs" x="560" y="116">필요하면 재카운트 문서 생성</text>
+  <path class="ln-key" d="M756 79 H792" marker-end="url(#piA)"/>
+
+  <rect class="b-hl" x="800" y="36" width="180" height="86" rx="6"/>
+  <text class="t-h" x="820" y="60">④ 차이 기표</text>
+  <text class="t-s" x="820" y="82">차이가 0이어도</text>
+  <text class="t-s" x="820" y="100">반드시 기표해야</text>
+  <text class="t-s" x="820" y="118">실사가 완료된다</text>
+
+  <rect class="b-bad" x="20" y="146" width="736" height="52" rx="6"/>
+  <text class="t-h c-bad" x="42" y="170">여기까지 장부재고는 1원도 움직이지 않는다</text>
+  <text class="t-s" x="42" y="190">카운트를 다 입력해도 ④를 안 하면 재고는 그대로다 — "실사했는데 재고가 안 맞는다"의 90%가 이것</text>
+
+  <rect class="b-mut" x="20" y="212" width="736" height="66" rx="6"/>
+  <text class="t-s" x="42" y="236">차단 지시자 상태 변화 :  Posting Block 설정 →  자재마스터 실사차단 = <tspan class="m-s">X</tspan> (이동 불가)</text>
+  <text class="t-s" x="42" y="260">→ 카운트 입력되면 <tspan class="m-s">A</tspan> (실사 미완료) → 차이 기표되면 <tspan class="c-ok">지시자 해제</tspan></text>
+
+  <path class="ln-ok" d="M890 122 V330" marker-end="url(#piB)"/>
+
+  <line class="ln-d" x1="20" y1="300" x2="980" y2="300"/>
+
+  <rect class="b-ok" x="540" y="332" width="440" height="118" rx="6"/>
+  <text class="t-h c-ok" x="562" y="356">회계가 움직이는 유일한 시점</text>
+  <text class="t-s" x="562" y="382">카운트 &lt; 장부  →  재고계정 대변 / 상대 : Expense from Physical Inventory</text>
+  <text class="t-s" x="562" y="404">카운트 &gt; 장부  →  재고계정 차변 / 상대 : Revenue from Physical Inventory</text>
+  <text class="t-xs c-bad" x="562" y="430">금액은 자재마스터 현재평가가격 기준 — 차이 기표는 평가가격 자체를 바꾸지 않는다</text>
+
+  <rect class="b-ghost" x="20" y="332" width="500" height="118" rx="6"/>
+  <text class="t-s" x="42" y="356">공차는 두 층 (<tspan class="m-s">OMJ2</tspan> · 사용자그룹별)</text>
+  <text class="t-s" x="42" y="380">· 실사문서별 최대 기표가능 차이금액</text>
+  <text class="t-s" x="42" y="402">· 실사문서 아이템별 최대 기표가능 차이금액</text>
+  <text class="t-xs" x="42" y="428">문서 전체는 공차 이내인데 특정 아이템만 초과하면, 그 아이템만 못 치고 나머지는 처리된다</text>
+</svg>
+<figcaption><span class="fno">그림 5</span>실사재고조사 4단계와 회계 전기 시점. ①~③은 준비이고 ④만이 장부를 바꾼다.</figcaption>
+</figure>
+
+<h3>실사재고조사문서</h3>
+
+<p>플랜트·저장위치별로 생성합니다. 특수재고는 플랜트·저장위치·특수재고·공급업체/고객/프로젝트 단위로 만듭니다. 저장빈·자재그룹을 추가 그룹화값으로 쓸 수 있습니다.</p>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>헤더 필드</th><th>용도</th></tr></thead>
+<tbody>
+<tr><td class="wrap">실사재고조사번호</td><td class="wrap"><b>문서번호와는 별개.</b> 카운트결과 입력 · 차이기표 · 평가 시 처리대상 문서를 고르는 데 쓴다. 카운트그룹ID · 처리자 · 부서 · 월/일자 등 자유롭게 부여</td></tr>
+<tr><td>Physical Inventory Reference</td><td class="wrap">시스템 외부 문서를 참조하거나 참조될 때 그 문서번호</td></tr>
+<tr><td>Description</td><td>자유 텍스트</td></tr>
+<tr><td class="wrap">Count / Adjustment / Delete status</td><td class="wrap">일부/전체 아이템의 카운트 · 기표 · 삭제 여부</td></tr>
+</tbody>
+</table>
+</div>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>시점</th><th>변경 가능한 것</th></tr></thead>
+<tbody>
+<tr><td class="wrap">카운트 입력 전</td><td class="wrap">헤더 — 계획카운트일자, 기표차단 설정/해제, 장부재고 동결/해제, 실사번호·참조·명칭<br>아이템 — 재고유형, 카운트단위, 삭제지시자, 신규 아이템 추가, 문서 삭제</td></tr>
+<tr><td class="wrap">일부 입력 후</td><td class="wrap">기표차단 설정/해제, 장부재고 동결/해제, 개별 아이템 삭제지시자 또는 문서 전체 삭제, 카운트결과 입력/변경</td></tr>
+</tbody>
+</table>
+</div>
+
+<h3>카운트일자가 결정하는 두 가지</h3>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>결정 대상</th><th>규칙</th></tr></thead>
+<tbody>
+<tr><td>장부재고</td><td class="wrap">카운트일자가 <b>당기</b>면 입력 시점의 재고수량, <b>전기</b>면 마지막 기말결산 시점의 수량</td></tr>
+<tr><td>차이기표 전기기간</td><td class="wrap">카운트일자 기준으로 결정. 예: 카운트일자 2020-12-30 → 전기기간 2020년 12월. 2021년 1월까지 기표를 못 했으면 <span class="key">전기로의 소급기표가 허용되어야</span> 한다</td></tr>
+</tbody>
+</table>
+</div>
+
+<div class="note warn">
+  <div class="t">회계연도는 계획카운트일자가 잡는다</div>
+  <p>실사문서의 <b>계획카운트일자</b>로 회계연도가 결정되며, 그 문서에 대한 모든 기표는 <span class="hl">이 회계연도 또는 (소급 허용 시) 다음 해 첫 번째 기간 안에</span> 이루어져야 합니다.</p>
+</div>
+
+<div class="note warn">
+  <div class="t">0을 직접 못 넣는다</div>
+  <p>카운트결과로 <b>0을 입력할 수 없습니다.</b> 재고관리단위의 실사 결과가 0이면 <span class="key">Zero Count 체크박스</span>로 지정해야 합니다(개별 아이템 또는 미입력 아이템 전체 일괄).</p>
+  <p>단 <b>Manage Physical Inventory Count 앱</b>은 예외입니다 — 이 앱에서는 수량 0을 직접 입력하면 되고 Zero Count 지시자가 필요 없습니다. 반대로 <span class="bad">이 앱에서 아무것도 입력하지 않으면 미카운트로 해석</span>됩니다.</p>
+</div>
+
+<p>카운트 입력 화면에서 <b>재고차이 공차를 백분율 편차</b>로 지정할 수 있고, 차이가 그 값을 넘으면 경고가 뜹니다. <b>재카운트</b>는 원본 문서를 참조하는 새 실사문서를 만드는 방식이며, 원본의 해당 아이템은 <span class="key">"counted, recounted" 상태가 되어 더 이상 차이를 기표할 수 없습니다.</span></p>
+
+<h3>수탁재고의 차이 기표는 다르게 해석된다</h3>
+
+<p>수탁재고(K)는 비평가라 원래 회계기표가 없지만, 차이가 나면 다음과 같이 해석되어 회계문서가 생깁니다.</p>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>상황</th><th>해석</th><th>계정</th></tr></thead>
+<tbody>
+<tr><td class="wrap">카운트 &lt; 장부</td><td class="wrap">인출되었는데 추적이 안 되는 것 → <b>인출로 기표</b></td><td class="wrap">수탁→자사 이전기표와 같은 계정이동. 단 이전기표라면 재고계정으로 갈 금액이 여기서는 <b>Expense from Inventory Differences</b>로</td></tr>
+<tr><td class="wrap">카운트 &gt; 장부</td><td class="wrap">실제보다 큰 인출이 기표됐던 것 → <b>인출의 취소</b></td><td class="wrap">Liabilities from Consignment Stores. 위 케이스와 완전히 반대 기표</td></tr>
+</tbody>
+</table>
+</div>
+
+<h3>실사 중 재고를 어떻게 고정할 것인가 — 세 가지 장치</h3>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>장치</th><th>내용</th><th>Customizing</th></tr></thead>
+<tbody>
+<tr><td>기표차단<br>(Posting Block)</td><td class="wrap">문서 헤더에서 설정하면 자재마스터 저장위치재고뷰의 실사차단 필드가 <code>X</code>가 되어 <b>재화이동 자체를 막는다.</b> 자사재고는 플랜트·저장위치 레벨, 특수재고는 여기에 특수재고·고객/공급업체/오더/프로젝트까지 포함해 차단</td><td>—</td></tr>
+<tr><td>장부재고 동결<br>(Freeze)</td><td class="wrap">조직상 재화이동을 못 막을 때. <span class="key">이후 재화이동이 실사에 관련된 장부재고 수치를 바꾸지 못하게</span> 한다</td><td><code>OMBP</code><br>(저장위치 레벨 허용 여부)</td></tr>
+<tr><td>장부재고 조정<br>(Adjust Book Inventory)</td><td class="wrap">반대 방향 — 재화이동이 발생하면 <b>실사문서의 장부재고를 그만큼 조정</b>하고 차이도 다시 계산한다. 재화이동 전기일자가 카운트일자보다 이르면 조정</td><td class="wrap">Physical Inventory→Settings for Physical Inventory</td></tr>
+</tbody>
+</table>
+</div>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>Adjust Book Inventory 값</th><th>전기일자 = 카운트일자일 때</th></tr></thead>
+<tbody>
+<tr><td>비활성 <code>_</code></td><td>조정 없음</td></tr>
+<tr><td>활성 <code>1</code></td><td class="wrap">실사가 재화이동보다 <b>먼저</b> 발생한 것으로 처리</td></tr>
+<tr><td>활성 <code>2</code></td><td class="wrap">재화이동이 실사보다 <b>먼저</b> 발생한 것으로 처리</td></tr>
+</tbody>
+</table>
+</div>
+
+<div class="note">
+  <div class="t">🔰 초보자 설명 — 장부재고 조정 예시 (원문)</div>
+  <p>12/27 재고 31개 상태에서 실사문서 생성 → 12/28 카운트 35개 입력(장부재고 31 사용, 차이 <b>+4</b>) → 12/29에 <span class="key">전기일자 12/26</span>인 입고 5개를 뒤늦게 입력.</p>
+  <p>이때 문서상 장부재고가 31+5 = <b>36개</b>로 조정되고, 차이는 +4에서 <b>−1</b>로 바뀝니다. 실사보다 앞선 날짜의 이동이 나중에 들어온 것이므로 실사 기준선을 고쳐 준 것입니다.</p>
+</div>
+
+<h3>간소화 — 앱과 배치입력</h3>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>앱</th><th>내용</th></tr></thead>
+<tbody>
+<tr><td class="wrap">Create Physical Inventory Documents</td><td class="wrap">실사대상 자재를 검색해 바로 문서 생성. 필터: <b>Posted to Stock</b>(2023~) · 플랜트 · 저장위치 · <b>Not Counted Since</b>. 자재유형·자재그룹, 마지막 카운트 이후 출고 등 추가 가능. 옵션: Split Documents by(저장빈·자재·자재그룹) · 문서당 최대 아이템 수 · 문서일자 · 계획카운트일자 · 실사번호 · 기표차단 · 장부재고동결</td></tr>
+<tr><td class="wrap">Job Scheduling and Mass Processing – Physical Inventory</td><td class="wrap">문서 생성·인쇄 잡을 스케줄링. 사전정의 템플릿 3종 — <b>연간실사</b>(마지막 실행 이후 카운트 필요한 전체) · <b>사이클카운팅</b>(새 주기 도래분) · <b>문서 인쇄</b>(백그라운드 대량인쇄)</td></tr>
+<tr><td class="wrap">Manage Physical Inventory Count</td><td class="wrap">카운트결과 입력·변경. <span class="key">문서생성 + 카운트입력을 한 단계로 하는 애드혹 카운팅</span>도 가능. 아이템이 Uncounted / Counted로 그룹화됨. 편차허용비율 개인화 가능</td></tr>
+</tbody>
+</table>
+</div>
+
+<div class="note warn">
+  <div class="t">데이터에이징 구간을 분석범위로 잡지 말 것</div>
+  <p>Create Physical Inventory Documents 앱에서 <span class="bad">데이터에이징 처리 대상 기간을 분석범위로 선택하면 안 됩니다.</span> 에이징된 입출고 데이터는 이 앱의 분석에 반영되지 않아, "최근 출고가 없었다"고 잘못 판단합니다.</p>
+</div>
+
+<h4>모바일 스캐너</h4>
+
+<p>내부 스마트폰 카메라 또는 외부 바코드스캐너(터치스크린 모바일기기 + SAP Fiori 클라이언트 필요). 시나리오는 <b>문서스캔</b>(실사문서번호 → 그 문서 상세로) / <b>자재스캔</b>(자재번호 → 그 자재를 포함한 모든 오픈문서 목록). <span class="key">스캔 방식과 무관하게 카운트수량은 수동입력</span>입니다.</p>
+
+<h4>배치입력 (SM35)</h4>
+
+<p>온라인 입력처럼 트랜잭션을 시뮬레이션하므로 <span class="hl">모든 트랜잭션 검증이 수행되어 데이터 일관성이 보장</span>됩니다. 절차는 ① 세션 생성 ② 세션 처리·임포트.</p>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>실사 관련 배치입력 세션</th><th>내용</th></tr></thead>
+<tbody>
+<tr><td>실사문서 생성</td><td class="wrap">일반재고와 특수재고 유형별로 구분해 세션 생성</td></tr>
+<tr><td class="wrap">특수절차용 문서 생성</td><td class="wrap">사이클카운팅 · 표본기반실사는 <span class="key">항상 배치입력으로만</span> 문서를 만든다. CC는 자재마스터 CC지시자 기준, 표본기반은 난수생성기로 대상 결정</td></tr>
+<tr><td class="wrap">자재차단 · 장부재고동결</td><td class="wrap">여러 문서의 체크박스를 일괄 선택/해제</td></tr>
+<tr><td>Zero Count 설정</td><td class="wrap">카운트 미입력 아이템 전체에 일괄 적용</td></tr>
+<tr><td>차이기표</td><td class="wrap"><b>권장 방식.</b> 목록에서 직접 기표하면 운영시간대 성능에 부담이고, 다른 프로세스가 자재를 잠가 두면 기표 자체가 실패한다</td></tr>
+</tbody>
+</table>
+</div>
+
+<p>배치입력 리포트 기본값은 <code>OMCN</code>에서 정의합니다(세션명 · 계획카운트일자 · 재고유형선택 등).</p>
+
+<h3>Situation Handling</h3>
+
+<p>미카운트 실사문서, 미정리 재고차이, 수송중재고 미결입고처럼 <span class="key">수동으로 찾지 않으면 놓치는 반복 이슈</span>를 자동 감지해 담당 팀에 알리는 프레임워크입니다.</p>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>상황 유형</th><th>트리거</th></tr></thead>
+<tbody>
+<tr><td>객체기반</td><td class="wrap">계약 · 구매오더 · 실사문서 · 인보이스 · 자재 등 비즈니스객체. <b>조건을 직접 정의</b>(상태 변경, 임계값 초과). 조건 충족 시마다 인스턴스 생성</td></tr>
+<tr><td>메시지기반</td><td class="wrap">시스템실행·리포트의 경고·오류메시지. 조건 대신 <b>메시지를 선택</b>. 예약된 애플리케이션잡 실행유형에 따라 생성</td></tr>
+</tbody>
+</table>
+</div>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>표준 상황템플릿</th><th>내용</th><th>템플릿 ID</th></tr></thead>
+<tbody>
+<tr><td class="wrap">Stock Transport Order Overdue</td><td class="wrap">미결 STO 아이템의 지연입고를 담당 창고담당자에게 통보</td><td class="wrap"><code>MAN_MATLOVERDUESITSITN</code></td></tr>
+<tr><td class="wrap">Physical Inventory Monitoring</td><td class="wrap">계획카운트일자에 카운트가 안 됐는지, 실제−장부 편차가 공차를 벗어났는지 모니터링</td><td class="wrap"><code>MAN_PHYSICAL_INVENTORY_MONITOR</code></td></tr>
+</tbody>
+</table>
+</div>
+
+<p>설정은 <b>Manage Situation Types</b> 앱(객체기반) / <b>Manage Situation Types - Message Based</b>(메시지기반). 권한은 <code>SAP_BR_BPC_EXPERT</code>. 템플릿을 복사해 상황유형을 만들고, 조건 · 배치잡 스케줄 · 인앱텍스트 · <b>수신자</b>(Responsibility Management의 팀 또는 책임규칙) · 모니터링 여부를 설정한 뒤 활성화합니다. <span class="bad">표준템플릿의 기반 데이터구조 자체는 바꿀 수 없습니다.</span></p>
+
+<div class="note warn">
+  <div class="t">알림 채널 4개 중 3개는 객체기반 전용</div>
+  <p><b>My Situations / My Situations - Message-Based 앱의 목록항목</b>만 두 유형 모두에 적용됩니다. 나머지 세 채널 — 비즈니스앱 내 상황메시지, Fiori 런치패드 자동알림, 이메일알림 — 은 <span class="key">객체기반 상황에만</span> 쓸 수 있습니다.</p>
+  <p>발생 현황 모니터링은 <b>Monitor Situations</b> 앱.</p>
+</div>
+
+<div class="note ok">
+  <div class="t">📌 개인 E2E 프로젝트와의 연결점</div>
+  <p>이 LESSON은 프로젝트의 CBO 설계에 <b>구조를 그대로 빌려줍니다.</b></p>
+  <p>① <b>4단계 분리가 프로젝트 원칙의 실물 예시입니다.</b> 표준 실사는 문서생성 → 카운트 → 차이분석까지 회계를 건드리지 않고, 마지막 기표 한 번에서만 움직입니다. 게다가 그 마지막 단계에는 <span class="key">사용자그룹별 금액 공차(<code>OMJ2</code>)</span>라는 승인 장치가 달려 있습니다. CBO 3종 중 회계 영향이 있는 <code>ZGATE_INSPECT</code>의 <code>122</code> 반품도 같은 모양이어야 합니다 — <b>탐지(W) → 검토 대기(P) → 승인 후 기표</b>. 상태필드 W/P/H를 둔 설계가 곧 이 구조입니다.</p>
+  <p>② <b>차이 기표를 배치입력으로 권장하는 이유가 프로젝트의 대량처리 프로그램에 그대로 적용됩니다.</b> 원문이 든 근거 두 가지 — 운영시간대 성능 부담, 그리고 <span class="bad">다른 프로세스가 자재를 잠가 두면 기표 실패</span> — 는 목표 2번(병렬처리 대량 처리 프로그램)에서 반드시 마주칠 문제입니다. 락 충돌 시 실패 건을 버리지 않고 상태 H로 남겨 재처리하는 구조가 필요합니다.</p>
+  <p>③ <b>Situation Handling이 <code>ZPRICE_CHECK</code>의 표준 대안입니다.</b> "정보레코드가와 이동평균가의 괴리를 알린다"는 것은 <span class="hl">임계값 초과 시 담당자에게 통보</span>하는 전형적인 객체기반 상황입니다. 다만 표준 템플릿 중 <code>EINE-NETPR</code> vs <code>MBEW-VERPR</code> 비교를 제공하는 것은 없고, 기반 데이터구조는 변경할 수 없습니다. 이것이 <code>ZPRICE_CHECK</code> 설계서의 <b>표준의 한계</b>에 들어갈 문장입니다 — "프레임워크는 있으나 이 비교식을 담은 표준 상황유형이 없다".</p>
+  <p>④ <b>실사 전에 이전중재고를 털어야 한다</b>(LESSON 2)는 제약 때문에, <code>ZBATCH_ZONE</code>의 <code>311</code>은 1단계여야 합니다. 여기서 다시 확인됩니다.</p>
+</div>
+
+<div class="note warn">
+  <div class="t">확인 필요 — 실제 시스템(winerp01 / MEP)에서 확정할 것</div>
+  <p>· <code>OMJ2</code>에 사용자그룹이 정의되어 있는지, 내 사용자가 어느 그룹에 배정돼 있는지. 배정이 없으면 공차 자체가 적용되지 않는다.<br>
+     · <b>전기(Previous Period) 소급기표 허용 여부</b>. 허용돼 있지 않으면 12월 말 카운트분을 1월에 기표할 수 없다.<br>
+     · Situation Handling이 이 시스템 릴리스에서 활성화 가능한지, <code>SAP_BR_BPC_EXPERT</code> 롤을 받을 수 있는지.</p>
+</div>
+
+</div>
+
+
+<!-- ══════════ LESSON 8 ══════════ -->
+<div class="lesson" id="l8">
+<h2><span class="no">LESSON 8</span>사이클카운팅 · 표본기반실사</h2>
+
+<p><span class="tag">Unit 8 후반</span><span class="tag">레슨 2개</span>선택 심화 주제. 연 1회 전수 실사를 대체하는 두 가지 절차</p>
+
+<h3>사이클카운팅 (Cycle Counting)</h3>
+
+<p>선택된 자재를 <b>회계연도 내에 여러 차례</b> 실사하는 절차입니다. 완전실사(Complete Inventory) 방식에 속하며 <span class="key">모든 재고단위가 연 1회 이상 실사됩니다.</span> 대상 재고유형은 가용 · 품질검사중 · 차단재고.</p>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>요소</th><th>내용</th></tr></thead>
+<tbody>
+<tr><td>CC지시자</td><td class="wrap">플랜트별로 자재를 카테고리로 묶고, 카테고리별 <b>연간 실사 횟수</b>를 정의</td></tr>
+<tr><td>주기 정의</td><td><code>OMCO</code></td></tr>
+<tr><td>지시자 결정</td><td class="wrap">수동 설정 또는 <b>ABC분석</b> — 리포트 <code>RMCBIN00</code> / 트랜잭션 <code>MIBC</code></td></tr>
+<tr><td>문서 생성</td><td class="wrap"><code>RM07ICN1</code> (Create Physical Inventory Documents for Cycle Counting) → <span class="key">배치입력 세션</span></td></tr>
+</tbody>
+</table>
+</div>
+
+<h4>계획카운트일자 계산</h4>
+
+<p><b>계획카운트일자 = 가용재고의 마지막 실사일자 + CC지시자가 정한 간격</b></p>
+
+<p>원문 예시: 10 영업일마다 실사해야 하고 마지막 실사가 지난주 수요일이었다면 다음은 다음주 수요일. 다음주(월~금)를 카운트일자 구간으로 스케줄링하면 이 자재는 수요일로 잡힙니다.</p>
+
+<h4>ABC분석 두 가지 산출방식</h4>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>방식</th><th>산출 근거</th></tr></thead>
+<tbody>
+<tr><td>소비분석</td><td class="wrap">자재마스터에 갱신된 소비수량. 소비가치 = 지정플랜트 총소비 보정수량 × 평가가격</td></tr>
+<tr><td>소요분석</td><td class="wrap">계획독립소요량 · 판매오더 · 종속소요량 · STO소요량 × 자재평가가격</td></tr>
+</tbody>
+</table>
+</div>
+
+<div class="note warn">
+  <div class="t">수동 고정(Fixed)을 쓰면 리포트가 못 건드린다</div>
+  <p>자재마스터에서 CC지시자를 <b>수동 고정</b>하면 ABC분석 리포트가 자동으로 바꾸지 못합니다. 고정된 지시자는 리포트 목록에 <span class="key">녹색으로 강조</span>됩니다. 고정하지 않은 것은 리포트에서 개별 수동 변경이 가능합니다.</p>
+</div>
+
+<p>원문 예시(펌프 200개): 지시자 A 9개 자재 = 소비량의 56% / B 21개 = 28% / C 51개 = 14% / D 118개 = 2%, 전체 200개 자재에서 연간 총 <b>517회</b>의 실사 수행. 펌프11은 A로 수동고정되어 리포트로 변경 불가.</p>
+
+<h4>통제목록 (Control List)</h4>
+
+<p>배치입력 세션을 즉시 만들지, 통제목록을 먼저 볼지 고를 수 있습니다(목록에서 Edit→Create session으로 수동 트리거). 통제목록에 나오는 것:</p>
+
+<ul>
+  <li><b>실사문서를 생성할 수 없는 재고단위</b> (먼저 표시)</li>
+  <li><b>이미 실사가 진행 중인 재고단위</b> — 버퍼시간 내 완료되지 않아 시급한 건. <span class="bad">활성 실사문서가 이미 있으므로 세션 생성 시 제외됨</span></li>
+  <li>계획기간 내 CC실사가 필요한 자재 — 계획기간 이전에 실사됐어야 할 건은 <span class="key">계획실사일자가 강조색</span>으로</li>
+</ul>
+
+<p>차이 기표 시 해당 자재의 실사데이터에 <b>카운트일자가 마지막 실사일자로 기록</b>되어, 다음 주기 계산의 기준이 됩니다.</p>
+
+<h3>표본기반실사 (Inventory Sampling)</h3>
+
+<p>완전실사를 하지 않고 일부만 세어 전체 재고가치로 <b>외삽</b>하는 절차입니다. 성립 조건은 하나 — <span class="hl">표본기반실사가 완전실사와 동일한 가치와 동일한 오차율을 가져야 합니다.</span></p>
+
+<div class="note">
+  <div class="t">🔰 초보자 설명 — 왜 오차 이야기부터 하나</div>
+  <p>표본만 세면 카운트오류는 줄어듭니다(셀 게 적으니까). 대신 <b>외삽오차</b>라는 새 오차가 생깁니다. 이 둘의 합이 <span class="key">완전실사를 했을 때의 총오차를 넘지 않아야</span> 표본실사가 정당화됩니다. 그래서 어느 재고를 표본에 넣을지가 절차의 전부입니다.</p>
+  <p>근거는 <b>로렌츠곡선</b>입니다 — 재고단위 가치를 오름차순 누적하면 <span class="hl">재고단위의 80%가 총가치의 20%밖에 차지하지 않습니다.</span> 이 20% 구간은 수량이 적거나 단가가 낮아 오차의 영향이 미미하고, 바로 이 구간이 표본추출 대상이 됩니다. 반대로 고가치 단위를 표본에 넣으면 오차만 커지므로 전수로 셉니다.</p>
+</div>
+
+<h4>대상 선택 4단계</h4>
+
+<div class="step"><span class="n">STEP 1</span><p><b>재고관리레벨 선택</b> — 참여 가능한 레벨은 <code>OMCL</code>에서 정의. <span class="bad">이미 활성 실사가 진행 중인 재고관리단위는 제외</span></p></div>
+<div class="step"><span class="n">STEP 2</span><p><b>재고모집단 형성</b> + 가치등급으로 구분</p></div>
+<div class="step"><span class="n">STEP 3</span><p><b>층(Strata) 형성</b> — 층화</p></div>
+<div class="step"><span class="n">STEP 4</span><p>층에서 실사대상을 <b>무작위 선택</b></p></div>
+
+<h4>재고모집단 — 무엇을 전수로 뺄 것인가</h4>
+
+<p><b>상한가치기준(Upper Value Limit)</b> 미만의 관리단위만 표본추출 대상입니다(절대값 또는 모집단 대비 상대값). 다음 5가지에 해당하면 <b>완전카운트영역</b>으로 뺍니다 — 기본값은 표본추출프로파일에서 정의:</p>
+
+<ul>
+  <li>자재마스터에 삭제지시자가 설정됨</li>
+  <li>장부재고가 0</li>
+  <li>특정 ABC지시자를 가짐</li>
+  <li>자재가격이 한도 초과</li>
+  <li>재고관리단위의 가치(가격 × 수량)가 한도 초과</li>
+</ul>
+
+<p>모집단 형성 시 시스템은 표본추출영역을 가치기준 <b>최대 1000개 등급</b>으로 나누려 시도합니다 — 표본 내 가치 편차가 크면 오차율이 올라가기 때문입니다.</p>
+
+<p><b>등급간격 = 상한가치기준 ÷ 1000</b> (다음 정수로 반올림). 반올림 때문에 실제로는 보통 1000개보다 적게 생성되고, 마지막 등급은 상한가치기준에서 끝납니다.</p>
+
+<h4>층화 · 표본선택 · 외삽</h4>
+
+<p>층화 계산에 필요한 것: 등급에 포함된 요소 수, 형성할 층의 수. 계산방식은 <b>Dalenius-Hodges</b>. 표본 수는 <span class="key">클수록 예측이 정확하지만 작을수록 작업량이 준다</span>는 트레이드오프이고, <b>최소표본수량과 층화파라미터는 외부감사인과 함께 결정</b>합니다. 프로파일 생성은 <code>OMCK</code>.</p>
+
+<div class="note warn">
+  <div class="t">무작위선택은 되돌릴 수 없다 — 단, 문서를 만들지도 않는다</div>
+  <p>무작위선택을 실행하면 그때까지의 트랜잭션이 확정되어 <span class="bad">재고레벨 · 재고모집단 · 층화를 이후에 변경할 수 없습니다.</span></p>
+  <p>다만 무작위선택이 실사문서를 바로 만들지는 않습니다 — <span class="key">배치입력 세션이 생성될 뿐</span>이라, 실제로 실사를 수행할지는 나중에 결정할 수 있습니다. 세션을 처리하면 표본추출영역 선택분 + 완전카운트영역 전부에 대해 실사문서가 생기고, 이후는 일반 3단계(문서생성 → 카운트 → 차이분석·기표)와 같습니다.</p>
+</div>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>외삽 유형</th><th>조건</th></tr></thead>
+<tbody>
+<tr><td>잠정외삽</td><td class="wrap">층의 대상 중 일부만 차이 기표된 상태. 몇 번이든 생성 가능하며 <b>가장 최근 것만 저장</b></td></tr>
+<tr><td>최종외삽</td><td class="wrap">모든 차이 기표 + 모든 카운트결과 반영 + 후속 무작위선택 불필요. <span class="key">새 결과가 더 이상 추가될 수 없을 때만</span> 가능</td></tr>
+</tbody>
+</table>
+</div>
+
+<p>현재 SAP는 <b>층화평균값추정(Stratified Mean-Value Estimation)</b> 방식으로 외삽합니다. 기표차단은 <span class="hl">문서생성부터 카운트 입력까지의 구간에만</span> 존재하고 그 전후로는 기표가 허용됩니다. 카운트가 필요 없는 재고관리단위는 전 기간에 걸쳐 제한 없이 기표되므로 진행 중 장부재고·가치가 변할 수 있는데, 이를 <b>상시표본기반실사(Permanent Inventory Sampling)</b>라고 하며 시스템이 <b>업데이트</b> 실행 시 변경을 읽어 외삽에 반영합니다.</p>
+
+<div class="note warn">
+  <div class="t">업데이트는 자동이 아니다</div>
+  <p>실사문서에 카운트를 넣거나 차이를 기표해도 <span class="bad">표본추출 정보는 자동으로 갱신되지 않습니다.</span> 오직 <b>업데이트 실행 시에만</b> 반영됩니다. 이미 카운트되고 차이가 기표된 단위의 값은 더 이상 업데이트되지 않습니다.</p>
+  <p>상시표본기반실사에서는 진행 중 가치 변동으로 특정 단위가 계획시점과 다른 층에 속하게 될 수 있고, 표본추출영역 ↔ 완전카운트영역 전환도 일어납니다. <b>완전카운트영역으로 넘어간 단위는 반드시 세어야</b> 하며, 시스템이 후속 무작위선택을 제안합니다.</p>
+</div>
+
+<div class="note ok">
+  <div class="t">📌 개인 E2E 프로젝트와의 연결점</div>
+  <p>프로젝트에서 이 두 절차를 구현하지는 않습니다. 다만 <b>CC지시자의 발상은 온도군 구조와 잘 맞습니다.</b> 냉동(CHKN · RICE)은 회전이 상대적으로 느리고, 실온 프로틴바(PBAR)·쉐이크(SHAK)는 빠릅니다. ABC분석을 소비 기준으로 돌리면 자재그룹별로 다른 CC지시자가 나올 것이고, <span class="key">임박 SLoc(1900 · 2900 · 3900)에 있는 재고는 더 자주 세는 것이 맞습니다</span> — 유통기한이 지나면 가치가 0이 되기 때문입니다.</p>
+  <p>다만 CC지시자는 <b>자재 단위</b>로 붙지 저장위치 단위로 붙지 않습니다. 즉 "임박 SLoc만 더 자주 센다"는 표준 CC로는 안 되고, 그게 필요해지면 <code>ZBATCH_ZONE</code>과 같은 CBO 영역으로 넘어갑니다. 지금 범위에서는 하지 않고, 이 판단만 기록해 둡니다.</p>
+</div>
+
+</div>
+
+
+<!-- ══════════ LESSON 9 ══════════ -->
+<div class="lesson" id="l9">
+<h2><span class="no">LESSON 9</span>재고분석 — Fiori 분석앱 · 클래식 리스트 · 주기처리</h2>
+
+<p><span class="tag">Unit 9</span><span class="tag">레슨 3개</span>개요페이지 · 분석앱 · 클래식 재고/문서목록 · 주기처리 리포트</p>
+
+<h3>개요페이지 2종</h3>
+
+<p>사용자 역할에 따라 중요한 정보와 작업을 <b>실행 가능한 카드</b>로 요약합니다. 카드는 User 아이콘 → Manage Cards에서 숨김/표시하고 드래그앤드롭으로 재배치합니다. <span class="key">플랜트는 두 개요페이지 모두에서 단일값 필수 필터</span>이고, 필터는 표시되는 모든 카드에 적용됩니다.</p>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>카드</th><th>내용</th><th>OIP</th><th>OIM</th></tr></thead>
+<tbody>
+<tr><td>Recent Inventory Counts</td><td class="wrap">자재 아이템레벨 실사 상세. 카운트일자순</td><td>○</td><td>—</td></tr>
+<tr><td>Warehouse Throughput History</td><td class="wrap">재화이동 현황. 자재문서아이템까지 드릴다운 → Goods Movement Analysis</td><td>○</td><td>○</td></tr>
+<tr><td>Recent Material Documents</td><td class="wrap">최근 전기 자재문서아이템. 아이템 선택 시 Material Document 앱(취소 가능)</td><td>○</td><td>○</td></tr>
+<tr><td>Monitor Purchase Order Items</td><td class="wrap">지연 · 승인대기 아이템</td><td>○</td><td>○</td></tr>
+<tr><td class="wrap">Overdue Materials - GR Blocked Stock</td><td class="wrap">비평가 GR차단재고 지연자재</td><td>○</td><td>○</td></tr>
+<tr><td class="wrap">Overdue Materials – Stock in Transit</td><td class="wrap">입고 미완료 STO 중 <b>지연일수 상위 10건</b></td><td>○</td><td>○</td></tr>
+<tr><td>Outbound / Inbound Delivery List</td><td class="wrap">완료 · 미결 납품</td><td>○</td><td>—</td></tr>
+<tr><td>Stock Value by Stock Type</td><td class="wrap">재고유형별 재고가치 → Stock - Multiple Materials</td><td>—</td><td>○</td></tr>
+<tr><td class="wrap">Stock Value by Special Stock Type</td><td class="wrap">특수재고유형별 재고가치</td><td>—</td><td>○</td></tr>
+</tbody>
+</table>
+</div>
+
+<p>OIP = Overview Inventory Processing (<code>SAP_BR_WAREHOUSE_CLERK</code>) / OIM = Overview Inventory Management (<code>SAP_BR_INVENTORY_MANAGER</code>)</p>
+
+<h3>분석앱 5종</h3>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>앱</th><th>핵심</th></tr></thead>
+<tbody>
+<tr><td>Stock – Single Material</td><td class="wrap">바코드스캐닝 · <b>안전재고와 재고 비교</b>(재고이력을 통해서만 안전재고 접근) · 플랜트/저장위치별 <b>최근 11개월 재고이력</b> 마이크로차트 · 2단계 드릴다운(마감시점 시계열 → 일자별 자재문서아이템)</td></tr>
+<tr><td>Stock – Multiple Materials</td><td class="wrap">기준일 기준 재고현황. <span class="key">재고가치 계산이 두 가지</span> — "Current value of ..."(기준일 수량 × <b>현재가격</b>, 기준일과 무관) / "Value of ..."(기표 시점 과거가격). <b>SAP는 속도가 빠른 현재가격 방식을 권장</b>. 스프레드시트 내보내기 가능</td></tr>
+<tr><td>Slow or Non-Moving Materials</td><td class="wrap"><b>비이동자재</b> = 재고가 0이 아니면서 정의 기간 동안 <b>소비기표가 없는</b> 자재·플랜트/저장위치 조합</td></tr>
+<tr><td>Dead Stock Analysis</td><td class="wrap"><b>불용재고</b> = 분석기간 내 소비기표가 있었음에도 <b>재고가치가 증가한</b> 조합. 단종 · 할인 · 이전 판단에 사용</td></tr>
+<tr><td>Analyze Stock in Date Range</td><td class="wrap">기간 내 재화이동 분석. 시작·종료일 수량·가치 표시. 사전정의 필터변형 3종 — Standard / Stock Quantity(순입고·순출고) / Supplier Consignment Stock(K)</td></tr>
+</tbody>
+</table>
+</div>
+
+<div class="note warn">
+  <div class="t">"비이동"과 "불용"은 다른 말이다</div>
+  <p>Slow or Non-Moving은 <span class="key">소비가 아예 없는</span> 재고이고, Dead Stock은 <span class="key">소비는 있었는데 그보다 입고가 많아 가치가 늘어난</span> 재고입니다. 둘의 후속조치가 다릅니다 — 전자는 폐기·이전, 후자는 단종·할인·발주 중단.</p>
+</div>
+
+<h3>클래식 문서목록</h3>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>T-Code</th><th>내용</th></tr></thead>
+<tbody>
+<tr><td><code>MB51</code></td><td class="wrap"><b>자재문서목록.</b> 선택기준: 플랜트 · 저장위치 · <span class="key">이동유형</span> · 특수재고지시자 · 사용자 · 전기일자 · 트랜잭션유형</td></tr>
+<tr><td><code>MR51</code></td><td class="wrap">자재별 회계문서 목록. 자재 · 회사코드 · 평가영역 · 전기일자 · 문서일자 · 회계문서유형</td></tr>
+<tr><td><code>MBAL</code></td><td class="wrap">아카이브된 자재문서 조회</td></tr>
+<tr><td><code>MBSM</code></td><td class="wrap">취소된 자재문서. <span class="bad">"Cancel Material Documents" 기능으로 만든 취소문서만</span> 잡힌다 — 반대 이동유형을 손으로 친 건 안 나온다</td></tr>
+<tr><td><code>MBGR</code></td><td class="wrap">이동사유가 입력된 재화이동. 참조없음(No Vendor 지시자) / 참조있음 두 기준. PO참조 아이템은 총납품 · 반품수량·가치 · <b>반품비율(%)</b>까지 표시</td></tr>
+</tbody>
+</table>
+</div>
+
+<h3>클래식 재고목록</h3>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>T-Code</th><th>내용</th></tr></thead>
+<tbody>
+<tr><td><code>MMBE</code></td><td class="wrap">재고개요 — 자재 하나의 전체 조직레벨. 표시버전(재고유형·순서)은 Customizing에서 정의</td></tr>
+<tr><td><code>MD04</code></td><td class="wrap">재고/소요목록. 생성할 때마다 MRP요소를 다시 읽어 <span class="key">항상 최신 가용성</span>. 플랜트 1개 + 자재 1개</td></tr>
+<tr><td><code>MB53</code></td><td class="wrap">플랜트재고가용성 — <b>정적</b> 가용성체크 기준</td></tr>
+<tr><td><code>CO09</code></td><td class="wrap">가용성개요 — <b>동적</b> 가용성체크 기준. 자재마스터에 체크그룹이 있는 자재만</td></tr>
+<tr><td><code>MB52</code></td><td class="wrap">창고재고 — 여러 자재의 플랜트·저장위치 총수량·가치. <b>Display Negative Stocks Only</b></td></tr>
+<tr><td><code>MB5B</code></td><td class="wrap">전기일자기준재고 — 현재재고에서 자재문서로 <span class="key">역산</span>. 시작·종료일 수량·가치, 입출고 합계, 기간 내 자재문서목록</td></tr>
+<tr><td><code>MB5T</code> / <code>MB5TD</code></td><td class="wrap">수송중재고 / 기준일 제한 버전</td></tr>
+<tr><td><code>MB5OA</code></td><td class="wrap">평가 GR차단재고 (원산지검수)</td></tr>
+<tr><td><code>MBBS</code></td><td class="wrap">평가 판매오더재고 · 프로젝트재고</td></tr>
+<tr><td><code>MBLB</code></td><td class="wrap">위탁가공업체재고</td></tr>
+</tbody>
+</table>
+</div>
+
+<p>대부분 <b>ALV</b>로 표시되며, 일부(자재문서 · 수송중재고 · 위탁가공업체재고)는 Goto→Detail Lists로 비계층형 화면으로 전환해 임의 컬럼의 소계·다중단위 합계를 만들 수 있습니다.</p>
+
+<h4>리포팅 Customizing</h4>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>활동</th><th>내용</th></tr></thead>
+<tbody>
+<tr><td>재고목록표시 정의 <code>OMBG</code></td><td class="wrap">MMBE 표시설정 3단계 — ① 표시버전 정의 ② 재고잔액 표시규칙(기본목록에 표시할 재고·화면·컬럼) ③ 재고잔액 상세화면(상세목록의 재고와 순서)</td></tr>
+<tr><td class="wrap">자재문서목록 필드선택</td><td class="wrap">MB51 선택필드 구성</td></tr>
+<tr><td class="wrap">재고목록용 이동유형 그룹화</td><td class="wrap">이동유형을 <b>이동유형그룹</b>에 배정. <code>MB5B</code> 평가에서 <span class="key">개별 이동유형을 일일이 지정하지 않고 그룹으로 필터링</span>할 수 있게 된다</td></tr>
+</tbody>
+</table>
+</div>
+
+<h3>주기처리 리포트</h3>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>T-Code</th><th>내용</th></tr></thead>
+<tbody>
+<tr><td><code>MB5U</code></td><td class="wrap"><b>환산차이 분석.</b> 대체단위로 입력한 수량이 기본단위로 환산될 때 생기는 라운딩차이를 찾는다. 특히 <span class="key">기본단위가 미터법인데 이동은 비미터법으로 기표되는 경우</span>(또는 반대), 기본단위가 대체단위보다 더 작은 단위가 아닌 경우에 발생</td></tr>
+<tr><td><code>MB5L</code></td><td class="wrap"><b>재고가치목록.</b> 회사코드·평가영역 레벨 총수량·총가치 + 그 자재가 기표되는 <b>재고계정</b>. <span class="hl">G/L계정 잔액과 관련 자재 재고가치 합계를 비교해 차이를 표시</span></td></tr>
+<tr><td><code>MB5K</code></td><td class="wrap"><b>재고정합성체크.</b> 평가영역 또는 자재 레벨에서 재고데이터 정합성 점검</td></tr>
+</tbody>
+</table>
+</div>
+
+<h4><code>MB5L</code> 불일치의 세 가지 원인</h4>
+
+<ul>
+  <li>재고계정에 <b>수동기표</b>를 했다</li>
+  <li>재고기표 외의 다른 기표가 재고계정에 들어갔다 → 계정결정을 점검해 <span class="key">재고계정이 트랜잭션키 <code>BSX</code>에만 쓰이는지</span> 확인</li>
+  <li>운영 중 <code>BSX</code> 계정결정을 바꿨는데, 기존 재고를 <b>구계정에서 <code>562</code>로 빼고 신계정으로 <code>561</code>로 넣는</b> 작업을 하지 않았다</li>
+</ul>
+
+<p>출력목록에서 G/L계정에 커서를 놓고 Environment→Stocks를 고르면 그 계정으로 관리되는 모든 자재의 개요(자재별 총가치·총재고)를 볼 수 있습니다.</p>
+
+<div class="note warn">
+  <div class="t">MB5L 잔액이 0이 아니어도 불일치가 아닐 수 있다</div>
+  <p>리포트 실행 중에는 <span class="bad">자재를 잠글 수 없어 기표가 계속 들어옵니다.</span> 그래서 실제로 불일치가 없어도 잔액이 0이 아닐 수 있습니다. 의미 있는 결과를 보려면 <b>여러 번 실행해 결과를 비교</b>해야 합니다.</p>
+</div>
+
+<div class="note ok">
+  <div class="t">📌 개인 E2E 프로젝트와의 연결점</div>
+  <p><b><code>MB51</code>이 <code>ZGATE_INSPECT</code>의 표준 대응물입니다.</b> 자재문서목록은 이동유형으로 필터링할 수 있으므로, GATE 플랜트의 <code>101</code>과 <code>301</code>을 각각 뽑아 수량을 대조하는 것까지는 표준으로 됩니다. <span class="key">CBO가 메우는 지점은 그 다음</span> — 두 목록을 자재·배치·기간 단위로 <b>맞춰서 차이를 산출</b>하고, 거기에 송장 발생 여부(<code>EKBE</code>)를 더해 반품 대상을 좁히는 부분은 표준 리포트에 없습니다. 설계서 "표준의 한계" 절에 이렇게 씁니다.</p>
+  <p><b><code>MB5L</code>은 <code>ZPRICE_CHECK</code>와 성격이 겹치지 않습니다.</b> <code>MB5L</code>은 재고가치 합계와 G/L 잔액을 맞추는 것이고, <code>ZPRICE_CHECK</code>는 정보레코드가(<code>EINE-NETPR</code>)와 이동평균가(<code>MBEW-VERPR</code>)의 괴리를 봅니다. 앞은 <b>회계 정합성</b>, 뒤는 <b>구매 단가의 타당성</b>입니다. 다만 <code>MB5L</code>이 자재별 재고가치를 뽑아 준다는 점은 <code>ZPRICE_CHECK</code>의 검증 단계에서 쓸 수 있습니다 — CBO가 읽은 <code>MBEW-VERPR</code>이 맞는지 대조하는 용도.</p>
+  <p><b>이동유형 그룹화</b>는 프로젝트에서 실제로 유용합니다. CBO가 다루는 <code>101</code> · <code>301</code> · <code>311</code> · <code>122</code>를 하나의 이동유형그룹으로 묶어 두면 <code>MB5B</code>에서 한 번에 필터링됩니다 — 검증 캡처를 만들 때 이 설정을 먼저 해 두는 것이 편합니다.</p>
+</div>
+
+<div class="note warn">
+  <div class="t">캡처 요청 (사용자가 직접 넣을 것)</div>
+  <p>포트폴리오 문서의 검증 절에 쓸 화면입니다. 파일명까지 지정합니다.</p>
+  <p>· <code>mb51-101-vs-301-gate.png</code> — <code>MB51</code>에서 플랜트 GATE, 이동유형 <code>101</code>+<code>301</code>로 조회한 결과<br>
+     · <code>mmbe-stor-6sloc.png</code> — <code>MMBE</code>에서 STOR 플랜트의 6개 저장위치 재고가 모두 보이는 화면<br>
+     · <code>mb52-negative-check.png</code> — <code>MB52</code>에서 Only display negative stocks 체크 후 결과가 0건인 화면</p>
+</div>
+
+</div>
+
+
+<!-- ══════════ LESSON 10 ══════════ -->
+<div class="lesson" id="l10">
+<h2><span class="no">LESSON 10</span>Customizing — 번호할당 · 이동유형 설정 · 필드선택</h2>
+
+<p><span class="tag">Unit 10</span><span class="tag">레슨 3개</span>문서 번호할당 · 이동유형 통제기능과 신규 생성 · 플랜트파라미터와 MIGO 필드선택</p>
+
+<h3>번호할당 3종</h3>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>대상</th><th>T-Code</th></tr></thead>
+<tbody>
+<tr><td>회계문서</td><td><code>OMBA</code></td></tr>
+<tr><td>자재문서 · 실사재고조사문서</td><td><code>OMBT</code></td></tr>
+<tr><td>예약</td><td><code>OMC2</code></td></tr>
+</tbody>
+</table>
+</div>
+
+<h4>회계문서 유형 (재고관리용 사전정의)</h4>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>유형</th><th>용도</th></tr></thead>
+<tbody>
+<tr><td><code>WA</code></td><td class="wrap">출고 · 이전기표 · 기타입고</td></tr>
+<tr><td><code>WE</code></td><td class="wrap">구매오더 참조 입고</td></tr>
+<tr><td><code>WI</code></td><td class="wrap"><b>재고차이</b></td></tr>
+<tr><td><code>WL</code></td><td class="wrap">납품 참조 출고</td></tr>
+<tr><td><code>WN</code></td><td class="wrap">입고 순액기표(Net Posting)</td></tr>
+<tr><td><code>PR</code></td><td class="wrap">재평가문서</td></tr>
+</tbody>
+</table>
+</div>
+
+<h4>자재문서 · 실사문서 번호범위</h4>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>구분</th><th>번호범위</th><th>트랜잭션유형</th></tr></thead>
+<tbody>
+<tr><td>실사재고조사문서</td><td class="wrap"><code>0100000000</code>~<code>0199999999</code></td><td class="wrap"><code>IB</code> 실사문서 · <code>ID</code> 참조없는 카운트·차이 · <code>IN</code> 재카운트 · <code>IZ</code> 참조없는 카운트 · <code>WV</code> 차이기표(WM)</td></tr>
+<tr><td class="wrap">재화이동·실사차이 자재문서</td><td class="wrap"><code>4900000000</code>~<code>4999999999</code></td><td class="wrap"><code>WA</code> · <code>WI</code> 실사조정 · <code>WL</code> SD납품 출고 · <code>WR</code> PP확인 · <code>WS</code> PP런스케줄 · <code>WH</code> HU · <code>WQ</code> QM 사용결정</td></tr>
+<tr><td>입고용 자재문서</td><td class="wrap"><code>5000000000</code>~<code>5999999999</code></td><td class="wrap"><code>WE</code> PO입고 · <code>WF</code> 생산오더입고 · <code>WO</code> 위탁가공 후속조정 · <code>WW</code> 활성성분 후속조정</td></tr>
+<tr><td>표본기반실사</td><td class="wrap"><code>0200000000</code>~<code>0299999999</code></td><td><code>SI</code></td></tr>
+</tbody>
+</table>
+</div>
+
+<p>예약 번호할당은 <span class="key">클라이언트 내 모든 플랜트·모든 예약에 적용</span>되며, SAP 내부에서 직접 생성된 예약에 대해서만 내부번호할당을 만들 수 있습니다. <b>BAPI로 예약을 만들면(<code>BAPI_RESERVATION_CREATE1</code>) 외부번호할당용 번호범위 <code>RB</code></b>를 씁니다.</p>
+
+<h3>이동유형 — 무엇을 어디서 고치는가</h3>
+
+<p>이동유형은 재화이동을 식별하는 <b>3자리 키</b>이고, 재고관리에서 세 가지를 통제합니다 — <span class="key">수량필드 업데이트 · 재고/소비계정 업데이트 · 문서입력화면 구조</span>(그림 1). 중앙 Customizing 활동은 <b>Movement Types→Copy, Change Movement Types</b>이고, 개별 설정은 여러 뷰로 나뉩니다.</p>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>뷰</th><th>설정 내용</th></tr></thead>
+<tbody>
+<tr><td>Movement type</td><td class="wrap">입력통제(인쇄·배치지시자, <b>최적사용기한체크</b>, 사유통제) · 업데이트통제(저장위치 자동, 소비기표, 통계적관련성, 실사문서 생성)</td></tr>
+<tr><td>Short texts</td><td class="wrap">이동유형 텍스트</td></tr>
+<tr><td>Allowed transactions</td><td class="wrap">이 이동유형을 쓸 수 있는 트랜잭션</td></tr>
+<tr><td>Help texts</td><td class="wrap">확장 설명</td></tr>
+<tr><td class="wrap">Field selection (from 201) / Batch search procedure</td><td class="wrap">필드선택(<span class="bad">MIGO용 아님</span>) · <b>배치결정용 검색절차</b></td></tr>
+<tr><td class="wrap">Field selection (Enjoy)</td><td class="wrap">필드선택 — 필수 / 선택</td></tr>
+<tr><td class="wrap">Update control / WM movement types</td><td class="wrap">입력통제(가용일자 · <b>결품처리</b>) · 업데이트통제(WM 참조이동유형, LIFO/FIFO 관련여부)</td></tr>
+<tr><td>Account grouping</td><td class="wrap"><b>계정수정</b> — 트랜잭션/이벤트키별 계정수정, 계정지정체크 지시자</td></tr>
+<tr><td class="wrap">Reversal / follow-on movement types</td><td class="wrap"><b>취소이동유형</b>, 전기유형지시자</td></tr>
+<tr><td>Reason for movement</td><td class="wrap">사유키 · 사유설명</td></tr>
+<tr><td class="wrap">Deactivate QM inspection procedure</td><td class="wrap">QM 검사처리 비활성 대상</td></tr>
+<tr><td>Statistics group</td><td class="wrap">LIS 업데이트통제</td></tr>
+</tbody>
+</table>
+</div>
+
+<p>일부 통제지시자는 이동유형 외에 <b>특수재고지시자 · 수량/가치업데이트지시자 · 이동지시자</b>에도 의존하므로, 한 이동유형에 여러 항목이 존재하는 뷰가 있습니다.</p>
+
+<h3>신규 이동유형 생성</h3>
+
+<div class="step"><span class="n">STEP 1</span><p><b>수량·가치 업데이트 측면에서 요구사항에 맞는 기존 이동유형</b>을 템플릿으로 고른다</p></div>
+<div class="step"><span class="n">STEP 2</span><p>복사 → 신규 이동유형 저장</p></div>
+<div class="step"><span class="n">STEP 3</span><p>요구사항에 맞게 설정 조정</p></div>
+
+<div class="note warn">
+  <div class="t">세 가지를 놓치면 나중에 고칠 수 없다</div>
+  <p>· 신규 이동유형 키는 반드시 <span class="key"><code>9</code> · <code>X</code> · <code>Y</code> · <code>Z</code></span> 중 하나로 시작해야 한다<br>
+     · 템플릿 복사 시 <b>참조 이동유형의 모든 종속 항목이 함께 복사됐는지</b> 확인할 것<br>
+     · 참조한 표준 이동유형의 <b>취소이동유형도 복사해 신규 이동유형에 배정</b>할 것 — 안 하면 취소가 안 된다</p>
+</div>
+
+<div class="note">
+  <div class="t">🔰 초보자 설명 — 수량스트링 · 가치스트링 · 계정그룹화코드</div>
+  <p><b>수량스트링</b>이 이동유형의 수량 업데이트를, <b>가치스트링</b>이 가치 업데이트를 담당합니다. 둘 다 <span class="bad">SAP 시스템의 고정값</span>이라 통제로직도, 이동유형과의 배정관계도 바꿀 수 없습니다. 그래서 신규 이동유형을 만들 때 "수량이 어떻게 움직여야 하는가"에 맞는 템플릿을 고르는 것이 가장 중요합니다 — 나중에 못 고치니까.</p>
+  <p>반면 <b>계정그룹화코드</b>는 손댈 수 있는 두 번째 변수입니다. 같은 재고기표의 상대기표라도 코드를 다르게 주면 G/L 계정결정이 달라집니다 — 코스트센터용 출고(<code>201</code>)와 폐기용 인출(<code>551</code>)에 서로 다른 소비계정을 태우는 식입니다.</p>
+</div>
+
+<h3>플랜트파라미터</h3>
+
+<p>재고관리·실사재고조사의 플랜트종속 통제파라미터를 <b>모아 놓은 요약 화면</b>입니다(Inventory Management and Physical Inventory→Plant Parameters).</p>
+
+<div class="note warn">
+  <div class="t">편해 보이지만 여기서 설정하지 말 것</div>
+  <p>재고관리 기능 대부분은 플랜트뿐 아니라 <span class="key">이동유형이나 다른 값에도 종속</span>되어 설정이 필요합니다. 그래서 원칙은 <b>해당하는 개별 Customizing 활동에서 설정하는 것</b>입니다 — 그래야 관련 설정을 빠뜨리지 않습니다. 플랜트파라미터는 확인용으로 보는 화면에 가깝습니다.</p>
+  <p>복사기능으로 신규 플랜트를 만들면 참조플랜트의 플랜트파라미터도 함께 복사됩니다.</p>
+</div>
+
+<h3>MIGO 필드선택</h3>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>영역</th><th>내용</th></tr></thead>
+<tbody>
+<tr><td>MIGO용 필드선택<br><code>OMJX</code></td><td class="wrap">불필요한 필드·버튼 숨김, 필수입력 지정(Delivery note, Bill of lading 등). 표준에서는 <b>Goods Receipt/Issue Slip을 제외한 모든 설정가능 필드가 선택입력</b>. 그 필드는 이탈리아 등 일부 국가에서만 필요해 표준에서 숨겨져 있음</td></tr>
+<tr><td class="wrap">이동유형별 필드선택</td><td class="wrap">필드별 선택/필수 결정. <span class="key">숨기려면 테이블에서 필수입력 항목을 삭제</span>, 다시 표시하려면 New Entry로 이동유형 + 필드를 추가. <b>특수재고지시자별 구분은 없고</b> 관련성이 있으면 시스템이 자동 표시</td></tr>
+<tr><td class="wrap">트랜잭션·참조문서 설정</td><td class="wrap">Settings for Transactions and Reference Documents</td></tr>
+</tbody>
+</table>
+</div>
+
+<div class="note warn">
+  <div class="t">필수입력은 특정 이름의 필드에만 걸린다</div>
+  <p>필수입력 특성은 <span class="key"><code>GOHEAD</code>(헤더필드)와 <code>GOITEM</code>(아이템필드)</span>이라는 이름의 필드에만 적용됩니다. 그리고 <b>모든 필드가 모든 이동유형에 대해 변경 가능한 것은 아닙니다.</b></p>
+</div>
+
+<div class="note ok">
+  <div class="t">📌 개인 E2E 프로젝트와의 연결점</div>
+  <p><b>Z 이동유형을 만들지 않습니다.</b> CBO 3종이 쓰는 <code>311</code> · <code>101</code> · <code>301</code> · <code>122</code>는 전부 표준이고, 수량스트링·가치스트링이 이미 원하는 대로 움직입니다. 프로젝트 원칙("표준 우선")에 맞고, 실무적으로도 Z 이동유형은 <span class="bad">취소이동유형 배정 누락</span> 같은 함정이 많아 이득이 없습니다. 이 판단을 설계서에 한 줄로 남깁니다.</p>
+  <p>대신 <b>표준 이동유형의 설정은 손봐야 할 곳이 있습니다.</b></p>
+  <p>· <code>311</code>의 <b>Reason for movement</b>를 필수로 설정하고, 사유코드에 "유통기한 임박 자동이동"을 추가합니다(<code>OMBS</code>). 그러면 <code>ZBATCH_ZONE</code>이 만든 이동과 창고가 손으로 친 이동을 <code>MBGR</code>로 구분할 수 있습니다 — <span class="key">CBO가 만든 전표를 나중에 식별할 수 있게 하는 표준 수단</span>입니다.<br>
+     · <code>101</code>의 <b>최적사용기한체크(SLED)</b>를 켭니다. 입고 시 <code>MCHA-VFDAT</code>가 강제로 잡혀야 <code>ZBATCH_ZONE</code>의 잔여 유통기한 계산이 성립합니다.<br>
+     · <code>OMJX</code>에서 <b>배치 필드를 필수</b>로 둡니다. 배치가 비어 있는 자재문서가 하나라도 생기면 FEFO와 CBO가 동시에 깨집니다.</p>
+  <p>번호범위 쪽은 <b>CBO 테이블 설계에 직접 걸립니다.</b> CBO는 전표를 직접 INSERT하지 않고 BAPI로 만들기로 했으므로, 생성된 자재문서번호(<code>MBLNR</code> + <code>MJAHR</code>)를 CBO 테이블에 되받아 저장해야 추적이 됩니다. 입고 계열은 <code>5*</code>, 이전기표 계열은 <code>49*</code> 대역이라 번호만 봐도 성격이 갈립니다.</p>
+</div>
+
+<div class="note warn">
+  <div class="t">확인 필요 — 실제 시스템(winerp01 / MEP)에서 확정할 것</div>
+  <p>· <code>311</code>에 이동사유가 이미 정의돼 있는지, 사유코드 번호대가 비어 있는지 (<code>OMBS</code>)<br>
+     · <code>101</code>의 최적사용기한체크가 플랜트 GATE에서 켜져 있는지<br>
+     · 자재문서 번호범위가 표준 대역(<code>49*</code> / <code>5*</code>)을 그대로 쓰는지 — 커스터마이징된 시스템이면 CBO 로그의 번호 해석이 달라진다</p>
+</div>
+
+</div>
+
+
+<!-- ══════════ APPENDIX ══════════ -->
+<div class="lesson" id="lx">
+<h2><span class="no">APPENDIX</span>정리 · 반드시 기억할 것</h2>
+
+<h3>한 장 요약</h3>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>질문</th><th>답</th></tr></thead>
+<tbody>
+<tr><td>이동유형이 결정하는 것</td><td class="wrap">수량 업데이트 · 가치와 계정결정 · 필드선택 · 부가통제(SLED·재고결정·동적체크·PO자동생성) — <b>넷이 한 키에 묶여 있다</b></td></tr>
+<tr><td>수량을 세는 단위 / 값을 매기는 단위</td><td class="wrap">저장위치 / <b>평가영역</b>. 이 차이가 회계 발생 여부를 가른다</td></tr>
+<tr><td>회계문서가 생기는 이전</td><td class="wrap"><span class="key">평가영역이 바뀔 때만.</span> <code>311</code>(저장위치 간) = 없음, <code>301</code>(플랜트 간) = 평가영역이 다르면 생김</td></tr>
+<tr><td>2단계 이전의 평가 시점</td><td class="wrap">항상 <b>첫 번째 단계(출고)</b>. <code>305</code>/<code>101</code>에서 재평가하지 않는다</td></tr>
+<tr><td>이전중재고 vs 수송중재고</td><td class="wrap">STO 없으면 이전중, STO 쓰면 수송중(<code>MB5T</code>). 둘 다 <b>플랜트 레벨</b> — 저장위치가 없다</td></tr>
+<tr><td>취소는 어떻게</td><td class="wrap"><b>원본 자재문서를 참조</b>해서. 대체로 원본 + 1 (<code>101</code>→<code>102</code>, <code>122</code>→<code>123</code>)</td></tr>
+<tr><td><code>103</code>과 <code>107</code>의 차이</td><td class="wrap"><code>103</code> 비평가(회계 없음) → <code>105</code>에서 비로소 평가 / <code>107</code> 평가(원산지검수, 가치 선반영) → <code>109</code>로 해제</td></tr>
+<tr><td>정적 vs 동적 가용성체크</td><td class="wrap">정적 = 지금 있는 재고만, <b>자동·설정 불가·끌 수 없음</b>, 마이너스 방지 / 동적 = MRP 관점, 계획 입출고까지</td></tr>
+<tr><td>예약으로 계획 가능한 이전</td><td class="wrap"><span class="key">1단계 <code>311</code> · <code>301</code>만</span>. 2단계는 불가</td></tr>
+<tr><td>실사에서 회계가 움직이는 시점</td><td class="wrap"><b>차이 기표 한 곳뿐.</b> 카운트 입력은 장부를 바꾸지 않는다</td></tr>
+<tr><td>차이 기표 금액 기준</td><td class="wrap">자재마스터 <b>현재평가가격</b>. 차이 기표가 평가가격 자체를 바꾸지는 않는다</td></tr>
+<tr><td>카운트 0 입력</td><td class="wrap"><b>Zero Count 체크박스.</b> 단 Manage Physical Inventory Count 앱은 0을 직접 입력</td></tr>
+<tr><td>실사 전에 반드시 털 것</td><td class="wrap"><b>이전중재고</b>와 <b>마이너스재고</b></td></tr>
+<tr><td>K / O / P 관리 레벨</td><td class="wrap">K 저장위치·비평가 / O 플랜트·평가 / P 재고관리 대상 아님</td></tr>
+<tr><td>분리평가 자재의 가격통제</td><td class="wrap">헤더레코드는 <b>V만 가능</b>. 부분재고 레벨은 S/V 자유</td></tr>
+<tr><td>신규 이동유형</td><td class="wrap">기존 복사만. 키는 <code>9</code>/<code>X</code>/<code>Y</code>/<code>Z</code> 시작. <b>취소이동유형도 같이 복사·배정</b></td></tr>
+</tbody>
+</table>
+</div>
+
+<h3>이동유형 색인 (이 노트에 나온 것)</h3>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>구분</th><th>이동유형</th></tr></thead>
+<tbody>
+<tr><td>참조 있는 입고</td><td class="wrap"><code>101</code> 표준 / <code>102</code> 취소 / <code>103</code> 비평가GR차단 / <code>104</code> 취소 / <code>105</code> 해제 / <code>107</code> 평가GR차단 / <code>108</code> 취소 / <code>109</code> 해제 / <code>122</code> 반출 / <code>123</code> 취소 / <code>124</code> GR차단재고 반송 / <code>161</code> 반품PO</td></tr>
+<tr><td>참조 없는 입고</td><td class="wrap"><code>501</code>/<code>503</code>/<code>505</code> PO없음 · <code>511</code> 무상납품 · <code>521</code>/<code>523</code>/<code>525</code> 생산오더없음 · <code>561</code>/<code>563</code>/<code>565</code> 재고잔액 최초입력 · <code>562</code> 취소</td></tr>
+<tr><td>출고</td><td class="wrap"><code>201</code> 코스트센터 · <code>221</code> 프로젝트 · <code>241</code> 자산 · <code>261</code> 오더 · <code>281</code> 네트워크 · <code>291</code> 전체 계정지정 · <code>551</code> 폐기</td></tr>
+<tr><td>이전기표 · 재고이전</td><td class="wrap"><code>301</code> 플랜트간 1단계 · <code>303</code>/<code>305</code> 2단계 · <code>309</code> 자재간 · <code>311</code> 저장위치간 · <code>321</code> 품질검사중→가용 · <code>351</code> STO 출고 · <code>411</code> 수탁→자사 · <code>541</code> 구성품 제공 1단계 · <code>30A</code>/<code>30C</code> 2단계</td></tr>
+</tbody>
+</table>
+</div>
+
+<div class="note warn">
+  <div class="t">반드시 지킬 것</div>
+  <p>· 자재문서는 <b>지워지지 않는다.</b> 취소문서를 하나 더 만드는 것뿐이고, 반드시 <span class="key">원본을 참조</span>해서 만든다.<br>
+     · 회계를 움직이는 처리(<code>301</code> 회사코드 간, 실사 차이기표, <code>122</code> 반품)는 <b>자동화하지 않는다.</b> 탐지·알림·승인대기까지만.<br>
+     · <code>311</code>은 회계가 움직이지 않는다 — 그래서 자동화해도 되는 <b>몇 안 되는 이동</b>이다. 이 근거를 설계서에 남긴다.<br>
+     · 2단계 이전을 열었으면 <b>반드시 닫는다.</b> 이전중재고를 남긴 채 결산·실사를 맞으면 손쓸 방법이 없다.<br>
+     · 이동평균가(V) 자재에 <b>마이너스재고를 허용하지 않는다.</b> 입고 시 가격차이계정이 튀고 MAP이 오염된다.<br>
+     · 대량 차이기표는 목록에서 직접 치지 말고 <b>배치입력으로</b> 한다 — 성능과 락 때문이다.<br>
+     · 신규 이동유형을 만들었다면 <b>취소이동유형을 같이 만들어 배정</b>한다. 안 하면 되돌릴 수 없다.<br>
+     · CBO가 만든 재화이동에는 <b>이동사유 코드를 반드시 남긴다.</b> 나중에 "이건 프로그램이 친 건가 사람이 친 건가"를 답할 유일한 근거다.</p>
+</div>
+
+<h3>Customizing T-Code 색인</h3>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>T-Code</th><th>내용</th></tr></thead>
+<tbody>
+<tr><td><code>OMBZ</code></td><td class="wrap">인보이스 입력 건의 입고 취소·반출 허용 여부 (이동유형별)</td></tr>
+<tr><td><code>OMBS</code></td><td class="wrap">이동사유 정의 · 필수/선택 통제</td></tr>
+<tr><td><code>OMCD</code></td><td class="wrap">납품완료지시자 자동설정 (플랜트별)</td></tr>
+<tr><td><code>OMCQ</code></td><td class="wrap">시스템메시지 속성 — 조기납품 <code>M7 254</code> · 지연납품 <code>M7 163</code></td></tr>
+<tr><td><code>OMJX</code></td><td class="wrap">MIGO 필드선택</td></tr>
+<tr><td><code>OMCP</code> / <code>OMCM</code> / <code>OMB1</code></td><td class="wrap">가용성체크 범위 — 출고·이전기표 / 입고 / 예약</td></tr>
+<tr><td><code>OVZ2</code></td><td class="wrap">가용성 체크그룹 정의</td></tr>
+<tr><td><code>OMBC</code></td><td class="wrap">결품체크</td></tr>
+<tr><td><code>OMBN</code></td><td class="wrap">예약 기본값 (이동허용지시자 기본 선택, 예약관리 일수)</td></tr>
+<tr><td><code>OMW0</code> / <code>OMWC</code></td><td class="wrap">분할평가 활성화 / 평가카테고리·평가유형</td></tr>
+<tr><td><code>OMS2</code></td><td class="wrap">자재유형 속성 (UNBW · NLAG · PIPE)</td></tr>
+<tr><td><code>OMJ2</code></td><td class="wrap">실사 차이기표 공차 (사용자그룹별)</td></tr>
+<tr><td><code>OMBP</code></td><td class="wrap">저장위치 레벨 장부재고 동결 허용</td></tr>
+<tr><td><code>OMCN</code></td><td class="wrap">실사 배치입력 리포트 기본값</td></tr>
+<tr><td><code>OMCO</code></td><td class="wrap">사이클카운팅 주기</td></tr>
+<tr><td><code>OMCK</code> / <code>OMCL</code></td><td class="wrap">표본추출프로파일 / 재고관리레벨</td></tr>
+<tr><td><code>OMBA</code> / <code>OMBT</code> / <code>OMC2</code></td><td class="wrap">번호할당 — 회계문서 / 자재·실사문서 / 예약</td></tr>
+<tr><td><code>OMBG</code></td><td class="wrap">재고목록 표시 정의 (MMBE)</td></tr>
+<tr><td><code>MB01</code></td><td class="wrap">PO 자동생성용 기본문서유형</td></tr>
+</tbody>
+</table>
+</div>
+
+<h3>참고</h3>
+
+<ul>
+  <li>원본: 노션 <b>SAP Learning Hub</b> → Implementing SAP S/4HANA Cloud Private Edition, Sourcing and Procurement → 4-1 ~ 4-10 (Learning Hub 레슨 본문 35개 정리)</li>
+  <li>이 코스와 직접 이어지는 개인 프로젝트 산출물: <b>MM 설계서 v2</b>의 CBO 3종 — <code>ZBATCH_ZONE</code>(<code>311</code>) · <code>ZGATE_INSPECT</code>(<code>101</code>/<code>301</code>/<code>122</code>) · <code>ZPRICE_CHECK</code>(<code>EINE-NETPR</code> vs <code>MBEW-VERPR</code>)</li>
+  <li>메시지결정(입출고전표) 상세는 <b>S4550</b> Cross-Customizing in Materials Management 및 <b>TS452</b>에서 다룬다</li>
+  <li>Fiori 앱 상세: <code>help.sap.com</code> → SAP S/4HANA → Enterprise Business Applications → Supply Chain → Inventory → Fiori Apps in Inventory Management → Inventory Analytics and Control</li>
+</ul>
+
+</div>
+
+</div>
+<script src="../../assets/hub.js" defer></script>
+</body>
+</html>

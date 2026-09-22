@@ -1,0 +1,1480 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>S4515 Invoice Verification in SAP S/4HANA — 3-Way Match · 차단과 해제 · GR/IR</title>
+<meta name="description" content="SAP Learning Hub의 Invoice Verification in SAP S/4HANA(S4515) 노트. 3-Way Match와 GR기반 청구서검증, 허용오차 키별 차단사유와 MRBR 해제, 청구서감액, ERS 자동정산, MR11 GR/IR 계정관리와 Fiori 조정 앱.">
+<link rel="icon" href="../../assets/favicon.svg">
+<link rel="stylesheet" href="../../assets/notes-paper.css">
+<style>
+/* ── 이 노트 전용: 도해(SVG) 스타일 ─────────────────────────── */
+.dgm{display:block; width:100%; height:auto;}
+.dgm text{font-family:"Malgun Gothic","맑은 고딕","Apple SD Gothic Neo",sans-serif; fill:#1e1e1e;}
+.dgm .t-h{font-size:15px; font-weight:700;}
+.dgm .t{font-size:13px;}
+.dgm .t-s{font-size:11.5px; fill:#555;}
+.dgm .t-xs{font-size:10.5px; fill:#6B7280;}
+.dgm .m{font-family:"D2Coding","Consolas",monospace; font-size:12px;}
+.dgm .m-s{font-family:"D2Coding","Consolas",monospace; font-size:10.5px;}
+.dgm .c-key{fill:#4338CA;} .dgm .c-bad{fill:#B91C1C;} .dgm .c-ok{fill:#047857;}
+.dgm .b{fill:#FFFFFF; stroke:#C7CBD6; stroke-width:1.2;}
+.dgm .b-key{fill:#EEF0FB; stroke:#4338CA; stroke-width:1.4;}
+.dgm .b-bad{fill:#FEF2F2; stroke:#B91C1C; stroke-width:1.3;}
+.dgm .b-ok{fill:#ECFDF5; stroke:#047857; stroke-width:1.3;}
+.dgm .b-mut{fill:#F3F4F6; stroke:#D1D5DB; stroke-width:1.1;}
+.dgm .b-hl{fill:#FEF08A; stroke:#CA8A04; stroke-width:1.2;}
+.dgm .b-ghost{fill:none; stroke:#9AA3B2; stroke-width:1.1; stroke-dasharray:5 4;}
+.dgm .ln{stroke:#7C8697; stroke-width:1.4; fill:none;}
+.dgm .ln-key{stroke:#4338CA; stroke-width:1.8; fill:none;}
+.dgm .ln-bad{stroke:#B91C1C; stroke-width:1.6; fill:none;}
+.dgm .ln-ok{stroke:#047857; stroke-width:1.6; fill:none;}
+.dgm .ln-d{stroke:#9AA3B2; stroke-width:1.2; stroke-dasharray:4 4; fill:none;}
+.dgm .arw{fill:#7C8697;} .dgm .arw-key{fill:#4338CA;}
+.dgm .arw-bad{fill:#B91C1C;} .dgm .arw-ok{fill:#047857;}
+.figwrap{background:#FAFAFE; border:1px solid var(--rule); border-radius:6px;
+  padding:18px 16px 10px; margin:22px 0;}
+.figwrap figcaption{margin-top:12px; padding-top:10px; border-top:1px solid var(--rule);}
+</style>
+</head>
+<body>
+<div class="crumb"><a href="../../index.html">← 자료실 홈</a> · <a href="../../journey.html?j=mm">MM 저니</a> · S4515 Invoice Verification</div>
+<div class="sheet">
+
+<div class="doc-head">
+  <div class="kicker">LEARNING HUB · S4515</div>
+  <h1>송장검증 — 3-Way Match · 차단과 해제 · GR/IR 관리</h1>
+  <div class="sub">
+    Learning Journey <b>Implementing SAP S/4HANA Cloud Private Edition, Sourcing and Procurement</b> · Course 5 / S4515 · 7 Unit · 25 레슨<br>
+    출처: 노션 <b>SAP Learning Hub</b> 노트 5-1 ~ 5-7 변환
+  </div>
+</div>
+
+<div class="lead">
+  <p><b>결론부터.</b> 청구서검증은 "공급업체가 보낸 종이를 시스템에 옮겨 적는 일"이 아니라, <span class="hl">구매오더 · 입고 · 청구서 세 문서가 서로 맞는지 판정해서 돈을 내보낼지 말지를 정하는 관문</span>입니다. 세 문서가 맞으면 지불이 나가고, 어긋나면 청구서는 <b>전기는 되지만 지불만 막힙니다</b>.</p>
+  <p>그래서 이 코스의 뼈대는 세 가지입니다. 무엇을 무엇과 대조하는가(3-Way Match), 얼마나 어긋나면 막는가(허용오차 키), 그리고 <b>끝내 맞지 않은 잔액을 어떻게 털어내는가</b>(GR/IR 계정관리). 나머지 — 세금·현금할인·부대비용·ERS·선불결제 — 는 이 뼈대 위에 붙는 변형입니다.</p>
+</div>
+
+<div class="toc">
+  <h4>목차</h4>
+  <ol>
+    <li><a href="#l1">청구서검증의 구조 — 3-Way Match · GR기반검증 · 파킹</a></li>
+    <li><a href="#l2">세금 · 현금할인 · 외화 · 계정지정 청구서</a></li>
+    <li><a href="#l3">차이로 인한 차단 — 허용오차 키와 해제 경로</a></li>
+    <li><a href="#l4">후속차변/대변 · 부대비용 · 참조없는 청구서 · 취소</a></li>
+    <li><a href="#l5">자동정산 — 백그라운드 검증 · ERS · 수탁 · 청구계획</a></li>
+    <li><a href="#l6">GR/IR 계정관리 — MR11과 Fiori 조정 앱</a></li>
+    <li><a href="#l7">추가 Customizing · 선지급 · 보증금유보 · 선불결제</a></li>
+  </ol>
+</div>
+
+
+<!-- ══════════ LESSON 1 ══════════ -->
+<div class="lesson" id="l1">
+<h2><span class="no">LESSON 1</span>청구서검증의 구조 — 3-Way Match · GR기반검증 · 파킹</h2>
+
+<p><span class="tag">Unit 1</span><span class="tag">레슨 4개</span>Invoice Verification Environment · Working with LIV · Types of Invoice Verification · Parking of Documents</p>
+
+<h3>언제 이걸 알아야 하는가</h3>
+
+<p>매입채무 담당자한테서 제일 자주 오는 말이 <b>"MIRO에서 구매오더 번호를 넣었는데 항목이 안 올라옵니다"</b>입니다. 자재도 맞고 공급업체도 맞는데 빈 목록입니다. 십중팔구 <span class="key">입고(GR)가 아직 전기되지 않았거나, 이미 전액 정산된 항목</span>입니다 — 시스템은 "GR은 됐는데 아직 정산 안 된 수량"만 제안하기 때문입니다.</p>
+
+<p>그 다음이 <b>"청구서는 전기됐는데 지불이 안 나갑니다"</b>입니다. 이건 LESSON 3의 차단 이야기이고, 여기서는 그 판정이 <span class="key">무엇과 무엇을 비교해서</span> 나오는지를 먼저 잡습니다.</p>
+
+<h3>조달 3단계의 마지막 — 그리고 유일하게 FI를 부르는 곳</h3>
+
+<p>물류 청구서검증(Logistics Invoice Verification, LIV)은 <b>구매 → 입고 → 청구서검증</b> 3단계 중 마지막입니다. 공급업체 청구서를 입력·검증해서 <span class="hl">재무회계(FI) 문서를 생성</span>하는 것이 이 기능의 산출물입니다. MM 청구서문서 1건과 FI 문서 1건(경우에 따라 2건)이 한 쌍으로 생깁니다.</p>
+
+<figure class="figwrap">
+<svg class="dgm" viewBox="0 0 1000 500" role="img" aria-label="3-Way Match 도해. 구매오더와 입고와 공급업체 청구서를 수량·가격·일자·PO가격수량 네 축으로 항목 단위 대조하며, 허용오차 상한을 넘으면 청구서는 전기되지만 자동으로 지불차단된다.">
+  <defs>
+    <marker id="m1a" markerWidth="9" markerHeight="9" refX="7" refY="4.5" orient="auto">
+      <polygon class="arw" points="0,0 9,4.5 0,9"/></marker>
+    <marker id="m1k" markerWidth="9" markerHeight="9" refX="7" refY="4.5" orient="auto">
+      <polygon class="arw-key" points="0,0 9,4.5 0,9"/></marker>
+    <marker id="m1o" markerWidth="9" markerHeight="9" refX="7" refY="4.5" orient="auto">
+      <polygon class="arw-ok" points="0,0 9,4.5 0,9"/></marker>
+    <marker id="m1b" markerWidth="9" markerHeight="9" refX="7" refY="4.5" orient="auto">
+      <polygon class="arw-bad" points="0,0 9,4.5 0,9"/></marker>
+  </defs>
+
+  <rect class="b-key" x="24" y="24" width="290" height="66" rx="6"/>
+  <text class="t-h c-key" x="44" y="50">① 구매오더 (EKPO)</text>
+  <text class="t-s" x="44" y="72">순가격 · 오더수량 · 계획납품일</text>
+
+  <rect class="b-key" x="355" y="24" width="290" height="66" rx="6"/>
+  <text class="t-h c-key" x="375" y="50">② 입고 GR (101)</text>
+  <text class="t-s" x="375" y="72">실제 납품수량 · 전기일자</text>
+
+  <rect class="b-key" x="686" y="24" width="290" height="66" rx="6"/>
+  <text class="t-h c-key" x="706" y="50">③ 공급업체 청구서</text>
+  <text class="t-s" x="706" y="72">청구수량 · 청구금액 · 세금</text>
+
+  <path class="ln-key" d="M169 90 V116" marker-end="url(#m1k)"/>
+  <path class="ln-key" d="M500 90 V116" marker-end="url(#m1k)"/>
+  <path class="ln-key" d="M831 90 V116" marker-end="url(#m1k)"/>
+
+  <rect class="b-mut" x="24" y="120" width="952" height="178" rx="6"/>
+  <text class="t-h" x="44" y="148">대조 (Matching) — 청구항목 단위로 네 축을 비교</text>
+  <text class="t-xs" x="640" y="148">허용오차 키</text>
+
+  <text class="t c-key" x="44" y="180">수량</text>
+  <text class="t" x="150" y="180">미결수량(납품 − 기청구) vs 청구수량</text>
+  <text class="m-s" x="640" y="180">DQ · DW</text>
+
+  <text class="t c-key" x="44" y="210">가격</text>
+  <text class="t" x="150" y="210">PO 순가격 vs 청구금액 ÷ 청구수량</text>
+  <text class="m-s" x="640" y="210">PP · KW · PS</text>
+
+  <text class="t c-key" x="44" y="240">일자</text>
+  <text class="t" x="150" y="240">금액 × (계획납품일 − 청구서입력일)</text>
+  <text class="m-s" x="640" y="240">ST</text>
+
+  <text class="t c-key" x="44" y="270">PO가격수량</text>
+  <text class="t" x="150" y="270">PO가격단위 : 오더수량 관계 변동</text>
+  <text class="m-s" x="640" y="270">BR · BW</text>
+
+  <path class="ln-ok" d="M300 298 V338" marker-end="url(#m1o)"/>
+  <path class="ln-bad" d="M700 298 V338" marker-end="url(#m1b)"/>
+
+  <rect class="b-ok" x="80" y="340" width="380" height="96" rx="6"/>
+  <text class="t-h c-ok" x="100" y="368">허용오차 이내</text>
+  <text class="t-s" x="100" y="392">메시지 없이 청구서 수락 · 전기</text>
+  <text class="t-s" x="100" y="414">지불차단 없음 → 지불 프로그램으로</text>
+
+  <rect class="b-bad" x="540" y="340" width="380" height="96" rx="6"/>
+  <text class="t-h c-bad" x="560" y="368">상한 초과</text>
+  <text class="t-s" x="560" y="392">청구서는 전기된다 · 자동 지불차단</text>
+  <text class="t-s" x="560" y="414">MRBR 로 해제하기 전까지 지불 불가</text>
+
+  <rect class="b-ghost" x="24" y="444" width="952" height="46" rx="6"/>
+  <text class="t-s" x="46" y="466">하한 미달은 메시지만 발생한다 — 전기 가능, 지불차단 없음. 막는 것은 <tspan class="c-bad">상한</tspan> 뿐이다.</text>
+  <text class="t-s" x="46" y="484">차단사유는 <tspan class="c-key">항목</tspan>에 붙지만, 지불차단은 <tspan class="c-bad">청구서 전체</tspan>에 걸린다. 한 줄만 틀려도 전부 막힌다.</text>
+</svg>
+<figcaption><span class="fno">그림 1</span>3-Way Match의 대조 축과 판정 결과. 차이가 나도 청구서는 전기되고, 막히는 것은 지불이다.</figcaption>
+</figure>
+
+<h3>가격통제 — 차이가 어디로 흘러갈지를 미리 정하는 지시자</h3>
+
+<p>재고자재를 조달하는 경우, 자재의 <b>가격통제(Price Control)</b> 방식이 G/L 전기 결과를 바꿉니다. 자재마스터 <code>회계(Accounting)</code> 뷰의 <code>Price Control</code> 필드에서 지정합니다.</p>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>구분</th><th>지시자</th><th>의미</th></tr></thead>
+<tbody>
+<tr><td>표준가 (Standard Price)</td><td><code>S</code></td><td class="wrap">평가가격이 고정. 차이는 전부 <b>가격차이계정</b>으로 빠진다</td></tr>
+<tr><td>이동평균가 (Moving Average Price, MAP)</td><td><code>V</code></td><td class="wrap">차이가 <b>재고계정</b>에 흡수되어 단가가 움직인다. 재고보유량이 없으면 가격차이계정</td></tr>
+</tbody>
+</table>
+</div>
+
+<h3>입력 수단 두 갈래 — Fiori 앱과 MIRO</h3>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>수단</th><th>실체</th><th>특징</th></tr></thead>
+<tbody>
+<tr><td>Create Supplier Invoice</td><td class="wrap">순수 Fiori 앱</td><td class="wrap">항목목록 <b>사용자 정의 레이아웃 생성 가능</b>. <code>IVAMOUNTADJUST</code> 미지원. 참조 없는 항목은 G/L 직접전기만</td></tr>
+<tr><td class="wrap">Create Supplier Invoice – Advanced</td><td class="wrap">SAP GUI for HTML = <code>MIRO</code></td><td class="wrap">Launchpad·GUI 양쪽에서 실행. 사전정의 <b>display variant</b>만 전환 가능, 직접 생성 불가</td></tr>
+</tbody>
+</table>
+</div>
+
+<p>GUI 경로는 <code>Logistics → Materials Management → Logistics Invoice Verification → Document Entry → Enter Invoice</code>입니다. MIRO의 표시변형이 회사 요구에 안 맞으면 <code>Logistics Invoice Verification → Incoming Invoice → Maintain Item List Variants</code>에서 항목목록 화면영역(프로그램 <code>SAPLMR1M</code> / 화면번호 <code>6310</code>)의 화면변형을 복사해 편집합니다 — 열 순서·너비·숨김·필수입력까지 통제됩니다.</p>
+
+<h3>참조문서범주가 항목 유형을 결정한다</h3>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>참조문서범주</th><th>선택되는 청구항목 유형</th></tr></thead>
+<tbody>
+<tr><td>구매오더 / 일정계약</td><td class="wrap">재화·용역 <b>+</b> 계획된 부대비용 (Settings에서 선택 지정 가능)</td></tr>
+<tr><td>서비스입력시트 (Lean Services)</td><td class="wrap">재화·용역</td></tr>
+<tr><td>납품메모 (Delivery Note)</td><td class="wrap">재화·용역</td></tr>
+<tr><td>선하증권 (Bill of Lading)</td><td class="wrap">계획된 부대비용</td></tr>
+</tbody>
+</table>
+</div>
+
+<p>구매문서 참조를 할당하면 시스템이 <b>청구요청업체 · 지불조건 · 통화 · 청구항목</b>을 복사합니다. 수량·금액은 <span class="key">구매오더이력(PO History)에서 파생</span>되며 — <b>이미 GR이 전기되었으나 아직 완전히 정산되지 않은 항목</b>만 수량·금액과 함께 선택됩니다. 청구서가 예상되지 않는 항목도 목록에는 보이지만 수량·금액 없이 미선택 상태입니다.</p>
+
+<div class="note">
+  <div class="t">🔰 초보자 설명 — Simulate를 먼저 눌러야 하는 이유</div>
+  <p><b>Simulate</b>는 전기하기 전에 어떤 G/L 계정이 차변·대변으로 움직이는지 미리 보여줍니다. 차이가 있으면 여기서 이미 드러납니다. <b>Post</b>를 누른 다음 "왜 이 계정으로 갔지"를 되짚는 것보다, 누르기 전에 보는 편이 훨씬 쌉니다.</p>
+</div>
+
+<h3>사용자 파라미터 3종 — 사용자마스터에 미리 박아두는 것</h3>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>파라미터</th><th>값</th><th>효과</th></tr></thead>
+<tbody>
+<tr><td><code>IVFIDISPLAY</code></td><td><code>X</code></td><td class="wrap">전기 후 상태표시줄에 MM 청구서번호와 함께 <b>FI 문서번호</b>도 표시. <code>MIRO</code> <code>MIR7</code> <code>MR8M</code> <code>MIR6</code>, Create Supplier Invoice 앱에 적용</td></tr>
+<tr><td><code>IVAMOUNTADJUST</code></td><td><code>X</code></td><td class="wrap">청구항목 수량을 바꾸면 금액이 <b>수량 × PO가격</b>으로 자동 재계산. <code>MIRO</code> <code>MIR7</code>에서만 동작</td></tr>
+<tr><td><code>IVFIOUISETTINGS</code></td><td class="wrap">자리별 <code>X</code></td><td class="wrap">Create Supplier Invoice 앱 설정 — 1)회사코드 기본값 2)공급업체 기본값 3)FI 통화 기본값 해제 4)Advanced 앱 이동 버튼</td></tr>
+</tbody>
+</table>
+</div>
+
+<p>사용자가 직접 바꿀 때는 <b>Edit Settings for Supplier Invoices</b> 앱을 씁니다. 백그라운드 계열(<code>MRRL</code> <code>MRNB</code> <code>MIRS</code>, 프로그램 <code>RMBABG00</code>)은 출력목록에 생성 문서번호를 표시할 수 있습니다.</p>
+
+<div class="note warn">
+  <div class="t">IVAMOUNTADJUST는 만능이 아니다</div>
+  <p>금액 기본값을 <span class="bad">한 번이라도 수동으로 덮어쓰면 이후 자동조정이 중단</span>됩니다. 그리고 <b>Create Supplier Invoice Fiori 앱과 복수계정지정 화면에서는 아예 동작하지 않습니다.</b> "수량만 고치면 금액이 따라온다"고 교육해 두면 앱을 쓰는 사용자에게서 금액 오입력이 나옵니다.</p>
+</div>
+
+<h3>GR기반 청구서검증 (GR-Based IV)</h3>
+
+<p>지시자를 켜면 <span class="hl">납품된 부분수량마다 별도의 청구항목</span>이 생깁니다. 한 PO 항목에 부분입고가 세 번 있었다면 청구항목 후보가 세 줄로 제안됩니다. 납품메모로 할당하면 그 입고에서 전기된 수량만 제안합니다.</p>
+
+<ul>
+  <li>각 청구항목을 <b>고유한 입고항목에 정확히 매칭</b>할 수 있다 — 매치업은 구매오더이력에서 이루어진다</li>
+  <li>청구수량은 <span class="bad">실제 납품수량보다 클 수 없다</span>. 다만 <b>금액</b>은 더 크게 전기할 수 있다</li>
+  <li>일단 전기된 청구서를 한 입고에서 다른 입고로 <b>재할당할 수 없다</b></li>
+</ul>
+
+<div class="note warn">
+  <div class="t">IR 이후 GR을 취소·반품하면 GR/IR 청산계정이 깨진다</div>
+  <p>GR기반 IV 항목에 대해 <b>청구서가 있는데도 GR 취소·반품을 허용할지</b>는 Customizing 결정입니다 — <code>Inventory Management and Physical Inventory → Goods Receipt → For GR-Based IV, Reversal of GR Despite Invoice</code>.</p>
+  <p>허용해 두면 이런 일이 생깁니다. ① 입고 → ② <b>가격차이가 있는</b> 청구서 전기 → ③ 취소 또는 반품 → ④ 조정입고를 <span class="bad">후속납품이 아니라 일반 GR 트랜잭션으로</span> 처리. 납품수량과 청구수량은 같은데 GR/IR 청산계정만 잔액이 남습니다 (SAP Note 184632).</p>
+  <p>정공법은 둘 중 하나입니다. <b>후속납품(subsequent delivery) 트랜잭션</b>으로 원 입고문서·반품·취소를 참조하거나, 아예 <b>취소를 막아두고 청구서를 먼저 취소</b>하게 하는 것. 이미 벌어진 불일치는 <code>MR11</code>로 정리합니다(LESSON 6).</p>
+</div>
+
+<h3>보류 · 파킹 · 완료저장 — 세 단계가 다르다</h3>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>기능</th><th>MM 문서</th><th>FI 전달</th><th>PO 이력</th><th>검사 범위</th></tr></thead>
+<tbody>
+<tr><td>Hold (보류)</td><td class="wrap">상태 <code>Held</code>로 생성</td><td class="wrap"><span class="bad">없음</span></td><td class="wrap"><span class="bad">갱신 안 됨</span></td><td class="wrap">최소한만 — 회사코드·공급업체·통화 존재 여부</td></tr>
+<tr><td>Park (파킹)</td><td class="wrap">상태 <code>Parked</code></td><td class="wrap">FI 문서 생성 (상태 Parked Document)</td><td class="wrap">갱신됨</td><td class="wrap">중복청구서 검사 수행(공급업체에 설정된 경우)</td></tr>
+<tr><td class="wrap">Save as Completed</td><td class="wrap">상태 <code>Parked and completed</code></td><td class="wrap">FI 문서 생성</td><td class="wrap">갱신됨</td><td class="wrap"><b>전기 가능해야 통과</b> — 잔액 0 또는 소액차이·공급업체 허용오차 이내. 계정지정 검사 + PO <b>커밋먼트 차감</b></td></tr>
+</tbody>
+</table>
+</div>
+
+<p>청구서 상태값은 <code>Entered and held</code> / <code>Parked and held</code>(<code>MIR7</code>로 보류) / <code>Parked</code> / <code>Parked and completed</code> / <code>Parked and released</code> / <code>Deleted</code>입니다. 파킹·완료저장 문서는 <b>Create Supplier Invoice 앱</b>과 <b>Park Supplier Invoices / <code>MIR7</code></b>에서 만듭니다. <code>MIRO</code>에서는 메뉴 <code>Edit → Switch to Document Parking</code>으로 전환할 수 있습니다.</p>
+
+<div class="note warn">
+  <div class="t">삭제해도 번호는 돌아오지 않는다</div>
+  <p>파킹 문서를 삭제하면 MM·FI 문서번호 모두 <span class="bad">재사용되지 않습니다</span>. 문서헤더는 상태 <code>Deleted</code>로 DB에 남아 어떤 번호가 나갔는지 추적할 수 있지만, <b>명세항목(line items)은 DB에서 지워집니다</b>. "삭제했으니 없는 번호"가 아니라 "없어진 내용, 남은 번호"입니다.</p>
+</div>
+
+<p>파킹·완료저장 문서의 매입세를 예정신고에 반영하려면 리포트 <code>RFPUMS00</code> — Fiori의 <b>Input Tax from Parked Documents</b> 앱, GUI는 <code>S_ALR_87012362</code>입니다.</p>
+
+<h4>보류·파킹된 청구서를 다시 찾는 세 가지 길</h4>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>수단</th><th>범위</th><th>비고</th></tr></thead>
+<tbody>
+<tr><td class="wrap">Supplier Invoices List (Fiori)</td><td class="wrap">전체 · 작업목록으로 활용</td><td class="wrap">Entry Type · Status 필터. <code>Draft</code>는 Business Network 수신분, <code>Draft (Personal)</code>은 본인에게만 보임</td></tr>
+<tr><td><code>MIR6</code> Invoice Overview</td><td class="wrap"><b>모든 사용자</b>의 보류·파킹 문서</td><td class="wrap">Entry Type = Held/Parked + Invoice Status 선택</td></tr>
+<tr><td class="wrap"><code>MIRO</code>/<code>MIR7</code> 작업목록</td><td class="wrap"><span class="bad">자기 문서만</span></td><td class="wrap">다른 사용자 문서는 작업목록으로 처리 불가</td></tr>
+</tbody>
+</table>
+</div>
+
+<p>상태별로 할 수 있는 일도 다릅니다. <code>Posted or Blocked for Payment</code> 상태에서는 상세 검토 후 <b>취소(reverse)</b> 또는 <b>지불차단 해제(release)</b>가 가능합니다.</p>
+
+<h3>완료저장 청구서의 유연한 워크플로우 (Flexible Workflow)</h3>
+
+<p>완료로 저장된 청구서의 승인에 조건기반 워크플로우를 붙일 수 있습니다. 1단계·다단계 모두 가능하고, 승인자는 <b>My Inbox</b> 앱에서 승인·거부합니다.</p>
+
+<div class="step"><span class="n">1</span><p>워크플로우 시나리오 선택 후 <b>Create</b> — Header에 Workflow Name 지정</p></div>
+<div class="step"><span class="n">2</span><p>(선택) Properties에 Description과 유효기간</p></div>
+<div class="step"><span class="n">3</span><p><b>Start Conditions</b> 정의 — 계정지정범주(코스트센터·내부오더·손익센터·WBS), PO 기반 여부, 회사코드, 공급업체승인그룹, <b>청구금액 하한</b> 등을 조합</p></div>
+<div class="step"><span class="n">4</span><p>Steps에 최소 1개 단계 — 수신자(Recipients) · 단계조건 · 예외처리 액션 할당. 코스트센터 책임자 자동결정도 가능</p></div>
+<div class="step"><span class="n">5</span><p>저장·활성화 후 <b>시작조건 확인 순서</b> 정의 — 정의한 순서대로 검사하고 <span class="hl">먼저 충족된 하나만</span> 기동한다</p></div>
+
+<p>생성 도구는 <b>Manage Workflows for Supplier Invoices</b> 앱(복사·활성화·비활성화·삭제·순서 정의). 템플릿 ID는 <code>WS00800303</code>, 표준작업은 <code>TS00800577</code>(Release Complete Invoice)과 <code>TS00800585</code>(Revise Invoice)입니다.</p>
+
+<div class="note warn">
+  <div class="t">워크플로우는 회사코드마다 따로 만든다</div>
+  <p>하나의 워크플로우를 여러 회사코드에 걸쳐 유효하게 만들 수 없습니다. <span class="bad">회사코드마다 별도의 워크플로우를 생성</span>해야 합니다.</p>
+</div>
+
+<div class="note ok">
+  <div class="t">📌 개인 E2E 프로젝트와의 연결점</div>
+  <p>프로젝트는 회사코드 <b>CL04</b>, 플랜트를 <b>GATE</b>(입고 게이트)와 <b>STOR</b>(보관)으로 쪼개 뒀습니다. 구매오더는 GATE로 받고, 검수 후 <code>301</code>로 STOR에 넘깁니다. 즉 <span class="key">GR(101)과 청구서 사이에 이관 단계가 하나 더 끼어 있는 구조</span>입니다.</p>
+  <p>그래서 이 코스에서 챙길 설정이 둘입니다. 첫째 <b>GR기반 청구서검증 지시자</b> — 배치·유통기한 관리 자재라 부분입고가 흔하고, 어느 입고 건에 대한 청구서인지 매칭되어야 나중에 배치 단위 추적이 됩니다. 둘째 <code>For GR-Based IV, Reversal of GR Despite Invoice</code> — CBO <b>ZGATE_INSPECT</b>가 <span class="hl">송장 미발생 건에 한해 <code>122</code>로 자동반품</span>하도록 설계된 이유가 바로 이 설정입니다. 송장이 이미 붙은 건까지 반품하면 GR/IR 잔액이 깨지므로, CBO는 "송장 미발생"을 <b>반품 실행의 전제조건</b>으로 잠가야 합니다. 자재마스터 가격통제는 <code>V</code>(이동평균가)로 확정되어 있으므로, 차이는 재고계정으로 흘러 단가를 흔든다는 점도 같이 기억해 둡니다.</p>
+</div>
+
+</div>
+
+
+<!-- ══════════ LESSON 2 ══════════ -->
+<div class="lesson" id="l2">
+<h2><span class="no">LESSON 2</span>세금 · 현금할인 · 외화 · 계정지정 청구서</h2>
+
+<p><span class="tag">Unit 1</span><span class="tag">레슨 4개</span>Applying Taxes · Applying Cash Discounts · Foreign Currencies · Account Assignment</p>
+
+<h3>세금 — 세금코드는 어디서 오는가</h3>
+
+<p>매입세(input tax)는 공급업체가 우리에게 청구하는 세금으로 <b>과세당국에 대한 청구권</b>, 매출세(sales tax)는 고객에게 청구해 <b>과세당국에 갚아야 할 채무</b>입니다. 납부액 = 매출세 − 매입세입니다.</p>
+
+<p>청구서 입력 시 <span class="key">각 청구항목마다 세금코드가 필요</span>합니다. 결정 순서는 이렇습니다.</p>
+
+<div class="step"><span class="n">1</span><p>구매문서 <b>항목</b>에 정의된 세금코드를 제안</p></div>
+<div class="step"><span class="n">2</span><p>없으면 <b>헤더데이터의 첫 번째 세금코드</b>를 제안</p></div>
+<div class="step"><span class="n">3</span><p>헤더 기본값은 <code>OMR2</code>에서 <b>회사코드별</b>로 정의 — 없으면 수동입력</p></div>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>앱</th><th>세금금액 계산 방식</th></tr></thead>
+<tbody>
+<tr><td class="wrap">Create Supplier Invoice</td><td class="wrap">항목 금액 + 세금코드로 <b>자동계산</b>. 공급업체 명세와 다르면 세금코드·세금금액을 수정</td></tr>
+<tr><td class="wrap">Create Supplier Invoice – Advanced (<code>MIRO</code>)</td><td class="wrap">헤더 Basic Data의 <code>Calculate Tax</code> 체크 시 자동계산. 미체크면 헤더에 세금금액·세금코드 수동입력</td></tr>
+</tbody>
+</table>
+</div>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>Customizing</th><th>T-Code</th><th>정의 대상</th></tr></thead>
+<tbody>
+<tr><td class="wrap">LIV → Incoming Invoice → Maintain Default Values for Tax Codes</td><td><code>OMR2</code></td><td class="wrap">회사코드별 헤더 기본 세금코드 + <b>미계획 부대비용용</b> 기본 세금코드(별도 G/L 전기 시에만 의미)</td></tr>
+<tr><td class="wrap">FI → Incoming Invoices/Credit Memos – Enjoy → Define Tax Code per Transaction</td><td><code>OBZT</code></td><td class="wrap">국가·트랜잭션별 입력도움말 값과 기본값. <span class="bad">Advanced 앱에만 적용</span></td></tr>
+</tbody>
+</table>
+</div>
+
+<div class="note warn">
+  <div class="t">세금코드는 쓰이기 시작하면 못 고친다</div>
+  <p>문서에서 이미 사용된 세금코드는 Customizing에서 <span class="bad">삭제할 수 없고 세율도 변경할 수 없습니다</span>. 바꾸면 시스템이 기존 문서 정보를 올바로 읽지 못합니다. 세율이 바뀌면 <b>새 세금코드를 만듭니다</b>. 그리고 LIV의 설정이 FI 설정보다 우선합니다.</p>
+</div>
+
+<h3>지불조건은 어디서 제안되는가</h3>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>상황</th><th>지불조건 출처</th></tr></thead>
+<tbody>
+<tr><td class="wrap">PO 참조 · 재화/용역 항목</td><td class="wrap">할당된 <b>첫 번째 구매오더</b>. PO마다 조건이 다르면 <span class="bad">경고 메시지</span>. PO의 파트너역할 청구요청업체를 쓰거나 입력 중 변경해도 동일</td></tr>
+<tr><td class="wrap">PO 참조 · 계획된 부대비용 단독</td><td class="wrap">부대비용이 계획된 <b>공급업체의 회사코드데이터</b></td></tr>
+<tr><td class="wrap">PO 참조 없음 (청구서·대변메모·후속차변·후속대변)</td><td class="wrap">수동입력한 <b>청구요청업체의 회사코드데이터</b></td></tr>
+</tbody>
+</table>
+</div>
+
+<p>Payment 탭에서 지불조건·기산일(Baseline Date)·고정 현금할인금액을 바꿀 수 있고, 항목별 <code>No Cash Discount</code>로 할인 대상에서 뺄 수 있습니다. <b>Invoice Reference</b> 필드에 기전기된 MM 청구서번호를 넣으면 지불조건·기산일·지불차단이 그대로 넘어오는데, 이 경우 <span class="hl">값은 복사 전용이라 변경할 수 없습니다</span>.</p>
+
+<h3>현금할인 — 총액전기와 순액전기</h3>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>방식</th><th>문서유형(표준)</th><th>청구서 전기 시점</th><th>지불 시점</th></tr></thead>
+<tbody>
+<tr><td>총액 (Gross)</td><td><code>RE</code></td><td class="wrap">할인 <b>무시</b>. 세금도 할인 전 금액으로 전기. 재고·원가계정에 할인 대변전기 없음</td><td class="wrap">현금할인계정에 전기(비영업손익). 할인기간 내면 <b>세금 재계산</b> → 차액을 매입세계정에 대변</td></tr>
+<tr><td>순액 (Net)</td><td><code>RN</code></td><td class="wrap">할인만큼 <b>차감한 금액</b>만 재고·원가계정에. 할인액은 현금할인청산계정으로</td><td class="wrap">현금할인청산계정 청산 + 전기된 매입세 수정</td></tr>
+</tbody>
+</table>
+</div>
+
+<p>총액이냐 순액이냐는 <span class="key">회계문서의 문서유형이 결정</span>합니다. 문서유형별로 Customizing에 고유하게 지정되어 있고, 기본값은 <code>OMR4</code>(Maintain Number Assignments for Accounting Documents)에서 트랜잭션별로 정의합니다. 입력 중 변경은 가능 — Fiori 앱은 <code>General Information → More → Details</code>, <code>MIRO</code>·<code>MIR7</code>·<code>MIRA</code>는 헤더 <code>Details</code> 탭입니다.</p>
+
+<p>순액전기의 상대전기는 <b>가격통제에 따라 갈립니다</b>. 표준가면 가격차이계정 대변, MAP이면서 재고보유량 충분하면 재고계정 대변, 일부만 있으면 그만큼만 재고계정·나머지는 가격차이계정, 전혀 없으면 전액 가격차이계정입니다. 지불조건은 <code>OBB8</code>, 할부는 <code>OBB9</code>에서 정의합니다.</p>
+
+<h3>외화 청구서와 환율차이(ERD)</h3>
+
+<p>청구서 통화가 회사코드 자국통화와 다르면 외화청구서입니다. 전제는 둘 — <b>해당 통화가 정의되어 있을 것</b>, <b>자국통화와의 환율이 Customizing에 있을 것</b>. 환율은 IDOC <code>EXCHANGE_RATE</code>나 리포트 <code>RFTBFF00</code>으로 매일 갱신할 수 있고, 데이터피드 인터페이스는 <b>RFC</b>로 외부 시장데이터를 직접 받습니다.</p>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>PO의 Fixed Exchange Rate</th><th>GR 환산</th><th>IR 환산</th><th>결과</th></tr></thead>
+<tbody>
+<tr><td>고정 (설정됨)</td><td class="wrap">PO 환율</td><td class="wrap">PO 환율</td><td class="wrap">환율차이 <span class="good">발생하지 않음</span></td></tr>
+<tr><td>미고정</td><td class="wrap">GR 전기 시점 현재환율</td><td class="wrap">현재환율 제안 · <b>수동입력 가능</b>(할당 전에 입력)</td><td class="wrap">GR/IR 환율이 달라 <span class="bad">환율차이 발생</span></td></tr>
+</tbody>
+</table>
+</div>
+
+<p>환율차이는 <b>사실상 가격차이와 동일하게</b> 취급됩니다. 계정지정 PO 항목이면 소비계정, MAP + 재고보유량 있으면 재고계정, 표준가이거나 MAP인데 재고가 없으면 Customizing 설정에 따라 <b>환율차이계정 또는 가격차이계정</b>입니다.</p>
+
+<div class="note warn">
+  <div class="t">OMRW의 두 번째 지시자는 성격이 다르다 — 확인 필요</div>
+  <p><code>OMRW</code>(Configure How Exchange Rate Differences Are Treated)에는 지시자가 둘입니다. <b>Treatment of Exchange Rate Differences</b>는 전기 대상 계정(ERD 계정 vs 가격차이계정)을 고릅니다.</p>
+  <p><b>Treatment of Exchange Rate Diffs. in Company Code Currency</b>를 켜면 얘기가 달라집니다 — 가격통제나 계정지정 여부와 무관하게 <span class="bad">환율차이 전액이 항상 환율차이계정으로</span> 가고, 위 지시자는 무의미해집니다. 이때 재고·소비 평가는 청구서 환율이 아니라 <b>GR 전기일자 기준 환율</b>로 이루어집니다. 두 지시자의 현재 설정값은 실제 시스템(winerp01 / MEP)에서 <code>OMRW</code>를 열어 확정할 것.</p>
+</div>
+
+<h3>계정지정이 있는 구매오더의 청구서</h3>
+
+<p>재고관리 대상이 아닌 자재(직접 소비)나 외부 용역은 PO 항목에 <b>계정지정(Account Assignment)</b>이 붙습니다. 청구서만 봐서는 알 수 없고, LIV 항목목록의 <code>Acct Assgt</code> 열에서 확인합니다.</p>
+
+<p>계정지정범주(Account Assignment Category)는 <span class="key">그 PO 항목에 GR을 전기할 수 있는지, IR을 전기할 수 있는지</span>를 통제합니다. GR을 못 전기하는 경우, 청구서검증에서 시스템은 <b>PO수량과 청구수량의 차이</b>를 제안합니다.</p>
+
+<div class="note warn">
+  <div class="t">IR에서 계정지정을 바꾸려면 두 조건이 동시에 맞아야 한다</div>
+  <p>① <code>OME9</code>(Maintain Account Assignment Categories)에서 <code>AA Changeable at IR</code> 체크박스가 켜져 있을 것<br>
+     ② 해당 PO 항목이 <b>비평가입고(non-valuated)</b>이거나 <b>입고없음</b>으로 계획되어 있을 것<br>
+     둘 중 하나만 맞아서는 안 됩니다. "체크박스는 켰는데 왜 안 바뀌냐"는 문의의 답은 대개 ②입니다.</p>
+</div>
+
+<h4>복수계정지정 — Partial Invoice 지시자</h4>
+
+<p>PO 항목 수량이 여러 계정지정오브젝트에 나뉘면, 부분청구서를 어떻게 배분할지 <code>Partial Inv.</code> 지시자로 정합니다 — <b>행 단위 누적채움(progressive fill-up)</b>이냐 <b>계획수량 비례배분</b>이냐. 기본값은 계정지정범주별로 Customizing에 둘 수 있습니다.</p>
+
+<ul>
+  <li>복수계정지정 + <b>평가입고(valuated GR)</b>면 GR 전기 시점에 이미 이 지시자가 반영된다. 입고에서는 보통 이 분배를 바꿀 수 없다</li>
+  <li>BAdI <code>MB_ACCOUNTING_DISTRIBUTE</code>로 평가입고 시 분배를 재정의할 수 있다 — 단 <span class="bad">계정지정범주나 계정지정 자체는 변경 불가</span></li>
+  <li>복수계정지정 화면에서 총금액·총수량을 바꾸고 <code>Check</code>/<code>Back</code>하면 이전 분배방식대로 자동 재분배. 반대로 계정지정행을 바꾸면 총계가 역산된다</li>
+  <li>Quantity·Amount 필드의 입력 가능 여부는 <code>LIV → Incoming Invoice → Configure Settings for Multiple Account Assignment</code>에서 구성</li>
+</ul>
+
+<div class="note ok">
+  <div class="t">📌 개인 E2E 프로젝트와의 연결점</div>
+  <p>프로젝트 자재는 전부 <b>이동평균가 <code>V</code></b>입니다. 그래서 이 LESSON의 분기 중 "MAP + 재고보유량" 가지가 항상 타는 경로입니다 — <span class="hl">현금할인 순액전기든 환율차이든, 차액이 재고계정으로 흡수되어 <code>MBEW-VERPR</code>가 움직입니다.</span></p>
+  <p>이게 CBO <b>ZPRICE_CHECK</b>(정보레코드가 <code>EINE-NETPR</code> vs 이동평균가 <code>MBEW-VERPR</code> 괴리 알림)의 감지 대상과 직접 겹칩니다. 순액전기(<code>RN</code>)를 쓰면 청구서 전기만으로도 MAP가 내려가므로, <b>ZPRICE_CHECK가 "가격이 틀렸다"가 아니라 "할인 때문에 내려간 것"을 오탐할 수 있습니다.</b> 총액전기(<code>RE</code>)로 고정하거나, CBO 쪽에서 문서유형을 예외로 걸어야 합니다 — 프로젝트는 학습 단순화를 위해 <b>총액전기 <code>RE</code>로 고정</b>하고 순액전기는 다루지 않는 쪽이 낫습니다. 자재그룹(<code>CHKN</code> <code>RICE</code> <code>SHAK</code> <code>PROT</code> <code>PBAR</code>)은 전부 재고자재라 계정지정 PO는 프로젝트 범위 밖입니다.</p>
+</div>
+
+</div>
+
+
+<!-- ══════════ LESSON 3 ══════════ -->
+<div class="lesson" id="l3">
+<h2><span class="no">LESSON 3</span>차이로 인한 차단 — 허용오차 키와 해제 경로</h2>
+
+<p><span class="tag">Unit 2</span><span class="tag">레슨 5개</span>Entering Invoices with Variances · Further Blocking Reasons · Reducing Invoices · Variances Without Reference to an Item · Releasing Blocked Invoices</p>
+
+<h3>언제 이걸 알아야 하는가</h3>
+
+<p><b>"청구서는 전기됐다는데 지불이 안 나갑니다."</b> 이 코스에서 가장 자주 마주칠 문의이고, 답은 거의 항상 같은 자리에 있습니다 — <code>MRBR</code>에서 그 청구서를 열면 <span class="key">어느 항목에 어떤 차단사유가 붙었는지</span>가 보입니다.</p>
+
+<p>어려운 건 그 다음입니다. "이 차이를 수락할 것인가, 공급업체에 이의제기할 것인가, 애초에 허용오차를 늘릴 것인가." 이 판단이 이 LESSON의 내용 전부입니다.</p>
+
+<h3>허용오차 — 세 구간으로 갈린다</h3>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>구간</th><th>메시지</th><th>전기</th><th>지불차단</th></tr></thead>
+<tbody>
+<tr><td>허용오차 이내</td><td class="wrap"><span class="good">없음</span></td><td>가능</td><td class="wrap"><span class="good">없음</span></td></tr>
+<tr><td>하한 미달</td><td class="wrap">표시됨</td><td>가능</td><td class="wrap"><span class="good">없음</span></td></tr>
+<tr><td>상한 초과</td><td class="wrap">표시됨</td><td>가능</td><td class="wrap"><span class="bad">자동 지불차단</span></td></tr>
+</tbody>
+</table>
+</div>
+
+<div class="note warn">
+  <div class="t">차단은 항목에 붙고, 지불차단은 청구서 전체에 걸린다</div>
+  <p><span class="bad">청구서 안에 단 하나의 항목만 차이가 나도 청구서 전체가 지불차단됩니다.</span> 20줄짜리 청구서에서 1줄 때문에 나머지 19줄의 지불도 멈춥니다. 그래서 대량 항목 청구서를 한 건으로 받는 설계는 운영에서 비쌉니다.</p>
+</div>
+
+<h3>차단사유 4종 — 무엇을 어떻게 재는가</h3>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>차단사유</th><th>판정 기준</th><th>평가의 성질</th></tr></thead>
+<tbody>
+<tr><td>수량차이 (Quantity)</td><td class="wrap">미청구 미결수량 = <b>납품수량 − 기청구수량</b>. 이것과 청구수량이 다르면 발생</td><td class="wrap">절대상한은 <b>청구항목 금액을 기초</b>로 평가 → 금액이 작은 항목은 상대적으로 큰 차이로 잡힌다. PO가격을 안 보는 <b>백분율한도</b>도 별도 정의 가능</td></tr>
+<tr><td>가격차이 (Price)</td><td class="wrap">청구가격(<b>청구금액 ÷ 청구수량</b>)이 PO 순가격과 다르면 발생</td><td class="wrap">PO 가격이 <b>견적가격(estimated price)</b>이면 별도 허용오차 설정 가능</td></tr>
+<tr><td class="wrap">PO가격수량차이</td><td class="wrap">청구서의 PO가격수량 : PO수량 관계가 <b>GR 시점과 다르면</b> 발생</td><td class="wrap">GR이 없으면 <b>PO에 정의된 관계</b>와 비교</td></tr>
+<tr><td>일자차이 (Date)</td><td class="wrap">청구서 입력일이 PO 계획납품일보다 <b>이를 때</b>. 금액 × (계획납품일 − 청구서입력일)</td><td class="wrap">절대상한과 비교 → 짧게 지연된 항목이 상대적으로 큰 차이로 잡힌다</td></tr>
+</tbody>
+</table>
+</div>
+
+<figure class="figwrap">
+<svg class="dgm" viewBox="0 0 1000 536" role="img" aria-label="청구서 차단사유와 해제 경로 도해. 차이·금액·수동·확률적 차단이 모두 MRBR로 모이지만, 자동해제는 차이로 인한 차단 절차에만 가능하며 헤더의 수동지불차단은 반드시 별도로 해제해야 한다.">
+  <defs>
+    <marker id="m2a" markerWidth="9" markerHeight="9" refX="7" refY="4.5" orient="auto">
+      <polygon class="arw" points="0,0 9,4.5 0,9"/></marker>
+    <marker id="m2k" markerWidth="9" markerHeight="9" refX="7" refY="4.5" orient="auto">
+      <polygon class="arw-key" points="0,0 9,4.5 0,9"/></marker>
+    <marker id="m2o" markerWidth="9" markerHeight="9" refX="7" refY="4.5" orient="auto">
+      <polygon class="arw-ok" points="0,0 9,4.5 0,9"/></marker>
+    <marker id="m2b" markerWidth="9" markerHeight="9" refX="7" refY="4.5" orient="auto">
+      <polygon class="arw-bad" points="0,0 9,4.5 0,9"/></marker>
+  </defs>
+
+  <text class="t-s c-key" x="24" y="40">자동 차단 — 차이(Variance)</text>
+  <rect class="b-key" x="24" y="52" width="290" height="40" rx="5"/>
+  <text class="t" x="44" y="72">수량차이</text><text class="m-s c-key" x="216" y="72">DQ · DW</text>
+  <rect class="b-key" x="24" y="100" width="290" height="40" rx="5"/>
+  <text class="t" x="44" y="120">가격차이</text><text class="m-s c-key" x="196" y="120">PP · KW · PS</text>
+  <rect class="b-key" x="24" y="148" width="290" height="40" rx="5"/>
+  <text class="t" x="44" y="168">PO가격수량차이</text><text class="m-s c-key" x="216" y="168">BR · BW</text>
+  <rect class="b-key" x="24" y="196" width="290" height="40" rx="5"/>
+  <text class="t" x="44" y="216">일자차이</text><text class="m-s c-key" x="246" y="216">ST</text>
+  <rect class="b-key" x="24" y="244" width="290" height="40" rx="5"/>
+  <text class="t" x="44" y="264">품질검사 차단</text><text class="m-s c-key" x="206" y="264">Quality</text>
+
+  <text class="t-s" x="24" y="316">추가 차단사유</text>
+  <rect class="b-mut" x="24" y="328" width="290" height="40" rx="5"/>
+  <text class="t" x="44" y="348">금액차단</text><text class="m-s" x="216" y="348">AN · AP</text>
+  <rect class="b-mut" x="24" y="376" width="290" height="40" rx="5"/>
+  <text class="t" x="44" y="396">수동차단</text><text class="m-s" x="166" y="396">헤더 R · 항목 Ma</text>
+  <rect class="b-mut" x="24" y="424" width="290" height="40" rx="5"/>
+  <text class="t" x="44" y="444">확률적차단</text><text class="m-s" x="196" y="444">OMRF · OMRG</text>
+
+  <path class="ln" d="M314 72 H340"/><path class="ln" d="M314 120 H340"/>
+  <path class="ln" d="M314 168 H340"/><path class="ln" d="M314 216 H340"/>
+  <path class="ln" d="M314 264 H340"/><path class="ln" d="M314 348 H340"/>
+  <path class="ln" d="M314 396 H340"/><path class="ln" d="M314 444 H340"/>
+  <path class="ln" d="M340 72 V444"/>
+  <path class="ln-key" d="M340 258 H366" marker-end="url(#m2k)"/>
+
+  <rect class="b-hl" x="370" y="200" width="230" height="120" rx="6"/>
+  <text class="t-h" x="392" y="234">MRBR</text>
+  <text class="t-s" x="392" y="258">Release Blocked</text>
+  <text class="t-s" x="392" y="278">Invoices</text>
+  <text class="t-xs" x="392" y="302">Fiori 앱으로도 접근 가능</text>
+
+  <path class="ln-ok" d="M600 230 H618 V122 H632" marker-end="url(#m2o)"/>
+  <path class="ln" d="M600 262 H618 V285 H632" marker-end="url(#m2a)"/>
+  <path class="ln-bad" d="M600 296 H618 V406 H632" marker-end="url(#m2b)"/>
+
+  <rect class="b-ok" x="636" y="30" width="340" height="185" rx="6"/>
+  <text class="t-h c-ok" x="656" y="56">자동해제</text>
+  <text class="t-xs c-bad" x="656" y="78">※ 차이로 인한 차단 절차에만 가능</text>
+  <text class="t-s" x="656" y="102">각 차단사유가 아직 유효한지 재검사</text>
+  <text class="t-s" x="656" y="124">후속납품 · 대변메모 → 수량 사유 소멸</text>
+  <text class="t-s" x="656" y="146">PO가격 변경 · 후속대변 → 가격 사유</text>
+  <text class="t-s" x="656" y="168">긍정 사용결정 → 품질 · 납품일 도래 → 일자</text>
+  <text class="m-s" x="656" y="194">RM08RELEASE (백그라운드)</text>
+
+  <rect class="b" x="636" y="230" width="340" height="110" rx="6"/>
+  <text class="t-h" x="656" y="256">수동해제</text>
+  <text class="t-s" x="656" y="280">차단사유 개별 삭제 또는 청구서 전체 해제</text>
+  <text class="t-s" x="656" y="302">무효가 된 사유는 목록에 노란색 표시</text>
+  <text class="m-s" x="656" y="326">M_RECH_SPG · M_RECH_EKG</text>
+
+  <rect class="b-bad" x="636" y="356" width="340" height="100" rx="6"/>
+  <text class="t-h c-bad" x="656" y="382">헤더 수동지불차단</text>
+  <text class="t-s" x="656" y="406">항목 차단사유가 전부 무효가 되어도</text>
+  <text class="t-s" x="656" y="428">자동해제되지 않는다 — 별도로 해제</text>
+
+  <rect class="b-ghost" x="24" y="478" width="952" height="46" rx="6"/>
+  <text class="t-s" x="46" y="500">허용오차 한도는 <tspan class="m-s">OMR6</tspan> 에서 <tspan class="c-key">회사코드별</tspan>로 설정한다. 특정 차이를 항상 차단하려면 상한을 0으로 두고 Check limit 선택.</text>
+  <text class="t-s" x="46" y="518">해제 시 <tspan class="c-key">현금할인일수</tspan>를 이동시킬 수 있다 — 기산일(baseline date)이 아니라 일수를 늘리는 것.</text>
+</svg>
+<figcaption><span class="fno">그림 2</span>차단사유별 허용오차 키와 MRBR 해제 경로. 자동해제가 닿지 않는 두 곳이 헤더 수동차단과 확률적차단이다.</figcaption>
+</figure>
+
+<h3>허용오차 키 (Tolerance Key) — OMR6</h3>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>차이 유형</th><th>허용오차 키</th></tr></thead>
+<tbody>
+<tr><td>수량차이</td><td><code>DQ</code> <code>DW</code></td></tr>
+<tr><td>가격차이</td><td><code>KW</code> <code>PP</code> <code>PS</code></td></tr>
+<tr><td>PO가격수량차이</td><td><code>BR</code> <code>BW</code></td></tr>
+<tr><td>일자차이</td><td><code>ST</code></td></tr>
+<tr><td>금액검사</td><td><code>AN</code>(PO참조 없음) <code>AP</code>(PO참조 있음)</td></tr>
+<tr><td>소액차이</td><td><code>BD</code></td></tr>
+<tr><td>개산계약(blanket PO) 차이</td><td><code>LA</code> <code>LD</code></td></tr>
+<tr><td>MAP 최대변동</td><td><code>VP</code></td></tr>
+<tr><td>계약참조 청구서 가격차이</td><td><code>PC</code> <span class="tag">LESSON 7</span></td></tr>
+</tbody>
+</table>
+</div>
+
+<div class="note">
+  <div class="t">🔰 초보자 설명 — "항상 차단"은 어떻게 설정하나</div>
+  <p>허용오차를 <b>0으로 두고 Check limit 라디오버튼을 선택</b>합니다. 헷갈리기 쉬운 반대편이 <code>Do not check</code>인데, 이건 "0이라서 다 막는다"가 아니라 <span class="bad">"아예 검사하지 않는다 = 전부 통과"</span>입니다. 특히 <code>BD</code>(소액차이)를 <code>Do not check</code>로 두면 <b>모든 차이가 소액차이로 자동수락</b>됩니다.</p>
+</div>
+
+<h3>가격차이는 어디로 전기되는가</h3>
+
+<figure class="figwrap">
+<svg class="dgm" viewBox="0 0 1000 450" role="img" aria-label="가격차이 전기 분기 도해. 표준가 자재는 전액 가격차이계정으로 가고, 이동평균가 자재는 재고보유량에 따라 재고계정과 가격차이계정으로 나뉘며 재고계정에 전기되면 이동평균가가 변한다.">
+  <defs>
+    <marker id="m3a" markerWidth="9" markerHeight="9" refX="7" refY="4.5" orient="auto">
+      <polygon class="arw" points="0,0 9,4.5 0,9"/></marker>
+    <marker id="m3k" markerWidth="9" markerHeight="9" refX="7" refY="4.5" orient="auto">
+      <polygon class="arw-key" points="0,0 9,4.5 0,9"/></marker>
+  </defs>
+
+  <rect class="b-hl" x="300" y="18" width="400" height="56" rx="6"/>
+  <text class="t-h" x="324" y="44">가격차이 — 청구가격 ≠ PO 순가격</text>
+  <text class="t-s" x="324" y="64">청구금액 ÷ 청구수량 으로 산출한 단가를 비교</text>
+
+  <path class="ln-key" d="M420 74 V108 H240 V138" marker-end="url(#m3k)"/>
+  <path class="ln-key" d="M580 74 V108 H750 V138" marker-end="url(#m3k)"/>
+
+  <rect class="b" x="60" y="140" width="360" height="56" rx="6"/>
+  <text class="t-h c-key" x="84" y="166">가격통제 S — 표준가</text>
+  <text class="t-s" x="84" y="186">유효평가가격은 GR·IR 모두에서 불변</text>
+
+  <rect class="b-key" x="560" y="140" width="380" height="56" rx="6"/>
+  <text class="t-h c-key" x="584" y="166">가격통제 V — 이동평균가</text>
+  <text class="t-s" x="584" y="186">재고보유량(stock coverage)에 따라 분기</text>
+
+  <path class="ln" d="M240 196 V238" marker-end="url(#m3a)"/>
+  <path class="ln" d="M750 196 V216 H520 V368"/>
+  <path class="ln" d="M520 262 H556" marker-end="url(#m3a)"/>
+  <path class="ln" d="M520 314 H556" marker-end="url(#m3a)"/>
+  <path class="ln" d="M520 366 H556" marker-end="url(#m3a)"/>
+
+  <rect class="b-mut" x="60" y="240" width="360" height="52" rx="6"/>
+  <text class="t" x="84" y="266">재고보유량과 무관</text>
+  <text class="m-s" x="84" y="286">전액 → 가격차이계정 (PRD)</text>
+
+  <rect class="b-ok" x="560" y="240" width="380" height="44" rx="6"/>
+  <text class="t" x="584" y="268">재고 충분 → 전액 재고계정 · MAP 변동</text>
+  <rect class="b" x="560" y="292" width="380" height="44" rx="6"/>
+  <text class="t" x="584" y="320">일부 보유 → 재고계정 · PRD 비례배분</text>
+  <rect class="b-bad" x="560" y="344" width="380" height="44" rx="6"/>
+  <text class="t" x="584" y="372">재고 없음 → 전액 가격차이계정</text>
+
+  <rect class="b-ghost" x="60" y="400" width="880" height="36" rx="6"/>
+  <text class="t-s" x="84" y="423">수량차이가 함께 있으면, <tspan class="c-key">아직 납품되지 않은 청구수량분</tspan>의 금액은 재고·PRD가 아니라 <tspan class="t-h">GR/IR 청산계정</tspan>으로 간다.</text>
+</svg>
+<figcaption><span class="fno">그림 3</span>가격차이의 전기 경로. 이동평균가 자재는 차이가 재고계정에 흡수되어 단가 자체가 움직인다.</figcaption>
+</figure>
+
+<h4>수량차이와 가격차이가 함께 있을 때</h4>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>입고수량</th><th>전기 결과</th></tr></thead>
+<tbody>
+<tr><td>GR = 0 (청구서가 먼저)</td><td class="wrap">청구금액 전액이 <b>GR/IR 청산계정</b>으로. 나중에 같은 수량으로 GR을 전기하면 잔액 0. MAP 자재는 상대전기가 재고계정이라 <span class="hl">이후 평가가 PO가격이 아니라 청구가격으로</span> 이루어진다. 청구수량보다 많이 입고하면 정산분은 청구가격, 미정산분은 PO가격으로 평가</td></tr>
+<tr><td class="wrap">0 &lt; GR &lt; 청구수량</td><td class="wrap">납품된 수량만큼 GR/IR 잔액이 맞춰지고, 가격통제에 따라 재고계정 또는 가격차이계정에 가격차이 전기. <b>미납품 청구수량분 금액은 GR/IR 청산계정</b>에 남는다</td></tr>
+</tbody>
+</table>
+</div>
+
+<p>PO가격수량차이도 로직이 같습니다 — GR이 먼저면 가격차이와 동일하게 예상청구금액과 실제청구금액의 차액을 평가통제에 따라 전기하고, GR이 없으면 수량차이 로직을 따릅니다.</p>
+
+<h3>추가 차단사유 3종</h3>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>유형</th><th>설정 위치</th><th>동작</th></tr></thead>
+<tbody>
+<tr><td>수동차단</td><td class="wrap">헤더 Payment 탭의 <code>Payment Block</code>(예: <code>R</code> Invoice verification) / 항목목록의 <code>Ma</code> 열</td><td class="wrap">헤더든 항목이든 시스템이 <b>FI 문서 공급업체명세행에 지불차단을 자동 설정</b></td></tr>
+<tr><td>금액차단</td><td class="wrap"><code>OMRH</code> 활성화 → <code>OMRI</code> 대상 지정 → <code>OMR6</code>의 <code>AN</code> <code>AP</code></td><td class="wrap">금액이 큰 항목을 여러 사람이 보게 하려는 용도. 항목에 <code>Amount</code> 사유 부여 → 청구서 전체 차단</td></tr>
+<tr><td>확률적차단</td><td class="wrap"><code>OMRF</code> 활성화 → <code>OMRG</code> 임계값·백분율</td><td class="wrap"><span class="bad">항목이 아니라 청구서 전체</span>에 적용. 청구금액 ≥ 임계값이면 차단확률 = 지정 백분율, 미만이면 비례 축소. <b>다른 차단사유가 없는 청구서</b>를 전기할 때 판정</td></tr>
+</tbody>
+</table>
+</div>
+
+<p>헤더 수동차단용 자체 지불차단 키는 <code>OMR9</code>(Determine Payment Block)에서 정의합니다.</p>
+
+<h3>청구서감액 (Invoice Reduction) — 감액이 아니라 대변메모다</h3>
+
+<div class="step"><span class="n">1</span><p>항목의 <code>Correction ID</code>에 <b>Supplier error: reduce invoice</b> 선택 → <code>Invoice Quantity/Amount According to Supplier</code> 필드가 열린다</p></div>
+<div class="step"><span class="n">2</span><p>공급업체 청구서에 <b>적혀 있는</b> 수량·금액을 그 추가필드에 입력</p></div>
+<div class="step"><span class="n">3</span><p>우리가 <b>수락할</b> 값을 Quantity·Amount 기본값으로 조정 → 시스템이 차액을 결정</p></div>
+<div class="step"><span class="n">4</span><p>전기. <b>회계문서 2건</b>이 생긴다 — ① 공급업체 청구서 값 기준 공급업체·세금 전기, ② 차액에 대한 <b>대변메모</b></p></div>
+
+<div class="note warn">
+  <div class="t">"감액"이라는 이름에 속지 말 것</div>
+  <p>청구서가 실제로 깎이는 것이 <span class="bad">아닙니다</span>. 원래 금액대로 전기하고 <b>감액분만큼 대변메모를 추가로 전기</b>해서, 결과적으로 미지급금이 줄어드는 구조입니다. 그리고 <span class="hl">구매오더이력은 우리가 수락한 값(기본값)으로 갱신</span>됩니다 — 공급업체가 보낸 값이 아니라.</p>
+</div>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>Customizing</th><th>내용</th></tr></thead>
+<tbody>
+<tr><td class="wrap">LIV → Incoming Invoice → Tax Treatment in Invoice Reduction</td><td class="wrap">회사코드별로 원본문서를 <b>감액된 세금으로</b> 전기할지, 감액문서에서 세금을 수정할지</td></tr>
+<tr><td class="wrap">LIV → Incoming Invoice → Maintain Reasons for Invoice Reduction</td><td class="wrap">이의제기사유. <span class="bad">항목 레벨 입력이라 <code>MIR5</code>·<code>MIR6</code> 개요에는 안 보인다</span></td></tr>
+<tr><td class="wrap"><code>OMR4</code> → Document Types in Invoice Verification</td><td class="wrap">자동 생성되는 대변메모문서의 문서유형(트랜잭션별 할당)</td></tr>
+</tbody>
+</table>
+</div>
+
+<p>감액을 전기하면 시스템이 메시지를 생성하고, 이걸로 공급업체에 <b>이의제기서(letter of complaint)</b>를 보낼 수 있습니다.</p>
+
+<h3>항목참조 없는 차이 — 총액기준 감액과 총액기준 수락</h3>
+
+<p>시스템은 <b>청구항목 순금액 + 세금 + (해당 시) 계획된 부대비용 = 청구금액</b>인지 확인합니다. 여기서 생기는 소액 차이를 항목까지 파헤치지 않고 넘기는 두 기능이 있습니다.</p>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>기능</th><th>회계 처리</th><th>공급업체 통지</th></tr></thead>
+<tbody>
+<tr><td class="wrap">총액기준 청구서감액 (자동감액)</td><td class="wrap">회계문서 2건 — ① 청구서 전기 + <b>청구서감액청산계정</b> 추가전기, ② 그 계정의 상대전기 대변메모</td><td class="wrap">메시지 생성은 되지만, <span class="bad">시스템이 원인을 모르므로 감액 사유는 알릴 수 없다</span></td></tr>
+<tr><td class="wrap">총액기준 수락</td><td class="wrap">차이를 그대로 받아 <b>비용계정 또는 수익계정</b>에 자동전기</td><td class="wrap">없음</td></tr>
+</tbody>
+</table>
+</div>
+
+<p>총액기준 수락을 쓸 만한 상황은 — 청구금액이 예상보다 <b>적을 때</b>, 신뢰할 수 있는 공급업체의 증액 청구서, 차이 사유가 조사할 가치가 없을 때, 조사비용이 금액·관계에 비해 과도할 때입니다.</p>
+
+<h4>한도 설정 두 갈래</h4>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>방식</th><th>경로</th><th>우선순위</th></tr></thead>
+<tbody>
+<tr><td class="wrap">회사코드 종속 — 허용오차 키 <code>BD</code></td><td class="wrap"><code>OMR6</code> Set Tolerance Limits</td><td class="wrap">기본</td></tr>
+<tr><td class="wrap">공급업체 + 회사코드 종속 — <b>청구서검증 허용오차그룹</b></td><td class="wrap"><code>OMRX</code> Configure Supplier-Specific Tolerances. 그룹은 공급업체마스터 회사코드데이터 <code>Payment transactions</code>에서 지정</td><td class="wrap"><span class="hl">공급업체에 그룹이 있으면 <code>BD</code>보다 우선</span></td></tr>
+</tbody>
+</table>
+</div>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>차이 방향</th><th>판정 순서</th></tr></thead>
+<tbody>
+<tr><td>음수차이</td><td class="wrap">① 소액차이 한도 이내 → <b>소액차이계정</b> 전기<br>② 초과 시 총액기준수락 하한 이내인지 확인 → 이내면 소액차이계정<br>③ 둘 다 넘으면 <span class="bad">전기 불가</span></td></tr>
+<tr><td>양수차이</td><td class="wrap">① 양수 소액차이 한도 이내 → 소액차이계정<br>② 초과 시 <b>청구서감액 한도</b> 이내면 총액기준 청구서감액 수행<br>③ 감액한도가 <code>Do not check</code>면 총액기준수락 상한과 비교 → 이내면 소액차이계정<br>④ 둘 다 넘으면 <span class="bad">전기 불가</span></td></tr>
+</tbody>
+</table>
+</div>
+
+<p>소액차이를 <b>수동으로</b> 수락하는 기능은 권한 오브젝트 <code>M_RECH_AKZ</code>와 묶여 있고, <span class="bad">Create Supplier Invoice – Advanced 앱에서만</span> 쓸 수 있으며 파킹된 문서의 후속처리에서는 사용할 수 없습니다.</p>
+
+<h3>차단 해제 — MRBR</h3>
+
+<p>GUI 경로는 <code>Logistics → Materials Management → Logistics Invoice Verification → Further Processing → Release Blocked Invoices</code>(<code>MRBR</code>), Fiori 앱으로도 접근합니다. Selection 영역에서 대상 청구서를, Processing 영역에서 수동·자동 여부와 <b>현금할인일수 이동</b> 여부를 정합니다.</p>
+
+<div class="note">
+  <div class="t">🔰 초보자 설명 — 왜 "현금할인일수"를 옮기나</div>
+  <p>청구서가 차단되어 있는 동안 <b>현금할인 기간이 지나가 버릴 수 있습니다.</b> 우리 잘못으로 막아둔 사이에 할인을 놓치면 손해죠. 그래서 해제할 때 <span class="hl">기산일(baseline date)이 아니라 현금할인 일수를 늘려</span> 지불기간을 연장합니다. 늘어난 일수는 <b>회계문서의 공급업체명세행 상세</b>에서만 보입니다.</p>
+</div>
+
+<h4>Blocking Procedure — 세 묶음 중에 고른다</h4>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>절차</th><th>포함되는 청구서</th><th>자동해제</th></tr></thead>
+<tbody>
+<tr><td class="wrap">Blocked due to variances</td><td class="wrap">수량·가격·일자·품질 등 차이 차단 + <b>항목 레벨 수동차단</b></td><td class="wrap"><span class="good">가능</span></td></tr>
+<tr><td class="wrap">Manual payment block</td><td class="wrap">헤더 레벨 수동지불차단, 지불조건에서 비롯된 지불차단</td><td class="wrap"><span class="bad">불가</span></td></tr>
+<tr><td class="wrap">Stochastically blocked</td><td class="wrap">확률적 차단분만</td><td class="wrap"><span class="bad">불가</span></td></tr>
+</tbody>
+</table>
+</div>
+
+<p>자동해제는 각 차단사유가 <b>아직 유효한지</b> 재검사해서 무효면 지웁니다. 사유가 전부 지워지면 청구서가 자동 해제됩니다. 백그라운드 실행은 프로그램 <code>RM08RELEASE</code>입니다.</p>
+
+<div class="note warn">
+  <div class="t">수량 사유를 자동으로 없애려면 "후속납품"이어야 한다</div>
+  <p>추가 납품을 받아 수량차이를 해소할 때, GR기반 청구서검증이라면 <span class="bad">최초 입고의 자재문서를 참조한 후속납품으로 입고를 입력해야</span> 합니다. 그냥 새 GR로 넣으면 청구서와 입고 간 할당이 이루어지지 않아 차단사유가 살아남습니다.</p>
+  <p>그리고 <b>헤더에 수동지불차단이 걸린 청구서는 항목 사유가 전부 무효가 되어도 자동해제되지 않습니다</b> — 별도로 해제해야 합니다.</p>
+</div>
+
+<p>수동해제에서는 무효가 된 사유를 가진 청구서가 <b>노란색</b>으로 표시됩니다. 커서를 차단사유에 놓고 <code>Blocking Reason</code>으로 개별 삭제하거나, 한 행을 선택하고 <code>Release Invoice</code>로 전체 해제합니다. <span class="hl">전체 해제는 공급업체명세행의 지불차단만 지우고 항목의 차단사유 자체는 그대로 둡니다.</span> 권한은 <code>M_RECH_SPG</code>(삭제 가능한 차단사유)와 <code>M_RECH_EKG</code>(조회전용을 주면 전체해제 불가)로 통제합니다.</p>
+
+<p>가격사유로 차단된 청구서의 해제에도 <b>유연한 워크플로우</b> 시나리오를 붙일 수 있습니다.</p>
+
+<div class="note ok">
+  <div class="t">📌 개인 E2E 프로젝트와의 연결점</div>
+  <p>CBO <b>ZPRICE_CHECK</b>는 정보레코드가(<code>EINE-NETPR</code>)와 이동평균가(<code>MBEW-VERPR</code>)의 괴리를 <span class="key">알림만</span> 하도록 설계했습니다. 이 LESSON을 읽고 나면 그 경계가 분명해집니다 — <b>PO 순가격 vs 청구가격</b>은 표준이 <code>PP</code>/<code>KW</code>/<code>PS</code>로 이미 막아 줍니다. CBO가 볼 자리는 표준이 보지 않는 축, 즉 <span class="hl">정보레코드 단가가 실제 이동평균가에서 얼마나 멀어졌는가</span>입니다. 이건 청구서 한 건의 문제가 아니라 마스터 정비의 문제라서 차단이 아니라 알림이 맞습니다.</p>
+  <p>차단 쪽은 CBO를 만들지 않고 <code>OMR6</code> 세팅으로 끝냅니다. 식품 유통이라 <b>수량차이(<code>DQ</code>/<code>DW</code>)</b>는 파손·중량편차로 실제로 자주 납니다. 반대로 <b>일자차이(<code>ST</code>)</b>는 유통기한 관리 품목이라 선청구가 위험하므로 좁게 잡아야 합니다. 구체 한도값은 실제 시스템에서 <code>OMR6</code>을 열어 회사코드 <b>CL04</b> 기준으로 정합니다 — <span class="key">확인 필요</span>.</p>
+  <p>설계 원칙과도 맞습니다. "회계 영향이 있는 처리는 자동화하지 않는다"는 원칙이 표준에서는 <b>차단 → MRBR 수동해제</b>로 이미 구현되어 있습니다. CBO로 같은 것을 다시 만들 이유가 없습니다.</p>
+</div>
+
+</div>
+
+
+<!-- ══════════ LESSON 4 ══════════ -->
+<div class="lesson" id="l4">
+<h2><span class="no">LESSON 4</span>후속차변/대변 · 부대비용 · 참조없는 청구서 · 취소</h2>
+
+<p><span class="tag">Unit 3</span><span class="tag">레슨 4개</span>Subsequent Debits/Credits · Delivery Costs · Invoices Without PO Reference · Credit Memos and Reversals</p>
+
+<h3>후속차변 / 후속대변</h3>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>상황</th><th>입력 유형</th></tr></thead>
+<tbody>
+<tr><td class="wrap">이미 청구된 PO 항목에 <b>추가비용</b>이 발생 — 공급업체가 너무 낮게 청구한 뒤 차액 청구서를 보냄</td><td class="wrap">후속차변 (Subsequent Debit)</td></tr>
+<tr><td class="wrap">이미 청구된 PO 항목이 <b>너무 비싸게</b> 청구되어 대변메모를 받음</td><td class="wrap">후속대변 (Subsequent Credit)</td></tr>
+</tbody>
+</table>
+</div>
+
+<ul>
+  <li>시스템은 <b>전체 청구수량은 제안하지만 값(value)은 제안하지 않는다</b> — 금액은 직접 넣는다</li>
+  <li>후속 처리 가능한 최대수량 = <b>이미 청구된 수량</b></li>
+  <li>해당 PO 항목에 <span class="bad">청구서가 한 번이라도 전기되어 있어야</span> 입력할 수 있다</li>
+  <li><span class="bad">특정 청구서를 참조할 수 없다.</span> 구매오더이력에 <b>별도 항목</b>으로 나열된다</li>
+</ul>
+
+<p>계정이동은 <b>해당 수량이 이미 납품되었는지</b>로 갈립니다.</p>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>납품 여부</th><th>공급업체계정</th><th>상대전기</th></tr></thead>
+<tbody>
+<tr><td>이미 납품됨</td><td class="wrap">청구·대변 금액 전기</td><td class="wrap">가격통제에 따라 <b>재고계정 또는 가격차이계정</b>. 계정지정 PO면 <b>소비계정</b></td></tr>
+<tr><td>아직 미납품</td><td class="wrap">청구·대변 금액 전기</td><td class="wrap"><b>GR/IR 청산계정</b>. 이후 GR이 전기될 때 재고·가격차이(또는 소비)계정으로 차변·대변 전기</td></tr>
+</tbody>
+</table>
+</div>
+
+<h3>부대비용 — 계획된 것과 계획되지 않은 것</h3>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>구분</th><th>언제 정해지나</th><th>자재평가 반영</th><th>PO 이력 표시</th></tr></thead>
+<tbody>
+<tr><td class="wrap">계획된 부대비용 (Planned)</td><td class="wrap"><b>구매오더 생성 시</b> 조건유형으로 항목에 입력. 공급업체·운송업체·세관과 사전 합의</td><td class="wrap"><span class="good">GR 시점에 자재평가의 일부</span>. 계정지정 PO면 계정지정오브젝트에 차변</td><td class="wrap">조건유형별로 표시</td></tr>
+<tr><td class="wrap">미계획 부대비용 (Unplanned)</td><td class="wrap">청구서 입력 시점에 알게 됨</td><td class="wrap">청구항목에 분배되면 금액이 그만큼 증가 → <b>가격차이로 취급</b></td><td class="wrap"><span class="bad">별도항목으로 나열되지 않음</span> (이미 계산된 값에 포함)</td></tr>
+</tbody>
+</table>
+</div>
+
+<p>계획된 부대비용은 <b>고정금액 / 수량종속금액 / 재화가치 백분율</b> 중 하나로 계산되고, 보통 운송비와 관세로 나뉩니다. 특정 공급업체에 묶이지 않아서 PO에서 재화공급업체와 별개로 운송업체·세관을 지정할 수 있고, 청구서검증에서 <code>Details</code> 탭에서 다른 청구요청업체로 전기할 수도 있습니다.</p>
+
+<div class="note warn">
+  <div class="t">미계획 부대비용만 있는 청구서는 "후속차변"으로만 들어간다</div>
+  <p>해당 PO에 <span class="bad">최소 1건의 청구서가 이미 수령되어 있어야</span> 합니다. 그렇지 않으면 모든 청구값이 0이라 부대비용을 분배할 곳이 없습니다.</p>
+  <p>그리고 <b>자동분배와 수동분배는 검사가 다릅니다.</b> 자동분배(지금까지 청구된 총금액과 현재 청구서 금액에 비례)를 한 뒤에는 <span class="hl">시스템이 가격검사를 수행하지 않습니다</span>. 반면 개별 항목 금액을 수동으로 바꿔 분배하면 가격차이와 똑같이 취급되어 <b>허용오차 초과 시 청구서가 차단</b>됩니다.</p>
+</div>
+
+<h4>미계획 부대비용의 계정이동</h4>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>Customizing 선택</th><th>전기 대상</th></tr></thead>
+<tbody>
+<tr><td class="wrap">항목에 자동분배 (회사코드별 활성화)</td><td class="wrap">가격차이로 갱신 → MAP 자재는 <b>재고보유량이 있는 한 재고계정</b>, 표준가 자재는 <b>가격차이계정</b></td></tr>
+<tr><td class="wrap">별도 G/L 계정 전기</td><td class="wrap">자동계정결정의 트랜잭션 키 <code>UPF</code>(Unplanned Delivery Costs)에 지정된 G/L 계정으로 <b>총액 전기</b>. <span class="bad">재고·계정지정오브젝트에는 차변전기되지 않고, PO 이력에도 표시되지 않는다</span></td></tr>
+</tbody>
+</table>
+</div>
+
+<p>관련 Customizing은 <code>SPRO → Materials Management → Logistics Invoice Verification → Incoming Invoice → Configure How Unplanned Delivery Costs Are Posted</code>, 세금코드 기본값은 <code>OMR2</code>, 자동전기 계정은 <code>OMR0</code>(Configure Automatic Postings)입니다.</p>
+
+<h3>구매오더 참조 없는 청구서</h3>
+
+<p>참조가 없으면 시스템은 대조할 PO 항목도 GR도 없으므로 <span class="bad">청구항목 기본값을 제안하지 않습니다</span>. 헤더(청구서일자·참조·청구금액·통화)에 더해 <b>청구요청업체까지 수동입력</b>(<code>MIRO</code>는 <code>Details</code> 탭)한 뒤에야 항목을 넣을 수 있습니다.</p>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>전기 대상</th><th>Create Supplier Invoice (Fiori)</th><th>Advanced / <code>MIRO</code></th><th>GR/IR 청산계정</th></tr></thead>
+<tbody>
+<tr><td>G/L 계정</td><td class="wrap"><span class="good">가능</span></td><td class="wrap"><span class="good">가능</span></td><td class="wrap"><span class="bad">전기되지 않음</span> — 지정 G/L에 직접</td></tr>
+<tr><td>자재 재고계정</td><td class="wrap"><span class="bad">불가</span></td><td class="wrap"><span class="good">가능</span></td><td class="wrap"><span class="bad">전기되지 않음</span> — 가격통제·재고보유량에 따라 재고 또는 가격차이계정</td></tr>
+<tr><td>자산</td><td class="wrap"><span class="bad">불가</span></td><td class="wrap"><span class="good">가능</span></td><td class="wrap">—</td></tr>
+</tbody>
+</table>
+</div>
+
+<p>직접전기를 쓰려면 <code>Invoice Verification → Incoming Invoice → Activate Direct Posting to G/L &amp; Material Accounts &amp; Assets</code>에서 활성화해야 합니다. G/L 직접전기 시 시스템은 <b>계정 마스터의 통제</b>를 따져 수동전기 가능 여부와 계정지정 필수 여부를 확인합니다. 자재 직접전기는 <b>플랜트 · 자재번호 · 금액</b>이 있어야 평가와 재고수량을 결정할 수 있고, 제안된 재고수량은 덮어쓸 수 있습니다.</p>
+
+<div class="note">
+  <div class="t">🔰 초보자 설명 — 언제 G/L 직접전기를 쓰나</div>
+  <p>운송비를 정산은 해야 하는데 그 비용을 <b>자재 원가에 얹고 싶지 않을 때</b>입니다. 자재계정이나 원가계정을 건드리지 않고 지정한 G/L 계정으로만 보냅니다. 참고로 <code>G/L Account</code> 탭의 표시변형은 FI의 <code>FB60</code>(Enter Vendor Invoice) 항목 화면변형과 대응합니다.</p>
+</div>
+
+<h3>대변메모와 취소 (Reversal)</h3>
+
+<p>청구서를 취소하면 시스템이 그 문서 데이터를 근거로 <b>대변메모를 자동생성</b>합니다. 금액·수량을 시스템이 직접 결정하므로 청구서와 대변메모 사이에 차이가 생기지 않습니다. 반대로 <span class="hl">대변메모를 취소하면 청구서가 자동생성</span>됩니다.</p>
+
+<div class="note warn">
+  <div class="t">취소는 원래 전기를 거울처럼 되돌리지 않는다</div>
+  <p>MAP 자재에 가격차이가 있는 청구서를 전기할 때는 재고보유량이 충분해서 <b>재고계정에 차변</b>으로 갔다고 합시다. 그런데 취소하는 시점에 재고가 빠져나가 보유량이 부족하면, 시스템은 대변메모의 가격차이를 <span class="bad">가격차이계정으로</span> 보냅니다. 원전기와 취소전기의 계정이 달라지는 겁니다.</p>
+  <p>나머지 제약도 같이 외웁니다 — <b>부분 취소는 없다</b>(일부만 되돌리려면 대변메모를 수동 입력), <b>취소문서는 다시 취소할 수 없다</b>, <b>잔액이 0인 청구서·대변메모는 취소할 수 없다</b>.</p>
+</div>
+
+<p>LIV에서 청구서를 취소해도 <span class="bad">FI의 문서라인은 자동으로 청산되지 않습니다.</span> SAP는 청산작업을 <b>주기적으로(예: 매일 백그라운드)</b> 돌릴 것을 권장합니다.</p>
+
+<div class="note ok">
+  <div class="t">📌 개인 E2E 프로젝트와의 연결점</div>
+  <p>식품 유통은 <b>냉장·냉동 운송비</b>가 원가에서 차지하는 비중이 큽니다. 프로젝트는 온도군별로 저장위치를 나눠 뒀으니(<code>1100/1900</code> 냉동 · <code>2100/2900</code> 냉장 · <code>3100/3900</code> 실온), 운송비를 <b>계획된 부대비용</b>으로 PO 조건에 넣어 두면 GR 시점에 자재평가에 반영되어 온도군별 원가 차이가 <code>MBEW-VERPR</code>에 자연스럽게 드러납니다. 미계획 부대비용으로 나중에 밀어넣으면 이미 재고가 빠져나간 뒤라 <span class="bad">가격차이계정으로 새 버립니다.</span></p>
+  <p>여기에도 <b>ZPRICE_CHECK</b>의 함정이 하나 있습니다. 미계획 부대비용이 재고계정으로 들어가면 MAP가 올라가는데, 정보레코드가는 그대로입니다 — <span class="hl">괴리가 "가격 오류"가 아니라 "부대비용 반영"일 수 있다</span>는 뜻입니다. CBO 알림 메시지에 <b>괴리 금액뿐 아니라 최근 전기 문서유형을 같이 실어야</b> 담당자가 판단할 수 있습니다.</p>
+</div>
+
+</div>
+
+
+<!-- ══════════ LESSON 5 ══════════ -->
+<div class="lesson" id="l5">
+<h2><span class="no">LESSON 5</span>자동정산 — 백그라운드 검증 · ERS · 수탁 · 청구계획</h2>
+
+<p><span class="tag">Unit 4</span><span class="tag">레슨 3개</span>Invoice Verification in the Background · Receipt Settlements (ERS) · Further Automatic Settlements</p>
+
+<h3>백그라운드 청구서검증</h3>
+
+<p>정산프로그램을 정기 스케줄로 돌려서 청구서문서의 항목을 생성하고 회계 관점의 정확성을 확인합니다. <span class="key">온라인 검증과 완전히 동일한 로직</span>을 쓰므로, 자동청구서감액·자동수락 Customizing도 그대로 적용됩니다.</p>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>쓰기 좋은 상황</th><th>이유</th></tr></thead>
+<tbody>
+<tr><td class="wrap">납품과 동시에 청구서를 받았는데 GR이 아직 안 들어온 경우</td><td class="wrap">납품메모 참조 청구서를 온라인으로 검사할 수 없다. 저녁까지 GR이 들어올 것으로 보고 야간 정산실행에 맡긴다</td></tr>
+<tr><td class="wrap">동일 자재 항목이 아주 많은 청구서</td><td class="wrap">주간 처리 시 <b>시스템 잠금(lock)과 성능저하</b>를 피해 야간에 돌린다</td></tr>
+<tr><td class="wrap">항목 레벨 검증이 필요 없는 대량데이터 청구서</td><td class="wrap">건별로 사람이 볼 필요가 없다</td></tr>
+</tbody>
+</table>
+</div>
+
+<p>입력은 <code>MIRA</code>(Enter Invoice for Invoice Verification in Background), 실행 프로그램은 <code>RMBABG00</code>입니다. 매입채무 담당자는 문서를 수동으로 <b>백그라운드 재스케줄링</b>할 수 있고, 그러면 상태가 <code>Defined for Background Verification</code>으로 돌아갑니다.</p>
+
+<div class="note warn">
+  <div class="t">항목 차이가 서로 상쇄되어 그냥 지나갈 수 있다</div>
+  <p>재실행 사이에 추가 GR이 들어오면 예상청구금액이 바뀌어 실제금액과 맞아떨어질 수 있습니다. 이때 <span class="bad">항목 레벨의 차이가 서로 상쇄되어 감지되지 않은 채</span> 전기될 수 있습니다. 전기 후 상태가 <code>Correct (Posted, Not Completed)</code>가 될지 <code>Posted</code>가 될지는 <code>LIV → Invoice Verification in Background → Define Automatic Status Change</code> 설정에 달려 있습니다 — 실제 시스템에서 확인 필요.</p>
+</div>
+
+<p>오류가 난 문서에는 <b>오류로그</b>가 남습니다. 처리 선택지는 셋 — 변경 없이 재스케줄링 / 변경 후 온라인 전기 / 변경 후 재스케줄링. 실수로 두 번 입력된 건처럼 재처리하면 안 되는 문서는 <b>삭제</b>합니다.</p>
+
+<h3>ERS — 평가수령결제 (Evaluated Receipt Settlement)</h3>
+
+<p>공급업체와 합의해서 <span class="hl">공급업체가 청구서를 아예 보내지 않고</span>, 재화수령자인 우리가 시스템으로 청구서를 자동생성하는 방식입니다. ERS에서 이 청구서는 공급업체 입장에서 <b>대변메모</b>이고, 공급업체는 메시지로 정산 사실을 통지받습니다 — 그래서 <b>대변메모절차</b>라고도 부릅니다.</p>
+
+<p>장점은 셋 — 발주 트랜잭션이 더 빨리 종결되고, 입력오류가 없고, <span class="good">청구서검증에서 수량·가격차이가 발생하지 않습니다</span>.</p>
+
+<h4>전제조건 — 하나라도 빠지면 안 돈다</h4>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>위치</th><th>필요한 설정</th></tr></thead>
+<tbody>
+<tr><td class="wrap">공급업체마스터</td><td class="wrap"><code>Eval. Receipt Settlement</code> 지시자 (구매조직데이터)</td></tr>
+<tr><td class="wrap">구매오더 헤더</td><td class="wrap">지불조건 키 — Customizing에 <b>기산일 기본값이 설정된</b> 키여야 한다</td></tr>
+<tr><td class="wrap">구매오더 항목</td><td class="wrap">자동평가수령결제 지시자 + <b>GR기반 청구서검증 지시자</b> + 세금코드</td></tr>
+<tr><td class="wrap">구매오더 항목</td><td class="wrap"><code>Estimated price</code> 지시자가 <span class="bad">설정되어 있지 않아야</span> 한다 (<code>ME21N</code> 항목상세 <code>Condition Control</code> 탭)</td></tr>
+<tr><td class="wrap">입고</td><td class="wrap"><b>구매오더를 참조</b>하여 입력</td></tr>
+<tr><td class="wrap">Customizing</td><td class="wrap"><code>LIV → Message Determination</code> 설정 존재</td></tr>
+</tbody>
+</table>
+</div>
+
+<p>구매정보레코드의 <code>No ERS</code> 지시자로 특정 자재만 빼둘 수 있습니다 — 공급업체 A에 ERS가 켜져 있어도 (A, 자재 X) 정보레코드에 <code>No ERS</code>가 있으면 그 PO 항목에는 ERS 지시자가 붙지 않습니다. <span class="key">어디까지나 제안값이라 사용자가 바꿀 수 있습니다.</span></p>
+
+<h4>실행 수단</h4>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>대상</th><th>T-Code / 앱</th><th>백그라운드 프로그램</th></tr></thead>
+<tbody>
+<tr><td class="wrap">재화·용역 (+ 계획된 부대비용)</td><td class="wrap"><code>MRRL</code></td><td class="wrap"><code>RMMR1MRS</code></td></tr>
+<tr><td class="wrap">계획된 부대비용만</td><td class="wrap"><code>MRDC</code> · Create Automatic Delivery Cost Settlement</td><td class="wrap"><code>RMMR1MDC</code></td></tr>
+</tbody>
+</table>
+</div>
+
+<p>선택기준은 공급업체 / 구매오더 / 구매오더항목 / 납품문서·서비스입력시트별입니다. <code>MRDC</code>는 회사코드 · 운송업체 · 구매문서 · 구매문서항목 · <b>선하증권</b> 기준이고, <code>Document Selection per Bill of Lading</code>이 납품문서별 선택을 대체합니다. 둘 다 <b>테스트런</b>이 가능하고 결과는 로그에 남습니다.</p>
+
+<div class="note warn">
+  <div class="t">한 단계로 묶으면 못 쓰는 선택기준이 생긴다</div>
+  <p>재화·용역과 계획된 부대비용을 <b>한 단계로 정산</b>하려면 <span class="bad">GR 관련 데이터(GR 문서)를 이용한 선택도 불가, 납품문서별 문서선택도 불가</span>입니다. 계획된 부대비용에는 GR기반 청구서검증이 불가능하기 때문입니다. 자재·용역만 정산할 때는 이 제약이 없습니다.</p>
+</div>
+
+<p>계획된 부대비용까지 자동정산하려면 <code>LIV → Evaluated Receipt Settlement(ERS) → Specify Automatic Settlement of Planned Delivery Costs</code>에서 <b>회사코드 · 구매조직 · 운송업체</b> 조합을 활성화합니다. 이때 <span class="bad">운송업체 마스터에는 ERS 지시자를 켜면 안 됩니다.</span> 부대비용 정산에는 항상 항목의 세금코드가 쓰이고 다른 세금코드를 지정할 수 없습니다. 고객 확장점은 익시트 <code>MRMH0001</code>과 BAdI <code>MRM_ERS_HDAT_MODIFY</code> · <code>MRM_ERS_IDAT_MODIFY</code>입니다.</p>
+
+<h3>공급업체 수탁 정산 (Consignment)</h3>
+
+<p>공급업체가 먼저 <b>무상으로</b> 납품합니다. 자재는 우리 창고에 있지만 소유권은 공급업체에 있고, 이 납품은 청구되지 않습니다. <span class="hl">수탁재고에서 인출한 뒤에야</span> 대금 의무가 생기는데, 청구서를 받는 게 아니라 <b>우리가 전기된 인출을 스스로 정산하고 통지서를 보냅니다.</b></p>
+
+<p>ERS와 결정적으로 다른 점 — <span class="bad">수탁자재의 구매오더 참조가 생성되지 않습니다.</span> 정산의 기준은 PO가 아니라 <b>수탁재고로부터의 인출</b>입니다.</p>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>전제조건</th><th>위치</th></tr></thead>
+<tbody>
+<tr><td class="wrap">트랜잭션 키 <code>KON</code>(Consignment payables)에 계정 지정</td><td class="wrap"><code>OMWB</code> Configure Automatic Postings</td></tr>
+<tr><td class="wrap">메시지결정 설정</td><td class="wrap"><code>LIV → Message Determination</code></td></tr>
+<tr><td class="wrap">정보범주 <code>Consignment</code> 구매정보레코드 (가격 + 정산용 세금지시자)</td><td class="wrap"><b>플랜트의 표준구매조직</b>용으로 생성. 배정은 <code>Enterprise Structure → Assignment → Materials Management → Assign standard purchasing organization to plant</code></td></tr>
+</tbody>
+</table>
+</div>
+
+<p>실행은 <code>MRKO</code>(Consignment and Pipeline Settlement) 또는 Fiori의 <b>Create Consignment and Pipeline Settlement</b>입니다. 선택기준은 회사코드 · 공급업체 · 플랜트 · 자재 · 문서일자 · 전기일자 · 자재문서 · 인출유형(수탁/파이프라인)이고, 미정산분 표시·정산과 기정산분의 정산문서번호 조회를 고를 수 있습니다. 부채계정 전기 시 <span class="key">자재문서번호로부터 할당번호가 자동생성</span>되어 FI 미결항목을 청산할 수 있습니다. 문서헤더를 손대려면 BAdI <code>MRM_MRKO_HDAT_MODIFY</code>입니다.</p>
+
+<h3>청구계획 정산 (Invoicing Plan)</h3>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>유형</th><th>금액 처리</th><th>용도</th></tr></thead>
+<tbody>
+<tr><td class="wrap">정기청구계획 (Periodic)</td><td class="wrap">PO 항목의 <b>총금액이 각 만기일마다</b> 계산된다</td><td class="wrap">반복 조달 — 임대료·리스료·구독료. FI의 정기전표입력에 해당</td></tr>
+<tr><td class="wrap">분할청구계획 (Partial)</td><td class="wrap">PO 항목 총가치를 <b>개별 일자에 나눠</b> 배분</td><td class="wrap">고가자재, 단계별 지불이 있는 외부용역 프로젝트(플랜트·건설)</td></tr>
+</tbody>
+</table>
+</div>
+
+<p>분할청구계획에서는 만기일을 <b>선지급(advance payment) 일자</b>로 표시할 수 있는데, 이 금액은 <span class="bad">청구항목 합계에 반영되지 않습니다</span> — 나중에 청구서와 상계되기 때문입니다.</p>
+
+<p>전제조건은 <code>Purchasing → Purchase Order → Invoicing Plan</code> Customizing, 메시지결정 설정, 공급업체마스터의 <code>Eval. Receipt Sett.</code> 지시자, 그리고 <b>PO 청구계획항목에 계정지정이 있고 비평가입고 또는 입고없음일 것</b> + 정산용 세금코드입니다. 실행은 <code>MRIS</code> 또는 <b>Create Invoicing Plan Settlement</b> 앱이고, 회사코드·플랜트·공급업체·구매문서(항목)로 선택해 공급업체별·PO별·항목별로 청구문서를 만듭니다.</p>
+
+<div class="note ok">
+  <div class="t">📌 개인 E2E 프로젝트와의 연결점</div>
+  <p>프로젝트 자재는 전부 <b>배치관리 + 유통기한(<code>MCHA-VFDAT</code>)</b> 대상입니다. 그래서 ERS는 <span class="bad">권하기 어렵습니다</span> — ERS는 GR기반이라 매칭 자체는 되지만, 청구서를 사람이 한 번도 보지 않고 대금이 나가는 구조라서 <b>유통기한이 짧은 입고분이 그대로 결제되는 위험</b>이 있습니다. 설계 원칙("회계 영향이 있는 처리는 자동화하지 않는다")과도 정면으로 충돌합니다. 학습용으로 <code>MRRL</code> 테스트런까지만 돌려보고 실제 정산실행은 하지 않는 편이 낫습니다.</p>
+  <p>대신 프로젝트 목표 2번(<b>병렬처리 + AL11 기반 대량 처리 프로그램</b>)의 참고 모델로는 백그라운드 청구서검증(<code>RMBABG00</code>)이 좋습니다. 대량 건을 야간에 돌리고, <span class="hl">건별 오류로그를 남기고, 실패 건은 상태를 되돌려 재처리 대상으로 남긴다</span> — 이 구조가 그대로 CBO 테이블의 상태필드 <code>W</code>(대기) / <code>P</code>(처리완료) / <code>H</code>(보류) 설계와 같습니다. "실패하면 조용히 넘어가지 않고 상태로 남긴다"가 핵심입니다.</p>
+</div>
+
+</div>
+
+
+<!-- ══════════ LESSON 6 ══════════ -->
+<div class="lesson" id="l6">
+<h2><span class="no">LESSON 6</span>GR/IR 계정관리 — MR11과 Fiori 조정 앱</h2>
+
+<p><span class="tag">Unit 5</span><span class="tag">레슨 2개</span>Performing GR/IR Account Maintenance · Using Fiori Apps for GR/IR Reconciliation</p>
+
+<h3>언제 이걸 알아야 하는가</h3>
+
+<p>결산 때마다 회계팀에서 오는 말이 있습니다. <b>"GR/IR 계정에 잔액이 몇 년째 쌓여 있는데 이게 뭡니까."</b> 대부분 이렇게 생긴 것들입니다 — 납품은 받았는데 청구서가 끝내 안 온 건, 반대로 청구서는 왔는데 입고를 안 잡은 건, 그리고 조금씩 어긋난 채 잊혀진 건.</p>
+
+<p>이 잔액은 <span class="key">저절로 사라지지 않습니다.</span> 누군가 "이 PO 항목에 더는 아무것도 안 온다"고 판정하고 <code>MR11</code>로 털어내야 없어집니다. 그 판정을 어떤 근거로 하느냐가 이 LESSON입니다.</p>
+
+<h3>GR/IR 청산계정의 라이프사이클</h3>
+
+<figure class="figwrap">
+<svg class="dgm" viewBox="0 0 1000 600" role="img" aria-label="GR IR 청산계정 라이프사이클 도해. 입고 시 대변, 청구서 수령 시 차변으로 전기되어 정상이면 잔액 0이 되지만, 수량이 어긋나면 잔액이 남고 더 이상 입고도 청구서도 기대되지 않을 때 MR11로 정리한다.">
+  <defs>
+    <marker id="m4a" markerWidth="9" markerHeight="9" refX="7" refY="4.5" orient="auto">
+      <polygon class="arw" points="0,0 9,4.5 0,9"/></marker>
+    <marker id="m4o" markerWidth="9" markerHeight="9" refX="7" refY="4.5" orient="auto">
+      <polygon class="arw-ok" points="0,0 9,4.5 0,9"/></marker>
+  </defs>
+
+  <line class="ln-d" x1="60" y1="62" x2="980" y2="62"/>
+
+  <rect class="b-key" x="90" y="16" width="180" height="38" rx="5"/>
+  <text class="t-h c-key" x="108" y="41">① 입고 GR (101)</text>
+  <rect class="b-key" x="390" y="16" width="180" height="38" rx="5"/>
+  <text class="t-h c-key" x="408" y="41">② 청구서 IR (MIRO)</text>
+  <rect class="b-hl" x="805" y="16" width="175" height="38" rx="5"/>
+  <text class="t-h" x="821" y="41">③ MR11 계정관리</text>
+
+  <path class="ln" d="M180 54 V62"/><path class="ln" d="M480 54 V62"/><path class="ln" d="M892 54 V62"/>
+
+  <rect class="b" x="200" y="120" width="600" height="240" rx="6"/>
+  <text class="t-h" x="224" y="148">GR/IR 청산계정 (대차대조표 청산계정)</text>
+  <line class="ln" x1="200" y1="160" x2="800" y2="160"/>
+  <line class="ln" x1="500" y1="160" x2="500" y2="360"/>
+  <text class="t-s" x="224" y="182">차변 (Debit)</text>
+  <text class="t-s" x="524" y="182">대변 (Credit)</text>
+
+  <text class="m c-key" x="524" y="216">① GR    1,000</text>
+  <text class="t-xs" x="524" y="234">PO가격 × 입고수량 100 EA</text>
+
+  <text class="m c-key" x="224" y="256">② IR      800</text>
+  <text class="t-xs" x="224" y="274">청구수량 80 EA</text>
+
+  <line class="ln-d" x1="210" y1="296" x2="790" y2="296"/>
+  <text class="m c-bad" x="524" y="322">잔액     200</text>
+  <text class="t-xs" x="524" y="342">미청구 20 EA — 납품초과 (GR surplus)</text>
+
+  <path class="ln-ok" d="M340 360 V384" marker-end="url(#m4o)"/>
+  <path class="ln" d="M660 360 V384" marker-end="url(#m4a)"/>
+  <path class="ln" d="M892 62 V384" marker-end="url(#m4a)"/>
+
+  <rect class="b-ok" x="60" y="388" width="420" height="130" rx="6"/>
+  <text class="t-h c-ok" x="84" y="416">잔액이 스스로 해소되는 경로</text>
+  <text class="t-s" x="84" y="442">추가 청구서 수령 → 잔액 0</text>
+  <text class="t-s" x="84" y="464">반품 · GR 취소 → 잔액 0</text>
+  <text class="t-s" x="84" y="486">단, 조정입고는 후속납품 트랜잭션으로</text>
+  <text class="t-xs c-bad" x="84" y="506">일반 GR로 넣으면 잔액이 어긋난다 (SAP Note 184632)</text>
+
+  <rect class="b-hl" x="520" y="388" width="420" height="130" rx="6"/>
+  <text class="t-h" x="544" y="416">③ MR11 — 더 기대할 게 없을 때</text>
+  <text class="t-s" x="544" y="442">GR/IR 잔액을 정리하고 계정관리문서 생성</text>
+  <text class="t-s" x="544" y="464">PO 이력에 별도 트랜잭션으로 표시된다</text>
+  <text class="t-s" x="544" y="486">MR11SHOW 로 취소 가능</text>
+  <text class="t-xs" x="544" y="506">처리방식: 자동청산 / 목록준비 두 가지</text>
+
+  <rect class="b-ghost" x="60" y="534" width="880" height="48" rx="6"/>
+  <text class="t-s" x="84" y="556">MR11 실행 전 확인: 이 PO 항목에 <tspan class="c-bad">더 이상 입고도 청구서수령도 예상되지 않는가.</tspan></text>
+  <text class="t-s" x="84" y="576">IR 전기 후 GR을 취소하면 GR/IR이 어긋난다 — <tspan class="c-key">청구서를 먼저 취소</tspan>하는 것이 원칙.</text>
+</svg>
+<figcaption><span class="fno">그림 4</span>GR/IR 청산계정의 라이프사이클. GR은 대변, IR은 차변. 잔액이 남는 것은 "아직 안 끝난 거래"라는 신호다.</figcaption>
+</figure>
+
+<div class="note">
+  <div class="t">🔰 초보자 설명 — GR/IR 계정은 왜 있나</div>
+  <p>물건은 들어왔는데(GR) 청구서는 아직 안 왔습니다. 재고는 늘었으니 어딘가에 <b>상대 전기</b>가 필요한데, 공급업체에 갚을 돈은 아직 확정이 아닙니다. 그래서 중간에 "받긴 받았고 곧 갚을 것" 자리를 하나 둡니다 — 그게 GR/IR 청산계정입니다. 청구서가 들어오면 이 자리가 비워지고 진짜 미지급금으로 넘어갑니다. <span class="hl">잔액이 남아 있다는 건 물건과 청구서 중 하나가 아직 안 맞았다는 뜻</span>입니다.</p>
+</div>
+
+<h3>MR11 — 계정관리 실행</h3>
+
+<p>Fiori는 <b>Clear GR/IR Clearing Account</b> 앱, GUI는 <code>Logistics → Materials Management → Logistics Invoice Verification → GR/IR Account Maintenance → Maintain GR/IR Clearing Account</code>(<code>MR11</code>)입니다.</p>
+
+<div class="note warn">
+  <div class="t">순서를 바꾸면 안 된다</div>
+  <p>GR/IR 청산계정을 관리하기 <b>전에</b>, 그 PO 항목에 <span class="bad">더 이상 입고나 청구서수령이 예상되지 않는지 먼저 확인</span>해야 합니다. 아직 올 게 남은 건을 털어버리면 나중에 다시 어긋납니다. 청산계정은 <b>주기적으로, 또는 회계연도 말</b>에 "끝난 PO 항목"에 대해서만 관리합니다.</p>
+  <p>계획된 부대비용도 같습니다. 납품수량이 부대비용 계산수량과 다르면 <b>부대비용 청산계정</b>의 잔액이 안 맞으므로, 더 이상 납품·정산이 없으면 그쪽도 계정관리 대상입니다.</p>
+</div>
+
+<h4>선택 기준</h4>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>축</th><th>선택 항목</th></tr></thead>
+<tbody>
+<tr><td>거래처</td><td class="wrap">공급업체 또는 <b>운송업체</b>(계획된 부대비용이 있는 경우)</td></tr>
+<tr><td>조직</td><td class="wrap">구매조직 · 구매그룹 · 플랜트</td></tr>
+<tr><td>문서</td><td class="wrap">구매문서 · 구매문서항목 · 구매오더일자 · 구매문서범주(PO / 일정계약) · 오더유형</td></tr>
+<tr><td>잉여유형</td><td class="wrap"><b>납품초과</b> 및/또는 <b>청구초과</b></td></tr>
+<tr><td>청산 대상 계정</td><td class="wrap">GR/IR 청산계정 및/또는 <b>부대비용 청산계정</b></td></tr>
+<tr><td>ERS 항목</td><td class="wrap"><code>ERS Purchase Orders</code> · <code>ERS - Delivery Costs</code> 지시자로 포함 여부 결정</td></tr>
+<tr><td>기준일</td><td class="wrap"><code>Last movement before key date</code> — 마지막 재화이동이 특정 일자 이전인 것만</td></tr>
+<tr><td>차이 크기</td><td class="wrap">수량차이 금액(백분율) · 가치차이 금액(회사코드통화)</td></tr>
+</tbody>
+</table>
+</div>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>처리방식</th><th>동작</th></tr></thead>
+<tbody>
+<tr><td>자동청산 (Automatic clearance)</td><td class="wrap">백그라운드 실행 가능 — <code>Program → Execute in Background</code></td></tr>
+<tr><td>목록준비 (Prepare list)</td><td class="wrap">수량차이가 있는 PO 항목 목록을 화면에 표시 → <b>골라서</b> 청산</td></tr>
+</tbody>
+</table>
+</div>
+
+<p>계정관리를 실행하면 <b>계정관리문서</b>가 생성되고, 구매오더이력에 <span class="key">별도 트랜잭션으로 표시</span>됩니다. 나중에 예상치 못한 입고·청구서가 들어오면 취소할 수 있습니다 — <code>MR11SHOW</code>(Display/Cancel Account Maintenance Document) 또는 동명의 Fiori 앱입니다.</p>
+
+<h3>S/4HANA 전용 GR/IR 조정 앱 3종</h3>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>앱</th><th>App ID</th><th>역할</th></tr></thead>
+<tbody>
+<tr><td>Reconcile GR/IR Accounts</td><td><code>F3302</code></td><td class="wrap">규명이 필요한 미결항목의 <b>작업목록</b>을 만들고, 상태·우선순위·담당자·근본원인을 지정해 하나씩 줄여 나간다</td></tr>
+<tr><td class="wrap">Monitor GR/IR Account Reconciliation</td><td><code>F3303</code></td><td class="wrap">KPI 카드로 조정 현황을 개관. 여기서 <code>F3302</code>로 드릴다운</td></tr>
+<tr><td>GR/IR Process Insights</td><td><code>F5796</code></td><td class="wrap">조정 프로세스 자체를 분석 — 병목·중복작업·지연의 근본원인, 평균처리일수</td></tr>
+</tbody>
+</table>
+</div>
+
+<p>세 앱 모두 역할 <code>SAP_BR_GL_ACCOUNTANT</code>에 속하고, 재무 스코프아이템 <b>2V7</b>에 포함됩니다.</p>
+
+<h4>Reconcile GR/IR Accounts의 핵심 — Smart Facts</h4>
+
+<p><b>스마트팩트</b>는 "이 항목이 지금 어떤 업무상황인가"를 문장으로 알려주는 분류입니다. 담당자가 숫자를 직접 해석하지 않아도 되도록 — 예를 들어 <span class="key">"입고가 아직 전기되지 않음"</span>, <span class="key">"청구서가 아직 전기되지 않음"</span>, <span class="key">"입고·청구 금액·수량 불일치"</span> 같은 식으로 잡아서 작업목록을 뽑습니다.</p>
+
+<ul>
+  <li>결과를 <b>차트 / 표 / 둘 다</b>로 표시. 필터로 작업목록을 만들고 <b>변형(variant)</b>으로 저장</li>
+  <li>상세 화면에 개요 · <b>FI 미결항목(전표기입)</b> · 구매문서이력 · <b>처리로그</b>를 함께 표시 — 구매와 회계 정보를 한 화면에서</li>
+  <li>상태(<code>Check Goods Movement</code>, <code>Request Completion of Delivery</code>, <code>Request Correction of Invoice</code>), 우선순위, 처리자·처리부서, 근본원인(<code>Differing Quantity in Invoice</code>, <code>Missing Goods Receipt</code>)을 지정하고 코멘트 입력</li>
+  <li><b>Perform Write-Off</b>(상각)는 상태가 <code>Perform Write-Off</code> 계열인 항목에서만 버튼이 활성화된다</li>
+</ul>
+
+<div class="note warn">
+  <div class="t">머신러닝은 별도 구독 라이선스다 — 확인 필요</div>
+  <p>ML 서비스는 과거 의사결정을 학습해 각 항목의 다음 단계·우선순위·근본원인을 <b>제안</b>합니다. 다만 <span class="bad">GR/IR 계정조정에서 머신러닝을 쓰려면 별도의 구독 라이선스가 필요</span>합니다. 앱 자체는 있는데 제안 카드가 비어 있다면 라이선스를 먼저 확인할 것. 실제 시스템(winerp01 / MEP)에 <code>F3302</code>·<code>F3303</code>·<code>F5796</code>이 설치되어 있는지, 스코프아이템 2V7이 활성화되어 있는지도 같이 확인 필요.</p>
+</div>
+
+<p><code>F3303</code>의 KPI 카드는 크게 넷입니다 — <b>금액 관련 PO 항목</b>(IR Amount Surplus / GR Amount Surplus / GR = IR), <b>조정처리 관련</b>(처리 현황 / ML 제안 / 최근 처리변경), <b>미결 FI 항목 금액</b>(절대금액 / 차대변 / 회사코드별 / 공급업체별), <b>미결 FI 항목 건수</b>(개요 / 전기일자별). 회사코드·공급업체·구매조직·구매그룹·자재그룹·플랜트 등으로 그룹화합니다.</p>
+
+<div class="note ok">
+  <div class="t">📌 개인 E2E 프로젝트와의 연결점 — ZGATE_INSPECT가 여기서 정당화된다</div>
+  <p>프로젝트 CBO <b>ZGATE_INSPECT</b>는 <span class="hl">GR(<code>101</code>, 플랜트 GATE) 수량과 STOR 이관(<code>301</code>) 수량의 차이를 잡아, 그중 <b>송장이 아직 발생하지 않은 건</b>만 <code>122</code>로 자동반품</span>합니다. 이 코스를 읽고 나면 그 설계가 왜 그 모양인지가 분명해집니다.</p>
+  <p><b>① 왜 송장 미발생 건에만 손대는가.</b> IR이 이미 전기된 건을 반품하면 GR/IR 청산계정이 어긋납니다(SAP Note 184632). 청구서가 붙은 건은 <span class="bad">청구서를 먼저 취소하는 것이 원칙</span>이고, 그건 회계 영향이 있으므로 CBO가 자동으로 할 일이 아닙니다. 즉 "송장 미발생"은 편의 조건이 아니라 <b>GR/IR 무결성을 지키기 위한 필수 가드</b>입니다.</p>
+  <p><b>② 왜 MR11이 아니라 122인가.</b> <code>MR11</code>은 "물건은 다시 안 오고 청구서도 안 온다"고 판정하고 <b>잔액을 손익으로 털어내는</b> 기능입니다. 프로젝트의 GATE-STOR 차이는 성격이 다릅니다 — 물건이 실제로 게이트에서 안 넘어온(파손·온도이탈) 건이므로, 잔액을 털 게 아니라 <b>입고 자체를 되돌려야</b> 맞습니다. 그래서 <code>122</code>(입고 반품)입니다. <span class="key">MR11은 마지막 수단이고, 122는 정상 궤도 복원</span>이라는 구분을 문서에 적어 두면 좋습니다.</p>
+  <p><b>③ 설정 하나가 선행되어야 한다.</b> <code>Inventory Management → Goods Receipt → For GR-Based IV, Reversal of GR Despite Invoice</code>를 <b>비허용</b>으로 두면 표준이 "청구서 있는 건 반품"을 막아 줍니다. CBO의 가드와 표준 설정이 이중으로 걸리는 구조가 안전합니다 — CBO 로직에 버그가 있어도 표준이 한 번 더 막습니다.</p>
+  <p><b>④ 자동반품도 회계에 영향을 준다.</b> <code>122</code>는 재고 수량·금액을 움직이고 이동평균가에도 영향을 줍니다. 원칙("회계 영향이 있는 처리는 자동화하지 않는다")대로라면 <span class="bad">"자동반품"이 아니라 "반품 대상 제시 + 승인 후 실행"이 맞습니다.</span> CBO 테이블 상태필드를 <code>W</code>(반품대기) → <code>H</code>(보류/검토) → <code>P</code>(반품완료)로 두고, <code>W → P</code> 전이에 승인 단계를 끼우는 설계로 정리할 것. 전표는 직접 INSERT 하지 말고 <code>BAPI_GOODSMVT_CREATE</code>로 생성합니다.</p>
+</div>
+
+</div>
+
+
+<!-- ══════════ LESSON 7 ══════════ -->
+<div class="lesson" id="l7">
+<h2><span class="no">LESSON 7</span>추가 Customizing · 선지급 · 보증금유보 · 선불결제</h2>
+
+<p><span class="tag">Unit 6-7</span><span class="tag">레슨 3개</span>Adjusting Further Customizing Settings · Using Further Functions · Attributes of Prepayment</p>
+
+<h3>번호할당 — MM 문서와 FI 문서는 따로 논다</h3>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>대상</th><th>Customizing 경로</th><th>T-Code</th></tr></thead>
+<tbody>
+<tr><td class="wrap">MM 청구서문서 (트랜잭션 → 번호범위)</td><td class="wrap">LIV → Incoming Invoice → Number Assignment → Maintain Number Assignment for Logistics Documents → Transaction - Assign Number Range</td><td>—</td></tr>
+<tr><td class="wrap">MM 청구서문서 번호구간</td><td class="wrap">… → Maintain Number Range Intervals for Invoice Documents</td><td><code>OMRJ</code></td></tr>
+<tr><td class="wrap">회계문서</td><td class="wrap">LIV → Incoming Invoice → Number Assignment → Maintain Number Assignments for Accounting Documents</td><td><code>OMR4</code></td></tr>
+<tr><td class="wrap">계정관리문서 (회계)</td><td class="wrap">LIV → Clearing Account Maintenance → Maintain Number Assignments for Accounting Documents</td><td><code>OMR4</code></td></tr>
+<tr><td class="wrap">계정관리문서 (물류)</td><td class="wrap">LIV → Clearing Account Maintenance → Maintain Number Assignment for Account Maintenance Document</td><td>—</td></tr>
+<tr><td class="wrap">자동전기 (계정결정)</td><td class="wrap">Materials Management → Logistics Invoice Verification → Configure Automatic Postings</td><td><code>OMR0</code></td></tr>
+</tbody>
+</table>
+</div>
+
+<p><span class="key">회계문서의 문서유형이 번호할당을 결정합니다.</span> 문서유형은 번호범위뿐 아니라 <b>순액/총액 전기 여부, 허용되는 계정유형, 참조 필수 여부</b>까지 통제합니다. 표준은 총액전기 <code>RE</code>, 순액전기 <code>RN</code>이고, 계정관리는 <code>KP</code>(Account maintenance) · <code>KS</code>(Cancel account maintenance document)입니다. 회계문서 번호범위는 <b>회사코드 + 연도</b> 기준입니다.</p>
+
+<div class="note">
+  <div class="t">🔰 초보자 설명 — 왜 문서유형이 이렇게 많은 걸 통제하나</div>
+  <p>FI 입장에서 "이 전표가 무슨 성격인가"를 한 글자로 말해 주는 게 문서유형입니다. 성격이 정해지면 <b>어떤 번호대를 쓸지, 어떤 계정을 건드릴 수 있는지, 할인을 미리 반영할지</b>가 따라 정해집니다. 그래서 청구서감액처럼 회계문서가 2건 생기는 경우, <span class="hl">문서마다 문서유형을 따로 구성</span>할 수 있게 되어 있습니다.</p>
+</div>
+
+<h3>중복청구서 검사 (OMRDC)</h3>
+
+<p>검사에 <b>회사코드 · 참조 · 청구서일자</b>를 포함할지 선택합니다 — <code>LIV → Incoming Invoice → Set Check for Duplicate Invoices</code>(<code>OMRDC</code>). 모든 속성이 일치하면 설정에 따라 정보 또는 오류 메시지 <code>M8108</code>이 나옵니다.</p>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>기존 청구서</th><th>새 청구서</th><th>Reference 검사 ON</th><th>Reference 검사 OFF</th></tr></thead>
+<tbody>
+<tr><td class="wrap">1010 / 1230 / <code>a2b3c4</code> / 10-22 / 1000 EUR</td><td class="wrap">1010 / 1230 / <code>ab23c4</code> / 10-22 / 1000 EUR</td><td class="wrap"><span class="good">중복 아님</span> — 참조가 다르므로 통과</td><td class="wrap"><span class="bad">중복 경고</span> — 참조를 안 보니 나머지가 전부 같다</td></tr>
+</tbody>
+</table>
+</div>
+
+<div class="note warn">
+  <div class="t">Reference 검사는 켜는 게 항상 좋은 게 아니다 — 확인 필요</div>
+  <p>위 예시가 정확히 그 함정입니다. 공급업체가 <code>a2b3c4</code>를 <code>ab23c4</code>로 <b>오타 낸 재발송</b>이라면, Reference 검사를 켜 둔 탓에 중복이 그대로 통과합니다. 반대로 끄면 서로 다른 정상 청구서가 자꾸 걸립니다. 어느 쪽이 나은지는 공급업체의 참조번호 채번 습관에 달렸습니다 — 실제 시스템에서 현행 설정과 과거 중복 사례를 확인한 뒤 결정할 것.</p>
+  <p>참고: <b>SAP S/4HANA 2023부터</b> 이 설정에서 <span class="key">대변메모에 대한 중복입력검사</span>도 활성화할 수 있습니다. 대상 시스템 릴리스 확인 필요.</p>
+</div>
+
+<h3>메시지결정과 그 밖의 설정</h3>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>문서유형</th><th>표준 메시지유형</th><th>내용</th></tr></thead>
+<tbody>
+<tr><td>수탁정산</td><td><code>KONS</code> / <code>KONS6</code>(EDI)</td><td class="wrap">지불 확인 + 수탁재고 수량 개관용 정산명세서</td></tr>
+<tr><td>ERS</td><td><code>ERS</code> / <code>ERS6</code>(EDI)</td><td class="wrap">지불금액을 PO·납품과 대조할 수 있는 생성 청구서 명세서</td></tr>
+<tr><td>청구계획정산</td><td><code>INS</code></td><td class="wrap">만기 지불 명세서</td></tr>
+<tr><td>청구서감액</td><td><code>REKL</code></td><td class="wrap">지불액과 채권 차이를 정산할 수 있는 감액 상세 명세서</td></tr>
+</tbody>
+</table>
+</div>
+
+<p>가격차이가 났을 때 구매담당자에게 메일(표준 메시지유형 <code>MLPP</code>)을 보내려면 <code>OMRK</code>(Define Mail to Purchasing When Price Variances Occur)입니다. LIV의 메시지결정은 구매·재고관리의 클래식 메시지결정과 마찬가지로 <b>조건기법(condition technique)</b>을 씁니다.</p>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>설정</th><th>T-Code</th><th>내용</th></tr></thead>
+<tbody>
+<tr><td class="wrap">PO 보충텍스트 통지</td><td><code>OMR8</code></td><td class="wrap">회사코드별로, PO에 텍스트가 있음을 매입채무담당자에게 알릴지 + <b>어떤 텍스트유형</b>에 대해 알릴지</td></tr>
+<tr><td class="wrap">바코드입력 (MM)</td><td>—</td><td class="wrap">LIV → Incoming Invoice → Maintain Bar Code Entry</td></tr>
+<tr><td class="wrap">바코드입력 (FI)</td><td><code>OAC5</code></td><td class="wrap">활성화 여부 + 문서유형·사용자별 바코드 검사 여부</td></tr>
+<tr><td class="wrap">허용오차그룹 정의</td><td><code>OMRB</code></td><td class="wrap">그룹이 전기할 수 있는 <b>최대금액과 최대현금할인</b></td></tr>
+<tr><td class="wrap">사용자 → 허용오차그룹 배정</td><td><code>OMRC</code></td><td class="wrap">사용자별 배정</td></tr>
+</tbody>
+</table>
+</div>
+
+<h3>선지급 (Down Payment)</h3>
+
+<div class="note">
+  <div class="t">🔰 초보자 설명 — 선지급은 MM이 아니다</div>
+  <p>선지급요청(down payment request)과 선지급은 <span class="bad">전적으로 FI 프로세스</span>입니다. <b>MM 문서를 만들지 않습니다.</b> MM 쪽에서 하는 일은 청구서를 전기할 때 이미 나간 선지급을 <b>청산(clear)</b>해 주는 것뿐입니다.</p>
+</div>
+
+<p>회계에서는 ① PO에 대한 계획된 선지급, ② 선지급청산을 포함한 PO 청구서 순으로 전기됩니다. 국가별 법규에 따라 선지급에 세금을 전기할 수도 안 할 수도 있는데, 전기한다면 <b>총액 표시냐 순액 표시냐</b>를 정해야 합니다.</p>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>표시</th><th>전기 내용</th></tr></thead>
+<tbody>
+<tr><td>순액 (net)</td><td class="wrap">선지급이 <b>세금 없이</b> 미결항목계정·선지급계정에 전기. 세금금액은 매입세계정으로</td></tr>
+<tr><td>총액 (gross)</td><td class="wrap">선지급이 <b>세금 포함</b>으로 전기 + 세금 청산을 위해 <b>세금청산계정</b>에도 자동 전기. 장점 — 지불해야 할 전체 금액이 미결항목계정에 그대로 보인다</td></tr>
+</tbody>
+</table>
+</div>
+
+<p>제어는 선지급계정 마스터레코드의 <b>Tax Category</b> 지시자입니다.</p>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>Tax Category</th><th>의미</th></tr></thead>
+<tbody>
+<tr><td><code>+B</code></td><td class="wrap">매출세 – 선지급 총액관리 → <b>수령한</b> 선지급, 총액</td></tr>
+<tr><td><code>+</code></td><td class="wrap">매출세만 허용 → 수령한 선지급, 순액</td></tr>
+<tr><td><code>–B</code></td><td class="wrap">매입세 – 선지급 총액관리 → <b>지급한</b> 선지급, 총액</td></tr>
+<tr><td><code>–</code></td><td class="wrap">매입세만 허용 → 지급한 선지급, 순액</td></tr>
+</tbody>
+</table>
+</div>
+
+<p>입고청구서 전기 시 선지급의 <b>수동 청산</b>은 <code>MIRO</code>와 Create Supplier Invoice – Advanced 앱에서 가능합니다 — 시스템이 그 PO의 선지급 목록을 띄워 주고 거기서 청산 대상을 고릅니다.</p>
+
+<h3>보증금유보 (Security Retention)</h3>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>Customizing</th><th>내용</th></tr></thead>
+<tbody>
+<tr><td class="wrap">Define Default Due Date for Retention</td><td class="wrap"><b>자재그룹별로</b> 청구서 순만기일에 더할 기간. 예 — 자재그룹 001에 3개월, 순지불 만기 3/31 → 유보 만기 제안값 6/30</td></tr>
+<tr><td class="wrap">Define Tax Handling for Retention</td><td class="wrap">국가·세금코드별 순액/총액 전기. <span class="bad">공급시스템(delivery system)에서는 항상 총액</span></td></tr>
+<tr><td class="wrap">Define Control Parameters for Retention</td><td class="wrap">만기일 필수입력 여부, 회사코드별 대체 <b>특별G/L 지시자</b>. 기본값은 <code>H</code></td></tr>
+</tbody>
+</table>
+</div>
+
+<div class="note warn">
+  <div class="t">유보 만기일은 구매오더에서 못 정한다</div>
+  <p>구매오더에서는 <span class="bad">보증금유보 만기일의 기본값을 입력할 수 없습니다.</span> 기본값은 위의 <b>자재그룹별 기간</b> 설정에서만 나옵니다. "PO에서 미리 잡아두면 되지 않냐"는 요구가 들어오면 여기서 막힙니다.</p>
+</div>
+
+<h3>청구서의 계약 참조</h3>
+
+<p>미계획 용역 조달을 최적화하고 계약 사용의 투명성을 높이는 기능입니다. 세 갈래로 들어갑니다.</p>
+
+<div class="step"><span class="n">A</span><p>S/4HANA 계약 또는 <b>SRM 중앙계약</b>을 직접 참조</p></div>
+<div class="step"><span class="n">B</span><p><b>계약참조가 있는</b> 한도구매오더항목(limit PO item)을 참조 — <code>PO Reference</code> 탭에 PO번호 입력 후 <code>Service Selection</code>으로 용역항목 선택</p></div>
+<div class="step"><span class="n">C</span><p><b>계약참조가 없는</b> 한도구매오더항목을 참조하고, <span class="hl">청구서검증 중에 계약번호·계약항목을 직접 입력</span></p></div>
+
+<p>계약 직접전기는 <code>LIV → Incoming Invoice → Activate Direct Posting to Contracts</code>에서 켜야 하고, 켜면 <code>MIRO</code> · <code>MIR7</code> · <code>MIR4</code>에 <b>Contract Reference</b> 탭이 생깁니다. 계약참조 청구서 전용 가격차이 허용오차는 <b>허용오차 키 <code>PC</code></b>(회사코드 레벨, <code>OMR6</code>)이고, 상한 초과 시 차단사유 <code>Price</code>로 차단됩니다. 전기하면 시스템이 <b>계약이력</b>(그리고 PO 참조 시 구매오더이력까지)을 갱신합니다.</p>
+
+<h3>선불결제 (Prepayment) — 검증보다 지불이 먼저 나간다</h3>
+
+<div class="note warn">
+  <div class="t">선불결제는 항목 레벨 검증을 건너뛴다</div>
+  <p>선불결제가 이루어질 때 시스템은 <span class="bad">청구서와 PO·GR 간의 차이를 확인하지 않습니다.</span> 허용오차 한도에 따른 자동 지불차단도 <span class="bad">설정되지 않습니다.</span> 3-Way Match가 통째로 빠지는 구조라, 도입 전에 SAP 문서와 <b>SAP Note 937129</b>(Prepayment Restrictions)를 반드시 확인해야 합니다.</p>
+</div>
+
+<h4>제약 (SAP Note 937129)</h4>
+
+<ul>
+  <li><b>청구서에만</b> 사용 가능 — 대변메모·후속대변에는 불가</li>
+  <li>일회성공급업체(one-time supplier)에는 불가</li>
+  <li>수입판매세·구매세, 취득세 관련 건에는 불가</li>
+  <li>현금할인기준금액 ≠ 세금기준금액인 청구서에는 불가</li>
+  <li><code>Calculate Tax</code> 기능이나 외부세금시스템과 함께 사용 불가</li>
+  <li>FI 문서의 <b>외부번호할당</b> 미지원</li>
+  <li>Ariba 네트워크로 전송된 청구서문서에는 불가</li>
+  <li><span class="bad">Create Supplier Invoice Fiori 앱으로는 입력할 수 없다</span> — <code>MIR7</code> 또는 <code>MIRA</code>로만. EDI·BAPI 입력은 가능</li>
+</ul>
+
+<h4>전제조건</h4>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>구분</th><th>설정</th></tr></thead>
+<tbody>
+<tr><td>Customizing</td><td class="wrap">회사코드에 선불결제 허용 — <code>LIV → Incoming Invoice → Prepayment → Configure Control of Prepayment at Company Code Level</code></td></tr>
+<tr><td>Customizing</td><td class="wrap">계정결정에서 트랜잭션 <code>PPX</code>(prepayment)에 G/L 계정(선불결제청산계정) 배정 — <code>Configure Automatic Postings</code></td></tr>
+<tr><td>애플리케이션</td><td class="wrap">공급업체마스터(BP 역할 <code>FLVN00</code>)의 <code>Company code data - Payment</code>에서 <b>Prepayment 지시자</b></td></tr>
+</tbody>
+</table>
+</div>
+
+<p>회사코드 레벨 Customizing에서 함께 지정하는 것 — 선불결제와 함께 전기될 때 생성되는 <b>FI 문서유형</b>, 취소전기에 쓸 <b>취소사유</b>, 그리고 선불결제문서가 생성될 수 있는 <b>MM 청구서문서의 파킹상태</b>입니다.</p>
+
+<h4>계정이동</h4>
+
+<div class="step"><span class="n">1</span><p>청구서를 파킹·보류할 때 <code>Prepayment Status</code>가 <code>A</code>(Relevant, invoice not yet saved)이면 FI에 <b>FI 청구서로 선불결제가 생성</b>된다 (헤더 <code>Detail</code> 탭에 지정된 문서유형)</p></div>
+<div class="step"><span class="n">2</span><p>FI에서 <b>선불결제청산계정</b>에 지불데이터를 전기하고 <b>미결공급업체항목</b>을 생성 → 이후 지불은 GR 입력·청구서검증과 <span class="hl">무관하게</span> 진행된다</p></div>
+<div class="step"><span class="n">3</span><p>보류·파킹 문서를 최종 전기하면, 공급업체전기·세금전기 대신 <b>선불결제청산계정이 청산</b>된다</p></div>
+
+<p>전기일자는 기본적으로 청구서문서의 전기일자를 씁니다. BAdI <code>WRF_PREPAY_INVOICE</code>의 <code>SET_POSTING_DATE</code>로 시스템일자나 문서일자로 바꿀 수 있고, <code>PREPAYMENT_RELEVANCE_CHANGE</code>로는 아직 전기되지 않은 상태에서 <b>선불결제상태 필드를 재정의</b>해 선불결제를 유도하거나 막을 수 있습니다.</p>
+
+<h4>필드제어</h4>
+
+<p>회사코드별 <b>필드선택그룹</b>으로, 선불결제문서가 존재할 때 MM 문서의 어떤 필드를 바꿀 수 있는지 정합니다 — <code>LIV → Incoming Invoice → Prepayment → Configure Field Control for Prepayment</code>.</p>
+
+<ul>
+  <li>필드 입력 불가</li>
+  <li><b>선불결제문서에서도 변경 가능한 경우에만</b> 변경 가능 → 저장 시 기존 FI 선불결제문서를 변경</li>
+  <li>항상 변경 가능 → <b>선불결제문서를 취소하고 재전기</b></li>
+</ul>
+
+<div class="note warn">
+  <div class="t">이미 청산된 선불결제문서는 되돌리기 어렵다</div>
+  <p>필드변경을 허용하지 않은 경우, 고치려면 <b>물류청구서를 삭제하고 다시 만들어야</b> 합니다. 삭제하면 FI 선불결제문서는 취소됩니다.</p>
+  <p>그런데 <span class="bad">FI 선불결제문서가 이미 청산되었다면, 표준 상태에서는 파킹된 MM 청구서문서를 삭제할 수도 청구서감액으로 전기할 수도 없습니다.</span> 먼저 LIV Customizing에서 메시지 <code>M8 791</code>(Prepayment document is already cleared)을 비활성화해야 합니다. 관련 상세는 <b>SAP Note 958136</b>. 회계 규정준수에 영향을 주는 필드는 내부통제설정에 의해 전기 후 어떤 경우에도 변경되지 않습니다.</p>
+</div>
+
+<div class="note ok">
+  <div class="t">📌 개인 E2E 프로젝트와의 연결점</div>
+  <p>프로젝트에서 실제로 세팅할 것은 <b>번호할당</b>과 <b>중복청구서 검사</b> 두 가지입니다. 회사코드 <b>CL04</b> 기준으로 <code>OMR4</code>에서 총액전기 <code>RE</code>를 기본 문서유형으로 고정하고(LESSON 2의 ZPRICE_CHECK 오탐 방지 이유와 같은 맥락), <code>OMRDC</code>에서 중복검사를 켭니다. 벤더 사입 재판매 모델이라 <span class="key">같은 공급업체에서 같은 품목을 반복 매입</span>하므로 참조번호만 다르고 나머지가 똑같은 청구서가 실제로 자주 생깁니다 — Reference를 검사기준에 <b>포함</b>하는 쪽이 맞습니다.</p>
+  <p>반대로 <b>선불결제 · 보증금유보 · 계약참조는 프로젝트 범위에서 뺍니다.</b> 선불결제는 3-Way Match를 통째로 우회하는 기능이라 이 프로젝트가 보여주려는 것(표준 검증 흐름 + CBO 보강)과 정반대이고, 보증금유보·계약참조는 용역·건설 조달 성격이라 식품 재판매 모델에 붙지 않습니다. <span class="hl">범위를 줄이는 결정이므로 설계서에 "왜 뺐는지" 한 줄로 남겨 둡니다.</span></p>
+  <p>권한 쪽은 <code>OMRB</code>/<code>OMRC</code>의 허용오차그룹을 기억해 둡니다. CBO를 운영기로 올릴 때 <b>권한 체크 누락</b>이 흔한 지적인데, 표준이 이미 사용자별 최대전기금액을 그룹으로 통제한다는 사실을 알고 있어야 CBO에서 같은 축을 어떻게 맞출지 설계할 수 있습니다.</p>
+</div>
+
+</div>
+
+
+<!-- ══════════ APPENDIX ══════════ -->
+<div class="lesson" id="lx">
+<h2><span class="no">APPENDIX</span>정리 · 반드시 기억할 것</h2>
+
+<h3>한 장 요약</h3>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>질문</th><th>답</th></tr></thead>
+<tbody>
+<tr><td>3-Way Match의 세 문서</td><td class="wrap">구매오더 · 입고 · 공급업체 청구서. 항목 단위로 <b>수량 · 가격 · 일자 · PO가격수량</b> 네 축을 비교</td></tr>
+<tr><td>차이가 나면 무엇이 막히나</td><td class="wrap">청구서는 <b>전기된다.</b> 막히는 건 <span class="bad">지불</span>. 하한 미달은 메시지만, 상한 초과가 차단</td></tr>
+<tr><td>차단 단위</td><td class="wrap">차단사유는 <b>항목</b>에 붙고, 지불차단은 <b>청구서 전체</b>에 걸린다</td></tr>
+<tr><td>허용오차 설정 위치</td><td class="wrap"><code>OMR6</code> — 회사코드별. 항상 차단은 <b>상한 0 + Check limit</b>, <code>Do not check</code>는 <span class="bad">전부 통과</span></td></tr>
+<tr><td>가격차이는 어디로</td><td class="wrap">표준가 <code>S</code> → 가격차이계정. 이동평균가 <code>V</code> → 재고보유량 있으면 재고계정(MAP 변동), 없으면 가격차이계정</td></tr>
+<tr><td>미납품분 청구금액은</td><td class="wrap">재고·PRD가 아니라 <b>GR/IR 청산계정</b></td></tr>
+<tr><td>GR/IR 계정의 방향</td><td class="wrap">GR 시 <b>대변</b>, IR 시 <b>차변</b>. 잔액은 "아직 안 끝난 거래"</td></tr>
+<tr><td>GR/IR 잔액 정리</td><td class="wrap"><code>MR11</code>. <span class="bad">더 이상 GR도 IR도 예상되지 않는지 먼저 확인.</span> 취소는 <code>MR11SHOW</code></td></tr>
+<tr><td>자동해제가 되는 차단</td><td class="wrap"><b>Blocked due to variances</b> 절차만. 헤더 수동차단·확률적차단은 불가. 백그라운드는 <code>RM08RELEASE</code></td></tr>
+<tr><td>청구서감액의 정체</td><td class="wrap">감액이 아니라 <b>대변메모 추가 전기</b>. 회계문서 2건. PO 이력은 <b>수락값</b>으로 갱신</td></tr>
+<tr><td>Hold vs Park vs Save as Completed</td><td class="wrap">Hold는 FI 전달·PO이력 <span class="bad">없음</span>. Park는 둘 다 있음. Save as Completed는 <b>전기 가능해야</b> 하고 커밋먼트를 차감</td></tr>
+<tr><td>ERS의 핵심 전제</td><td class="wrap">공급업체마스터 ERS 지시자 + PO 항목의 <b>GR기반 IV 지시자</b> + 세금코드 + <code>Estimated price</code> 미설정</td></tr>
+<tr><td>취소(Reversal)의 제약</td><td class="wrap"><b>전체만</b> 가능(부분은 대변메모 수동). 취소문서 재취소 불가. 잔액 0 문서 취소 불가. FI 청산은 자동으로 안 된다</td></tr>
+<tr><td>선불결제의 성격</td><td class="wrap"><span class="bad">항목 레벨 검증과 자동 지불차단을 건너뛴다.</span> <code>MIR7</code>/<code>MIRA</code>로만 입력</td></tr>
+</tbody>
+</table>
+</div>
+
+<h3>허용오차 키 빠른 표</h3>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>키</th><th>대상</th><th>키</th><th>대상</th></tr></thead>
+<tbody>
+<tr><td><code>DQ</code> <code>DW</code></td><td class="wrap">수량차이</td><td><code>AN</code> <code>AP</code></td><td class="wrap">금액검사 (PO참조 없음 / 있음)</td></tr>
+<tr><td><code>PP</code> <code>KW</code> <code>PS</code></td><td class="wrap">가격차이</td><td><code>BD</code></td><td class="wrap">소액차이 (자동 형성)</td></tr>
+<tr><td><code>BR</code> <code>BW</code></td><td class="wrap">PO가격수량차이</td><td><code>LA</code> <code>LD</code></td><td class="wrap">개산계약(blanket PO) 차이</td></tr>
+<tr><td><code>ST</code></td><td class="wrap">일자차이</td><td><code>VP</code></td><td class="wrap">MAP 최대변동</td></tr>
+<tr><td><code>PC</code></td><td class="wrap">계약참조 청구서 가격차이</td><td>—</td><td class="wrap">—</td></tr>
+</tbody>
+</table>
+</div>
+
+<h3>T-Code 빠른 표</h3>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>T-Code</th><th>기능</th><th>T-Code</th><th>기능</th></tr></thead>
+<tbody>
+<tr><td><code>MIRO</code></td><td class="wrap">청구서 입력 (Advanced 앱)</td><td><code>MR11</code></td><td class="wrap">GR/IR 계정관리</td></tr>
+<tr><td><code>MIR7</code></td><td class="wrap">청구서 파킹</td><td><code>MR11SHOW</code></td><td class="wrap">계정관리문서 조회·취소</td></tr>
+<tr><td><code>MIR6</code></td><td class="wrap">청구서 개요 (전 사용자)</td><td><code>MRRL</code></td><td class="wrap">ERS 실행</td></tr>
+<tr><td><code>MR8M</code></td><td class="wrap">청구서 취소</td><td><code>MRDC</code></td><td class="wrap">부대비용 자동정산</td></tr>
+<tr><td><code>MIRA</code></td><td class="wrap">백그라운드 검증용 입력</td><td><code>MRKO</code></td><td class="wrap">수탁·파이프라인 정산</td></tr>
+<tr><td><code>MRBR</code></td><td class="wrap">차단 청구서 해제</td><td><code>MRIS</code></td><td class="wrap">청구계획 정산</td></tr>
+<tr><td><code>OMR6</code></td><td class="wrap">허용오차 한도</td><td><code>OMR4</code></td><td class="wrap">회계문서 번호할당·문서유형</td></tr>
+<tr><td><code>OMR2</code></td><td class="wrap">세금코드 기본값</td><td><code>OMR0</code></td><td class="wrap">자동전기 계정결정</td></tr>
+<tr><td><code>OMRX</code></td><td class="wrap">공급업체별 허용오차</td><td><code>OMRDC</code></td><td class="wrap">중복청구서 검사</td></tr>
+<tr><td><code>OMRF</code> <code>OMRG</code></td><td class="wrap">확률적차단</td><td><code>OMRH</code> <code>OMRI</code></td><td class="wrap">항목금액검사</td></tr>
+<tr><td><code>OMR9</code></td><td class="wrap">지불차단 키 결정</td><td><code>OMRW</code></td><td class="wrap">환율차이 처리</td></tr>
+<tr><td><code>OMRB</code> <code>OMRC</code></td><td class="wrap">허용오차그룹 정의·배정</td><td><code>OME9</code></td><td class="wrap">계정지정범주 (AA Changeable at IR)</td></tr>
+</tbody>
+</table>
+</div>
+
+<div class="note warn">
+  <div class="t">반드시 지킬 것</div>
+  <p>· <b><code>MR11</code>을 먼저 돌리지 않는다.</b> "더 이상 입고도 청구서도 오지 않는다"를 확인한 뒤가 아니면, 나중에 들어온 문서 때문에 잔액이 다시 어긋난다.<br>
+     · <b>IR이 전기된 건의 GR을 임의로 취소·반품하지 않는다.</b> 순서는 언제나 <span class="bad">청구서 취소 → 입고 취소</span>. 조정입고는 <b>후속납품 트랜잭션</b>으로 원 문서를 참조한다.<br>
+     · <b><code>BD</code> 허용오차를 <code>Do not check</code>로 두지 않는다.</b> 검사를 끄는 것이지 0으로 막는 것이 아니다 — 모든 차이가 소액차이로 조용히 수락된다.<br>
+     · <b>미계획 부대비용을 자동분배로 밀어넣고 안심하지 않는다.</b> 자동분배 뒤에는 가격검사가 수행되지 않는다.<br>
+     · <b>취소는 거울이 아니다.</b> MAP 자재는 취소 시점의 재고보유량에 따라 원전기와 다른 계정으로 갈 수 있다.<br>
+     · <b>파킹 문서를 삭제해도 번호는 돌아오지 않는다.</b> 명세항목만 사라지고 헤더는 <code>Deleted</code>로 남는다.</p>
+</div>
+
+<h3>확인 필요 — 실제 시스템(winerp01 / MEP)에서 확정할 것</h3>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>항목</th><th>확인 위치</th></tr></thead>
+<tbody>
+<tr><td class="wrap">회사코드 <b>CL04</b>의 허용오차 키별 실제 한도값</td><td><code>OMR6</code></td></tr>
+<tr><td class="wrap">확률적차단 활성화 여부와 임계값·백분율</td><td><code>OMRF</code> <code>OMRG</code></td></tr>
+<tr><td class="wrap">환율차이 처리 두 지시자의 현행 설정</td><td><code>OMRW</code></td></tr>
+<tr><td class="wrap">중복검사 기준(참조 포함 여부) · 대변메모 검사 지원 릴리스</td><td class="wrap"><code>OMRDC</code> · 시스템 릴리스 (S/4HANA 2023+)</td></tr>
+<tr><td class="wrap">GR기반 IV 시 청구서 있음에도 GR 취소·반품 허용 여부</td><td class="wrap">IM → Goods Receipt → For GR-Based IV, Reversal of GR Despite Invoice</td></tr>
+<tr><td class="wrap">백그라운드 전기 후 자동 상태변경 설정</td><td class="wrap">LIV → Invoice Verification in Background → Define Automatic Status Change</td></tr>
+<tr><td class="wrap">Fiori 앱 <code>F3302</code> <code>F3303</code> <code>F5796</code> 설치 · 스코프아이템 2V7 · ML 구독 라이선스</td><td class="wrap">Fiori Launchpad · 라이선스 확인</td></tr>
+<tr><td class="wrap">기본 회계문서 유형 (총액 <code>RE</code> / 순액 <code>RN</code>) 현행값</td><td><code>OMR4</code></td></tr>
+</tbody>
+</table>
+</div>
+
+<h3>참고</h3>
+
+<ul>
+  <li>원본: 노션 <b>SAP Learning Hub</b> → Implementing SAP S/4HANA Cloud Private Edition, Sourcing and Procurement → <b>5-1 ~ 5-7</b> (Course 5 / S4515, 7 Unit · 25 레슨)</li>
+  <li>언급된 SAP Note: <b>184632</b>(GR기반 IV 취소 시 GR/IR 불일치) · <b>937129</b>(Prepayment 제약) · <b>958136</b>(선불결제 파킹문서 삭제) · <b>2719041</b>(FI 통화 기본로직)</li>
+  <li>이 노트가 다루지 않는 것: 구매 프로세스(PO·정보레코드·소싱), 재고관리 이동유형 체계, FI 계정결정 상세 — 각각 MM 저니의 다른 코스와 FI 저니에서 다룬다</li>
+  <li>이 노트의 📌 블록은 <b>개인 학습용 SAP End-to-End 프로젝트</b>(식품 유통 가상회사 · 회사코드 CL04)와의 연결을 정리한 것이다. 실무 사례가 아니다</li>
+</ul>
+
+</div>
+
+</div>
+<script src="../../assets/hub.js" defer></script>
+</body>
+</html>

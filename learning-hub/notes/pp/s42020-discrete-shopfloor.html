@@ -1,0 +1,828 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>S42020 이산생산 현장관리 — 마스터데이터 · 생산오더 라이프사이클</title>
+<meta name="description" content="SAP Learning Hub의 Exploring Business Processes in Discrete Shopfloor Control(S42020) 노트. 이산생산 마스터데이터 6종, 생산계획과의 연계, 생산오더 라이프사이클, 계획오더 전환, 릴리스·자재출고·오더확인·입고의 실행 4단계.">
+<link rel="icon" href="../../assets/favicon.svg">
+<link rel="stylesheet" href="../../assets/notes-paper.css">
+<style>
+/* ── 이 노트 전용: 도해(SVG) 스타일 ─────────────────────────── */
+.dgm{display:block; width:100%; height:auto;}
+.dgm text{font-family:"Malgun Gothic","맑은 고딕","Apple SD Gothic Neo",sans-serif; fill:#1e1e1e;}
+.dgm .t-h{font-size:15px; font-weight:700;}
+.dgm .t{font-size:13px;}
+.dgm .t-s{font-size:11.5px; fill:#555;}
+.dgm .t-xs{font-size:10.5px; fill:#6B7280;}
+.dgm .m{font-family:"D2Coding","Consolas",monospace; font-size:12px;}
+.dgm .m-s{font-family:"D2Coding","Consolas",monospace; font-size:10.5px;}
+.dgm .c-key{fill:#4338CA;} .dgm .c-bad{fill:#B91C1C;} .dgm .c-ok{fill:#047857;}
+.dgm .b{fill:#FFFFFF; stroke:#C7CBD6; stroke-width:1.2;}
+.dgm .b-key{fill:#EEF0FB; stroke:#4338CA; stroke-width:1.4;}
+.dgm .b-bad{fill:#FEF2F2; stroke:#B91C1C; stroke-width:1.3;}
+.dgm .b-ok{fill:#ECFDF5; stroke:#047857; stroke-width:1.3;}
+.dgm .b-mut{fill:#F3F4F6; stroke:#D1D5DB; stroke-width:1.1;}
+.dgm .b-hl{fill:#FEF08A; stroke:#CA8A04; stroke-width:1.2;}
+.dgm .b-ghost{fill:none; stroke:#9AA3B2; stroke-width:1.1; stroke-dasharray:5 4;}
+.dgm .ln{stroke:#7C8697; stroke-width:1.4; fill:none;}
+.dgm .ln-key{stroke:#4338CA; stroke-width:1.8; fill:none;}
+.dgm .ln-bad{stroke:#B91C1C; stroke-width:1.6; fill:none;}
+.dgm .ln-ok{stroke:#047857; stroke-width:1.6; fill:none;}
+.dgm .ln-d{stroke:#9AA3B2; stroke-width:1.2; stroke-dasharray:4 4; fill:none;}
+.dgm .arw{fill:#7C8697;} .dgm .arw-key{fill:#4338CA;}
+.dgm .arw-bad{fill:#B91C1C;} .dgm .arw-ok{fill:#047857;}
+.figwrap{background:#FAFAFE; border:1px solid var(--rule); border-radius:6px;
+  padding:18px 16px 10px; margin:22px 0;}
+.figwrap figcaption{margin-top:12px; padding-top:10px; border-top:1px solid var(--rule);}
+</style>
+</head>
+<body>
+<div class="crumb"><a href="../../index.html">← 자료실 홈</a> · <a href="../../journey.html?j=pp">PP 저니</a> · S42020 이산생산 현장관리</div>
+<div class="sheet">
+
+<div class="doc-head">
+  <div class="kicker">LEARNING HUB · S42020</div>
+  <h1>이산생산 현장관리 — 마스터데이터 · 생산오더 라이프사이클</h1>
+  <div class="sub">
+    Learning Journey <b>Implementing Manufacturing in SAP S/4HANA Cloud Private Edition</b> · Course 5 / S42020 · 6 hr+ · 5 Unit · 8 레슨<br>
+    출처: 노션 <b>SAP Learning Hub</b> 노트 5-1(Unit 1~4) + 5-2(Unit 5) 변환 · 자전거 회사의 신규 공기역학 프레임 모델 생산 사례로 이어진다
+  </div>
+</div>
+
+<div class="lead">
+  <p><b>결론부터.</b> 생산오더는 무에서 만들어지지 않습니다. <span class="hl">자재마스터 · BOM · 라우팅 · 작업장</span>이 미리 서 있어야 하고, 생산오더는 그 넷을 복사해 온 사본입니다 — <b>구성품목록은 BOM에서, 작업목록은 라우팅에서</b> 들어옵니다. 그래서 "생산오더가 안 만들어진다"는 문의의 답은 거의 항상 오더가 아니라 마스터데이터 쪽에 있습니다.</p>
+  <p>일단 만들어진 오더는 <span class="key">생성 → 릴리스 → 자재출고 → 오더확인 → 입고</span>라는 고정된 라이프사이클을 탑니다. 각 단계가 오더 <b>상태</b>를 바꾸고 <b>전표</b>를 남기며, 앞 단계를 건너뛰면 뒤 단계가 아예 실행되지 않습니다. 이 코스는 이 두 축(마스터데이터 / 라이프사이클)을 5개 Unit에 걸쳐 다루고, 앞 코스 <code>S42000</code>에서 이름만 훑고 지나간 각 단계의 <b>옵션과 효과</b>를 여기서 채웁니다.</p>
+</div>
+
+<div class="toc">
+  <h4>목차</h4>
+  <ol>
+    <li><a href="#l1">이산생산 마스터데이터 — 생산오더가 서려면 무엇이 먼저 있어야 하나</a></li>
+    <li><a href="#l2">생산계획과의 연계 — 계획오더가 생기는 조건</a></li>
+    <li><a href="#l3">생산오더 라이프사이클 — 상태가 바뀌는 순서</a></li>
+    <li><a href="#l4">생산오더 생성 — 계획오더 전환의 네 가지 길</a></li>
+    <li><a href="#l5">생산오더 실행 — 릴리스 · 자재출고 · 확인 · 입고</a></li>
+  </ol>
+</div>
+
+
+<!-- ══════════ LESSON 1 ══════════ -->
+<div class="lesson" id="l1">
+<h2><span class="no">LESSON 1</span>이산생산 마스터데이터 — 생산오더가 서려면 무엇이 먼저 있어야 하나</h2>
+
+<p><span class="tag">Unit 1</span><span class="tag">레슨 1개</span>Analyzing Master Data for Discrete Manufacturing — 자재 · BOM · 라우팅 · 작업장 · PRT · 생산버전</p>
+
+<h3>언제 이걸 알아야 하는가</h3>
+
+<p>이산생산 쪽 첫 문의는 대개 이렇게 옵니다. <b>"신규 모델 생산오더를 만들려는데 라우팅을 못 찾는다고 뜹니다."</b> 오더 문제가 아닙니다. 생산오더는 <span class="key">스스로 아무 정보도 갖고 있지 않고</span> 마스터데이터를 복사해 올 뿐이라, 복사해 올 원본이 없으면 그 자리에서 멈춥니다.</p>
+
+<p>그래서 이산생산에서 사고가 나는 지점은 거의 전부 <b>이 LESSON의 6종 중 하나가 비어 있거나 서로 안 묶여 있는 경우</b>입니다. 특히 BOM과 라우팅을 묶어 주는 <span class="key">생산버전</span>이 빠져 있는 경우가 흔합니다.</p>
+
+<h3>생산오더를 위한 마스터데이터 6종</h3>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>마스터데이터</th><th>설명</th></tr></thead>
+<tbody>
+<tr><td>자재<br>(Materials)</td><td class="wrap">완제품 · 반제품 · 원자재에 대한 자재마스터 레코드. 완성된 자전거 / 조립된 프레임 / 튜브 · 나사 각각에 <b>1건씩</b> 존재한다</td></tr>
+<tr><td>BOM<br>(Bill of Material)</td><td class="wrap">제품 생산에 필요한 <b>구성부품과 수량</b>을 정의. 자전거 100대 = 바퀴 200 · 프레임 100 · 체인 100</td></tr>
+<tr><td>라우팅<br>(Routings)</td><td class="wrap">수행할 <b>오퍼레이션과 그 순서</b>를 정의. 사전조립 → 조립 → 품질검사</td></tr>
+<tr><td>작업장<br>(Work Centers)</td><td class="wrap">각 오퍼레이션이 수행되는 장소. <span class="key">원가 · 계획 · 능력 파라미터</span>를 제어한다</td></tr>
+<tr><td>생산자원/공구<br>(PRT)</td><td class="wrap">작업 수행에 필요한 도구 · 문서(예: 조립 지시서). <b>오퍼레이션에 배정</b>한다</td></tr>
+<tr><td>생산버전<br>(Production Versions)</td><td class="wrap">특정 <span class="key">라우팅과 BOM의 조합</span>을 연결. 생산 수량 · 시점 기준에 따라 시스템이 자동으로 적절한 버전을 선택한다</td></tr>
+</tbody>
+</table>
+</div>
+
+<h3>넷이 어떻게 생산오더로 합류하는가</h3>
+
+<figure class="figwrap">
+<svg class="dgm" viewBox="0 0 1000 470" role="img" aria-label="이산생산 마스터데이터 도해. 자재마스터 위에 BOM과 라우팅이 서고 라우팅의 각 오퍼레이션에 작업장과 PRT가 배정되며, 생산버전이 BOM과 라우팅의 조합을 확정하면 그 사본이 생산오더의 구성품목록과 작업목록이 된다.">
+  <defs>
+    <marker id="mA" markerWidth="9" markerHeight="9" refX="7" refY="4.5" orient="auto">
+      <polygon class="arw" points="0,0 9,4.5 0,9"/></marker>
+    <marker id="mAk" markerWidth="9" markerHeight="9" refX="7" refY="4.5" orient="auto">
+      <polygon class="arw-key" points="0,0 9,4.5 0,9"/></marker>
+  </defs>
+
+  <text class="t-xs" x="12" y="22">마스터데이터 — 오더보다 먼저 존재해야 한다</text>
+  <text class="t-xs" x="790" y="22">실행 오브젝트</text>
+
+  <rect class="b" x="12" y="44" width="200" height="86" rx="6"/>
+  <text class="t-h" x="30" y="72">자재마스터</text>
+  <text class="t-s" x="30" y="96">완제품 · 반제품 · 원자재</text>
+  <text class="t-s" x="30" y="118">각각 1건씩 존재</text>
+  <path class="ln" d="M212 87 H242" marker-end="url(#mA)"/>
+
+  <rect class="b-key" x="250" y="44" width="250" height="86" rx="6"/>
+  <text class="t-h c-key" x="268" y="72">BOM (자재명세서)</text>
+  <text class="t-s" x="268" y="96">구성부품 + 필요 수량</text>
+  <text class="t-s" x="268" y="118">반제품 BOM → 다단계 BOM</text>
+
+  <rect class="b-key" x="250" y="160" width="250" height="86" rx="6"/>
+  <text class="t-h c-key" x="268" y="188">라우팅 (Routing)</text>
+  <text class="t-s" x="268" y="212">오퍼레이션과 그 순서</text>
+  <text class="t-s" x="268" y="234">사전조립 → 조립 → 검사</text>
+  <path class="ln" d="M500 203 H524" marker-end="url(#mA)"/>
+
+  <rect class="b" x="530" y="160" width="228" height="86" rx="6"/>
+  <text class="t-h" x="548" y="188">작업장 (Work Center)</text>
+  <text class="t-s" x="548" y="212">오퍼레이션마다 배정</text>
+  <text class="t-s" x="548" y="234">원가 · 계획 · 능력 제어</text>
+
+  <rect class="b-mut" x="530" y="266" width="228" height="58" rx="6"/>
+  <text class="t-h" x="548" y="292">생산자원/공구 (PRT)</text>
+  <text class="t-s" x="548" y="314">조립지시서 · 공구</text>
+  <path class="ln-d" d="M530 295 H400 V250" marker-end="url(#mA)"/>
+
+  <rect class="b-hl" x="250" y="336" width="508" height="64" rx="6"/>
+  <text class="t-h" x="270" y="362">생산버전 (Production Version)</text>
+  <text class="t-s" x="270" y="386">BOM × 라우팅 조합 1개 = 버전 1개 · 로트크기와 시점 기준으로 시스템이 자동 선택</text>
+  <path class="ln-key" d="M758 368 H830 V326" marker-end="url(#mAk)"/>
+
+  <path class="ln-key" d="M500 87 H784" marker-end="url(#mAk)"/>
+  <path class="ln-key" d="M758 203 H784" marker-end="url(#mAk)"/>
+
+  <rect class="b-ok" x="790" y="60" width="198" height="260" rx="6"/>
+  <text class="t-h c-ok" x="808" y="92">생산오더</text>
+  <text class="t-s" x="808" y="122">오더헤더</text>
+  <text class="t-xs" x="808" y="142">자재 · 수량 · 일정</text>
+  <text class="t-s" x="808" y="176">구성품목록</text>
+  <text class="t-xs" x="808" y="196">← BOM 사본</text>
+  <text class="t-s" x="808" y="230">작업목록</text>
+  <text class="t-xs" x="808" y="250">← 라우팅 사본</text>
+  <text class="t-xs" x="808" y="286">작업장 · PRT가</text>
+  <text class="t-xs" x="808" y="304">오퍼레이션에 붙는다</text>
+
+  <rect class="b-ghost" x="12" y="412" width="976" height="48" rx="6"/>
+  <text class="t-s" x="32" y="436">같은 BOM에 자동라인 라우팅(로트 1,000 초과)과 수동 라우팅(1,000 미만)을 각각 묶으면 <tspan class="c-key">생산버전 2개</tspan>가 된다.</text>
+  <text class="t-s" x="32" y="454">이 6종 중 하나라도 비면 오더가 서지 않는다. 오더는 원본을 만들지 않고 <tspan class="c-bad">복사만</tspan> 하기 때문이다.</text>
+</svg>
+<figcaption><span class="fno">그림 1</span>이산생산 마스터데이터가 생산오더로 합류하는 구조. 생산버전이 BOM과 라우팅의 조합을 확정한다.</figcaption>
+</figure>
+
+<h3>다단계 BOM과 생산버전 — 두 군데만 짚고 간다</h3>
+
+<p><b>다단계 BOM(Multilevel BOM)</b> — 반제품(예: 프레임)도 자체 BOM을 가질 수 있습니다. 이때 완제품 BOM과 반제품 BOM이 연결되어 다단계 구조가 됩니다. 앞 코스에서 본 MRP의 <b>BOM 전개(Explode)</b>가 펼쳐 내려가는 대상이 정확히 이 구조입니다.</p>
+
+<p><b>생산버전</b> — 같은 제품을 <span class="key">두 가지 방식으로</span> 만들 수 있을 때 쓰는 장치입니다.</p>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>버전</th><th>라우팅</th><th>적용 조건</th></tr></thead>
+<tbody>
+<tr><td>버전 A</td><td class="wrap">자동화된 조립 라인</td><td class="wrap">로트 크기 <b>1,000개 초과</b></td></tr>
+<tr><td>버전 B</td><td class="wrap">사전조립 · 조립 · 품질검사의 <b>수동 작업장</b></td><td class="wrap">로트 크기 <b>1,000개 미만</b></td></tr>
+</tbody>
+</table>
+</div>
+
+<p>두 버전 모두 <b>동일한 BOM</b>을 씁니다. 달라지는 건 라우팅뿐입니다 — 들어가는 부품은 같고 만드는 방법만 다르기 때문입니다.</p>
+
+<div class="note">
+  <div class="t">🔰 초보자 설명 — 왜 BOM과 라우팅을 따로 두고 다시 묶나</div>
+  <p>BOM은 <b>"무엇이 들어가나"</b>, 라우팅은 <b>"어떻게 만드나"</b>입니다. 이 둘이 바뀌는 주기가 다릅니다 — 부품 구성은 그대로인데 공장 자동화로 만드는 방법만 바뀌는 일이 흔하죠. 그래서 따로 관리하고, 실제 생산에서 쓸 <b>짝</b>만 생산버전으로 지정해 둡니다. 한 벌로 합쳐 두면 조합 하나 바뀔 때마다 전체를 복제해야 합니다.</p>
+</div>
+
+<div class="note warn">
+  <div class="t">확인 필요 — 테이블 · T-Code · 앱 ID</div>
+  <p>원문(레슨 본문 + 데모 영상)은 마스터데이터를 <b>개념 이름으로만</b> 다루고 조회 트랜잭션이나 Fiori 앱 ID를 제시하지 않습니다. BOM(<code>STKO</code> · <code>STPO</code>) · 라우팅(<code>PLKO</code> · <code>PLPO</code>) · 작업장(<code>CRHD</code>) · 생산버전(<code>MKAL</code>) 같은 테이블명은 <span class="bad">이 노트에서 단정하지 않습니다</span> — 실제 시스템(winerp01 / MEP)에서 확인한 뒤 보강합니다. 실습 Exercise "Analyze Master Data"는 원문 노트에서 생략되어 있습니다.</p>
+</div>
+
+</div>
+
+
+<!-- ══════════ LESSON 2 ══════════ -->
+<div class="lesson" id="l2">
+<h2><span class="no">LESSON 2</span>생산계획과의 연계 — 계획오더가 생기는 조건</h2>
+
+<p><span class="tag">Unit 2</span><span class="tag">레슨 1개</span>Applying the Integration with Production Planning — 계획→실행 전환 · PIR · 자재가용성 · 수동 전환</p>
+
+<h3>언제 이걸 알아야 하는가</h3>
+
+<p><b>"계획오더는 떠 있는데 생산이 시작이 안 됩니다."</b> 정상입니다. <span class="hl">계획오더 자체로는 제품을 만들 수 없습니다.</span> 계획오더는 "이 시점에 이만큼 들어올 예정"이라는 <b>계획된 입고</b>일 뿐이고, 실제로 물건이 생기려면 생산오더로 전환되어 생산·입고까지 가야 합니다.</p>
+
+<p>그 반대 문의도 같은 자리입니다 — <b>"MRP를 돌렸는데 계획오더가 하나도 안 생겼습니다."</b> 이건 <span class="key">자재가용성(Material Coverage)</span>을 MRP 실행 전후로 비교해야 답이 나옵니다.</p>
+
+<h3>생산오더가 정의하는 것 — 다섯 가지</h3>
+
+<p>생산오더는 일반적으로 <b>어떤 자재를 · 얼마의 수량으로 · 언제 · 어떤 방식으로</b> 생산할 것인가를 정의합니다. 자전거 회사의 개별 생산오더가 담는 정보는 다음과 같습니다.</p>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>항목</th><th>내용</th></tr></thead>
+<tbody>
+<tr><td>제품 유형</td><td class="wrap">어떤 종류의 자전거(산악자전거, 아동용 자전거 등)를 생산할 것인가</td></tr>
+<tr><td>수량</td><td class="wrap">얼마나 생산할 것인가</td></tr>
+<tr><td>일정</td><td class="wrap">언제 생산할 것인가</td></tr>
+<tr><td>구성 부품</td><td class="wrap">어떤 자재 구성품이 필요한가 — <b>BOM에서</b></td></tr>
+<tr><td>오퍼레이션</td><td class="wrap">어떤 작업장에서 어떤 오퍼레이션을 수행할 것인가 — <b>라우팅에서</b></td></tr>
+</tbody>
+</table>
+</div>
+
+<h3>수요 프로그램 → PIR → 계획오더</h3>
+
+<p>수요 프로그램은 <b>실제 판매오더</b> 또는 <b>과거 판매 주기 기반의 예측(Forecast)</b>에서 발생합니다. 이것을 <span class="key">계획독립소요량(PIR)</span>으로 유지한 뒤, MRP 실행이 이를 처리해 계획오더를 생성합니다.</p>
+
+<h4>자재가용성 모니터링 — 계획오더를 만들지 말지 정하는 기준</h4>
+
+<p>시스템은 <b>소요량</b>과 <b>재고 현황</b>을 시점별로 비교해 소요가 충족되는지 판단합니다.</p>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>상황</th><th>MRP 실행 결과</th></tr></thead>
+<tbody>
+<tr><td>재고 · 계획오더 · 생산오더로 <b>충족됨</b></td><td class="wrap"><span class="good">계획오더를 생성하지 않는다</span> — "아무것도 안 생겼다"가 정상 동작인 경우</td></tr>
+<tr><td><b>충족되지 않음</b></td><td class="wrap">부족분을 만회할 <span class="key">계획오더를 생성</span>한다</td></tr>
+</tbody>
+</table>
+</div>
+
+<p>그래서 데모에서 다루는 프로세스 단계도 세 개로 고정돼 있습니다.</p>
+
+<div class="step"><span class="n">STEP 1</span><p><b>MRP 실행 전</b> 자재가용성 분석 — 지금 부족한가</p></div>
+<div class="step"><span class="n">STEP 2</span><p><b>MRP 실행</b></p></div>
+<div class="step"><span class="n">STEP 3</span><p><b>MRP 실행 후</b> 자재가용성 분석 — 무엇이 생겼는가 · 부족이 메워졌는가</p></div>
+
+<p>앞뒤를 비교하지 않으면 MRP가 무슨 일을 했는지 알 수 없습니다. 이게 진단의 기본 순서입니다.</p>
+
+<h3>계획오더를 생산오더로 — 왜 전환이 필요한가</h3>
+
+<p>계획오더는 <b>미충족 수요(PIR 또는 판매오더)를 만회하기 위한 미래의 입고 예정</b>으로 해석할 수 있습니다. 다만 계획오더 자체로는 실제 생산에 쓸 수 없습니다. 수요를 최종적으로 충족하려면 실제로 제품을 생산해 <b>입고 처리</b>해야 합니다.</p>
+
+<ul>
+  <li>산업 변형에 따라 계획오더 → <b>생산오더</b>(이산) 또는 <b>공정오더</b>(프로세스)로 전환</li>
+  <li>자전거 회사: 자전거 최종 조립은 <b>생산오더</b>, 도장(페인트) 생산은 <b>공정오더</b></li>
+</ul>
+
+<div class="note warn">
+  <div class="t">Hint — 전환은 계획오더 하나만 건드리는 일이 아니다</div>
+  <p>생산오더는 <b>전체 계획 프로세스에 내장</b>되어 있습니다. 그래서 전환 시 계획오더의 <span class="key">종속소요량(Dependent Requirements)</span> 등 관련 오브젝트도 함께 영향을 받습니다. 구체적으로 무엇이 무엇으로 바뀌는지는 LESSON 4에서 다룹니다.</p>
+</div>
+
+<div class="note">
+  <div class="t">🔰 초보자 설명 — 계획오더와 생산오더를 한 줄로 구분하면</div>
+  <p>계획오더는 <b>"이렇게 하면 될 것 같다"는 시스템의 제안</b>이고, 생산오더는 <b>"이대로 한다"는 확정된 작업 지시</b>입니다. 제안 상태에서는 MRP가 다시 돌 때마다 사라지거나 수량이 바뀔 수 있습니다. 확정으로 넘어가면서 사람이 책임을 지는 오브젝트가 되고, 그때부터 예약·원가·상태가 붙습니다.</p>
+</div>
+
+</div>
+
+
+<!-- ══════════ LESSON 3 ══════════ -->
+<div class="lesson" id="l3">
+<h2><span class="no">LESSON 3</span>생산오더 라이프사이클 — 상태가 바뀌는 순서</h2>
+
+<p><span class="tag">Unit 3</span><span class="tag">레슨 1개</span>Describing the Lifecycle of a Production Order — 릴리스 · 자재출고 · 오퍼레이션 확인 · 입고</p>
+
+<h3>언제 이걸 알아야 하는가</h3>
+
+<p><b>"생산오더는 있는데 자재출고 메뉴가 눌리지 않습니다."</b> 릴리스가 안 된 오더입니다. 오더 릴리스는 라이프사이클의 <span class="bad">필수 단계</span>이고, 릴리스되지 않으면 자재출고 · 입고 · 오더확인 등 이후 기능을 <b>아예 실행할 수 없습니다</b>.</p>
+
+<p>이 LESSON은 각 단계가 <b>누가 · 무엇을 · 어떤 상태와 전표를 남기며</b> 하는 일인지의 뼈대입니다. 단계별 옵션과 세부 효과는 LESSON 5에서 채웁니다.</p>
+
+<h3>라이프사이클 전체</h3>
+
+<figure class="figwrap">
+<svg class="dgm" viewBox="0 0 1000 450" role="img" aria-label="생산오더 라이프사이클 도해. 생성부터 입고까지 다섯 단계가 순서대로 오더 상태를 바꾸고 각각 예약과 자재문서 같은 산출물을 남기며, 릴리스를 건너뛰면 이후 단계가 실행되지 않는다.">
+  <defs>
+    <marker id="mB" markerWidth="9" markerHeight="9" refX="7" refY="4.5" orient="auto">
+      <polygon class="arw" points="0,0 9,4.5 0,9"/></marker>
+    <marker id="mBk" markerWidth="9" markerHeight="9" refX="7" refY="4.5" orient="auto">
+      <polygon class="arw-key" points="0,0 9,4.5 0,9"/></marker>
+  </defs>
+
+  <rect class="b-mut" x="12" y="46" width="88" height="64" rx="5"/>
+  <text class="t-s" x="26" y="84">단계</text>
+  <rect class="b-mut" x="12" y="124" width="88" height="48" rx="5"/>
+  <text class="t-s" x="26" y="154">오더 상태</text>
+  <rect class="b-mut" x="12" y="186" width="88" height="92" rx="5"/>
+  <text class="t-s" x="26" y="228">남는 것</text>
+  <text class="t-s" x="26" y="248">(전표·효과)</text>
+  <rect class="b-mut" x="12" y="292" width="88" height="44" rx="5"/>
+  <text class="t-s" x="26" y="319">담당 역할</text>
+
+  <rect class="b-key" x="110" y="46" width="130" height="64" rx="5"/>
+  <text class="t-h c-key" x="126" y="76">생성</text>
+  <text class="t-xs" x="126" y="96">계획오더 전환</text>
+  <rect class="b-hl" x="260" y="46" width="130" height="64" rx="5"/>
+  <text class="t-h" x="276" y="76">릴리스</text>
+  <text class="t-xs" x="276" y="96">가용성 · 능력체크</text>
+  <rect class="b-key" x="410" y="46" width="130" height="64" rx="5"/>
+  <text class="t-h c-key" x="426" y="76">자재출고</text>
+  <text class="t-xs" x="426" y="96">구성품 재고 감소</text>
+  <rect class="b-key" x="560" y="46" width="130" height="64" rx="5"/>
+  <text class="t-h c-key" x="576" y="76">오더확인</text>
+  <text class="t-xs" x="576" y="96">양품·불량·재작업</text>
+  <rect class="b-ok" x="710" y="46" width="130" height="64" rx="5"/>
+  <text class="t-h c-ok" x="726" y="76">입고</text>
+  <text class="t-xs" x="726" y="96">완제품 재고 증가</text>
+  <rect class="b-ghost" x="860" y="46" width="130" height="64" rx="5"/>
+  <text class="t-h" x="876" y="76">정산</text>
+  <text class="t-xs" x="876" y="96">원문 범위 밖</text>
+
+  <path class="ln-key" d="M240 78 H254" marker-end="url(#mBk)"/>
+  <path class="ln-key" d="M390 78 H404" marker-end="url(#mBk)"/>
+  <path class="ln-key" d="M540 78 H554" marker-end="url(#mBk)"/>
+  <path class="ln-key" d="M690 78 H704" marker-end="url(#mBk)"/>
+  <path class="ln-d" d="M840 78 H854" marker-end="url(#mB)"/>
+
+  <rect class="b" x="110" y="124" width="130" height="48" rx="5"/>
+  <text class="t-s" x="126" y="154">생성됨</text>
+  <rect class="b" x="260" y="124" width="130" height="48" rx="5"/>
+  <text class="t-s" x="276" y="154">릴리스됨</text>
+  <rect class="b" x="410" y="124" width="130" height="48" rx="5"/>
+  <text class="t-s" x="426" y="154">자재이동 등록됨</text>
+  <rect class="b" x="560" y="124" width="130" height="48" rx="5"/>
+  <text class="m-s" x="576" y="154">PCNF → CNF</text>
+  <rect class="b" x="710" y="124" width="130" height="48" rx="5"/>
+  <text class="t-s" x="726" y="154">부분입고→입고완료</text>
+  <rect class="b-ghost" x="860" y="124" width="130" height="48" rx="5"/>
+  <text class="t-s" x="920" y="154">—</text>
+
+  <rect class="b" x="110" y="186" width="130" height="92" rx="5"/>
+  <text class="t-xs" x="126" y="212">예약(Reservation)</text>
+  <text class="t-xs" x="126" y="234">BOM 자동 전개</text>
+  <text class="t-xs" x="126" y="256">구성품별 항목번호</text>
+  <rect class="b" x="260" y="186" width="130" height="92" rx="5"/>
+  <text class="t-xs" x="276" y="212">숍오더 문서 인쇄</text>
+  <text class="t-xs" x="276" y="234">(설정된 경우)</text>
+  <text class="t-xs" x="276" y="256">MES 다운로드(선택)</text>
+  <rect class="b" x="410" y="186" width="130" height="92" rx="5"/>
+  <text class="t-xs" x="426" y="212">자재문서 생성</text>
+  <text class="t-xs" x="426" y="234">예약 감소·최종출고</text>
+  <text class="t-xs" x="426" y="256">구성품 실제원가</text>
+  <rect class="b" x="560" y="186" width="130" height="92" rx="5"/>
+  <text class="t-xs" x="576" y="212">실제 시간 등록</text>
+  <text class="t-xs" x="576" y="234">활동원가 오더 배부</text>
+  <text class="t-xs" x="576" y="256">실제 시작·완료일</text>
+  <rect class="b" x="710" y="186" width="130" height="92" rx="5"/>
+  <text class="t-xs" x="726" y="212">자재문서 생성</text>
+  <text class="t-xs" x="726" y="234">실제원가 대체</text>
+  <text class="t-xs" x="726" y="256">가용성리스트 제외</text>
+  <rect class="b-ghost" x="860" y="186" width="130" height="92" rx="5"/>
+  <text class="t-xs" x="876" y="222">원가 차이 정산</text>
+  <text class="t-xs" x="876" y="244">후속 코스</text>
+
+  <rect class="b-mut" x="110" y="292" width="130" height="44" rx="5"/>
+  <text class="t-xs" x="126" y="319">MRP 관리자</text>
+  <rect class="b-mut" x="260" y="292" width="130" height="44" rx="5"/>
+  <text class="t-xs" x="276" y="319">생산 감독자</text>
+  <rect class="b-mut" x="410" y="292" width="130" height="44" rx="5"/>
+  <text class="t-xs" x="426" y="319">창고 담당자</text>
+  <rect class="b-mut" x="560" y="292" width="130" height="44" rx="5"/>
+  <text class="t-xs" x="576" y="319">현장 인력</text>
+  <rect class="b-mut" x="710" y="292" width="130" height="44" rx="5"/>
+  <text class="t-xs" x="726" y="319">작업자 · 창고</text>
+  <rect class="b-ghost" x="860" y="292" width="130" height="44" rx="5"/>
+  <text class="t-xs" x="920" y="319">—</text>
+
+  <rect class="b-ghost" x="12" y="350" width="976" height="90" rx="6"/>
+  <text class="t-s" x="32" y="376">릴리스는 <tspan class="c-bad">필수 단계</tspan>다. 릴리스 전에는 자재출고 · 오더확인 · 입고 어느 것도 실행되지 않는다 — 오류가 아니라 통제 장치다.</text>
+  <text class="t-s" x="32" y="400">오더가 <tspan class="c-key">생성되는 순간</tspan> BOM이 전개돼 예약이 만들어진다. 자재출고는 새로 계산하는 게 아니라 그 예약을 소진하는 행위다.</text>
+  <text class="t-s" x="32" y="424">정산(Settlement)은 이 코스 범위 밖이다. 원문은 입고 등록까지만 다루므로 회색 점선으로만 표시했다.</text>
+</svg>
+<figcaption><span class="fno">그림 2</span>생산오더 라이프사이클. 각 단계가 상태를 바꾸고 전표를 남기며, 앞 단계를 건너뛰면 뒤 단계가 잠긴다.</figcaption>
+</figure>
+
+<h3>단계별로 한 번씩</h3>
+
+<div class="step"><span class="n">STEP 1</span><p><b>생산오더 릴리스</b> — 라이프사이클의 <span class="bad">필수 단계</span>. 릴리스되지 않으면 자재출고 · 입고 · 오더확인 등 이후 기능을 실행할 수 없다. 생산 작업자가 실제 조립을 시작하기 전에 <b>생산 감독자 등이 릴리스</b>해야 한다</p></div>
+<div class="step"><span class="n">STEP 2</span><p><b>구성부품 피킹 및 자재출고 등록</b> — 조립에 필요한 구성부품(바퀴 · 체인 · 프레임 등)이 해당 작업장에 준비돼 있어야 한다. 이를 위해 <b>창고 담당자 등이 사전에 생산 현장에 스테이징</b>한다</p></div>
+<div class="step"><span class="n">STEP 3</span><p><b>오퍼레이션 확인(Confirm)</b> — 모든 구성부품이 준비되면 작업자가 각 작업장에서 개별 오퍼레이션(사전조립 · 조립 · 품질검사 · 포장)을 실행하고, 이를 문서화하기 위해 시스템에 확인을 등록한다</p></div>
+<div class="step"><span class="n">STEP 4</span><p><b>입고 등록</b> — 모든 오퍼레이션이 완료되면 재고 기록을 갱신하고 생산된 제품의 입고를 등록한다</p></div>
+
+<h4>오퍼레이션 확인 시 전달되는 정보</h4>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>구분</th><th>설명</th></tr></thead>
+<tbody>
+<tr><td>오퍼레이션 수량<br>(양품·불량·재작업)</td><td class="wrap"><b>양품(Yield)</b>은 정상 생산되어 다음 작업장으로 이동하는 수량, <b>불량(Scrap)</b>은 조립 실패로 폐기된 수량, <b>재작업(Rework)</b>은 수리가 필요해 해당 작업장에 남는 수량</td></tr>
+<tr><td>오퍼레이션 시간/노력</td><td class="wrap">실제 소요 시간을 등록하고 <span class="key">관련 원가를 오더에 배부</span>. 계획 시간과 실제 시간을 비교해 계획 데이터를 개선하는 데 활용</td></tr>
+</tbody>
+</table>
+</div>
+
+<div class="note">
+  <div class="t">🔰 초보자 설명 — 왜 "확인"이 별도 단계인가</div>
+  <p>물건을 만들었다는 사실은 시스템이 알 방법이 없습니다. 누군가 <b>"몇 개를 만들었고 몇 시간 걸렸다"</b>고 입력해 줘야 재고와 원가가 움직입니다. 확인(Confirmation)은 그 입력 행위이고, 동시에 <b>어디까지 진행됐는지</b>를 나타내는 진척 기록이기도 합니다. 그래서 원문도 "확인은 가능한 신속하게"라고 강조합니다 — 늦게 넣으면 그동안 시스템이 보는 현장은 실제와 다릅니다.</p>
+</div>
+
+</div>
+
+
+<!-- ══════════ LESSON 4 ══════════ -->
+<div class="lesson" id="l4">
+<h2><span class="no">LESSON 4</span>생산오더 생성 — 계획오더 전환의 네 가지 길</h2>
+
+<p><span class="tag">Unit 4</span><span class="tag">레슨 1개</span>Creating Production Orders — 일괄 · 개별 · 부분 전환 · 시점 기준 일괄 전환 · 긴급 수동 생성</p>
+
+<h3>언제 이걸 알아야 하는가</h3>
+
+<p><b>"계획오더 한 건을 두 번에 나눠 생산하고 싶은데 방법이 없습니다."</b> 있습니다 — <span class="key">부분 전환(Partial Conversion)</span>입니다. 계획오더 1건에서 생산오더를 여러 건 만들 수 있고, 생산자원이 모자라거나 구성부품이 일부만 도착한 상황이 정확히 그 용도입니다.</p>
+
+<p>반대로 <b>"이번 주에 전환할 오더를 일일이 고르기 힘듭니다"</b>는 <span class="key">시점 기준 일괄 전환</span>으로 풉니다. 이 LESSON은 "전환"이라는 한 동작에 몇 가지 모양이 있는지의 목록입니다.</p>
+
+<h3>전환 경로와 그 효과</h3>
+
+<figure class="figwrap">
+<svg class="dgm" viewBox="0 0 1000 460" role="img" aria-label="계획오더 전환 구조 도해. MRP가 만든 계획오더는 일괄·개별·부분 전환 세 가지 방식으로 생산오더가 되고 그 과정에서 계획오더는 삭제되며 종속소요량은 예약으로 대체되고, 긴급 오더는 계획오더 없이 직접 생성된다.">
+  <defs>
+    <marker id="mC" markerWidth="9" markerHeight="9" refX="7" refY="4.5" orient="auto">
+      <polygon class="arw" points="0,0 9,4.5 0,9"/></marker>
+    <marker id="mCk" markerWidth="9" markerHeight="9" refX="7" refY="4.5" orient="auto">
+      <polygon class="arw-key" points="0,0 9,4.5 0,9"/></marker>
+  </defs>
+
+  <rect class="b" x="12" y="60" width="160" height="58" rx="6"/>
+  <text class="t-h" x="30" y="86">MRP 실행</text>
+  <text class="t-xs" x="30" y="106">부족분 계산</text>
+  <path class="ln" d="M172 89 H200" marker-end="url(#mC)"/>
+
+  <rect class="b-hl" x="206" y="60" width="190" height="58" rx="6"/>
+  <text class="t-h" x="224" y="86">계획오더</text>
+  <text class="t-xs" x="224" y="106">계획된 입고 — 생산 불가</text>
+
+  <path class="ln-key" d="M396 89 H414"/>
+  <path class="ln-key" d="M414 51 V207"/>
+  <path class="ln-key" d="M414 51 H434" marker-end="url(#mCk)"/>
+  <path class="ln-key" d="M414 129 H434" marker-end="url(#mCk)"/>
+  <path class="ln-key" d="M414 207 H434" marker-end="url(#mCk)"/>
+
+  <rect class="b-key" x="440" y="24" width="280" height="54" rx="6"/>
+  <text class="t-h c-key" x="458" y="48">일괄 전환 (Collective)</text>
+  <text class="t-xs" x="458" y="68">n건 → n건 · 플랜트 · MRP관리자 · 자재 기준</text>
+
+  <rect class="b-key" x="440" y="102" width="280" height="54" rx="6"/>
+  <text class="t-h c-key" x="458" y="126">개별 전환 (Individual)</text>
+  <text class="t-xs" x="458" y="146">1건 → 1건 · MRP 관리자가 수동 전환</text>
+
+  <rect class="b-key" x="440" y="180" width="280" height="54" rx="6"/>
+  <text class="t-h c-key" x="458" y="204">부분 전환 (Partial)</text>
+  <text class="t-xs" x="458" y="224">1건 → 여러 건 · 자원 · 부품 부족 시</text>
+
+  <path class="ln-key" d="M720 51 H740 V129 H754" marker-end="url(#mCk)"/>
+  <path class="ln-key" d="M720 129 H754" marker-end="url(#mCk)"/>
+  <path class="ln-key" d="M720 207 H740 V129 H754" marker-end="url(#mCk)"/>
+
+  <rect class="b-ok" x="760" y="76" width="228" height="106" rx="6"/>
+  <text class="t-h c-ok" x="778" y="104">생산오더</text>
+  <text class="t-s" x="778" y="130">오더헤더 + 작업목록</text>
+  <text class="t-s" x="778" y="152">+ 구성품목록</text>
+  <text class="t-s" x="778" y="174">예약(Reservation) 생성</text>
+
+  <rect class="b-ghost" x="12" y="252" width="412" height="104" rx="6"/>
+  <text class="t-h" x="32" y="278">시점 기준 일괄 전환 — 오픈 기간</text>
+  <rect class="b-hl" x="36" y="292" width="110" height="20" rx="3"/>
+  <text class="t-xs" x="44" y="306">오픈 기간</text>
+  <path class="ln" d="M36 324 H404"/>
+  <path class="ln" d="M96 316 V332"/>
+  <path class="ln" d="M230 316 V332"/>
+  <path class="ln" d="M360 316 V332"/>
+  <text class="t-xs" x="52" y="348">계획오픈일</text>
+  <text class="t-xs" x="208" y="348">시작일</text>
+  <text class="t-xs" x="338" y="348">완료일</text>
+
+  <rect class="b" x="440" y="262" width="280" height="58" rx="6"/>
+  <text class="t-h" x="458" y="288">긴급 수동 생성</text>
+  <text class="t-xs" x="458" y="308">계획오더 없이 · 자재 · 수량 · 일자 직접 입력</text>
+  <path class="ln-d" d="M720 291 H800 V190" marker-end="url(#mC)"/>
+
+  <rect class="b-ghost" x="12" y="372" width="976" height="68" rx="6"/>
+  <text class="t-s" x="32" y="398">전환되면 계획오더는 <tspan class="c-bad">삭제되고</tspan> 생산오더가 그 자리를 대체한다. 구성부품 레벨에서는 종속소요량이 <tspan class="c-key">예약(Reservation)</tspan>으로 바뀐다.</text>
+  <text class="t-s" x="32" y="422">계획오픈일이 지정한 오픈 기간 안에 들어오는 계획오더 전부가 일괄 전환 대상이 된다 — 날짜로 고르는 방식이다.</text>
+</svg>
+<figcaption><span class="fno">그림 3</span>계획오더 → 생산오더 전환 구조. 계획오더는 사라지고 종속소요량은 예약으로 바뀐다.</figcaption>
+</figure>
+
+<h3>전환 옵션 두 가지 (+ 부분 전환)</h3>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>방식</th><th>설명</th></tr></thead>
+<tbody>
+<tr><td>일괄 전환<br>(Collective)</td><td class="wrap">다수의 계획오더를 동시에 전환. <b>계획오더 1건당 정확히 생산오더 1건</b>(n → n). 플랜트 · MRP 관리자 · 오픈일자 · 자재 등 다양한 선택 기준 지정 가능</td></tr>
+<tr><td>개별 전환<br>(Individual)</td><td class="wrap">MRP 관리자가 계획오더 1건을 생산오더 1건으로 <b>수동 전환</b>. 또는 <span class="key">부분 전환</span>으로 계획오더 1건에서 <b>여러 생산오더</b> 생성 가능 (예: 생산자원 부족, 구성부품 부족)</td></tr>
+</tbody>
+</table>
+</div>
+
+<h4>전환하면 무엇이 바뀌나</h4>
+
+<ul>
+  <li>해당 <b>계획오더는 삭제</b>되고 생산오더로 대체된다</li>
+  <li>구성부품 레벨에서는 <span class="key">종속소요량(Dependent Requirements)</span>이 <span class="key">예약(Reservation)</span>으로 대체된다</li>
+</ul>
+
+<div class="note">
+  <div class="t">🔰 초보자 설명 — 종속소요량이 예약으로 바뀐다는 말</div>
+  <p>종속소요량은 <b>"상위 제품을 만들려면 이 부품이 이만큼 필요할 것"</b>이라는 계산값입니다. 계산값이므로 MRP가 다시 돌면 바뀝니다. 예약은 <b>"이 오더가 이 부품 이만큼을 잡아 두었다"</b>는 확정된 점유입니다. 그래서 전환은 <span class="key">계산값을 점유로 바꾸는 행위</span>입니다 — 이 시점부터 그 재고는 다른 오더가 마음대로 가져갈 수 없습니다.</p>
+</div>
+
+<h3>시점 기준 일괄 전환 (Time-Oriented Collective Conversion)</h3>
+
+<p>계획오더를 전환할 때는 보통 <b>가까운 시일 내 생산이 예정된</b> 계획오더를 전환합니다. 계획오더를 스케줄링하면 다음 세 날짜가 결정됩니다.</p>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>일자</th><th>의미</th></tr></thead>
+<tbody>
+<tr><td>시작일</td><td class="wrap">생산을 시작해야 하는 날</td></tr>
+<tr><td>완료일</td><td class="wrap">생산이 끝나야 하는 날</td></tr>
+<tr><td><span class="key">계획오픈일</span><br>(Planned Opening Date)</td><td class="wrap"><b>계획오더가 생산오더로 전환되어야 하는 날짜</b>. 일괄 전환 시 <span class="key">오픈 기간(Opening Period)</span>을 지정하면, 계획오픈일이 그 기간 안에 있는 <b>모든</b> 계획오더가 전환된다</td></tr>
+</tbody>
+</table>
+</div>
+
+<div class="note warn">
+  <div class="t">긴급 미계획 오더 — 계획오더 없이도 만들 수 있다</div>
+  <p>수리나 갑작스러운 고객 주문 같은 긴급 건은 <b>언제든지 생산오더를 수동으로 생성</b>할 수 있습니다. 다만 계획오더에서 물려받을 것이 없으므로 <span class="bad">자재 · 수량 · 일자를 사람이 직접 입력</span>해야 합니다. MRP가 검증해 준 수량·일정이 아니라는 뜻이므로, 이 경로로 만든 오더는 가용성 체크(LESSON 5)에서 걸릴 가능성이 그만큼 높습니다.</p>
+</div>
+
+<div class="note warn">
+  <div class="t">확인 필요 — 전환 T-Code · 앱 ID</div>
+  <p>원문은 전환 방식을 <b>개념과 데모로만</b> 설명하고 트랜잭션이나 Fiori 앱 ID를 제시하지 않습니다. 일괄 전환 · 개별 전환에 해당하는 실제 앱은 <span class="bad">실제 시스템(winerp01 / MEP)에서 확인</span>한 뒤 이 노트에 보강합니다. 실습 Exercise "Convert A Planned Order"는 원문 노트에서 생략되어 있습니다.</p>
+</div>
+
+</div>
+
+
+<!-- ══════════ LESSON 5 ══════════ -->
+<div class="lesson" id="l5">
+<h2><span class="no">LESSON 5</span>생산오더 실행 — 릴리스 · 자재출고 · 확인 · 입고</h2>
+
+<p><span class="tag">Unit 5</span><span class="tag">레슨 4개</span>Executing Production Orders — 가용성체크 · 숍오더문서 · 예약 · 백플러시 · PCNF/CNF · 입고 효과</p>
+
+<h3>언제 이걸 알아야 하는가</h3>
+
+<p><b>"오더 확인은 등록했는데 구성부품 재고가 그대로입니다."</b> 그 구성부품에 <span class="key">백플러시(Backflush) 지시자</span>가 없는 경우입니다. 확인과 자재출고는 <b>서로 다른 두 개의 등록</b>이고, 자동으로 묶이는 건 백플러시가 설정된 자재뿐입니다.</p>
+
+<p>이 LESSON은 실행 4단계 각각의 <b>선택지(수동/자동 · 개별/일괄)와 등록했을 때 실제로 일어나는 일</b>을 채웁니다. LESSON 3이 뼈대라면 여기가 살입니다.</p>
+
+<h3>① 오더 릴리스 — 릴리스 전에 확인하는 두 가지</h3>
+
+<p>자전거 회사는 <b>생산 실행 준비가 완료된 오더</b>를 릴리스합니다. 준비 완료의 기준이 두 개입니다.</p>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>체크</th><th>무엇을 비교하나</th><th>부족하면</th></tr></thead>
+<tbody>
+<tr><td>가용성 체크<br>(Availability Check)</td><td class="wrap">생산오더가 요구하는 구성부품 수량 ↔ 가용 수량</td><td class="wrap">시스템이 사용자에게 알린다. <b>추가 조달</b> 또는 <b>다른 오더로부터의 재배분</b>이 필요</td></tr>
+<tr><td>능력 평가<br>(Capacity Evaluation)</td><td class="wrap">작업장이 제공하는 능력 ↔ 오퍼레이션이 요구하는 능력</td><td class="wrap">생산 감독자가 해당 자원에 배정된 <b>다른 오더를 재조정</b></td></tr>
+</tbody>
+</table>
+</div>
+
+<p>일반적으로 오더 릴리스는 이 둘 <b>이후</b>에 수행됩니다. 기술적으로 릴리스는 오더 상태를 <span class="key">"생성됨(Created)" → "릴리스됨(Released)"</span>으로 바꾸는 것이고, 릴리스 이후에야 오더 인쇄 · 자재출고 등록 · 오더확인 · 입고 등록이 가능해집니다.</p>
+
+<h4>숍오더 문서(Shop Order Papers)</h4>
+
+<p>시스템이 그렇게 설정돼 있다면 릴리스 시 자동으로 인쇄됩니다. <b>페이퍼리스 생산 프로세스(MES 등)를 쓰지 않는 기업</b>에서 오더 처리에 필요합니다.</p>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>문서 종류</th><th>설명</th></tr></thead>
+<tbody>
+<tr><td>타임티켓 / 확인전표</td><td class="wrap">현장 인력이 작업 실적을 문서화하는 데 사용</td></tr>
+<tr><td>피킹리스트 / 자재인출리스트</td><td class="wrap">현장 인력에게 조립할 구성부품을 안내. <b>창고 인력이 자재 스테이징에 활용</b></td></tr>
+<tr><td>오브젝트 개요</td><td class="wrap">오더 전체 개요. 오더 전체 생산 프로세스를 동반하는 프로세스 전표로 활용</td></tr>
+</tbody>
+</table>
+</div>
+
+<h4>릴리스 옵션과 MES 연계</h4>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>방식</th><th>설명</th></tr></thead>
+<tbody>
+<tr><td>개별 릴리스</td><td class="wrap">오더 또는 오퍼레이션을 개별 수동 릴리스. 예: 고객 긴급오더를 수동 생성하고 <b>바로 릴리스</b></td></tr>
+<tr><td>일괄 릴리스</td><td class="wrap">다수 오더를 선택해 일괄 릴리스(예: <code>Manage Production Orders</code> 앱). 플랜트 · 생산 스케줄러 · 릴리스일 · 자재 기준. 자전거 회사는 <b>다음 주 실행 예정 오더를 전주에 감독자가 일괄 릴리스</b></td></tr>
+</tbody>
+</table>
+</div>
+
+<ul>
+  <li>오더 전체를 릴리스하면 <b>내부 오퍼레이션도 자동 릴리스</b>된다 — 현장이 시스템 제약 없이 돌게 하는 기본값</li>
+  <li>개별 오퍼레이션만 릴리스하면 <span class="key">오퍼레이션 순서를 준수</span>해야 한다. 후속 오퍼레이션이 이전 것 완료 후에만 실행되도록 보장하고 싶을 때 쓰며, 오퍼레이션이 많고 순서 준수가 엄격한 복잡한 오더에 적용</li>
+  <li>백그라운드 작업(릴리스 실행 스케줄링)으로도 릴리스할 수 있다</li>
+  <li><b>Download to Process Control</b>(선택 단계) — MES(SAP Digital Manufacturing 또는 타사)를 쓰는 경우 릴리스 후 데이터가 MES로 전송되고, 그 시점부터 실행은 MES가 담당한다. 이후 MES가 확인된 생산 데이터(생산 수량 · 노력 · 구성부품 소비)를 SAP S/4HANA로 <b>업로드</b>해 시스템 간 일관성을 보장한다</li>
+</ul>
+
+<h3>② 자재출고 등록 — 예약을 소진하는 행위</h3>
+
+<p>릴리스 후 창고 담당자 또는 현장 인력이 자재출고를 등록합니다. 재고 관점에서는 <b>구성부품의 재고 수량이 감소</b>하고, 해당 소비가 오더에 등록됩니다.</p>
+
+<div class="note">
+  <div class="t">🔰 초보자 설명 — 예약(Reservation)이 언제 생기나</div>
+  <p><b>오더가 생성되는 순간</b>입니다. 시스템이 자동으로 BOM을 확인해 필요한 모든 자재 구성부품에 대해 필요 수량만큼 예약을 만들고, 각 구성부품은 예약 안에서 <b>별도의 항목 번호</b>를 받습니다. 예약 항목에는 구성부품 자재번호 · 필요 수량 · <b>저장위치(시스템이 자동 결정)</b>가 들어 있습니다.</p>
+  <p>그리고 예약된 자재는 <span class="key">그 자재가 배정된 오퍼레이션이 이미 릴리스된 경우에만</span> 창고에서 인출할 수 있습니다. 릴리스가 잠금장치라는 게 여기서도 다시 확인됩니다.</p>
+</div>
+
+<h4>자재 스테이징(Material Staging)</h4>
+
+<p>자재출고 등록에 앞서 스테이징이 선행될 수 있습니다. <b>중앙 저장위치 → 생산 저장위치</b>로 자재를 이동시켜 준비하는 창고 프로세스입니다. 구매 구성부품이 중앙 창고로 입고되지만 현장은 시스템상 <b>별도의 저장위치</b>에 해당하는 경우가 전형적입니다.</p>
+
+<div class="note ok">
+  <div class="t">📌 개인 E2E 프로젝트와의 연결점 — 스테이징은 트레이딩 모델에서도 같은 모양이다</div>
+  <p>개인 프로젝트(식품 유통 · 벤더 사입 후 재판매)에는 생산이 없어 생산 저장위치도 없습니다. 그런데 <b>"물리적으로 같은 물건인데 시스템상 저장위치를 옮겨 다음 단계를 준비한다"</b>는 구조는 그대로 겹칩니다.</p>
+  <p>프로젝트에서 그 자리는 두 곳입니다 — 플랜트 <code>GATE</code>(입고 게이트)에서 <code>STOR</code>(보관)로의 이관(<code>301</code>), 그리고 <code>STOR</code> 안에서 정상 저장위치(<code>1100</code>/<code>2100</code>/<code>3100</code>)에서 임박 저장위치(<code>1900</code>/<code>2900</code>/<code>3900</code>)로의 이동(<code>311</code>, CBO <code>ZBATCH_ZONE</code>)입니다. 셋 다 <b>수량 총계는 그대로인데 위치만 바뀌는</b> 이동이고, 다음 단계(생산 투입 / 출하 / 임박 판매)를 준비하기 위한 것이라는 점에서 성격이 같습니다.</p>
+  <p>차이는 <b>트리거</b>입니다. 스테이징은 오더가 당기고, <code>ZBATCH_ZONE</code>은 <span class="key">잔여 유통기한 30% 미달</span>이라는 시간 조건이 당깁니다. 그래서 프로젝트 쪽은 "누가 요청했는가"가 없고, 그만큼 <b>이동 이력에 사유를 남기는 설계</b>가 필요합니다 — CBO 테이블의 상태필드(W/P/H)와 처리일시가 그 역할입니다.</p>
+</div>
+
+<h4>자재출고 등록 옵션</h4>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>방식</th><th>설명</th></tr></thead>
+<tbody>
+<tr><td>수동 등록</td><td class="wrap"><code>Post Goods Movement</code> 또는 <code>Pick Components for Production Orders</code> 앱 등. 시스템이 예약 항목의 <b>구성부품 수량과 출고 저장위치를 제안</b>하며 변경 가능 — 오더 수량 일부만 생산하면 더 적게, 조립 중 파손이 있으면 더 많이</td></tr>
+<tr><td>자동 등록<br>(오더 확인과 함께)</td><td class="wrap"><code>Confirm Production Order</code> 앱 등에서 오더 확인 시 자동 등록</td></tr>
+<tr><td>자동 등록<br>(오퍼레이션 확인과 함께)</td><td class="wrap"><code>Confirm Production Order Operation</code> 앱 등에서 오퍼레이션 확인 시 자동 등록</td></tr>
+</tbody>
+</table>
+</div>
+
+<h4>백플러시(Backflush)</h4>
+
+<p>백플러시 지시자가 설정된 구성부품은 <b>확인 등록과 함께 자동으로 자재출고가 등록</b>되며, 출고 수량은 <span class="key">확인 수량에 비례</span>해 산정됩니다. 자전거 5대를 확인하면 프레임 5개와 바퀴 10개의 자재출고가 각각 등록됩니다.</p>
+
+<div class="note">
+  <div class="t">🔰 초보자 설명 — 백플러시를 언제 쓰나</div>
+  <p>특정 오더에 대해 <b>자재를 별도로 스테이징하지 않으려는 경우</b>에 씁니다. 자재가 이미 저장위치에 준비되어 소비 가능한 상태라는 전제가 깔려 있습니다. 일반적으로 흐름/조립 라인, 그리고 <b>나사 · 그리스처럼 저가치 자재</b>의 스테이징에 적용합니다 — 나사 200개를 건건이 출고 등록하는 비용이 나사값보다 크기 때문입니다.</p>
+</div>
+
+<h4>자재출고 등록의 효과</h4>
+
+<ul>
+  <li>인출된 구성부품의 <b>재고 수량이 출고 수량만큼 감소</b></li>
+  <li><b>예약이 감소</b>. 예약 수량 전체가 인출되면 <span class="key">최종출고(Final Issue) 지시자</span>가 설정되고, 이후 그 예약은 재고/소요량 리스트에서 <b>제거</b>된다</li>
+  <li>실제 구성부품 원가가 산정되어 <b>오더에 배부</b></li>
+  <li>오더 헤더 상태에 <span class="key">"자재이동 등록됨(Goods Movement Posted)"</span>이 설정</li>
+  <li><b>자재문서</b>가 생성</li>
+</ul>
+
+<div class="note warn">
+  <div class="t">Hint — 자재이동 문서화</div>
+  <p>자재출고를 쉽게 분석할 수 있도록 <b>커스터마이징에서 자재이동 문서화를 활성화</b>하는 것을 SAP는 권장합니다. 원문은 여기까지만 말하고 구체적인 IMG 경로는 제시하지 않습니다 — <span class="bad">실제 시스템에서 확인</span>할 것.</p>
+</div>
+
+<h3>③ 오더 확인(Confirmation)</h3>
+
+<p>현장 인력이 자재를 인출한 뒤 <b>라우팅에 명시된 대로</b> 조립합니다. 각 오퍼레이션에 대해 조립 수량 · 시작·완료 시점 · 소요 시간을 기록하는 것이 확인입니다.</p>
+
+<p>확인은 <span class="key">진척 관리</span>와 <span class="key">오더에 대한 내부 활동 원가 배부</span>의 근거가 됩니다. 그래서 원문은 확인을 <b>가능한 신속하게</b> 수행하라고 강조합니다. 전제조건은 오더 및/또는 오퍼레이션이 <b>릴리스되어 있을 것</b>입니다.</p>
+
+<h4>오퍼레이션 확인 시 제공되는 정보</h4>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>항목</th><th>설명</th></tr></thead>
+<tbody>
+<tr><td>오퍼레이션 수량<br>(양품/불량/재작업)</td><td class="wrap"><b>양품</b>은 해당 오퍼레이션에서 생산되어 다음 작업장으로 이관 가능한 부분생산 수량. <b>불량</b>은 실행 중 폐기해야 했던 수량(필요 시 텍스트 입력 또는 <span class="key">품질통지 생성</span> 가능). <b>재작업</b>은 품질 등의 이유로 다음 오퍼레이션으로 이관할 수 없는 수량이며, 수리 후 계획된 생산 흐름으로 재투입된다</td></tr>
+<tr><td>실제 일자<br>(시작/완료)</td><td class="wrap">오퍼레이션의 실제 시작·완료일. 분석 또는 <b>후속 오퍼레이션 재스케줄링</b>에 활용</td></tr>
+<tr><td>준비시간 /<br>기계시간 / 노무시간</td><td class="wrap"><b>준비시간</b>은 작업장을 생산 준비하는 시간(예: 조립 로봇에 자동조립 프로그램 로딩)으로 보통 오퍼레이션당 1회만 발생하고 <span class="key">생산 수량과 무관</span>. <b>기계시간 · 노무시간</b>은 각각 기계와 작업자의 작업 시간으로 보통 생산 수량에 비례. 라우팅에 정의된 기준 시간이 확인 시 제안되며 실제와 다르면 변경 가능</td></tr>
+</tbody>
+</table>
+</div>
+
+<p>확인 등록 후 상태가 갱신됩니다 — 하나 이상(전체는 아님)의 오퍼레이션이 확인되면 <span class="key">부분확인(PCNF)</span>, 모든 오퍼레이션이 확인완료되면 <span class="key">확인완료(CNF)</span>.</p>
+
+<h4>확인 옵션 두 가지</h4>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>방식</th><th>설명</th><th>적용</th></tr></thead>
+<tbody>
+<tr><td>오더 헤더 레벨</td><td class="wrap">오더 전체에 대해 확인 등록. 시스템이 <b>모든 오퍼레이션을 자동 확인 처리</b>. 한 번에 전체를 확인하거나 오더 수량에 도달할 때까지 나눠서 등록 가능</td><td class="wrap">오퍼레이션 수가 적거나 상세 진척 관리가 필요 없는 오더</td></tr>
+<tr><td>오퍼레이션 레벨<br>(타임티켓)</td><td class="wrap">오더 내 각 오퍼레이션에 대해 개별 확인 등록</td><td class="wrap">오퍼레이션이 많아 <b>각 단계 진척을 상세히</b> 봐야 하는 대규모 오더</td></tr>
+</tbody>
+</table>
+</div>
+
+<div class="note warn">
+  <div class="t">Caution — 한 오더에 두 방식을 섞을 수 없다</div>
+  <p>하나의 생산오더에 대해서는 <b>오더 관련 확인</b> 또는 <b>오퍼레이션 관련 확인</b> 중 <span class="bad">한 가지 방식만</span> 사용할 수 있습니다. 한 유형(예: 오더 확인)을 등록한 이후에는 다른 유형(예: 타임티켓 확인)을 등록할 수 없고 그 반대도 마찬가지입니다. 잘못 등록했다면 <b>확인을 취소</b>해야 합니다.</p>
+  <p>운영에서 이 규칙을 모르고 "왜 타임티켓이 안 먹히냐"는 문의가 올라오면, 먼저 <b>그 오더에 이미 헤더 레벨 확인이 들어갔는지</b>부터 봅니다.</p>
+</div>
+
+<p>MES를 쓰는 기업에서는 현장 인력이 SAP S/4HANA 대신 MES와 상호작용하고, MES에 기록된 확인 데이터가 <b>인터페이스를 통해 자동으로 ERP에 전송</b>되어 S/4HANA에서도 조회됩니다.</p>
+
+<h3>④ 입고 등록 — 라이프사이클의 마지막</h3>
+
+<p>모든 생산 단계 완료 후 완성품을 창고 내 지정된 보관 구역으로 이동시키고 입고를 공식 등록합니다. 입고를 등록하면 <b>재고 수량이 증가</b>하며, 생산된 품목이 모두 창고로 인도되면 해당 생산오더는 더 이상 생산 관점에서 관련이 없게 됩니다.</p>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>방식</th><th>설명</th></tr></thead>
+<tbody>
+<tr><td>수동 입고 등록</td><td class="wrap">예: <code>Post Goods Movement</code> 앱. 생산 프로세스 마지막 단계에서 <b>생산 작업자</b>가 실행하거나, 완성품이 창고 입고구역에 도착한 후 <b>창고 담당자</b>가 실행</td></tr>
+<tr><td>자동 입고 등록<br>(오더 확인과 함께)</td><td class="wrap">예: <code>Confirm Production Order</code> 앱. <b>저장 시스템이 현장에서 창고로 완성품을 자동 이관</b>하는 경우 등</td></tr>
+<tr><td>자동 입고 등록<br>(오퍼레이션 확인과 함께)</td><td class="wrap">예: <code>Confirm Production Order Operation</code> 앱</td></tr>
+</tbody>
+</table>
+</div>
+
+<ul>
+  <li>입고는 <b>오더 헤더에 저장된 저장위치</b>(예: <code>101A</code>)에서 등록되며 시스템이 이를 제안한다. 자동 입고도 같은 저장위치로 등록된다</li>
+  <li>자동/수동 관계없이 <b>부분 입고</b>(여러 차례)와 전체 생산 수량 <b>일괄 입고</b> 모두 가능</li>
+  <li>수동 등록 시 시스템은 오더 또는 마지막 오퍼레이션의 <b>양품 수량</b>을 입고 수량으로 제안하고, 나눠서 등록하는 경우 <b>이미 입고된 수량을 차감</b>한 수량을 제안한다</li>
+</ul>
+
+<h4>입고 등록의 효과</h4>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>구분</th><th>내용</th></tr></thead>
+<tbody>
+<tr><td>재고</td><td class="wrap">재고 수량이 입고 수량만큼 <b>증가</b></td></tr>
+<tr><td>상태</td><td class="wrap">오더 상태가 <b>부분입고</b> 또는 <b>입고완료</b>로 갱신 · 오더 내 입고 수량 갱신</td></tr>
+<tr><td>원가</td><td class="wrap">실제 원가가 산정되어 오더에 <span class="key">대체(Credit) 처리</span></td></tr>
+<tr><td>모니터링</td><td class="wrap">완전 입고된 경우 생산오더가 <b>자재가용성 모니터링 리스트에서 제거</b></td></tr>
+<tr><td>전표</td><td class="wrap"><b>자재문서</b> 생성</td></tr>
+</tbody>
+</table>
+</div>
+
+<div class="note ok">
+  <div class="t">📌 개인 E2E 프로젝트와의 연결점 — 자동 전기가 회계를 건드리는 지점</div>
+  <p>이 LESSON에서 자동화 옵션이 붙은 등록이 셋입니다 — <b>백플러시 자재출고</b>, <b>확인 시 자동 자재출고</b>, <b>확인 시 자동 입고</b>. 셋 다 재고 수량과 함께 <span class="key">원가(회계)를 같이 움직입니다</span>. 표준이 이걸 허용하는 이유는 분명합니다: 그 앞에 <b>릴리스라는 사람의 승인</b>이 이미 한 번 있었기 때문입니다.</p>
+  <p>개인 프로젝트의 원칙 <b>"회계 영향이 있는 처리는 자동화하지 않는다"</b>와 정면으로 어긋나 보이지만, 실은 같은 말입니다. 표준은 자동 전기를 <span class="key">승인 뒤쪽에만</span> 배치합니다. 프로젝트의 CBO <code>ZGATE_INSPECT</code>(GR <code>101</code> vs STOR 이관 <code>301</code> 차이 → 송장 미발생 건 <code>122</code> 반품)에 승인 대기 상태(W/P/H)를 둔 것이 정확히 그 릴리스 자리를 대신하는 장치입니다.</p>
+  <p>반대로 <code>ZBATCH_ZONE</code>의 <code>311</code> 자동 이동을 승인 없이 돌리기로 한 것은 <b>311이 저장위치 간 이동이라 평가금액 총계를 바꾸지 않기</b> 때문입니다 — 백플러시가 저가치 자재에만 붙는 것과 같은 판단 기준(효과의 크기 대비 통제 비용)입니다. <span class="bad">확인 필요</span>: 임박 저장위치를 별도 평가등급으로 가져갈 경우 <code>311</code>도 회계를 건드리게 되므로, 그때는 이 판단을 다시 해야 합니다 — 실제 시스템에서 확정할 것.</p>
+</div>
+
+<div class="note warn">
+  <div class="t">확인 필요 — 이동유형 번호 · 앱 ID · 상태 약어</div>
+  <p>· 원문은 자재출고 · 입고를 <b>"자재문서가 생성된다"</b>까지만 말하고 <span class="bad">이동유형 번호(261 · 101 등)를 제시하지 않습니다.</span> 이 노트에 적지 않았습니다 — 실제 시스템(winerp01 / MEP)에서 확인 후 보강.<br>
+     · 앱은 <b>이름</b>만 등장합니다(<code>Manage Production Orders</code> · <code>Post Goods Movement</code> · <code>Pick Components for Production Orders</code> · <code>Confirm Production Order</code> · <code>Confirm Production Order Operation</code>). <b>앱 ID(F####)와 대응 T-Code는 확인 필요.</b><br>
+     · 상태 약어는 원문에 <code>PCNF</code> · <code>CNF</code>만 나옵니다. 생성됨 · 릴리스됨 · 자재이동 등록됨 · 부분입고 · 입고완료는 <b>한글/영문 표현으로만</b> 제시되어 있어 약어를 단정하지 않았습니다.</p>
+</div>
+
+</div>
+
+
+<!-- ══════════ APPENDIX ══════════ -->
+<div class="lesson" id="lx">
+<h2><span class="no">APPENDIX</span>정리 · 반드시 기억할 것</h2>
+
+<h3>한 장 요약</h3>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>질문</th><th>답</th></tr></thead>
+<tbody>
+<tr><td>이산생산 마스터데이터 6종</td><td class="wrap">자재 · BOM · 라우팅 · 작업장 · PRT · 생산버전</td></tr>
+<tr><td>생산버전이 하는 일</td><td class="wrap"><b>특정 라우팅과 BOM의 조합</b>을 연결. 로트 크기·시점 기준으로 시스템이 자동 선택 (자동라인 1,000 초과 / 수동 1,000 미만)</td></tr>
+<tr><td>생산오더의 구성품목록 · 작업목록은 어디서 오나</td><td class="wrap">구성품목록 ← <b>BOM</b>, 작업목록 ← <b>라우팅</b>. 오더는 원본을 만들지 않고 복사한다</td></tr>
+<tr><td>계획오더로 생산할 수 있나</td><td class="wrap"><b>없다.</b> 계획된 입고일 뿐 — 생산오더(이산) 또는 공정오더(프로세스)로 전환해야 한다</td></tr>
+<tr><td>MRP를 돌렸는데 계획오더가 안 생겼다</td><td class="wrap">정상일 수 있다. 재고 · 계획오더 · 생산오더로 소요가 충족되면 만들지 않는다. <b>MRP 전후 자재가용성 비교</b>가 진단 순서</td></tr>
+<tr><td>전환 방식 세 가지</td><td class="wrap">일괄(n→n) / 개별(1→1) / <b>부분(1→여러 건)</b>. 긴급 건은 계획오더 없이 수동 생성도 가능</td></tr>
+<tr><td>전환하면 계획오더는</td><td class="wrap"><b>삭제되고</b> 생산오더로 대체. 구성부품 레벨의 <b>종속소요량 → 예약(Reservation)</b></td></tr>
+<tr><td>계획오픈일이란</td><td class="wrap">계획오더가 <b>생산오더로 전환되어야 하는 날</b>. 오픈 기간 안에 들어오는 계획오더가 일괄 전환 대상</td></tr>
+<tr><td>릴리스 전에 무엇을 보나</td><td class="wrap"><b>가용성 체크</b>(구성부품 수량) + <b>능력 평가</b>(작업장 여유 능력)</td></tr>
+<tr><td>릴리스를 안 하면</td><td class="wrap">오더 인쇄 · 자재출고 · 오더확인 · 입고 <b>전부 불가</b>. 예약 자재도 인출 불가</td></tr>
+<tr><td>예약은 언제 생기나</td><td class="wrap"><b>오더 생성 시</b>. 시스템이 BOM을 자동 확인해 구성부품마다 항목번호 · 필요 수량 · 저장위치를 담아 만든다</td></tr>
+<tr><td>백플러시란</td><td class="wrap">지시자가 설정된 구성부품은 <b>확인과 함께 자동 출고</b>되고 수량은 확인 수량에 비례. 흐름/조립 라인, 나사·그리스 같은 저가치 자재에 적용</td></tr>
+<tr><td>예약을 전부 인출하면</td><td class="wrap"><b>최종출고(Final Issue)</b> 지시자 설정 → 재고/소요량 리스트에서 제거</td></tr>
+<tr><td>확인 상태 두 가지</td><td class="wrap"><code>PCNF</code>(일부 오퍼레이션 확인) → <code>CNF</code>(전부 확인완료)</td></tr>
+<tr><td>확인 방식을 섞을 수 있나</td><td class="wrap"><b>없다.</b> 오더 관련 확인과 오퍼레이션(타임티켓) 확인 중 한 가지만. 잘못 넣었으면 <b>취소</b></td></tr>
+<tr><td>준비시간의 특징</td><td class="wrap">오퍼레이션당 보통 1회, <b>생산 수량과 무관</b>. 기계·노무시간은 수량에 비례</td></tr>
+<tr><td>입고 등록의 효과 5가지</td><td class="wrap">재고 증가 · 상태 갱신(부분입고/입고완료) · 오더 입고 수량 갱신 · 실제원가 대체(Credit) · 자재문서 생성. 완전 입고 시 가용성 모니터링 리스트에서 제거</td></tr>
+</tbody>
+</table>
+</div>
+
+<div class="note warn">
+  <div class="t">반드시 지킬 것</div>
+  <p>· <b>"생산오더가 안 만들어진다"를 오더 문제로 보지 않는다.</b> BOM · 라우팅 · 작업장 · 생산버전 중 무엇이 비었는지가 먼저다.<br>
+     · <b>확인 = 자재출고가 아니다.</b> 둘이 자동으로 묶이는 건 백플러시 지시자가 있는 자재뿐이다. "확인했는데 재고가 그대로"는 여기부터 본다.<br>
+     · 한 오더에 <b>헤더 확인과 타임티켓 확인을 섞지 않는다.</b> 한 번 넣으면 다른 유형은 막히고, 되돌리려면 취소해야 한다.<br>
+     · <b>이동유형 번호를 기억으로 채우지 않는다.</b> 이 코스 원문에는 261 · 101 같은 번호가 전혀 나오지 않는다.<br>
+     · 긴급 수동 생성 오더는 <b>MRP가 검증하지 않은 오더</b>다. 가용성 체크에서 걸릴 것을 전제하고 다룬다.</p>
+</div>
+
+<h3>이 노트의 범위에 대해</h3>
+
+<div class="note">
+  <div class="t">개인 프로젝트와의 거리</div>
+  <p>진행 중인 개인 E2E 프로젝트(식품 유통 · 벤더 사입 후 재판매)는 <b>생산과 외주가공이 없습니다.</b> BOM · 라우팅 · 작업장 · 생산버전 · 생산오더는 프로젝트에 직접 쓰이지 않으며, PP는 <span class="key">자격증과 지식 목적</span>으로 학습합니다.</p>
+  <p>프로젝트와 실제로 닿는 지점은 두 곳뿐이고 본문에 그 두 곳에만 📌를 달았습니다 — LESSON 5의 <b>자재 스테이징</b>(저장위치 간 이동으로 다음 단계를 준비하는 구조 = <code>GATE</code>→<code>STOR</code> <code>301</code>, 정상→임박 <code>311</code>), LESSON 5의 <b>자동 전기와 승인</b>(백플러시·자동 입고가 릴리스 뒤쪽에만 놓이는 이유 = CBO 상태필드 W/P/H의 자리). 나머지는 억지로 연결하지 않았습니다.</p>
+</div>
+
+<h3>참고</h3>
+
+<ul>
+  <li>원본: 노션 <b>SAP Learning Hub</b> → Implementing Manufacturing in SAP S/4HANA Cloud Private Edition → <b>5-1</b>(Unit 1~4 · 레슨 4개) + <b>5-2</b>(Unit 5 · 레슨 4개)</li>
+  <li>앞 노트: <b>S42000</b> 제조 기초(공급망계획 · 계획전략 · 생산오더 개관) · <b>S42010</b> 생산계획 프로세스</li>
+  <li>이 코스는 <code>S42000</code> LESSON 5에서 이름만 훑고 지나간 <b>릴리스~입고 각 단계의 옵션과 효과</b>를 채우는 위치에 있습니다</li>
+  <li>원문 노트에서 생략된 실습: Analyze Master Data · Assign your Area of Responsibility · Create Planned Independent Requirements and Run MRP · Convert A Planned Order · Release a Production Order · Post Goods Issues for a Production Order · Confirm Operations of a Production Order · Post the Goods Receipt for a Production Order</li>
+</ul>
+
+</div>
+
+</div>
+<script src="../../assets/hub.js" defer></script>
+</body>
+</html>

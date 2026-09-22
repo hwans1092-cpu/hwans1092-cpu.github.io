@@ -1,0 +1,1431 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>S4F13 FI 추가 설정 — 자동지급 · 독촉 · 특수G/L · 검증과 대체</title>
+<meta name="description" content="SAP Learning Hub의 Configuring Additional Settings in Financial Accounting in SAP S/4HANA(S4F13) 노트. 자동지급 F110과 은행선택, 독촉프로그램, 코레스폰던스, 특수G/L거래, 문서파킹과 워크플로우, 검증·대체, FI 데이터아카이빙.">
+<link rel="icon" href="../../assets/favicon.svg">
+<link rel="stylesheet" href="../../assets/notes-paper.css">
+<style>
+/* ── 이 노트 전용: 도해(SVG) 스타일 ─────────────────────────── */
+.dgm{display:block; width:100%; height:auto;}
+.dgm text{font-family:"Malgun Gothic","맑은 고딕","Apple SD Gothic Neo",sans-serif; fill:#1e1e1e;}
+.dgm .t-h{font-size:15px; font-weight:700;}
+.dgm .t{font-size:13px;}
+.dgm .t-s{font-size:11.5px; fill:#555;}
+.dgm .t-xs{font-size:10.5px; fill:#6B7280;}
+.dgm .m{font-family:"D2Coding","Consolas",monospace; font-size:12px;}
+.dgm .m-s{font-family:"D2Coding","Consolas",monospace; font-size:10.5px;}
+.dgm .c-key{fill:#4338CA;} .dgm .c-bad{fill:#B91C1C;} .dgm .c-ok{fill:#047857;}
+.dgm .b{fill:#FFFFFF; stroke:#C7CBD6; stroke-width:1.2;}
+.dgm .b-key{fill:#EEF0FB; stroke:#4338CA; stroke-width:1.4;}
+.dgm .b-bad{fill:#FEF2F2; stroke:#B91C1C; stroke-width:1.3;}
+.dgm .b-ok{fill:#ECFDF5; stroke:#047857; stroke-width:1.3;}
+.dgm .b-mut{fill:#F3F4F6; stroke:#D1D5DB; stroke-width:1.1;}
+.dgm .b-hl{fill:#FEF08A; stroke:#CA8A04; stroke-width:1.2;}
+.dgm .b-ghost{fill:none; stroke:#9AA3B2; stroke-width:1.1; stroke-dasharray:5 4;}
+.dgm .ln{stroke:#7C8697; stroke-width:1.4; fill:none;}
+.dgm .ln-key{stroke:#4338CA; stroke-width:1.8; fill:none;}
+.dgm .ln-bad{stroke:#B91C1C; stroke-width:1.6; fill:none;}
+.dgm .ln-ok{stroke:#047857; stroke-width:1.6; fill:none;}
+.dgm .ln-d{stroke:#9AA3B2; stroke-width:1.2; stroke-dasharray:4 4; fill:none;}
+.dgm .arw{fill:#7C8697;} .dgm .arw-key{fill:#4338CA;}
+.dgm .arw-bad{fill:#B91C1C;} .dgm .arw-ok{fill:#047857;}
+.figwrap{background:#FAFAFE; border:1px solid var(--rule); border-radius:6px;
+  padding:18px 16px 10px; margin:22px 0;}
+.figwrap figcaption{margin-top:12px; padding-top:10px; border-top:1px solid var(--rule);}
+</style>
+</head>
+<body>
+<div class="crumb"><a href="../../index.html">← 자료실 홈</a> · <a href="../../journey.html?j=fi">FI 저니</a> · S4F13 FI 추가 설정</div>
+<div class="sheet">
+
+<div class="doc-head">
+  <div class="kicker">LEARNING HUB · S4F13</div>
+  <h1>FI 추가 설정 — 자동지급 · 독촉 · 특수G/L · 검증과 대체</h1>
+  <div class="sub">
+    Learning Journey <b>Implementing Financial Accounting in SAP S/4HANA</b> · Course 2 / S4F13 · 7 Unit · 31 레슨 · 14 hr 48 min · Intermediate<br>
+    출처: 노션 <b>SAP Learning Hub</b> 노트 2-1 ~ 2-7 변환
+  </div>
+</div>
+
+<div class="lead">
+  <p><b>결론부터.</b> S4F12가 "전표 한 건을 어떻게 전기하는가"였다면, 이 코스는 <span class="hl">전표 수천 건을 사람 손을 거치지 않고 돌리는 법</span>입니다. 자동지급·독촉·코레스폰던스는 전부 <b>대량 배치 프로그램</b>이고, 이들은 마스터데이터와 Customizing에 적힌 값만 보고 움직입니다.</p>
+  <p>그래서 이 코스의 대부분은 "프로그램을 어떻게 실행하는가"가 아니라 <b>"프로그램이 읽을 값을 어디에 심어두는가"</b>입니다. 지급이 안 잡히고 독촉장이 안 나가는 문제는 거의 전부 그 값이 비어 있거나 잘못 들어간 것이고, 마지막 두 Unit(검증·대체, 아카이빙)은 그 값이 애초에 잘못 들어오지 못하게 막는 쪽과, 다 쓴 데이터를 치우는 쪽입니다.</p>
+</div>
+
+<div class="toc">
+  <h4>목차</h4>
+  <ol>
+    <li><a href="#l1">자동지급 — F110 5단계와 은행선택</a></li>
+    <li><a href="#l2">독촉프로그램 — 레벨 · 간격 · 유예일의 조합</a></li>
+    <li><a href="#l3">코레스폰던스 — 요청과 인쇄의 2단계</a></li>
+    <li><a href="#l4">특수G/L거래 — 대체조정계정과 선급금</a></li>
+    <li><a href="#l5">문서파킹 — 홀드 vs 파킹, 그리고 승인 워크플로우</a></li>
+    <li><a href="#l6">검증과 대체 — 호출지점 · 규칙 · 세트</a></li>
+    <li><a href="#l7">FI 데이터아카이빙 — 오브젝트와 압축실행</a></li>
+  </ol>
+</div>
+
+
+<!-- ══════════ LESSON 1 ══════════ -->
+<div class="lesson" id="l1">
+<h2><span class="no">LESSON 1</span>자동지급 — F110 5단계와 은행선택</h2>
+
+<p><span class="tag">Unit 1</span><span class="tag">레슨 9개</span>Automatic Payments — 지급실행 · 은행계좌 · 마스터데이터 · SEPA · FBZP · 은행선택 · 지급매체 · 디지털결제</p>
+
+<h3>언제 이걸 알아야 하는가</h3>
+
+<p>FI 운영에서 가장 자주 받는 문의가 <b>"지급실행을 돌렸는데 이 벤더 건이 안 잡힙니다"</b>입니다. 전표는 멀쩡히 미결로 남아 있는데 제안(Proposal)에 안 뜹니다. 답은 거의 항상 셋 중 하나입니다 — <span class="key">지급차단이 걸려 있거나</span>, <span class="key">지급방법이 비어 있거나</span>, <span class="key">은행선택에서 쓸 은행을 못 찾아 Exception List로 빠졌거나</span>.</p>
+
+<p>이 셋을 구분하려면 <code>FBZP</code>의 다섯 개 버튼이 각각 무엇을 정하는지, 그리고 마스터·문서·제안 세 군데에 흩어진 지급차단이 어떻게 겹치는지를 알아야 합니다. 그것만 알면 제안 로그 한 번으로 끝납니다.</p>
+
+<h3>지급프로그램 5단계</h3>
+
+<figure class="figwrap">
+<svg class="dgm" viewBox="0 0 1000 444" role="img" aria-label="자동지급 프로그램 F110의 5단계 실행 흐름 도해. 파라미터에서 제안, 제안 편집, 지급실행, 지급매체 생성으로 이어지며 은행을 찾지 못한 건은 Exception List로 빠지고, 하우스뱅크와 계좌는 FBZP 은행선택 설정이 순서대로 결정한다.">
+  <defs>
+    <marker id="pa" markerWidth="9" markerHeight="9" refX="7" refY="4.5" orient="auto">
+      <polygon class="arw" points="0,0 9,4.5 0,9"/></marker>
+    <marker id="pak" markerWidth="9" markerHeight="9" refX="7" refY="4.5" orient="auto">
+      <polygon class="arw-key" points="0,0 9,4.5 0,9"/></marker>
+    <marker id="pab" markerWidth="9" markerHeight="9" refX="7" refY="4.5" orient="auto">
+      <polygon class="arw-bad" points="0,0 9,4.5 0,9"/></marker>
+  </defs>
+
+  <text class="t-s c-key" x="20" y="24">① 지급실행 5단계 — 트랜잭션 F110</text>
+
+  <rect class="b-key" x="20" y="36" width="176" height="68" rx="6"/>
+  <text class="t-h c-key" x="40" y="60">① 파라미터</text>
+  <text class="t-xs" x="40" y="80">실행일 · 전기일</text>
+  <text class="t-xs" x="40" y="96">회사코드 · 지급방법</text>
+  <path class="ln-key" d="M196 70 H212" marker-end="url(#pak)"/>
+
+  <rect class="b" x="216" y="36" width="176" height="68" rx="6"/>
+  <text class="t-h" x="236" y="60">② 제안 실행</text>
+  <text class="t-xs" x="236" y="80">미결항목 선택</text>
+  <text class="t-xs" x="236" y="96">지급건 그룹화</text>
+  <path class="ln-key" d="M392 70 H408" marker-end="url(#pak)"/>
+
+  <rect class="b-hl" x="412" y="36" width="176" height="68" rx="6"/>
+  <text class="t-h" x="432" y="60">③ 제안 편집</text>
+  <text class="t-xs" x="432" y="80">차단 · 변경</text>
+  <text class="t-xs" x="432" y="96">차변잔액 검사</text>
+  <path class="ln-key" d="M588 70 H604" marker-end="url(#pak)"/>
+
+  <rect class="b-key" x="608" y="36" width="176" height="68" rx="6"/>
+  <text class="t-h c-key" x="628" y="60">④ 지급실행</text>
+  <text class="t-xs" x="628" y="80">지급문서 전기</text>
+  <text class="t-xs" x="628" y="96">미결항목 정리</text>
+  <path class="ln-key" d="M784 70 H800" marker-end="url(#pak)"/>
+
+  <rect class="b" x="804" y="36" width="176" height="68" rx="6"/>
+  <text class="t-h" x="824" y="60">⑤ 지급매체</text>
+  <text class="m-s" x="824" y="80">SAPFPAYM</text>
+  <text class="t-xs" x="824" y="96">지급통지서 · DME</text>
+
+  <path class="ln-bad" d="M304 104 V132" marker-end="url(#pab)"/>
+  <rect class="b-bad" x="216" y="134" width="300" height="46" rx="6"/>
+  <text class="t-h c-bad" x="236" y="156">Exception List</text>
+  <text class="t-xs" x="236" y="172">지급방법 · 은행정보를 찾지 못한 건이 여기로</text>
+
+  <text class="t-s c-key" x="20" y="216">② 은행선택(Bank Selection) — FBZP 가 결정하는 것</text>
+
+  <rect class="b" x="20" y="228" width="225" height="76" rx="6"/>
+  <text class="t-h" x="40" y="252">Ranking Order</text>
+  <text class="t-xs" x="40" y="272">지급방법별 하우스뱅크 순위</text>
+  <text class="t-xs" x="40" y="290">허용통화 · 환어음계정</text>
+
+  <rect class="b" x="265" y="228" width="225" height="76" rx="6"/>
+  <text class="t-h" x="285" y="252">Amounts / Accounts</text>
+  <text class="t-xs" x="285" y="272">은행별 가용자금</text>
+  <text class="t-xs" x="285" y="290">하위계정 · 상계계정</text>
+
+  <rect class="b" x="510" y="228" width="225" height="76" rx="6"/>
+  <text class="t-h" x="530" y="252">Value Date</text>
+  <text class="t-xs" x="530" y="272">전기일 + 일수 = 가치일자</text>
+  <text class="t-xs" x="530" y="290">현금관리 반영용</text>
+
+  <rect class="b" x="755" y="228" width="225" height="76" rx="6"/>
+  <text class="t-h" x="775" y="252">Expenses / Charges</text>
+  <text class="t-xs" x="775" y="272">입금 차감 · 출금 가산</text>
+  <text class="t-xs" x="775" y="290">비용계정 자동결정</text>
+
+  <rect class="b-ghost" x="20" y="326" width="960" height="104" rx="6"/>
+  <text class="t-s" x="42" y="352">결정 순서 — ① 지급방법 우선순위(파라미터 입력 순서) → ② Ranking Order 의 하우스뱅크 순위</text>
+  <text class="t-s" x="42" y="372">→ ③ Amounts 의 은행별 가용자금 확인 → ④ 하우스뱅크 · 계좌 확정 → ⑤ Value Date · Expenses 반영</text>
+  <text class="t-s" x="42" y="394">문서에 House Bank 를 직접 지정하면 Ranking Order 보다 그 지정이 앞선다. Partner Bank 도 후보를 좁힌다.</text>
+  <text class="t-s c-bad" x="42" y="416">Bank Reconciliation Account 접근법 + 자체개시지급(SIP) 은 하위계정을 Account Symbol 로 결정한다.</text>
+</svg>
+<figcaption><span class="fno">그림 1</span>F110 5단계와 은행선택. 제안 단계에서 은행·지급방법을 못 찾으면 Exception List로 빠진다 — 실제 문의의 대부분이 이 경로다.</figcaption>
+</figure>
+
+<h3>은행계좌 마스터 — Manage Banks / House Bank / House Bank Account</h3>
+
+<p>SAP Cash Management 라이선스가 없어도 <b>기본 현금관리</b>(Basic Cash Management, 구 Bank Account Management light)로 은행계좌 마스터데이터를 중앙 관리할 수 있습니다. 세 층입니다.</p>
+
+<ul>
+  <li><b>Manage Banks</b> — 세상의 모든 은행. <span class="key">국가 + 은행키</span>로 고유 식별하며 SWIFT/BIC·주소를 담는다. 변경이력은 <code>RFBKABL0</code> 리포트로 조회</li>
+  <li><b>House Bank</b> — 그중 우리 회사가 실제로 거래하는 은행. <span class="hl">지급프로그램은 House Bank ID로 어느 은행을 쓸지 결정한다</span></li>
+  <li><b>House Bank Account</b> — <b>Manage Bank Accounts</b> 앱에서 House Bank ID + 계좌ID 조합으로 개별 계좌를 정의 (일반데이터·은행관계데이터·당좌한도·다국어 명칭)</li>
+</ul>
+
+<h3>G/L계정 연결 방식 2가지</h3>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>방식</th><th>G/L계정 유형</th><th>관계</th><th>특징</th></tr></thead>
+<tbody>
+<tr><td>Balance Sheet Account 접근법</td><td>Balance Sheet Account</td><td>계좌 ↔ G/L 1 : 1</td><td class="wrap">새 하우스뱅크를 붙일 때마다 <b>새 G/L계정 세트</b>를 만들어야 한다</td></tr>
+<tr><td class="wrap">Bank Reconciliation Account 접근법<br>(S/4HANA 2020+)</td><td class="wrap">Cash Account<br>(서브타입 <code>B</code>=조정계정, <code>S</code>=은행하위계정)</td><td>계좌 ↔ G/L <b>n : 1</b></td><td class="wrap">지급방법별로 <span class="hl">하나의 계정세트를 여러 하우스뱅크가 재사용</span> — 조정 부담과 계정 수가 줄어든다</td></tr>
+</tbody>
+</table>
+</div>
+
+<p>두 방식은 하우스뱅크 계좌 마스터데이터에서 개별 제어되므로 <span class="good">병행(side-by-side) 사용이 가능</span>합니다. 즉 한꺼번에 마이그레이션할 필요가 없습니다. Business Partner의 은행계좌는 은행국가+은행키만 넣으면 기존 은행정보를 자동으로 끌어오고, 없으면 BP 유지보수 중에 생성하거나 <code>RFBVALL_0</code>(국가별 은행디렉토리 이관)으로 일괄 가져옵니다.</p>
+
+<h3>자동지급이 읽는 마스터 · 문서 필드</h3>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>레벨</th><th>필드</th><th>역할</th></tr></thead>
+<tbody>
+<tr><td>Client</td><td class="wrap">주소 · 은행국가 · 언어 · 은행키 · 계좌번호 · IBAN · SEPA Mandate</td><td class="wrap">언어는 <b>지급통지서 언어</b>를 결정한다</td></tr>
+<tr><td>Company Code</td><td class="wrap">지급조건 · 지급방법 · 지급차단</td><td class="wrap">지급차단은 <span class="bad">마스터 · 항목 · 제안 3곳</span>에서 걸 수 있다</td></tr>
+<tr><td>문서</td><td class="wrap">지급방법 · 지급조건 · 지급차단 · Partner Bank · House Bank</td><td class="wrap">통상 <b>공란</b>으로 두어 마스터를 따르게 한다. 문서에 지정하면 그것이 최우선</td></tr>
+</tbody>
+</table>
+</div>
+
+<div class="note">
+  <div class="t">🔰 초보자 설명 — "지급이 안 잡힌다"의 세 갈래</div>
+  <p>① <b>차단</b>(마스터·문서·제안 어딘가에 Payment Block) → 제안에는 뜨지만 지급되지 않음. ② <b>지급방법 없음</b> → 프로그램이 어떤 수단으로 낼지 몰라 건너뜀. ③ <b>은행선택 실패</b> → Exception List. 이 셋은 제안 로그에 각각 다르게 찍히므로 로그부터 봅니다.</p>
+</div>
+
+<h3>고객 = 벤더 · 대체 지급자 · 본사/지점</h3>
+
+<ul>
+  <li><b>Customer/Vendor Account Link</b> — 한 거래상대가 고객이자 공급업체면, 서로의 계정번호를 상대 마스터에 넣고 "Clearing with vendor/customer"를 켠다. 그러면 지급·독촉프로그램이 <span class="hl">양쪽 미결항목을 상계</span>해 정리한다</li>
+  <li><b>대체 지급자/수령자</b>(Alternative Payer/Payee) — Client·Company Code 두 레벨에 설정 가능하고 <span class="key">Company Code 설정이 우선</span>. 파산관리인에게 대신 지급하는 경우 등</li>
+  <li><b>본사/지점</b>(Head Office/Branch) — 지점이 주문하고 본사가 결제하는 구조. 지점 계정의 모든 항목이 자동으로 본사 계정에 전달된다 (Local Processing 설정 시 지점이 직접 처리)</li>
+</ul>
+
+<h3>SEPA Direct Debit와 Mandate</h3>
+
+<p>SEPA 직접출금(SDD)은 SEPA 권역 내 유로 계좌에서 출금을 수집하는 지급수단으로, 채무자가 사전에 준 출금 권한인 <span class="key">Mandate</span>가 근거가 됩니다. 은행 간 Mandate 정보 교환은 <b>전자 방식만</b> 허용되지만, 채권자-채무자 사이는 서면/전자 모두 가능합니다. 월세·보험료 같은 반복결제는 최초 1회 통지로 충분합니다. SAP Mandate Management는 고객/Company Code 마스터에서 대부분 필드를 자동 도출하고, Mandate 참조번호도 번호범위로 자동 부여합니다.</p>
+
+<h3>FBZP — 위에서 아래로</h3>
+
+<p>지급프로그램 설정은 <code>FBZP</code> 하나에서 <span class="hl">버튼 순서대로</span> 진행합니다. 전체 Company Code → Paying Company Code → 지급방법(국가별) → 지급방법(Company Code별) → Bank Selection. 순서를 건너뛰면 뒤 단계에서 선택지가 안 나옵니다.</p>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>설정</th><th>설명</th></tr></thead>
+<tbody>
+<tr><td>Sending / Paying Company Code</td><td class="wrap">A사가 B사를 대신해 지급하면 B가 Sending, 실제 처리하는 쪽이 <b>Paying Company Code</b></td></tr>
+<tr><td>Cash Discounts (최소/최대)</td><td class="wrap">최소 할인율 미만이면 할인을 무시하고, 최대 할인은 할인기간이 지나도 적용한다</td></tr>
+<tr><td>Tolerance Days of Payments</td><td class="wrap">공급업체가 봐주는 유예기간만큼 지급을 <b>다음 실행으로 연기</b>하되 할인혜택은 유지</td></tr>
+<tr><td class="wrap">Vendor/Customer Sp. G/L Transactions</td><td class="wrap">지급프로그램이 처리할 <b>특수G/L거래 유형</b> 지정 (LESSON 4와 연결)</td></tr>
+</tbody>
+</table>
+</div>
+
+<p>Paying Company Code 단위로는 입·출금 <b>최소금액</b>, 지급통지서/EDI 양식(SAPScript·PDF), 환어음 명세를 정의합니다. 지급방법은 두 단계입니다 — <b>국가별</b>(기본요건·지급유형·마스터레코드 요건·전표유형·허용통화)과 <b>Company Code별</b>(최소/최대 금액, 해외업체·해외은행·외화 허용 여부, 그룹화 옵션, 은행그룹·우편번호 최적화).</p>
+
+<h3>지급실행 · 은행하위계정 · PMW</h3>
+
+<p>지급실행은 제안 데이터를 근거로 지급문서를 전기하고 미결항목을 정리하며, 세금·할인·환차이 같은 부수 전기도 함께 합니다. 이때 <span class="key">은행하위계정</span>(Bank Subaccount)을 입금용·출금용으로 나눠 쓰면 은행잔액과 G/L을 수시로 대사할 수 있습니다 — 실제 차입/입금 전까지 금액이 하위계정에 머물다가 Value Date에 은행계좌로 넘어갑니다.</p>
+
+<p>지급매체는 <b>Payment Medium Workbench</b>(PMW)가 만듭니다. 국가·은행별로 제각각인 포맷을 <span class="hl">ABAP 개발 없이 Customizing만으로</span> 정의하는 일반화 도구로, DME Engine을 씁니다.</p>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>프로그램</th><th>역할</th></tr></thead>
+<tbody>
+<tr><td><code>SAPFPAYM_SCHEDULE</code></td><td class="wrap">설단(Granularity, 예: Company Code + House Bank 조합)을 기준으로 <b>지급그룹</b>(= 파일 단위)을 나눈다</td></tr>
+<tr><td><code>SAPFPAYM</code></td><td class="wrap">지급매체 생성</td></tr>
+<tr><td><code>RFFOAVIS_FPAYM</code></td><td class="wrap">지급통지서 생성</td></tr>
+</tbody>
+</table>
+</div>
+
+<p>수취인에게 전달되는 참고텍스트인 <b>Note to Payee</b>는 인보이스정보 · 내부참조 · 외부참조 3종 필드로 구성되고, 언어별 콘텐츠 템플릿으로 국가별 맞춤 발송이 가능합니다. 지급실행 자체는 <b>Schedule Accounts Payable Jobs</b> Fiori 앱으로 주기 자동화할 수 있습니다.</p>
+
+<h3>디지털결제 — SAP Digital Payments Add-on</h3>
+
+<p>SAP와 비SAP 결제서비스제공업체(PSP)를 잇는 결제 허브로, S/4HANA에서 신용카드 입금을 가능하게 합니다. 소비자앱(S/4HANA) → SAP BTP의 Digital Payments Add-on(코어 어댑터 + PSP별 어댑터) → 외부 PSP 순으로 <b>웹서비스 기반 동기통신</b>이 일어납니다.</p>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>외부결제 방식</th><th>설명</th></tr></thead>
+<tbody>
+<tr><td>Direct Capture</td><td class="wrap">직접결제 — 사전승인 없이 즉시 과금</td></tr>
+<tr><td>Charge with Authorization</td><td class="wrap">인증 후 과금 — 사전인증 → 과금 2단계</td></tr>
+</tbody>
+</table>
+</div>
+
+<p>흐름은 카드등록 → 지급실행 → <b>정산</b>(Settlement, 상태가 <code>In Transfer</code>로 바뀌고 클리어링하우스가 승인) → <b>Advice</b>(현금포지션 반영용 메모) → 은행명세표 반영입니다. 은행명세표는 집계 수준이라 개별거래 정리에 쓰기 어렵고, 그래서 Advice 기능이 재무팀에 유용합니다.</p>
+
+<div class="note warn">
+  <div class="t">확인 필요 — 실제 시스템에서 확정할 것</div>
+  <p>· 은행선택에서 <b>Bank Reconciliation Account 접근법</b>이 쓰이는지, 기존 Balance Sheet 접근법인지는 시스템 릴리스와 기존 구성에 따라 갈립니다. <code>FBZP</code> → Bank Selection → Amounts/Accounts 화면 구성으로 확인.<br>
+  · PMW 포맷과 <code>SAPFPAYM_SCHEDULE</code> 설단 설정은 국가·은행마다 다릅니다. 실제 시스템(winerp01 / MEP)에서 등록된 포맷을 먼저 확인한 뒤 판단.</p>
+</div>
+
+<div class="note ok">
+  <div class="t">📌 개인 E2E 프로젝트와의 연결점</div>
+  <p>프로젝트는 <b>벤더 사입 → 재판매</b> 모델이므로 AP 쪽 자동지급이 실제로 돌아갈 자리입니다. 회사코드 <code>CL04</code> 하나이므로 Sending/Paying Company Code 구분은 불필요하고, House Bank 1개 + 지급방법 1개로 시작하면 <code>FBZP</code> 5단계를 전부 채우지 않고도 F110이 돕니다.</p>
+  <p>주의할 접점이 하나 있습니다. <b>ZGATE_INSPECT</b>가 "송장 미발생 건을 <code>122</code>로 자동반품"하도록 설계돼 있는데, 지급 쪽에서는 <span class="bad">송장이 이미 전기된 건이 F110 제안에 올라간 뒤 반품이 발생</span>하는 순서가 가능합니다. 반품 대상 판정 시 해당 인보이스가 지급제안(REGUP)에 이미 잡혀 있는지를 확인하고, 잡혀 있으면 자동처리 대신 <b>상태 H(보류)</b>로 남기는 편이 안전합니다 — "회계 영향 있는 처리는 자동화하지 않는다"는 원칙과도 일치합니다.</p>
+</div>
+
+</div>
+
+
+<!-- ══════════ LESSON 2 ══════════ -->
+<div class="lesson" id="l2">
+<h2><span class="no">LESSON 2</span>독촉프로그램 — 레벨 · 간격 · 유예일의 조합</h2>
+
+<p><span class="tag">Unit 2</span><span class="tag">레슨 4개</span>Dunning Program — 개요 · 마스터데이터 · 구성(절차 · 레벨 · 비용) · 실행</p>
+
+<h3>독촉 프로세스 4단계</h3>
+
+<p>고객이 지급조건을 지키지 않으면 <b>독촉장</b>(Dunning Notice)으로 연체채무를 상기시킵니다. 시스템은 <span class="key">차변잔액을 만드는 연체 미결항목</span>을 고객·벤더 계정에서 자동 선별해 독촉레벨을 정하고 독촉장을 만듭니다. 벤더도 대변표(Credit Memo) 때문에 차변잔액이 생기면 독촉 대상이 될 수 있고, 같은 거래상대가 고객이자 벤더면 양쪽 잔액을 상계할 수 있습니다.</p>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>단계</th><th>설명</th></tr></thead>
+<tbody>
+<tr><td>① 파라미터 입력</td><td class="wrap">독촉프로그램 실행 방식 지정. 기존 실행의 파라미터를 <b>복사해 날짜만</b> 바꿔도 된다</td></tr>
+<tr><td>② 독촉실행 예약</td><td class="wrap">대상 계정·항목·독촉레벨을 결정하고 <b>독촉제안</b>(Dunning Proposal)으로 저장</td></tr>
+<tr><td>③ 독촉제안 변경</td><td class="wrap">담당자가 만족할 때까지 수정·삭제·재생성 가능</td></tr>
+<tr><td>④ 독촉장 출력</td><td class="wrap">인쇄와 <span class="hl">마스터레코드·문서의 독촉데이터 갱신이 한 번에</span> 일어난다</td></tr>
+</tbody>
+</table>
+</div>
+
+<div class="note">
+  <div class="t">🔰 초보자 설명 — 독촉프로그램은 왜 필요한가</div>
+  <p>수백~수천 건의 미수금을 매번 사람이 확인해서 "연체됐습니다" 편지를 쓰면 감당이 안 됩니다. 독촉프로그램은 연체 금액과 기간에 따라 1차·2차·3차 독촉장을 알아서 순차 발송합니다. 신용카드 연체 시 단계별 문자·우편이 자동으로 나가는 것과 같은 원리입니다.</p>
+</div>
+
+<h3>독촉 판정 구조 — 무엇이 무엇을 거르는가</h3>
+
+<figure class="figwrap">
+<svg class="dgm" viewBox="0 0 1000 462" role="img" aria-label="독촉프로그램의 판정 구조 도해. 항목 레벨에서 유예기간과 연체일수로 독촉레벨을 정하고 최소금액으로 하향 재배정한 뒤, 계정 레벨에서 독촉절차·독촉간격·최소연체일수·차단 여부를 검사하고, 마지막으로 레벨별 양식과 독촉비용을 얹어 독촉장을 낸다.">
+  <defs>
+    <marker id="da" markerWidth="9" markerHeight="9" refX="7" refY="4.5" orient="auto">
+      <polygon class="arw" points="0,0 9,4.5 0,9"/></marker>
+    <marker id="dak" markerWidth="9" markerHeight="9" refX="7" refY="4.5" orient="auto">
+      <polygon class="arw-key" points="0,0 9,4.5 0,9"/></marker>
+  </defs>
+
+  <text class="t-s c-key" x="20" y="24">① 항목 레벨 — 이 항목을 몇 레벨로 독촉할 것인가</text>
+
+  <rect class="b" x="20" y="36" width="150" height="64" rx="6"/>
+  <text class="t-h" x="38" y="60">미결항목</text>
+  <text class="t-xs" x="38" y="82">순지급 만기일</text>
+  <path class="ln" d="M170 68 H186" marker-end="url(#da)"/>
+
+  <rect class="b" x="190" y="36" width="150" height="64" rx="6"/>
+  <text class="t-h" x="208" y="60">+ 유예기간</text>
+  <text class="t-xs" x="208" y="82">항목 Grace days</text>
+  <path class="ln" d="M340 68 H356" marker-end="url(#da)"/>
+
+  <rect class="b" x="360" y="36" width="130" height="64" rx="6"/>
+  <text class="t-h" x="378" y="60">연체일수</text>
+  <text class="t-xs" x="378" y="82">실행일 − 만기일</text>
+  <path class="ln-key" d="M490 68 H506" marker-end="url(#dak)"/>
+
+  <rect class="b-key" x="510" y="36" width="200" height="64" rx="6"/>
+  <text class="t-h c-key" x="528" y="60">독촉레벨 판정</text>
+  <text class="t-xs" x="528" y="82">레벨 1 ~ 9 (최대 9단계)</text>
+  <path class="ln-key" d="M710 68 H726" marker-end="url(#dak)"/>
+
+  <rect class="b-hl" x="730" y="36" width="250" height="64" rx="6"/>
+  <text class="t-h" x="748" y="60">최소금액 검사</text>
+  <text class="t-xs" x="748" y="82">미달 시 한 단계 낮은 레벨로 재배정</text>
+
+  <text class="t-xs c-bad" x="510" y="120">레벨 건너뛰기 불가 — 한 번에 한 단계씩만 올라간다</text>
+
+  <text class="t-s c-key" x="20" y="152">② 계정 레벨 — 이 계정을 이번 실행에 포함할 것인가 (모두 참이어야 포함)</text>
+
+  <rect class="b-key" x="20" y="164" width="960" height="96" rx="6"/>
+  <text class="t-s" x="44" y="192">· 마스터에 독촉절차(Dunn. procedure)가 지정돼 있다</text>
+  <text class="t-s" x="44" y="214">· 최종독촉일(Last dunned) + 독촉간격(일) ≤ 실행일</text>
+  <text class="t-s" x="44" y="238">· 최소연체일수(계정)를 넘겼다</text>
+  <text class="t-s" x="520" y="192">· 독촉차단(계정 · 항목)이 걸려 있지 않다</text>
+  <text class="t-s" x="520" y="214">· 항목 · 계정에 지급방법이 지정돼 있지 않다</text>
+  <text class="t-s" x="520" y="238">· 대변표 상계 후에도 차변잔액이다</text>
+
+  <text class="t-s c-ok" x="20" y="292">③ 출력 — 독촉장</text>
+
+  <rect class="b-ok" x="20" y="304" width="960" height="88" rx="6"/>
+  <text class="t-s" x="44" y="330">레벨별 양식(SAPscript · Smart Forms · Adobe PDF Form) · 독촉비용(통화별 · 레벨별 정액 또는 비율)</text>
+  <text class="t-s" x="44" y="354">지급기한(레벨별 인쇄 일수) · 이자지시자 · 회사코드 + 독촉영역 + 계정 단위로 그룹핑</text>
+  <text class="t-s" x="44" y="378">독촉데이터가 직전 실행 이후 변하지 않았으면 재발송하지 않는다 — 단 "항상독촉" 레벨은 예외</text>
+
+  <rect class="b-ghost" x="20" y="406" width="960" height="44" rx="6"/>
+  <text class="t-s" x="44" y="432">독촉레벨이 1개뿐인 절차 = 지급독촉(Payment Reminder). 법적 독촉절차 계정은 독촉장 대신 법무팀용 내부 메모로 인쇄된다.</text>
+</svg>
+<figcaption><span class="fno">그림 2</span>독촉 판정의 3층 구조. 항목 레벨에서 레벨을 정하고, 계정 레벨에서 실행 포함 여부를 거르고, 마지막에 비용과 양식이 붙는다.</figcaption>
+</figure>
+
+<h3>마스터레코드의 독촉 필드</h3>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>필드</th><th>설명</th></tr></thead>
+<tbody>
+<tr><td>주소 정보</td><td class="wrap">거리/번지 · 우편번호/도시 · 국가 — 국가키가 우편번호 길이·계좌번호 형식 검증기준을 품는다</td></tr>
+<tr><td>커뮤니케이션 언어</td><td class="wrap">독촉장을 <b>고객 언어로 번역된 양식</b>으로 생성할 때 사용</td></tr>
+<tr><td>지급조건</td><td class="wrap">현금할인율 · 지급기간으로 구성된 지급조건 키</td></tr>
+<tr><td>지급방법</td><td class="wrap">수취계정에 지급방법이 있으면 <span class="hl">지급프로그램이 수금을 담당</span>하므로 보통 독촉 대상에서 빠진다</td></tr>
+<tr><td>독촉절차 (Dunn. procedure)</td><td class="wrap">이 고객/벤더를 <b>어떻게</b> 독촉할지 정의한 사전 정의 절차. <span class="bad">비어 있으면 독촉되지 않는다</span></td></tr>
+<tr><td>독촉차단 (Dunning block)</td><td class="wrap">특정 고객/벤더의 독촉을 막을 때</td></tr>
+<tr><td>최종 독촉일 (Last dunned)</td><td class="wrap">계정이 마지막으로 독촉실행에 포함된 날짜 — 계정선별 시 이 날짜를 본다</td></tr>
+<tr><td>독촉레벨 (Dunning level)</td><td class="wrap">대상 항목 중 <b>최고 레벨</b>을 계정 레벨로 부여. 독촉장 발송 시 프로그램이 자동 설정</td></tr>
+<tr><td>독촉담당자 (Dunning clerk)</td><td class="wrap">독촉장에 이름이 인쇄되는 담당자</td></tr>
+<tr><td>독촉영역 (Dunning area)</td><td class="wrap">회사코드 내에서 책임·독촉절차가 갈릴 때 쓰는 <b>하위 조직단위</b></td></tr>
+</tbody>
+</table>
+</div>
+
+<p>회계문서(전표) 레벨에서도 독촉데이터를 유지할 수 있습니다 — <b>독촉영역 · 독촉키(Dunning key) · 독촉차단 · 지급조건</b>.</p>
+
+<div class="note">
+  <div class="t">🔰 초보자 설명 — 마스터 필드 vs 문서 필드</div>
+  <p>마스터 설정은 "이 고객 전체"에 적용되는 기본값, 문서 설정은 "이 전표 한 건"에만 적용되는 예외값입니다. 인보이스 한 건만 독촉을 막고 싶으면 문서 레벨에서 독촉차단을 겁니다.</p>
+</div>
+
+<h3>독촉프로그램 구성 6개 카테고리</h3>
+
+<p>설정은 <b>독촉절차 · 독촉레벨 · 비용/수수료 · 최소금액 · 독촉텍스트 · 특수G/L지시자</b> 6개로 나뉘고 좌 → 우 순서로 진행합니다. SAP 표준에 일반적인 독촉절차와 대응 양식이 이미 들어 있어서, <span class="good">기존 절차를 복사해 회사코드별 설정만 조정</span>하면 되는 경우가 많습니다.</p>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>독촉절차 설정</th><th>설명</th></tr></thead>
+<tbody>
+<tr><td>독촉키 (Dunning key)</td><td class="wrap">독촉절차 식별키 (예: <code>1001</code>)</td></tr>
+<tr><td>독촉간격(일)</td><td class="wrap">독촉 후 다시 독촉 가능해질 때까지의 <b>최소 경과일</b>. 최종독촉일 + 간격으로 재포함 여부를 판단</td></tr>
+<tr><td>독촉레벨 수</td><td class="wrap">이 절차에서 쓸 최고 독촉레벨 (최대 9)</td></tr>
+<tr><td>최소연체일수(계정)</td><td class="wrap">계정이 이 일수를 넘겨야 이번 실행에 포함된다</td></tr>
+<tr><td>항목 유예기간</td><td class="wrap">연체항목 만기일에 더해지는 <b>유예일수</b> — 이 기간이 지나야 독촉 대상</td></tr>
+<tr><td>이자지시자</td><td class="wrap">독촉이자 계산 여부와 계산방식</td></tr>
+<tr><td>잔액이 양수여도 독촉</td><td class="wrap">기본은 차변잔액만 독촉. 대변잔액 계정도 독촉장을 내려면 체크</td></tr>
+</tbody>
+</table>
+</div>
+
+<p><b>독촉레벨</b>은 각 레벨마다 연체일수 · 이자계산 여부 · 전체항목 인쇄 여부 · <span class="key">항상독촉</span>(보통 최고레벨에 설정 — 제안에 변경이 없어도 독촉장 발송) · 지급기한(독촉장에 인쇄될 납부기한 일수)을 정의합니다.</p>
+
+<p><b>독촉비용</b>은 통화별·레벨별로 정액 또는 비율로 정의하고 최소금액을 둘 수 있습니다. <b>최소금액</b>은 소액 연체가 불필요하게 높은 독촉레벨을 끌어올리지 않게 막는 장치로, 기준에 미달하면 항목이 <span class="hl">한 단계 낮은 레벨로 재배정</span>됩니다. <b>독촉텍스트</b>는 SAPscript · Smart Forms · Adobe PDF Form 중 레벨별 양식을 지정하고, 다운페이먼트·환어음·보증 같은 <b>특수G/L거래</b>를 독촉에 포함할지도 절차별로 정합니다.</p>
+
+<p><b>독촉환경설정</b>(Environment Settings)에서는 회사코드데이터(독촉영역별 개별 독촉장 생성 여부) · 정렬필드 · 발신자정보(로고·은행정보) · 독촉영역 · 독촉키 · 독촉차단사유 · 이자 · 독촉그룹핑(같은 내용 필드를 묶는 그룹핑 키)을 설정합니다.</p>
+
+<h3>실행 — 3단계와 만기일 규칙</h3>
+
+<p>실행일자(Run date)와 <b>식별자</b>(Identification, 같은 실행일에 여러 프로그램을 구분)를 주고 대상 회사코드·문서·계정 범위를 파라미터로 지정합니다. 실행은 <b>계정선별 → 라인아이템 독촉 → 계정 독촉</b> 3단계입니다.</p>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>유형</th><th>만기일 기준</th></tr></thead>
+<tbody>
+<tr><td>채권 (Receivables)</td><td class="wrap">순지급 만기일</td></tr>
+<tr><td>인보이스 연계 대변표</td><td class="wrap">원 인보이스와 <b>동일 날짜</b>. 단 Invoice Reference에 <code>V</code>를 넣으면 지급조건을 적용</td></tr>
+<tr><td>기타 대변표 (<code>V</code> 없음)</td><td class="wrap">기준일(Baseline date)에 만기</td></tr>
+</tbody>
+</table>
+</div>
+
+<p>대변표로 상계할 때 시스템은 <span class="key">최고 독촉레벨의 차변항목에 대변항목을 배정</span>합니다. 상계 후에도 계정이 차변잔액이어야 독촉 대상이 되며("잔액이 양수여도 독촉" 설정 시 예외), 독촉장에는 상계된 모든 항목이 나열됩니다.</p>
+
+<p>항목별 독촉레벨은 연체일수로 정해지고 <span class="bad">한 번에 한 단계씩만</span> 오릅니다. 독촉데이터가 직전 실행 이후 바뀌지 않았으면 원칙적으로 재발송하지 않지만, <b>항상독촉</b> 지시자가 붙은 레벨(보통 최고레벨·지급독촉)은 예외입니다. <b>법적 독촉절차</b>(Legal Dunning Procedure)가 지정된 계정은 별도 규칙이 적용되어, 독촉장 대신 법무팀에 전달되는 내부 메모 양식으로 인쇄됩니다.</p>
+
+<h3>제안 편집과 독촉장 생성</h3>
+
+<p>담당자는 독촉통계 · 독촉리스트 · 차단계정 · 차단항목 · 독촉이력 리스트를 뽑아 검토하고, 계정/항목 차단이나 독촉레벨 하향 조정을 할 수 있습니다. <span class="bad">다만 마스터레코드나 문서 자체를 고친 변경사항은 독촉실행을 삭제한 뒤 재실행해야 반영됩니다.</span> 독촉장은 회사코드 + 독촉영역 + 계정 단위로 그룹핑되어 생성되고, <b>크로스컴퍼니코드 독촉</b>으로 여러 회사코드의 연체항목을 한 장에 묶을 수도 있습니다.</p>
+
+<div class="note">
+  <div class="t">🔰 초보자 설명 — 독촉레벨을 건너뛸 수 없는 이유</div>
+  <p>독촉레벨은 "1차 안내 → 2차 경고 → 3차 최종통보"처럼 단계적으로 강도가 세지는 구조입니다. 한 번에 1단계씩만 올리도록 강제하는 것은, 고객이 아무 사전 안내 없이 갑자기 "최종 법적조치 경고장"을 받는 상황을 막기 위해서입니다.</p>
+</div>
+
+<div class="note ok">
+  <div class="t">📌 개인 E2E 프로젝트와의 연결점</div>
+  <p>프로젝트는 <b>재판매 트레이딩</b>이라 AR 쪽 독촉이 붙을 자리가 있습니다. 다만 유통기한이 있는 식품 특성상, 임박 재고를 할인 판매한 건에는 대변표가 자주 발생합니다 — 이 경우 <span class="hl">대변표의 Invoice Reference에 원 인보이스를 걸었는지</span>에 따라 만기일이 달라져 독촉레벨이 통째로 바뀝니다. 할인/반품 처리 시 Invoice Reference를 반드시 채우는 쪽으로 업무규칙을 잡는 것이 독촉 오발송을 막는 가장 싼 방법입니다.</p>
+  <p>독촉장 발송은 대외 문서이므로, CBO로 자동화하더라도 <b>발송 직전 상태를 P(대기)로 두고 승인 후 W→발송</b> 구조가 맞습니다. CBO 테이블의 상태필드(W/P/H) 설계가 그대로 쓰입니다.</p>
+</div>
+
+</div>
+
+
+<!-- ══════════ LESSON 3 ══════════ -->
+<div class="lesson" id="l3">
+<h2><span class="no">LESSON 3</span>코레스폰던스 — 요청과 인쇄의 2단계</h2>
+
+<p><span class="tag">Unit 3</span><span class="tag">레슨 4개</span>Correspondence — 개요 · 마스터레코드 필드 · 유형별 옵션 · 유형 생성과 출력프로그램 · 사유코드 연결</p>
+
+<h3>코레스폰던스란</h3>
+
+<p>코레스폰던스는 회사와 고객/벤더 사이의 <b>커뮤니케이션 수단</b>입니다. S/4HANA에서 관리되는 재무거래와 관련된 서신을 생성·발송해 정기 서신업무를 상당 부분 자동화합니다. 온디맨드로 쓸 수도, 특정 거래 후 자동 생성되게 할 수도 있습니다.</p>
+
+<p>대표적인 것이 <b>계정명세서</b>(Account Statement) · <b>미결항목리스트</b>(Open-Items List) · 개별서신 · 표준서신 · <b>잔액확인서</b>(Balance Confirmation) · 문서발췌본입니다. 거래상대와의 커뮤니케이션을 <span class="key">공식적으로 수행하고 기록</span>하는 수단이고, 회사가 일관된 재무회계 관점을 유지하고 있음을 검증하는 방법이기도 합니다.</p>
+
+<div class="note">
+  <div class="t">🔰 초보자 설명 — 코레스폰던스와 독촉의 차이</div>
+  <p>독촉이 "돈 안 냈으니 갚으세요"라는 압박성 통지라면, 코레스폰던스는 "현재 거래내역이 이렇습니다"라는 <b>정보성 서신</b>에 가깝습니다. 계정명세서나 잔액확인서처럼 상대방과 장부를 맞춰보는 용도로 널리 쓰입니다.</p>
+</div>
+
+<h3>마스터레코드의 코레스폰던스 필드</h3>
+
+<p>계정 세그먼트는 <b>일반데이터</b>(주소 · 통제데이터 · 지급거래)와 <b>회사코드데이터</b>(계정관리 · 지급거래 · 코레스폰던스 · 보험 · 원천징수세)로 나뉩니다.</p>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>필드</th><th>설명</th></tr></thead>
+<tbody>
+<tr><td>주소 정보</td><td class="wrap">거리/번지 · 우편번호/도시 · 국가 — 국가키가 우편번호 길이·계좌번호 형식 검증기준을 포함</td></tr>
+<tr><td>커뮤니케이션 언어</td><td class="wrap">저장된 양식을 <b>고객 언어로 번역해</b> 독촉장/서신을 생성할 때 사용</td></tr>
+<tr><td>계정명세서 (Account statement)</td><td class="wrap">정기 계정명세서를 내보낼 <span class="hl">빈도</span>를 지정 — 주간/월간 등 그룹별로 다르게 설정 가능</td></tr>
+<tr><td>회계담당자 (Accounting clerk)</td><td class="wrap">미결항목리스트 발송 등 코레스폰던스에 쓰이는 담당자 이름</td></tr>
+<tr><td>고객 측 계좌번호</td><td class="wrap">고객이 우리 회사코드를 식별할 때 쓰는 계좌번호</td></tr>
+</tbody>
+</table>
+</div>
+
+<h3>애드혹 vs 정기, 그리고 유형 3가지</h3>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>구분</th><th>트리거 시점</th></tr></thead>
+<tbody>
+<tr><td>애드혹 (Ad-hoc)</td><td class="wrap">문서생성 · 라인아이템 표시/변경 · 잔액표시 · 라인아이템 처리 · 지급</td></tr>
+<tr><td>자동생성 (Periodic)</td><td class="wrap">정기 계정명세서 · 잔액확인서</td></tr>
+</tbody>
+</table>
+</div>
+
+<ul>
+  <li><b>정기(Periodic)</b> — 마스터레코드에 지정한 주기(주간/월간)로 인보이스·계정명세서 등을 트리거</li>
+  <li><b>온라인(Online)</b> — 지급을 수동 처리하거나 라인아이템 표시화면에서 생성</li>
+  <li><b>전기용(Correspondence for postings)</b> — 지급차이(Payment Differences) 같은 특정 전기유형에 대해 Customizing으로 적절한 코레스폰던스를 구성</li>
+</ul>
+
+<h3>생성은 항상 2단계</h3>
+
+<div class="step"><span class="n">STEP 1</span><p><b>요청(Request)</b> — 필요한 코레스폰던스를 요청하면 시스템이 <span class="key">생성할 유형을 기록</span>해 둔다</p></div>
+<div class="step"><span class="n">STEP 2</span><p><b>인쇄(Print)</b> — 기록된 요청을 인쇄한다. 독촉장·계정명세서는 보통 일/주 단위 자동 인쇄, 특정 유형은 개별 온디맨드 인쇄</p></div>
+
+<p>인쇄요청은 스풀시스템으로 전달되어 지정 프린터로 출력되거나 이메일 등으로 전자 발송됩니다.</p>
+
+<h3>코레스폰던스 유형과 출력 프로그램</h3>
+
+<p>코레스폰던스 유형은 시스템 안의 서신 한 종류를 뜻하며, 필요한 서신 종류마다 하나씩 만듭니다. 거래처리 중에 사용자가 수동으로 고르거나, 정의된 규칙에 따라 자동 선택됩니다.</p>
+
+<div class="note warn">
+  <div class="t">반드시 복사 후 수정</div>
+  <p>표준 코레스폰던스 유형을 커스터마이징할 때는 <b>반드시 복사해서 고칩니다.</b> 표준 유형을 직접 고치면 시스템 업그레이드 시 덮어써집니다.</p>
+</div>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>유형</th><th>코드</th><th>출력 프로그램</th><th>필요 데이터</th></tr></thead>
+<tbody>
+<tr><td>지급통지 (Payment notice)</td><td><code>SAP01</code></td><td><code>RFKORD00</code> / <code>RFKORD00_PDF</code></td><td>문서번호</td></tr>
+<tr><td>계정명세서 (Account statement)</td><td><code>SAP06</code></td><td><code>RFKORD10</code> / <code>RFKORD10_PDF</code></td><td>계정번호 (및 날짜)</td></tr>
+<tr><td>개별서신 (Individual correspondence)</td><td><code>SAP10</code></td><td><code>RFKORD40</code> / <code>RFKORD40_PDF</code></td><td>계정번호 (및 날짜)</td></tr>
+<tr><td>미결항목리스트 (Open items list)</td><td><code>SAP14</code></td><td class="wrap">유형별 지정</td><td>계정번호 (및 날짜)</td></tr>
+</tbody>
+</table>
+</div>
+
+<p>환어음수수료명세서 · 내부문서 · 문서발췌본은 <b>문서번호</b>가, 계정명세서 · 개별서신 · 고객명세서는 <b>계정번호(및 날짜)</b>가 필요합니다. 하나의 유형이 여러 <b>서식(Form)</b>을 가질 수 있고 Form ID로 구분해 회사로고·주소·추가텍스트를 반영합니다. <b>Cross Company</b> 체크박스를 켜고 Customizing에서 회사코드를 코레스폰던스 회사코드에 배정하면 여러 회사코드 데이터를 한 서신에 묶을 수 있습니다.</p>
+
+<h3>트랜잭션 · 사유코드 연결</h3>
+
+<p>어떤 온라인 기능에서 어떤 코레스폰던스 유형을 쓸 수 있는지 지정할 수 있고, 이 설정은 <b>Create Correspondence</b> 앱에 새 유형을 노출시키는 데도 필요합니다.</p>
+
+<p>지급차이가 있는 거래처에 대해 <b>공차그룹(Tolerance Group)별 기본 유형</b>을 지정할 수 있고, <span class="key">According to Reason Code</span>를 체크하면 사유코드별로 다른 유형을 지정할 수 있습니다.</p>
+
+<div class="note warn">
+  <div class="t">사유코드가 여러 개면 판단이 안 된다</div>
+  <p>한 문서의 여러 라인아이템이 <b>서로 다른 사유코드</b>를 가지면 시스템이 어떤 유형을 고를지 판단할 수 없습니다. 이 경우 사유코드와 무관하게 <span class="hl">공차그룹에 배정된 지급통지</span>가 사용됩니다.</p>
+</div>
+
+<div class="note">
+  <div class="t">🔰 초보자 설명 — 사유코드(Reason Code)란</div>
+  <p>고객이 인보이스 금액보다 적게 입금했을 때(100만원 청구인데 95만원 입금) "왜 5만원이 부족한지"를 분류하는 코드입니다. 예를 들어 <code>MD</code>(Miscellaneous Deduction, 기타공제)를 붙이면 시스템이 그 사유에 맞는 서신(사유 설명 요청서 등)을 자동으로 골라 보낼 수 있습니다.</p>
+</div>
+
+<div class="note ok">
+  <div class="t">📌 개인 E2E 프로젝트와의 연결점</div>
+  <p>식품 유통은 <b>유통기한 임박 · 파손 · 온도이탈</b>로 인한 부분입금 클레임이 흔합니다. 사유코드를 온도군(냉동/냉장/실온)이나 클레임 원인별로 정의해 두면, 입금차이 처리 시점에 자동으로 다른 서신이 나가게 할 수 있고 동시에 <b>사유별 손실 집계</b>가 공짜로 따라옵니다.</p>
+  <p>다만 프로젝트 범위에서는 코레스폰던스 양식(Form) 개발까지 갈 필요가 없습니다. 표준 <code>SAP06</code>(계정명세서)과 <code>SAP14</code>(미결항목리스트)를 복사해 회사코드 <code>CL04</code>에 배정하는 선까지만 해도 "요청 → 인쇄" 2단계 구조는 충분히 보여집니다.</p>
+</div>
+
+</div>
+
+
+<!-- ══════════ LESSON 4 ══════════ -->
+<div class="lesson" id="l4">
+<h2><span class="no">LESSON 4</span>특수G/L거래 — 대체조정계정과 선급금</h2>
+
+<p><span class="tag">Unit 4</span><span class="tag">레슨 4개</span>Special G/L Transactions — 클래스/유형 · 선급금 · 개별가치조정 · 전기키와 계정결정 · MM/SD 연동</p>
+
+<h3>조정계정이 먼저다</h3>
+
+<p>매출채권·매입채무 같은 서브레저 거래는 총계정원장의 <span class="key">조정계정</span>(Reconciliation Account)에 전기됩니다. 덕분에 서브레저를 뒤지지 않아도 총계정원장에서 바로 채권·채무 잔액이 보입니다. 조정계정은 고객/벤더 마스터레코드의 <b>회사코드 세그먼트</b>에 지정합니다.</p>
+
+<p><b>특수G/L거래</b>는 매출채권·매입채무 안에서도 총계정원장·서브레저에 <span class="hl">따로 표시해야 하는 거래</span>입니다. 선급금이 대표적입니다 — 일반 매출채권과 함께 재무상태표에 실리면 안 됩니다. 서브레저 계정에 <b>특수G/L지시자</b>로 계정지정을 하면 <b>대체조정계정</b>(특수G/L계정)에 전기되어 분리 표시됩니다.</p>
+
+<div class="note">
+  <div class="t">🔰 초보자 설명 — 왜 선급금을 일반 매출채권과 분리하나</div>
+  <p>아직 재화·용역을 주지 않았는데 미리 받은 돈(선급금)은 회계적으로 <b>빚(부채)</b>에 가깝습니다. 반면 일반 매출채권은 이미 제공한 재화·용역에 대해 받을 돈(자산)입니다. 성격이 정반대라 재무제표에서 섞이면 안 되고, 그래서 별도의 특수G/L계정으로 분리합니다.</p>
+</div>
+
+<h3>클래스 3가지</h3>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>클래스</th><th>설명</th></tr></thead>
+<tbody>
+<tr><td>선급금 (Down Payments)</td><td class="wrap">요청·수령·사용된 선급금 관리용 <b>사전구성 프로그램·입력화면</b> 제공. 독촉·지급프로그램과 통합된다</td></tr>
+<tr><td>환어음 (Bills of Exchange)</td><td class="wrap">국가별 특수성을 다루기 위한 사전구성 프로그램·입력화면</td></tr>
+<tr><td>기타 (Other)</td><td class="wrap">Document Entry 메뉴의 "Other" 옵션으로 다양한 거래를 특수G/L기능으로 제어</td></tr>
+</tbody>
+</table>
+</div>
+
+<h3>선급금 5단계와 유형 3가지</h3>
+
+<figure class="figwrap">
+<svg class="dgm" viewBox="0 0 1000 392" role="img" aria-label="고객 선급금 5단계 도해. 선급금 요청은 메모항목이라 잔액에 영향을 주지 않고, 수령 시 대체조정계정에 전기되었다가 인보이스 발행 후 상계로 정상 조정계정으로 이체된다. 아래는 특수G/L 유형 세 가지의 전기 방식 비교.">
+  <defs>
+    <marker id="sa" markerWidth="9" markerHeight="9" refX="7" refY="4.5" orient="auto">
+      <polygon class="arw" points="0,0 9,4.5 0,9"/></marker>
+    <marker id="sak" markerWidth="9" markerHeight="9" refX="7" refY="4.5" orient="auto">
+      <polygon class="arw-key" points="0,0 9,4.5 0,9"/></marker>
+  </defs>
+
+  <text class="t-s c-key" x="20" y="24">고객 선급금(Down Payment) 5단계 — 돈이 어느 조정계정에 앉아 있는가</text>
+
+  <rect class="b-mut" x="20" y="36" width="176" height="72" rx="6"/>
+  <text class="t-h" x="40" y="60">① 선급금 요청</text>
+  <text class="t-xs" x="40" y="80">메모항목 · 지시자 F</text>
+  <text class="t-xs c-bad" x="40" y="98">잔액 영향 없음</text>
+  <path class="ln-key" d="M196 72 H212" marker-end="url(#sak)"/>
+
+  <rect class="b-key" x="216" y="36" width="176" height="72" rx="6"/>
+  <text class="t-h c-key" x="236" y="60">② 선급금 수령</text>
+  <text class="t-xs" x="236" y="80">특수G/L 지시자 A</text>
+  <text class="t-xs" x="236" y="98">대체조정계정</text>
+  <path class="ln-key" d="M392 72 H408" marker-end="url(#sak)"/>
+
+  <rect class="b" x="412" y="36" width="176" height="72" rx="6"/>
+  <text class="t-h" x="432" y="60">③ 고객 인보이스</text>
+  <text class="t-xs" x="432" y="80">정상 조정계정</text>
+  <text class="t-xs" x="432" y="98">매출채권 발생</text>
+  <path class="ln-key" d="M588 72 H604" marker-end="url(#sak)"/>
+
+  <rect class="b-hl" x="608" y="36" width="176" height="72" rx="6"/>
+  <text class="t-h" x="628" y="60">④ 상계 전기</text>
+  <text class="t-xs" x="628" y="80">특수 → 정상</text>
+  <text class="t-xs" x="628" y="98">조정계정 이체</text>
+  <path class="ln-key" d="M784 72 H800" marker-end="url(#sak)"/>
+
+  <rect class="b-ok" x="804" y="36" width="176" height="72" rx="6"/>
+  <text class="t-h c-ok" x="824" y="60">⑤ 잔액 정리</text>
+  <text class="t-xs" x="824" y="80">미결항목 clearing</text>
+  <text class="t-xs" x="824" y="98">거래 종료</text>
+
+  <rect class="b-ghost" x="20" y="124" width="960" height="46" rx="6"/>
+  <text class="t-s" x="44" y="152">선급금은 매출채권 조정계정을 쓰면 안 된다 — 재무제표의 매입채무(Payables) 영역에 서야 하므로 대체조정계정으로 분리한다.</text>
+
+  <text class="t-s c-key" x="20" y="200">특수G/L 유형 3가지 — 상계전표가 있느냐, 어디에 있느냐로 갈린다</text>
+
+  <rect class="b-mut" x="20" y="212" width="310" height="96" rx="6"/>
+  <text class="t-h" x="42" y="238">메모항목 Noted Item</text>
+  <text class="t-s" x="42" y="260">라인 1건만 갱신</text>
+  <text class="t-s" x="42" y="280">상계전표 없음 → 영잔액검사 없음</text>
+  <text class="t-xs c-key" x="42" y="300">예: 선급금 요청</text>
+
+  <rect class="b" x="345" y="212" width="310" height="96" rx="6"/>
+  <text class="t-h" x="367" y="238">자동상계전표 (통계적)</text>
+  <text class="t-s" x="367" y="260">항상 동일한 상계계정에 전기</text>
+  <text class="t-s" x="367" y="280">재무제표 주석에만 표시</text>
+  <text class="t-xs c-key" x="367" y="300">예: 지급보증</text>
+
+  <rect class="b-key" x="670" y="212" width="310" height="96" rx="6"/>
+  <text class="t-h c-key" x="692" y="238">자유상계전표 Free</text>
+  <text class="t-s" x="692" y="260">상계계정을 자유롭게 지정</text>
+  <text class="t-s" x="692" y="280">재무제표 본문에 포함</text>
+  <text class="t-xs c-key" x="692" y="300">예: 수령한 선급금의 은행 전기</text>
+
+  <rect class="b-ghost" x="20" y="326" width="960" height="46" rx="6"/>
+  <text class="t-s" x="44" y="354">전기키는 09 · 19 · 29 · 39 만 쓰고 반드시 특수G/L지시자와 함께 입력한다. 대체 특수G/L계정은 계정과목표(Chart of Accounts)별로 계정결정에 저장된다.</text>
+</svg>
+<figcaption><span class="fno">그림 3</span>선급금 5단계와 특수G/L 유형 3종. ④ 상계 전기가 특수조정계정에서 정상조정계정으로 옮기는 지점이다.</figcaption>
+</figure>
+
+<h3>유형별로 무슨 일이 일어나는가</h3>
+
+<ul>
+  <li><b>자동상계전표(통계적)</b> — 고객과 1만 유로 지급보증 계약을 맺으면 고객계정과 특수G/L계정(Guarantees of Payment Made)에 부채가 표시되고, 자동상계전표가 <span class="key">지급보증 정산계정</span>에 전기된다. 미결항목을 정리하면 상계계정 항목도 자동 정리된다. 이런 통계적 전기는 재무제표 주석에만 표시되거나 아예 표시되지 않는다</li>
+  <li><b>메모항목</b> — 라인아이템 <b>하나만</b> 갱신하고 상계전표가 없어 <span class="bad">영잔액 검사가 이뤄지지 않는다</span>. 지급·독촉프로그램이 후속 처리에 활용할 수 있다. 선급금 요청은 거래수치(Transaction Figures)를 갱신하지 않는 통계적 메모항목이라, 라인아이템 리스트에는 있지만 고객 잔액에 영향이 없고 특수G/L계정 잔액도 항상 0이다</li>
+  <li><b>자유상계전표</b> — 고객이 선급금 요청에 응해 입금하면 고객 서브레저계정과 총계정원장의 대체조정계정(수령한 선급금)에 동시에 기록된다. 은행 대차대조표계정은 거래 시점에 선택된다</li>
+</ul>
+
+<p>벤더 영역도 동일한 5단계입니다 — 요청 → 수령 입력 → 벤더 인보이스 생성 → 상계 → 정리.</p>
+
+<h3>개별가치조정(Individual Value Adjustment)</h3>
+
+<div class="step"><span class="n">STEP 1</span><p>고객계정에 <b>채권</b> 입력</p></div>
+<div class="step"><span class="n">STEP 2</span><p><b>세금 제외</b> 개별가치조정 입력 — 비용이 손익계산서에 정확히 반영되게</p></div>
+<div class="step"><span class="n">STEP 3</span><p>대차대조표 기준일 이후 조정 <b>정리(역분개)</b></p></div>
+<div class="step"><span class="n">STEP 4</span><p>회수불가 확정 시 최종가치조정을 <b>회수불능채권비용</b> 계정에 전기. <span class="bad">이때는 특수G/L계정이 아니라 일반 고객조정계정을 쓴다</span></p></div>
+
+<h3>구성 — 전기키 · 대체조정계정 · 지시자 속성</h3>
+
+<p>애플리케이션 측에서는 <b>특수 전기키 + 특수G/L지시자</b> 조합으로 전기합니다. 표준에서 특수G/L거래에 배정된 전기키는 <code>09</code> · <code>19</code> · <code>29</code> · <code>39</code>이며, 지시자는 그 전기키가 특수G/L거래용임을 나타내므로 <span class="hl">항상 함께 입력</span>해야 합니다.</p>
+
+<p>특수G/L거래는 마스터레코드의 조정계정이 아니라 <b>Customizing에서 별도 정의한 계정</b>에 전기합니다. 이 계정들은 FI에서 총계정원장계정으로 만들고, <code>D</code>유형(고객) 또는 <code>K</code>유형(벤더) 조정계정으로 정의하며, <b>필드상태그룹</b>(Field Status Group)으로 입력화면 레이아웃을 조정합니다.</p>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>지시자 속성</th><th>설명</th></tr></thead>
+<tbody>
+<tr><td>메모항목 (Noted items)</td><td class="wrap">계정잔액을 갱신하지 않도록 지정</td></tr>
+<tr><td>신용한도검사 관련성</td><td class="wrap">고객 신용한도검사에 이 거래를 포함할지 — <span class="bad">메모항목은 제외</span></td></tr>
+<tr><td>커밋먼트 경고</td><td class="wrap">고객/벤더계정 전기 시 특수G/L거래 존재를 알리는 경고 (예: 벤더인보이스 전기 시 그 벤더의 선급금 존재 알림)</td></tr>
+<tr><td>대상 특수G/L지시자</td><td class="wrap"><b>메모항목 전용</b> — 지급요청 적용 시 대상이 될 지시자 지정. 표준의 선급금요청에 쓰인다</td></tr>
+<tr><td>특수G/L거래클래스</td><td class="wrap">선급금 · 환어음 · 기타 중 어느 유형인지</td></tr>
+<tr><td>전기키</td><td class="wrap"><code>09</code> · <code>19</code> · <code>29</code> · <code>39</code> 만 사용 가능</td></tr>
+</tbody>
+</table>
+</div>
+
+<p>시스템은 고객/벤더 마스터의 조정계정에서 출발해, 계정결정에 정의된 특수G/L계정을 전기 시 자동 배정합니다. 자체 특수G/L거래를 만들 때는 세 갈래입니다.</p>
+
+<ul>
+  <li><b>메모항목</b> — 거래수치를 갱신하지 않고 상계계정지정도 없다 (예: 컨테이너 대여 현황 표시)</li>
+  <li><b>자동상계전표가 있는 통계적 항목</b> — 대체특수G/L계정 외에 <span class="key">자동(상계)전기 계정 테이블에 정산계정</span>을 함께 만들어야 한다 (지급보증과 동일)</li>
+  <li><b>수동상계전표 거래</b> — 대체G/L계정만 저장하고 상계계정은 거래 시 수동 입력</li>
+</ul>
+
+<h3>MM 연동 — Three-Way Match</h3>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>단계</th><th>MM</th><th>FI</th></tr></thead>
+<tbody>
+<tr><td>구매오더 생성</td><td class="wrap">구매오더</td><td class="wrap"><span class="bad">FI 전기 없음</span></td></tr>
+<tr><td>입고 (Goods Receipt)</td><td class="wrap">자재문서 생성 (재고 갱신)</td><td class="wrap">회계문서 생성 — 재고계정/소비비용계정(차변), <b>GR/IR 계정</b>(대변)</td></tr>
+<tr><td>인보이스입고 (Invoice Receipt)</td><td class="wrap">벤더인보이스 전기</td><td class="wrap">회계문서 생성 — <b>GR/IR 계정</b>(차변), 벤더계정(대변)</td></tr>
+</tbody>
+</table>
+</div>
+
+<p>입고와 인보이스입고의 <b>순서는 바뀔 수 있습니다</b>. GR/IR계정은 미결항목계정으로 유지되어, 모든 입고에 인보이스가 발행됐는지 · 모든 인보이스에 입고가 있었는지를 검증하는 장치가 됩니다.</p>
+
+<p>선급금이 끼면 이렇게 됩니다 — ① 구매오더 전기(선급금 정보 입력) → ② <code>ME2DP</code>(Down Payment Monitor)로 선급금 전기 → ③ 구매오더 참조로 입고 전기 → ④ 벤더 인보이스를 구매오더 참조로 LIV 전기(<span class="hl">선급금 존재 메시지가 표시되고 이 단계에서 상계 가능</span>).</p>
+
+<h3>SD 연동</h3>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>단계</th><th>SD</th><th>FI</th></tr></thead>
+<tbody>
+<tr><td>판매 (Sale)</td><td class="wrap">영업오더 생성</td><td class="wrap"><span class="bad">FI 전기 없음</span></td></tr>
+<tr><td>출하 (Shipping)</td><td class="wrap">납품문서 → 피킹/운송오더 → 출고 전기</td><td class="wrap">회계문서 — 판매재화계정(차변), 재고계정(대변)</td></tr>
+<tr><td>청구 (Billing)</td><td class="wrap">청구문서 생성 · 인보이스 발송</td><td class="wrap">회계문서 — 고객계정(차변), 매출(대변)</td></tr>
+</tbody>
+</table>
+</div>
+
+<p>영업오더에 선급금을 저장하면 지급기일에 선급금 요청이 고객에게 발송되고, 동시에 FI에 <span class="key">특수G/L지시자 <code>F</code></span>의 메모항목으로 자동 전기됩니다. 청구계획(Billing Plan)의 인보이스 날짜가 되면 선급금 인보이스가 생성되며, 이때 <b>청구유형 <code>FAZ</code></b>가 쓰입니다.</p>
+
+<p>선급금 입금이 전기되면 해당 요청에 배정되고 입금액이 영업오더에 배정됩니다. 이 라인아이템은 <span class="key">특수G/L지시자 <code>A</code></span>를 씁니다. 미결요청 중 입금건을 골라 <b>Add Down Payment</b>로 배정하면 매출채권 미결항목에 지시자 <code>A</code>로 선급금이 표시되고, SD오더 <b>문서흐름</b>에서 그 선급금요청이 정리됨(Cleared)으로 바뀝니다. 부분/최종 인보이스 시 선급금은 정리대상으로 이체되어 <span class="hl">특수조정계정에서 빠지고 고객 마스터의 정상조정계정으로 옮겨져</span> 매출채권 총액을 줄입니다.</p>
+
+<div class="note">
+  <div class="t">🔰 초보자 설명 — SD · MM · FI 연동이 필요한 이유</div>
+  <p>영업(SD)과 구매(MM)는 실물 거래를 다루고, 재무회계(FI)는 그 거래의 돈의 흐름을 기록합니다. 창고에서 물건이 나가는 순간과 인보이스가 발행되는 순간이 다를 수 있기 때문에, 시스템이 "언제 어느 계정에 얼마를 기록할지"를 자동으로 연결해 줘야 장부가 실시간으로 맞습니다.</p>
+</div>
+
+<div class="note ok">
+  <div class="t">📌 개인 E2E 프로젝트와의 연결점</div>
+  <p>MM 3-way match 표의 <b>GR/IR 계정</b>이 <span class="key">ZGATE_INSPECT</span>가 서 있는 바로 그 자리입니다. CBO는 "GR(<code>101</code>) 수량과 STOR 이관(<code>301</code>) 수량 차이 중 송장 미발생 건을 <code>122</code>로 자동반품"하는데, 송장 미발생 = <span class="hl">GR/IR 계정에 인보이스 측 상대 전기가 아직 없는 상태</span>입니다. 즉 CBO의 판정 근거를 MM 수량이 아니라 <b>GR/IR 미결 여부</b>로 잡으면 회계와 어긋날 여지가 줄어듭니다.</p>
+  <p>플랜트 <code>GATE</code>(입고 게이트) → <code>STOR</code>(보관) 이관은 <code>301</code>이라 FI 전기가 없지만, <code>122</code> 반품은 <b>재고금액과 GR/IR을 동시에 되돌리는 회계 전기</b>입니다. 프로젝트 원칙("회계 영향 처리는 자동화하지 않는다")에 따라 <code>122</code>는 자동 실행이 아니라 <b>승인 대기(P)</b>까지만 만들고, 전표는 직접 INSERT가 아니라 <code>BAPI_GOODSMVT_CREATE</code>로 생성하는 구조가 맞습니다.</p>
+  <p>선급금은 프로젝트 범위에서 선택입니다. 다만 벤더 사입에 선지급 조건이 있다면 <code>ME2DP</code> + 지시자 <code>F</code>/<code>A</code> 구조를 그대로 쓸 수 있어, FBZP의 "Vendor Sp. G/L Transactions" 설정과 한 줄로 이어집니다.</p>
+</div>
+
+</div>
+
+
+<!-- ══════════ LESSON 5 ══════════ -->
+<div class="lesson" id="l5">
+<h2><span class="no">LESSON 5</span>문서파킹 — 홀드 vs 파킹, 그리고 승인 워크플로우</h2>
+
+<p><span class="tag">Unit 5</span><span class="tag">레슨 3개</span>Parking Documents — 홀드 vs 파킹 · 파킹문서 처리 · 워크플로우와 General Journal Entry Verification</p>
+
+<h3>문제 상황</h3>
+
+<p>10개 라인아이템을 입력하다가 9번째 항목의 코스트센터를 문서만으로 확정할 수 없습니다. 여기서 입력을 중단하면 처음부터 다시 쳐야 합니다. <b>홀드(Hold)</b>와 <b>파킹(Park)</b>은 이 중단 시점의 입력값을 임시 저장하는 두 방법입니다.</p>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>구분</th><th>Hold Document</th><th>Park Document</th></tr></thead>
+<tbody>
+<tr><td>완전성</td><td class="wrap">불완전해도 무방</td><td class="wrap">불완전해도 무방 (포괄적 입력검사 불필요)</td></tr>
+<tr><td>문서번호</td><td class="wrap"><span class="bad">배정되지 않음</span> — 사용자가 이름을 지정</td><td class="wrap">일반 FI전기와 동일하게 <b>문서유형 기준으로 배정</b> (외부배정이면 번호 인계 필요)</td></tr>
+<tr><td>거래수치 갱신</td><td class="wrap">안 됨</td><td class="wrap">안 됨</td></tr>
+<tr><td>평가(Evaluation)</td><td class="wrap"><span class="bad">불가</span></td><td class="wrap"><span class="good">실시간 평가 가능</span> — 예: 파킹문서 금액을 부가세 예정신고에 활용</td></tr>
+<tr><td>적용 화면</td><td class="wrap">일반 입력화면</td><td class="wrap">일반 전기화면 + 신규 전기화면 모두</td></tr>
+</tbody>
+</table>
+</div>
+
+<p>파킹문서는 이후 보완·검토·전기가 가능하고, <b>완전해야</b> 정상 FI전기로 전환됩니다. 더 필요 없는 파킹문서는 삭제해야 합니다. 중요한 제약이 하나 있습니다 — <span class="bad">파킹문서는 대체(Substitution) 기능을 지원하지 않습니다.</span> 대체가 필요하면 먼저 회계문서로 전환해야 합니다 (LESSON 6과 직접 연결).</p>
+
+<p>전반적으로 Park이 Hold보다 효과적이며, 많은 기업이 문서파킹으로 <span class="key">듀얼컨트롤(이중승인) 원칙</span>을 구현합니다. 권한(Authorization)으로 책임영역을 모델링할 수 있습니다.</p>
+
+<div class="note">
+  <div class="t">🔰 초보자 설명 — Hold와 Park, 언제 뭘 쓰나</div>
+  <p>Hold는 "잠깐 메모해 두고 나중에 다시 볼게" 수준의 임시저장이라 문서번호도 없고 다른 기능과 연계되지 않습니다. Park은 정식 문서번호를 받고 시스템이 실시간으로 인식하는 <b>"제출 대기 중"</b> 상태에 가깝습니다. 승인자의 결재를 받아야 확정되는 전표라면 Park을 씁니다.</p>
+</div>
+
+<h3>파킹 시 무엇이 안 일어나는가</h3>
+
+<ul>
+  <li>계정지정템플릿(Account Assignment Template)은 <span class="good">쓸 수 있고</span>, 참조문서(Reference Document)는 <span class="bad">쓸 수 없다</span></li>
+  <li>크로스컴퍼니코드 거래도 파킹 가능 — 최초 회사코드에서 <b>파킹문서 1건만</b> 생성되고, 전기 시점에 크로스애플리케이션번호를 가진 문서 2건이 만들어진다</li>
+  <li>저장 시 거래수치 · 자산가치 · 통제합계가 갱신되지 않고, 자동전기도 생성되지 않으며, <b>잔액검사도 하지 않는다</b> (단 파킹문서 개요화면에는 잔액이 표시된다)</li>
+</ul>
+
+<p>활용처는 셋입니다 — 입력값 임시저장, <b>다단계 승인모델 표시</b>(듀얼컨트롤), 작업목록(Worklist)을 통한 업무배정. 고객계정(인보이스·대변표) · 벤더계정(인보이스·대변표) · 총계정원장계정 모두 파킹할 수 있습니다.</p>
+
+<h3>편집 · 전기 · 전환</h3>
+
+<p>파킹문서는 헤더·항목의 필드와 금액을 자유롭게 고칠 수 있고, 일반 전기문서에 적용되는 <b>문서변경규칙</b>(Document Change Rules)이 적용되지 않습니다. 날짜·금액·계정·계정지정 대상을 몇 번이고 고칠 수 있지만 <span class="bad">통화 · 문서유형과 번호 · 회사코드는 바꿀 수 없습니다.</span></p>
+
+<p>전기는 개별 전기 또는 선택리스트(Selection List)를 이용한 <b>일괄 전기</b>가 가능하고, 일괄 전기 시 성공/실패 목록이 나와 코스트계정지정 누락 등으로 실패한 문서를 후속 처리할 수 있습니다. 배치입력세션(Batch Input Session)으로도 전기됩니다.</p>
+
+<div class="step"><span class="n">전환 시</span><p>일반 전기검사 수행 → 정상적인 완전한 FI문서 생성 → 변경이력(History) 기록 → <b>문서번호는 그대로</b> → 거래수치 갱신 → 파킹문서 삭제. 입력 담당자 정보는 FI문서 헤더에 남는다</p></div>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>항목</th><th>정식 전기문서</th><th>파킹문서</th></tr></thead>
+<tbody>
+<tr><td>거래수치 갱신</td><td>Yes</td><td>No</td></tr>
+<tr><td>문서 삭제</td><td class="wrap"><span class="bad">불가</span> (대안: 역분개)</td><td class="wrap"><span class="good">가능</span></td></tr>
+<tr><td>변경</td><td class="wrap">가능 (제한적)</td><td class="wrap">가능</td></tr>
+<tr><td class="wrap">금액 · 계정번호 · 계정지정대상 · 날짜 변경</td><td class="wrap"><span class="bad">불가</span></td><td class="wrap"><span class="good">가능</span></td></tr>
+<tr><td>문서변경규칙 적용</td><td>Yes</td><td>해당없음</td></tr>
+</tbody>
+</table>
+</div>
+
+<p>파킹문서도 계정조회·리포팅과 연동되어 문서저널(Document Journal)이나 라인아이템 화면에서 조회됩니다.</p>
+
+<h3>SAP Business Workflow</h3>
+
+<p>서로 다른 시스템에서 돌아가는 비즈니스 프로세스 간 커뮤니케이션을 지원하고, 다음 업무단계 수행에 필요한 정보를 전부 제공합니다. 표준 템플릿이 있고 커스터마이징하거나 직접 만들 수 있습니다. 업무단계 설계 시 세 가지를 정의합니다 — <b>무슨 작업인가</b>(오브젝트유형·메소드) · <b>누가 처리하는가</b>(처리자) · <b>수신자에게 무슨 텍스트를 보일 것인가</b>.</p>
+
+<p>저널엔트리 검증 권한이 있으면 <b>My Inbox</b> Fiori 앱에서 문서에 접근해 승인(Release) · 거부(Reject) · 보류(Suspend) · 전달(Forward)할 수 있고 워크플로우 로그도 볼 수 있습니다.</p>
+
+<div class="note warn">
+  <div class="t">회사코드가 배정되지 않으면 아무것도 승인되지 않는다</div>
+  <p>FI Customizing에서 문서파킹용 <b>워크플로우 변형</b>(Workflow Variant)을 만들고 문서승인 활성화 여부와 최소금액을 지정합니다. <span class="bad">회사코드가 워크플로우변형에 배정되지 않으면 어떤 문서도 승인되지 않습니다.</span></p>
+</div>
+
+<p>매출채권·매입채무 마스터의 <b>Release Group</b> 필드로 계정별로 다른 승인절차를 태울 수 있습니다. <b>승인경로</b>(Release Approval Path)는 <span class="key">워크플로우변형 + 문서유형 + 승인그룹</span>의 조합으로 결정되고, 이 경로와 금액이 승인자와 서브워크플로우를 결정합니다. 승인그룹이 없으면 초기승인그룹이 쓰입니다.</p>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>서브워크플로우</th><th>내용</th></tr></thead>
+<tbody>
+<tr><td><code>WS10000052</code></td><td class="wrap">단일단계 승인 — 사용자 1인이 승인</td></tr>
+<tr><td><code>WS10000053</code></td><td class="wrap">2단계 승인 — <b>듀얼컨트롤</b>(이중승인) 원칙</td></tr>
+<tr><td><code>WS10000054</code></td><td class="wrap">3단계 승인 — 트리플컨트롤(삼중승인) 원칙</td></tr>
+</tbody>
+</table>
+</div>
+
+<h3>General Journal Entry Verification (Flexible Workflow)</h3>
+
+<p>S/4HANA는 SAP Business Workflow뿐 아니라 <b>Flexible Workflow</b>도 지원해 승인프로세스를 자유롭게 정의할 수 있습니다. 저널엔트리는 다음 상태를 돕니다.</p>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>상태</th><th>의미</th></tr></thead>
+<tbody>
+<tr><td>Initial</td><td class="wrap">작성 중</td></tr>
+<tr><td>Submitted</td><td class="wrap">승인요청 제출</td></tr>
+<tr><td>Rejected</td><td class="wrap">거부 — 재작성 필요</td></tr>
+<tr><td>Waiting</td><td class="wrap">보류 — 지정 시간 후 다시 Submitted로</td></tr>
+<tr><td>Posted</td><td class="wrap">승인·전기 완료. 단 전기 실패 시 <span class="bad">Failed</span> → 재작성 필요</td></tr>
+</tbody>
+</table>
+</div>
+
+<p><span class="key">4-eyes 원칙</span>이 보장됩니다 — 요청자 본인은 자신의 검증에서 제외됩니다.</p>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>구분</th><th>앱 ID</th><th>앱</th></tr></thead>
+<tbody>
+<tr><td>운영 (요청자)</td><td><code>F2547</code></td><td class="wrap">Verify General Journal Entries For Requester</td></tr>
+<tr><td>운영 (처리자 · 수신함)</td><td><code>F2728</code></td><td class="wrap">Verify Journal Entries in General Ledger For Processor (Inbox)</td></tr>
+<tr><td>운영 (처리자 · 발신함)</td><td><code>F2729</code></td><td class="wrap">Verify Journal Entries in General Ledger For Processor (Outbox)</td></tr>
+<tr><td>구성 (팀 · 책임관리)</td><td><code>F3932</code></td><td class="wrap">Manage Teams and Responsibilities For Journal Entry Verification</td></tr>
+<tr><td>구성 (워크플로우 관리)</td><td><code>F2720</code></td><td class="wrap">Manage Workflows for Journal Entry Verification</td></tr>
+</tbody>
+</table>
+</div>
+
+<div class="step"><span class="n">STEP 1</span><p><b>Manage Workflows</b> 타일에서 Flexible Workflow 생성</p></div>
+<div class="step"><span class="n">STEP 2</span><p>Header에 이름 · 설명 · <b>유효기간</b> 입력</p></div>
+<div class="step"><span class="n">STEP 3</span><p><b>Start Conditions</b> — 계정그룹 · 임계금액 · 코스트센터 · 회사코드 · 저널엔트리유형 조합으로 트리거 규칙 정의</p></div>
+<div class="step"><span class="n">STEP 4</span><p><b>Step Sequence</b> — 검증/전기 단계와 예외처리 정의</p></div>
+<div class="step"><span class="n">STEP 5</span><p>승인 담당 팀/역할(Recipient) 배정, 팀원별 승인권한(Function) 설정</p></div>
+
+<div class="note">
+  <div class="t">🔰 초보자 설명 — 왜 저널엔트리에도 결재라인이 필요한가</div>
+  <p>회계전표는 한 번 전기되면 되돌리기 어렵고 재무제표에 직접 영향을 줍니다. 그래서 금액이 크거나 특정 계정에 걸린 전표는 작성자가 아닌 다른 사람이 한 번 더 보고 승인해야 실제 전기되도록 만듭니다. 내부통제의 핵심인 <b>4-eyes 원칙</b>(두 사람 이상이 봐야 한다)입니다.</p>
+</div>
+
+<div class="note ok">
+  <div class="t">📌 개인 E2E 프로젝트와의 연결점</div>
+  <p>프로젝트 원칙 "<b>회계 영향이 있는 처리는 자동화하지 않는다 — 알림 또는 승인 대기까지만</b>"이 표준으로 구현된 형태가 바로 이 Unit입니다. CBO에 상태필드 W/P/H를 두기로 한 설계와 <b>Initial → Submitted → Posted / Rejected / Waiting</b> 상태 전이가 사실상 같은 그림입니다.</p>
+  <p>바꿔 말하면 <span class="hl">승인 로직을 CBO로 새로 짤 이유가 없습니다.</span> <code>ZGATE_INSPECT</code>의 <code>122</code> 반품처럼 회계에 닿는 처리는 CBO가 파킹문서 또는 승인대기 건만 만들고, 결재는 <code>F2728</code> My Inbox로 넘기는 편이 표준 우선 원칙에 맞습니다. CBO가 직접 승인화면을 만들면 권한·감사추적을 전부 다시 구현해야 합니다.</p>
+</div>
+
+</div>
+
+
+<!-- ══════════ LESSON 6 ══════════ -->
+<div class="lesson" id="l6">
+<h2><span class="no">LESSON 6</span>검증과 대체 — 호출지점 · 규칙 · 세트</h2>
+
+<p><span class="tag">Unit 6</span><span class="tag">레슨 4개</span><span class="tag ok">개발자 직결</span>Validations and Substitutions — 기본원리 · 검증 구현 · 대체 구현 · 규칙(Rule)과 세트(Set)</p>
+
+<h3>언제 이걸 알아야 하는가</h3>
+
+<p>ABAP 개발자가 FI에서 가장 자주 받는 요청이 <b>"이 계정에는 이 코스트센터만 쓰게 막아 주세요"</b>, <b>"이 조건이면 기능영역을 자동으로 채워 주세요"</b>입니다. 반사적으로 BTE나 BAdI, 심하면 <span class="bad">전기 후 수정하는 CBO</span>를 떠올리기 쉬운데, 이 요청의 90%는 <span class="hl">검증(Validation)과 대체(Substitution) — 즉 Customizing</span>으로 끝납니다.</p>
+
+<p>그래서 이 Unit은 "개발하지 않아도 되는 경계"를 긋는 곳입니다. 개발자 입장에서 핵심 질문은 셋입니다. ① 이 검사가 <b>어느 시점(호출지점)</b>에 걸려야 하는가, ② 그 시점에 <b>어떤 필드가 채워져 있는가</b>, ③ 표준 문법으로 표현이 안 될 때만 <b>익싯(Exit)</b>으로 내려간다. 순서를 뒤집으면 표준으로 되는 일을 코드로 짜게 됩니다.</p>
+
+<h3>검증 vs 대체 — 구조가 다르다</h3>
+
+<figure class="figwrap">
+<svg class="dgm" viewBox="0 0 1000 496" role="img" aria-label="검증과 대체의 구조 비교 도해. 적용영역과 호출지점이 불리언클래스를 결정하고, 검증은 전제조건-검사-메시지 3부, 대체는 전제조건-치환 2부로 구성되며, 규칙과 세트가 양쪽의 전제조건에 재사용된다.">
+  <defs>
+    <marker id="va" markerWidth="9" markerHeight="9" refX="7" refY="4.5" orient="auto">
+      <polygon class="arw" points="0,0 9,4.5 0,9"/></marker>
+    <marker id="vak" markerWidth="9" markerHeight="9" refX="7" refY="4.5" orient="auto">
+      <polygon class="arw-key" points="0,0 9,4.5 0,9"/></marker>
+  </defs>
+
+  <text class="t-s c-key" x="20" y="24">적용영역(FI) + 호출지점(Callup Point) 이 불리언클래스를 결정한다</text>
+
+  <rect class="b-mut" x="20" y="36" width="120" height="52" rx="6"/>
+  <text class="t-h" x="38" y="58">전표 입력</text>
+  <text class="t-xs" x="38" y="76">다이얼로그 · 배치</text>
+  <path class="ln" d="M140 62 H166" marker-end="url(#va)"/>
+
+  <rect class="b" x="170" y="36" width="180" height="52" rx="6"/>
+  <text class="t-h" x="188" y="58">호출지점 1</text>
+  <text class="t-xs" x="188" y="76">문서헤더 · BKPF</text>
+  <path class="ln" d="M350 62 H376" marker-end="url(#va)"/>
+
+  <rect class="b-key" x="380" y="36" width="180" height="52" rx="6"/>
+  <text class="t-h c-key" x="398" y="58">호출지점 2</text>
+  <text class="t-xs" x="398" y="76">문서라인 · BSEG</text>
+  <path class="ln" d="M560 62 H586" marker-end="url(#va)"/>
+
+  <rect class="b" x="590" y="36" width="190" height="52" rx="6"/>
+  <text class="t-h" x="608" y="58">호출지점 3</text>
+  <text class="t-xs" x="608" y="76">완전문서</text>
+  <path class="ln-ok" d="M780 62 H806" marker-end="url(#va)"/>
+
+  <rect class="b-ok" x="810" y="36" width="170" height="52" rx="6"/>
+  <text class="t-h c-ok" x="828" y="58">전기 Posting</text>
+  <text class="t-xs" x="828" y="76">통과한 것만</text>
+
+  <text class="t-xs" x="170" y="108">호출지점 1에서 확인한 헤더 정보를 호출지점 2 검증에서 다시 쓸 수 있다 (교차검증).</text>
+
+  <text class="t-h c-key" x="40" y="144">검증 Validation — 막는다</text>
+  <text class="t-h c-ok" x="540" y="144">대체 Substitution — 바꾼다</text>
+
+  <rect class="b-key" x="40" y="156" width="420" height="46" rx="6"/>
+  <text class="t" x="60" y="178">① 전제조건 Prerequisite</text>
+  <text class="t-xs" x="60" y="194">참이면 검사를 실행한다</text>
+  <path class="ln-key" d="M250 202 V220" marker-end="url(#vak)"/>
+
+  <rect class="b" x="40" y="224" width="420" height="46" rx="6"/>
+  <text class="t" x="60" y="246">② 검사 Check</text>
+  <text class="t-xs" x="60" y="262">결과가 거짓(FALSE)이면 메시지를 낸다</text>
+  <path class="ln-key" d="M250 270 V288" marker-end="url(#vak)"/>
+
+  <rect class="b-bad" x="40" y="292" width="420" height="58" rx="6"/>
+  <text class="t c-bad" x="60" y="314">③ 메시지 Message</text>
+  <text class="t-xs" x="60" y="332">I 정보 · W 경고 · E 오류(수정 필수) · A 취소</text>
+
+  <rect class="b-key" x="540" y="156" width="420" height="46" rx="6"/>
+  <text class="t" x="560" y="178">① 전제조건 Prerequisite</text>
+  <text class="t-xs" x="560" y="194">참이면 치환을 실행한다</text>
+  <path class="ln-ok" d="M750 202 V220" marker-end="url(#va)"/>
+
+  <rect class="b-ok" x="540" y="224" width="420" height="46" rx="6"/>
+  <text class="t c-ok" x="560" y="246">② 치환 Replacement</text>
+  <text class="t-xs" x="560" y="262">필드값을 바꾼 채로 전기가 계속된다</text>
+
+  <rect class="b" x="540" y="292" width="133" height="58" rx="6"/>
+  <text class="t" x="558" y="316">상수값</text>
+  <text class="t-xs" x="558" y="334">Constant</text>
+  <rect class="b" x="683" y="292" width="133" height="58" rx="6"/>
+  <text class="t" x="701" y="316">익싯</text>
+  <text class="t-xs" x="701" y="334">Exit</text>
+  <rect class="b" x="826" y="292" width="133" height="58" rx="6"/>
+  <text class="t" x="844" y="316">필드-필드</text>
+  <text class="t-xs" x="844" y="334">Assignment</text>
+
+  <text class="t-s" x="20" y="378">재사용 레이어 — 999단계까지 늘어나도 유지보수가 가능하게 만드는 장치. 양쪽 전제조건·검사에 모두 쓸 수 있다.</text>
+
+  <rect class="b-hl" x="20" y="392" width="960" height="88" rx="6"/>
+  <text class="t-h" x="44" y="420">규칙 Rule</text>
+  <text class="t-s" x="44" y="442">재사용 가능한 불리언 문장</text>
+  <text class="m-s" x="44" y="464">이름 최대 11자 · 먼저 평가됨</text>
+  <text class="t-h" x="364" y="420">세트 Set</text>
+  <text class="t-s" x="364" y="442">값 집합 · 계층구조</text>
+  <text class="m-s" x="364" y="464">필드 IN 세트명</text>
+  <text class="t-h" x="684" y="420">멀티세트 Multiset</text>
+  <text class="t-s" x="684" y="442">여러 차원의 세트를 조합</text>
+  <text class="m-s" x="684" y="464">계정 ↔ 코스트센터 교차검증</text>
+</svg>
+<figcaption><span class="fno">그림 4</span>검증은 전제조건 → 검사 → 메시지 3부, 대체는 전제조건 → 치환 2부. 호출지점이 "어느 필드를 볼 수 있는가"를 결정한다.</figcaption>
+</figure>
+
+<h3>실행 절차 5단계</h3>
+
+<div class="step"><span class="n">STEP 1</span><p>검증·대체를 적용할 <b>적용영역</b>(Application Area) 결정</p></div>
+<div class="step"><span class="n">STEP 2</span><p>올바른 <b>호출지점</b>(Callup Point) 선택 — <span class="bad">여기서 틀리면 필드가 아직 안 채워져 있어 검사 자체가 성립하지 않는다</span></p></div>
+<div class="step"><span class="n">STEP 3</span><p>검증·대체 정의</p></div>
+<div class="step"><span class="n">STEP 4</span><p>조직단위에 배정 — FI는 <b>회사코드</b>, FI-SL은 회사코드/회사, CO는 관리회계영역</p></div>
+<div class="step"><span class="n">STEP 5</span><p><b>활성화</b></p></div>
+
+<h3>적용영역</h3>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>코드</th><th>영역</th><th>제약</th></tr></thead>
+<tbody>
+<tr><td><code>FI</code></td><td>재무회계</td><td>—</td></tr>
+<tr><td><code>CO</code></td><td>관리회계</td><td>—</td></tr>
+<tr><td><code>AM</code></td><td>자산회계</td><td>—</td></tr>
+<tr><td><code>GL</code></td><td>특수목적원장 (Special Purpose Ledger)</td><td>—</td></tr>
+<tr><td><code>CS</code></td><td>연결회계</td><td class="wrap"><span class="bad">검증만 가능</span></td></tr>
+<tr><td><code>PS</code></td><td>프로젝트시스템</td><td>—</td></tr>
+<tr><td><code>RE</code></td><td>부동산</td><td>—</td></tr>
+<tr><td><code>PC</code></td><td>이익센터회계</td><td class="wrap"><span class="bad">대체만 가능</span></td></tr>
+<tr><td><code>GA</code></td><td>배부 (FI-SL)</td><td class="wrap"><span class="bad">대체만 가능</span></td></tr>
+</tbody>
+</table>
+</div>
+
+<h3>호출지점 — 개발자가 먼저 봐야 할 것</h3>
+
+<p>호출지점은 검증·대체가 <b>정확히 어느 시점/위치</b>에서 일어날지를 정합니다. 그리고 <span class="key">적용영역 + 호출지점의 조합이 불리언클래스(Boolean Class)를 결정</span>하는데, 이 불리언클래스가 두 가지를 규정합니다.</p>
+
+<ul>
+  <li>정의에 쓸 수 있는 <b>차원(Dimension)</b> — 즉 접근 가능한 테이블·필드의 범위</li>
+  <li>검증메시지에 쓸 수 있는 <b>메시지클래스</b></li>
+</ul>
+
+<p>FI의 호출지점은 셋입니다.</p>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>호출지점</th><th>시점</th><th>전형적 용도</th></tr></thead>
+<tbody>
+<tr><td>1 — 문서헤더</td><td class="wrap">헤더 입력 직후 (<code>BKPF</code>)</td><td class="wrap">문서유형 · 전기일 · 사용자 기준 검사</td></tr>
+<tr><td>2 — 문서라인</td><td class="wrap">라인아이템 입력 시 (<code>BSEG</code>)</td><td class="wrap"><span class="hl">계정 ↔ 코스트센터 조합 검증</span> 등 가장 많이 쓰이는 지점</td></tr>
+<tr><td>3 — 완전문서</td><td class="wrap">전표 전체가 완성된 뒤</td><td class="wrap">라인 간 합계·구성 검사처럼 <b>한 라인만 봐서는 판단할 수 없는</b> 검사</td></tr>
+</tbody>
+</table>
+</div>
+
+<p>호출지점 1에서 이미 입력된 정보(사용자명 · 헤더정보)를 호출지점 2 검증에서도 쓸 수 있습니다 — <b>교차검증</b>입니다. 이 성질 때문에 "헤더에서 판정한 것을 라인에서 다시 판정하지 않아도 된다"는 설계가 가능합니다.</p>
+
+<h3>배정과 활성화 — 하나만 활성화된다</h3>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>활성화 레벨</th><th>의미</th></tr></thead>
+<tbody>
+<tr><td><code>0</code></td><td class="wrap">비활성 (Inactive)</td></tr>
+<tr><td><code>1</code></td><td class="wrap">다이얼로그 + 배치 모두 활성</td></tr>
+<tr><td><code>2</code></td><td class="wrap">활성 — 단 <b>배치입력 제외</b></td></tr>
+</tbody>
+</table>
+</div>
+
+<div class="note warn">
+  <div class="t">회사코드 + 호출지점 조합당 1개</div>
+  <p>동시에 여러 회사코드에 유효하게 설정할 수는 있지만, <span class="bad">하나의 회사코드 + 호출지점 조합에는 검증 1개 · 대체 1개만 활성화됩니다.</span> 요구사항이 늘어난다고 검증을 새로 만드는 게 아니라 <b>기존 검증에 단계(Step)를 추가</b>해야 합니다 — 최대 999단계. 이 제약을 모르고 새 검증을 만들면 기존 것이 조용히 꺼집니다.</p>
+  <p>레벨 <code>2</code>(배치입력 제외)는 인터페이스·배치 전기에 검증이 안 걸린다는 뜻입니다. 대량 전기 프로그램을 개발한다면 대상 회사코드의 활성화 레벨을 먼저 확인해야 합니다 — <b>확인 필요: 실제 시스템(winerp01 / MEP)에서 회사코드별 레벨 확인.</b></p>
+</div>
+
+<h3>검증 구현 — 전제조건 → 검사 → 메시지</h3>
+
+<p>검증은 고객별로 특정 필드·필드조합·문서유형에 맞춤 검사를 거는 기능입니다. 각 단계는 세 부분입니다. <b>전제조건이 참이면</b> Rule Manager가 검사를 실행하고, <span class="key">검사 결과가 거짓(FALSE)이면 메시지가 출력</span>됩니다. 예: 인보이스의 문서일자와 전기일자를 비교해 불일치하면 경고.</p>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>메시지 유형</th><th>동작</th></tr></thead>
+<tbody>
+<tr><td><code>I</code> 정보</td><td class="wrap">알리고 계속 진행</td></tr>
+<tr><td><code>W</code> 경고</td><td class="wrap">경고하되 진행 가능</td></tr>
+<tr><td><code>E</code> 오류</td><td class="wrap"><span class="bad">입력을 고쳐야 진행</span></td></tr>
+<tr><td><code>A</code> 취소</td><td class="wrap">거래 취소</td></tr>
+</tbody>
+</table>
+</div>
+
+<p>메시지는 기존 것을 재사용하거나 새로 만들 수 있고 <b>최대 4개 필드</b>를 담습니다 (<code>&amp;</code>가 필드값 자리표시자).</p>
+
+<h3>불리언 문법 — 실제로 쓰는 것들</h3>
+
+<pre><code>* 필드 간 비교 — 전기일자와 문서일자가 다르면 참
+BKPF-BUDAT &lt;&gt; BKPF-BLDAT
+
+* 필드값 검증 — 문서유형이 SA 여야 한다
+BKPF-BLART = SA
+
+* 필드 일부만 검사 (오프셋)
+BSEG-HKONT:3:        " 계정필드의 3번째 자리만
+BSEG-HKONT:1-3:      " 1~3번째 자리만
+BSEG-HKONT:3-:       " 3번째부터 끝까지
+
+* 텍스트 패턴 비교 — *는 임의 문자조합, +는 단일문자
+BSEG-KOSTL LIKE '*3*3'
+
+* 세트 참조
+BSEG-HKONT IN ACCOUNT-MANAGEMENT
+
+* 규칙 결합 — RULE1 을 먼저 처리한 뒤 나머지를 검사
+RULE1 AND BKPF-BLART &lt;&gt; 'SA'</code></pre>
+
+<p>입력은 <b>수식편집기</b>(Formula Editor)로 합니다. 산술·논리 명령문을 넣는 인터페이스이고, <span class="good">괄호를 포함한 구문 정확성을 단계별로 검사</span>해 구문오류가 있는 규칙은 아예 저장되지 않습니다. 기본 표시는 <b>Short Descriptions</b>(테이블필드를 설명으로 표시)이고, <kbd>Settings</kbd> → <b>Technical Names</b>로 기술명 입력방식으로 바꾸거나 <b>Expert Mode</b>로 명령문을 직접 칠 수 있습니다.</p>
+
+<div class="note">
+  <div class="t">🔰 초보자 설명 — 검증 규칙은 IF문이다</div>
+  <p>"61003000번 계정을 썼다면(<b>전제조건</b>), 코스트센터가 관리부서인지 확인해서(<b>검사</b>), 아니면 고치라고 알린다(<b>메시지</b>)" — 프로그래밍의 IF문과 정확히 같은 구조입니다. 회계 담당자가 잘못된 계정-부서 조합을 넣는 것을 시스템이 자동으로 잡아냅니다.</p>
+</div>
+
+<h3>대체 구현 — 전제조건 → 치환</h3>
+
+<p>대체는 특정 필드 내용을 고객별로 보강(치환)하는 기능이고 역시 최대 999단계입니다. 단계는 <b>전제조건 → 치환</b> 2부 구조이고, 전제조건이 참이면 치환이 실행됩니다. 예: 코스트센터 유형에 따라 <b>기능영역</b>(Functional Area)을 자동으로 채우기.</p>
+
+<div class="note warn">
+  <div class="t">필드는 먼저 릴리즈되어야 한다</div>
+  <p>아무 필드나 대체할 수 있는 게 아닙니다. <span class="bad">대상 필드는 대체 대상으로 먼저 릴리즈되어야</span> 하고, 그다음 선택된 필드마다 대화상자에서 방법을 정의합니다. "이 필드를 자동으로 채워달라"는 요청이 들어오면 <b>그 필드가 릴리즈 가능한지부터</b> 확인하는 것이 순서입니다.</p>
+</div>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>대체 방법</th><th>내용</th><th>개발자 관점</th></tr></thead>
+<tbody>
+<tr><td>상수값 (Constant Value)</td><td class="wrap">고정된 숫자 또는 문자열로 치환</td><td class="wrap">코드 불필요. 하드코딩 값이 Customizing에 남으므로 이관·추적 가능</td></tr>
+<tr><td>익싯 (Exit)</td><td class="wrap">사용자 익싯으로 값을 계산해 치환</td><td class="wrap"><span class="bad">유일하게 ABAP이 필요한 경로.</span> 표준 문법으로 표현 불가능할 때만 내려간다</td></tr>
+<tr><td class="wrap">필드-필드 배정<br>(Field-Field Assignment)</td><td class="wrap">런타임에 원본필드(Source Field) 내용으로 대상필드를 채운다</td><td class="wrap">코드 불필요. 예: 조건 충족 시 Assignment 필드를 이익센터 값으로 채움</td></tr>
+</tbody>
+</table>
+</div>
+
+<p><b>상수값 대체 예시</b> — 계정이 <code>41000000</code> 또는 <code>41001000</code>이면서 자재번호가 <code>T-R100</code> ~ <code>T-R1402</code> 범위이면, 이익센터 필드를 상수값 <code>060</code>으로 치환합니다. <span class="good">전제조건이 거짓이면 대체 없이 거래가 그대로 계속</span>되고, 참이면 치환값이 적용된 채로 계속됩니다. 대체값은 숫자 또는 문자열이며 <b>하나의 대체 프로세스가 여러 값을 동시에 치환</b>할 수 있습니다. 대체의 문법은 검증과 동일하고, 전제조건은 단순 문장일 수도 논리문·규칙·세트의 복잡한 조합일 수도 있습니다.</p>
+
+<h3>규칙(Rule) — 재사용 단위</h3>
+
+<p>규칙은 전제조건문 · 검사 · 다른 규칙 안에서 쓸 수 있는 <b>논리문</b>입니다. 기술적으로는 검증의 전제조건 또는 검사와 같은 것인데, 이름을 붙여 <span class="hl">복잡한 로직을 요약하고 재사용</span>한다는 점이 다릅니다.</p>
+
+<ul>
+  <li>규칙명은 <b>최대 11자</b></li>
+  <li><code>RULE1 AND BKPF-BLART &lt;&gt; 'SA'</code>처럼 다른 조건과 결합해 쓴다</li>
+  <li>시스템은 <span class="key">RULE1을 먼저 처리한 뒤</span> 나머지 조건을 검사한다</li>
+</ul>
+
+<p>개발자 관점에서 규칙은 서브루틴/메서드와 같은 역할입니다. 같은 조건식을 검증 여러 곳과 대체 여러 곳에서 복붙해 두면, 요건이 바뀌었을 때 한 곳만 고치고 나머지를 놓치는 사고가 납니다. 자주 쓰거나 복잡한 불리언 문장은 <b>먼저 규칙으로 뽑아 두는 것</b>이 기본입니다.</p>
+
+<h3>세트(Set) — 값 목록을 데이터로 관리한다</h3>
+
+<p>세트는 <b>순서 있는 값집합과 계층구조</b>를 매핑하는 유연한 데이터구조입니다. 중앙에서 유지·관리되며 FI-특수목적원장 시스템의 거의 모든 컴포넌트에서 쓰입니다.</p>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>활용처</th><th>설명</th></tr></thead>
+<tbody>
+<tr><td>검증</td><td class="wrap">불리언 논리식 안에서 값 목록으로</td></tr>
+<tr><td>대체 · 원장선택</td><td class="wrap">전제조건과 선택조건</td></tr>
+<tr><td>배부</td><td class="wrap">평가(Assessment) · 배분(Distribution)</td></tr>
+<tr><td>계획 · 롤업 · 환산</td><td class="wrap">Planning · Roll-up · Currency Conversion</td></tr>
+</tbody>
+</table>
+</div>
+
+<p>문법은 <code>테이블명-필드명 IN 세트명</code>입니다. 예: 사용자가 세트 <code>USER-GROUP</code>에 속하면, 그 사용자가 세트 <code>ACCOUNT-MANAGEMENT</code>에 포함된 계정을 쓰는지 시스템이 검사합니다.</p>
+
+<div class="note ok">
+  <div class="t">성능 — 이게 개발자에게 제일 중요한 한 줄</div>
+  <p>SAP는 시스템 성능을 위해 <span class="hl">긴 불리언 문장 목록이나 사용자 익싯보다 기본세트 · 단일차원세트 사용을 권장</span>합니다. 즉 <b>계정 50개를 OR로 나열하거나 익싯에서 하드코딩 IF를 돌리는 것보다, 세트 하나를 만들어 <code>IN</code>으로 참조하는 쪽이 빠르고 유지보수도 쉽습니다.</b> 계정·코스트센터 목록이 늘어나도 Customizing 데이터만 바뀌고 로직은 그대로입니다.</p>
+</div>
+
+<h3>멀티세트(Multiset) — 교차검증</h3>
+
+<p>여러 필드(차원)의 세트를 조합한 것이 멀티세트이고, 서로 다른 특성값 사이의 <b>교차검증</b>을 할 수 있습니다.</p>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>입력한 비용계정</th><th>허용되는 코스트센터</th></tr></thead>
+<tbody>
+<tr><td><code>61003000</code></td><td><code>TA##1100</code></td></tr>
+<tr><td><code>61004000</code></td><td><code>TA##1200</code></td></tr>
+<tr><td><code>61005000</code></td><td><code>TA##1300</code></td></tr>
+<tr><td><code>61006000</code></td><td><code>TA##1400</code></td></tr>
+</tbody>
+</table>
+</div>
+
+<p>사용자가 이 네 개 비용계정 중 하나를 입력하면 반드시 대응하는 코스트센터를 써야 한다 — 이런 "조합 표"를 코드가 아니라 <b>세트 데이터</b>로 들고 있는 것이 멀티세트입니다.</p>
+
+<div class="note">
+  <div class="t">🔰 초보자 설명 — 규칙과 세트를 쓰는 이유</div>
+  <p>같은 조건식을 검증 10곳, 대체 5곳에서 반복해 쓰면 하나만 고쳐도 나머지 9곳을 놓칠 위험이 있습니다. <b>규칙(Rule)</b>은 자주 쓰는 조건식을 한 번만 정의해 두고 이름으로 불러 쓰는 방식이고, <b>세트(Set)</b>는 "이 계정 그룹, 이 부서 그룹"처럼 값의 목록 자체를 하나의 이름으로 관리하는 방식입니다. 둘 다 유지보수를 위한 장치입니다.</p>
+</div>
+
+<div class="note warn">
+  <div class="t">확인 필요 — 익싯 관련 기술 상세</div>
+  <p>노션 원문은 대체 방법의 하나로 <b>익싯(Exit)</b>이 있다는 것과, 성능상 세트가 익싯보다 권장된다는 점까지만 다룹니다. 익싯을 담는 <b>프로그램·폼루틴 이름과 등록 방식</b>, 검증·대체 유지보수 트랜잭션 코드는 이 코스 본문에 없으므로 <span class="bad">여기서 단정하지 않습니다.</span> 실제 시스템(winerp01 / MEP)에서 FI 검증·대체 메뉴를 열어 확인한 뒤 이 노트에 보강할 것.</p>
+</div>
+
+<div class="note ok">
+  <div class="t">📌 개인 E2E 프로젝트와의 연결점</div>
+  <p>프로젝트 원칙이 "<b>표준 우선. IMG로 되는 건 IMG로. CBO는 표준으로 안 되는 지점만</b>"인데, 이 Unit이 그 경계선을 실제로 그어 주는 도구입니다. 두 군데가 바로 걸립니다.</p>
+  <p>첫째, <b>온도군과 저장위치의 정합성</b>. 냉동 자재가 실온 SLoc(<code>3100</code>/<code>3900</code>)으로 가는 전기를 막고 싶다면, MM 이동 자체는 FI 검증 대상이 아니지만 <span class="hl">그 결과로 생기는 회계 전표에는 호출지점 2 검증을 걸 수 있습니다.</span> 다만 이건 사후 차단이라 늦습니다 — 근본 차단은 MM 쪽에 있어야 하고, 여기서는 "이런 전표가 들어오면 <code>W</code> 경고로 알린다" 정도가 현실적입니다.</p>
+  <p>둘째, <span class="key">ZPRICE_CHECK</span>. 정보레코드가(<code>EINE-NETPR</code>)와 이동평균가(<code>MBEW-VERPR</code>)의 괴리를 <b>알림</b>만 하기로 한 설계인데, "괴리율이 X% 넘으면 경고"라는 판정 자체는 FI 검증 문법으로 표현하기 어렵습니다(두 테이블 값의 비율 계산). 그래서 <b>이 건은 CBO가 맞습니다.</b> 반대로 "특정 자재그룹(<code>CHKN</code> · <code>RICE</code> · <code>SHAK</code> · <code>PROT</code> · <code>PBAR</code>)에는 이 계정만 허용" 같은 조합 검사는 <span class="bad">CBO로 짜면 안 되고</span> 멀티세트 + 검증으로 끝내야 합니다. 자재그룹이 늘어날 때 코드를 고칠 일이 없어집니다.</p>
+  <p>덧붙여, LESSON 5에서 본 대로 <b>파킹문서에는 대체가 걸리지 않습니다.</b> 승인 워크플로우를 태우는 전표에 자동 필드 채움을 기대하고 있다면, 그 값은 파킹 시점이 아니라 <b>전기 전환 시점</b>에 들어온다는 것을 전제로 설계해야 합니다.</p>
+</div>
+
+</div>
+
+
+<!-- ══════════ LESSON 7 ══════════ -->
+<div class="lesson" id="l7">
+<h2><span class="no">LESSON 7</span>FI 데이터아카이빙 — 오브젝트와 압축실행</h2>
+
+<p><span class="tag">Unit 7</span><span class="tag">레슨 3개</span>Data Archiving in FI — 기본과 분류 · 아카이빙 오브젝트와 Customizing · FI 오브젝트별 실행</p>
+
+<h3>왜 아카이빙하는가</h3>
+
+<ul>
+  <li><b>성능·운영</b> — 응답시간 개선, 효율적인 DB 관리, 업그레이드·복구·오프라인 백업에 필요한 <span class="key">다운타임 단축</span></li>
+  <li><b>법적·내부 요구</b> — 개인정보보호 요건, 감사인의 데이터 접근성, 데이터 재사용 가능성</li>
+</ul>
+
+<p>데이터는 하드웨어·소프트웨어와 <b>독립적으로</b> 아카이빙되므로 시스템 업그레이드 후에도 접근할 수 있습니다. 문서·마스터데이터·거래수치의 보관기간 규정은 국가별로 다르므로, FI 애플리케이션 담당자가 감사인 등과 협의해 일정을 확정합니다.</p>
+
+<div class="note">
+  <div class="t">🔰 초보자 설명 — 아카이빙은 왜 "삭제"와 다른가</div>
+  <p>그냥 지워버리면 나중에 세무조사나 감사에서 "5년 전 그 거래 증빙 보여주세요"에 대응할 수 없습니다. 아카이빙은 당장 쓰지 않는 데이터를 시스템 밖 별도 저장소로 옮겨서, 시스템은 가볍게 유지하면서도 필요하면 다시 꺼내볼 수 있게 하는 방식입니다. 이사할 때 안 쓰는 짐을 버리는 게 아니라 창고에 넣어두는 것과 같습니다.</p>
+</div>
+
+<p><b>역할 분담</b>이 중요합니다. FI 애플리케이션 담당자는 직접 아카이빙을 수행하지 않습니다 — 실행은 <span class="key">시스템 관리자</span>가 합니다. 담당자는 FI부서와 절차를 조율하고, 규정 준수를 보장하며, FI 관련 Customizing을 실행하고, 베이시스 관리자와 협력해 절차를 모니터링합니다. 장기목표는 DB 데이터볼륨을 최대한 일정하게 유지하고, 사후대응이 아니라 <b>사전예방적으로</b> 아카이빙하는 것입니다.</p>
+
+<h3>아카이빙 3단계</h3>
+
+<div class="step"><span class="n">STEP 1</span><p><b>아카이브파일 생성</b> — 쓰기 프로그램이 대상 데이터를 DB에서 읽어 아카이브파일에 기록</p></div>
+<div class="step"><span class="n">STEP 2</span><p><b>아카이브파일 저장</b> — 외부 문서저장시스템에 보관</p></div>
+<div class="step"><span class="n">STEP 3</span><p><b>데이터 삭제</b> — 삭제 프로그램이 <span class="hl">아카이브파일 내용을 먼저 읽어 확인한 후</span> DB에서 해당 레코드를 삭제</p></div>
+
+<p>파일에 쓰고 DB에서 지우는 것만으로는 부족합니다. 필요할 때 접근할 수 있도록 파일을 <b>체계적으로 저장·관리</b>해야 합니다.</p>
+
+<h3>아카이빙 오브젝트와 Customizing</h3>
+
+<p><b>아카이빙 오브젝트</b>는 DB에서 전체 단위로 아카이빙·삭제할 수 있는 <span class="key">최소단위</span>이고, 비즈니스 오브젝트를 완전히 아카이빙하려면 어떤 DB오브젝트에 어떻게 접근해야 하는지를 정의합니다. 비즈니스 오브젝트의 내용은 여러 테이블에 흩어져 있으므로, <b>논리적으로 연관된 테이블들을 하나로 묶어</b> 관련 정보 전체가 함께 DB 밖으로 나가게 보장합니다.</p>
+
+<p>구성요소는 셋입니다 — <b>데이터선언부</b>(관련 DB오브젝트 전체) · <b>Customizing 설정</b>(절차별 파라미터) · <b>프로그램</b>(쓰기 · 삭제 · 표시).</p>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>Customizing 단계</th><th>내용</th></tr></thead>
+<tbody>
+<tr><td>1 — Basis Customizing</td><td class="wrap">논리적 경로·파일명 정의 (<code>FILE</code>). 논리경로는 런타임에 생성되는 <b>물리경로의 북마크</b> 역할</td></tr>
+<tr><td>2 — 공통 Customizing</td><td class="wrap">백그라운드 처리용 서버그룹 정의 — 모든 애플리케이션·오브젝트에 공통 적용 (예: 데이터아카이빙 모니터 표시 여부)</td></tr>
+<tr><td>3 — 오브젝트별 Customizing</td><td class="wrap">아카이브파일 크기, 삭제프로그램 자동실행 여부, 테스트런/운영런 버전 — 해당 오브젝트에만 적용</td></tr>
+</tbody>
+</table>
+</div>
+
+<p>실행 트랜잭션은 <code>SARA</code>이고, Fiori 앱 <b>Monitor Archiving Jobs</b>로 작업을 모니터링·추적·관리합니다.</p>
+
+<h3>실행 — 순서가 강제된다</h3>
+
+<div class="note warn">
+  <div class="t">아카이빙 오브젝트 간 의존관계</div>
+  <p>유니버설저널 <code>ACDOCA</code>가 회계의 중앙 항목테이블이라 오브젝트 간 <span class="bad">강한 의존관계</span>가 있습니다. 선행 오브젝트를 먼저 아카이빙해야 후속 오브젝트를 아카이빙할 수 있습니다. 예를 들어 자산회계를 아카이빙하지 않고 <code>ACDOCA</code>만 아카이빙하면, 자산회계 통계라인아이템이 자산마스터데이터와 함께 남아 <b>유효한 자산리포팅이 불가능</b>해집니다.</p>
+</div>
+
+<p>이 코스는 FI-GL 기준 4단계에 집중합니다 — <b>FI문서 → FI거래수치 → 압축실행 → 마스터데이터</b>.</p>
+
+<div class="step"><span class="n">STEP 1</span><p><code>SARA</code>에서 <b>Write</b> 선택 → 아카이빙 <b>변형(Variant)</b> 생성 (테스트런 / 운영런 구분)</p></div>
+<div class="step"><span class="n">STEP 2</span><p>실행 사용자 지정 — 권한오브젝트 <code>S_ARCHIVE</code>, 백그라운드 처리용 <code>S_BTCH_JOB</code> 필요</p></div>
+<div class="step"><span class="n">STEP 3</span><p>시작시간 지정</p></div>
+<div class="step"><span class="n">STEP 4</span><p>스풀파라미터 정의</p></div>
+
+<p>Customizing에서 삭제프로그램 자동실행이 켜져 있으면 <span class="hl">파일이 닫히는 즉시 삭제절차가 자동 시작</span>됩니다. 모니터링은 백그라운드처리 도구(작업로그·스풀리스트), CCMS 모니터셋의 데이터아카이빙, Fiori <b>Monitor Archiving Jobs</b>, <code>SM37</code>로 합니다. <span class="bad">아카이빙 로그는 스풀작업 정기청소로 지워지므로</span> 외부저장시스템 보관을 고려해야 합니다.</p>
+
+<h3>재무문서 아카이빙 — FI_DOCUMNT</h3>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>레벨</th><th>조건</th></tr></thead>
+<tbody>
+<tr><td>문서헤더</td><td class="wrap">문서유형 보관기간 초과 · 최소일수 경과 · 원천징수세 관련 문서는 <b>최소 455일</b> 시스템 보관 · <span class="bad">반복/파킹/샘플문서는 대상 제외</span></td></tr>
+<tr><td>문서항목</td><td class="wrap"><b>미결항목이 아닐 것</b> (정리된 항목 또는 미결관리 대상이 아닌 항목만) · 계정유형 보관기간 초과</td></tr>
+</tbody>
+</table>
+</div>
+
+<p>보관기간은 <b>기준일(Key Date)</b>로 계산하며, 명시하지 않으면 실행일이 쓰입니다.</p>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>프로그램</th><th>역할</th></tr></thead>
+<tbody>
+<tr><td><code>FI_DOCUMNT_WRI</code></td><td class="wrap">쓰기 — <code>BKPF</code> · <code>BSEG</code> · <code>ACDOCA</code> 등 모든 대상 테이블로 아카이브파일 생성</td></tr>
+<tr><td><code>FI_DOCUMNT_DEL</code></td><td class="wrap">삭제 — <code>BSEG</code> · <code>BKPF</code>는 삭제하지만 <span class="bad"><code>ACDOCA</code>는 삭제하지 않고</span> <code>ACDOCA-BSTAT</code>를 <code>C</code>로 갱신</td></tr>
+<tr><td><code>FI_DOCUMNT_PST</code></td><td class="wrap">후처리</td></tr>
+</tbody>
+</table>
+</div>
+
+<p><code>BSTAT = C</code>인 항목은 아카이빙된 것으로 인식되어 라인아이템 리포팅(<code>FAGLL03</code>)이나 문서표시(<code>FB03</code>)에 <b>노출되지 않습니다</b>. 회계문서(FI-GL/AP/AR)는 <code>FI_DOCUMNT</code> 오브젝트로 아카이빙되고, 변경문서·SAPscript 텍스트·ArchiveLink 항목도 함께 갑니다.</p>
+
+<p>S/4HANA에서는 보조인덱스가 <b>런타임에 FI문서로부터 결정</b>되며, 필요하면 BAdI <code>FI_DOCUMNT_IDX_DEL</code>로 인덱스를 문서보다 오래 보존할 수 있습니다. 고객/벤더 거래수치는 <code>BSEG</code> 기반이라, 문서 아카이빙 시 삭제작업이 보조테이블 <code>KNCX_DIF</code>(고객) / <code>LFCX_DIF</code>(벤더)에 집계값을 만듭니다.</p>
+
+<h3>아카이빙된 데이터 접근</h3>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>트랜잭션</th><th>용도</th></tr></thead>
+<tbody>
+<tr><td><code>FB03</code> / <code>FB03L</code></td><td class="wrap">문서 표시</td></tr>
+<tr><td><code>FBL1N</code></td><td class="wrap">벤더 라인아이템</td></tr>
+<tr><td><code>FBL3N</code></td><td class="wrap">G/L 라인아이템</td></tr>
+<tr><td><code>FBL5N</code></td><td class="wrap">고객 라인아이템</td></tr>
+<tr><td><code>FAGLL03</code></td><td class="wrap">G/L 라인아이템 표시/변경</td></tr>
+</tbody>
+</table>
+</div>
+
+<p><code>FBL*H</code> 브라우저 트랜잭션은 표준으로는 아카이브 접근이 <span class="bad">불가</span>하고 BAdI로 가능합니다 (SAP Note 2180685, 2316951). <b>OData/INA 프로토콜 기반 신규 프로그램은 아카이브 접근을 제공하지 않습니다.</b> 그래서 아카이빙은 완료된 거래·기간에 한해 수행하되, 불만처리·평가·감사 목적의 사후 접근 경로를 먼저 확인해야 합니다.</p>
+
+<h3>거래수치와 압축실행</h3>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>아카이빙 오브젝트</th><th>설명</th></tr></thead>
+<tbody>
+<tr><td><code>FI_TF_CRE</code></td><td class="wrap">벤더 거래수치</td></tr>
+<tr><td><code>FI_TF_DEB</code></td><td class="wrap">고객 거래수치</td></tr>
+<tr><td><code>FI_TF_GLF</code></td><td class="wrap">G/L 거래수치 (신규)</td></tr>
+</tbody>
+</table>
+</div>
+
+<p>고객/벤더 거래수치는 <b>미아카이빙 <code>BSEG</code>/<code>BKPF</code> 데이터 + 보조테이블(<code>LFCX_DIF</code>/<code>KNCX_DIF</code>) 합계</b>로 계산되고, 총계정원장 거래수치는 <code>ACDOCA</code> 항목정보(<code>BSTAT=C</code> 포함)로 계산됩니다. 거래수치는 <span class="key">최소 2년</span> 시스템에 보관하며, 아카이빙 대상 기간에 전기가능기간이 열려 있지 않아야 아카이빙할 수 있습니다.</p>
+
+<p>여기서 문제가 하나 남습니다 — <span class="bad">FI문서 아카이빙은 <code>ACDOCA</code>를 지우지 않고 <code>BSTAT</code>만 <code>C</code>로 바꾸고, 거래수치 아카이빙은 오히려 항목을 추가합니다.</span> 즉 <code>ACDOCA</code>의 실제 볼륨은 줄지 않습니다. 이를 해결하는 것이 <b>압축실행(Compression Run)</b>입니다.</p>
+
+<ul>
+  <li>압축실행이 <code>ACDOCA</code> 데이터볼륨을 <span class="good">실질적으로 줄이고</span> 개인정보보호 요건 충족을 돕는다</li>
+  <li>최종사용자의 업무화면·접근에는 <b>영향을 주지 않는다</b></li>
+  <li>대상 항목(관련문서가 이미 아카이빙된 경우 등, SAP Note 2346296)은 <code>FINS_ARC</code> / <code>FINS_ARC_Monitor</code>로 집계되어 <code>ACDOCA</code>에 반영되며, 이때 처음으로 <code>ACDOCA</code> 항목이 기술적으로 축소된다</li>
+  <li>집계 기준은 <b>잔액이월(Balance Carryforward)의 세분화 설정</b>을 따른다 (Customizing: Financial Accounting → General Ledger Accounting → Periodic Processing → Carry Forward)</li>
+  <li>집계항목의 합이 <code>0</code>이면 기존항목을 삭제하고 별도 집계항목을 만들지 않는다</li>
+</ul>
+
+<h3>FI 마스터데이터 아카이빙</h3>
+
+<p>G/L계정 · 고객 · 벤더 · 은행데이터를 <b>사업부서 동의와 법적요건 충족 시</b> 아카이빙할 수 있습니다. 순서가 있습니다 — 더 이상 전기가 필요 없으면 먼저 <b>전기차단</b>(Posting Block)을 걸고, 향후에도 필요 없다고 판단되면 <b>삭제지시자</b>(Deletion Flag)를 수동으로 설정합니다.</p>
+
+<div class="note warn">
+  <div class="t">삭제지시자 권한</div>
+  <p>삭제지시자 존재 여부가 <span class="hl">아카이빙 전 시스템 검사항목 중 하나</span>입니다. 즉 삭제지시자를 잘못 켜면 아직 필요한 마스터가 아카이빙 대상이 됩니다. <b>설정 권한은 책임 있는 담당자에게만</b> 부여해야 합니다.</p>
+</div>
+
+<p>S/4HANA에서는 고객/벤더 마스터데이터가 <b>Business Partner</b>로 관리되므로, BP 데이터(아카이빙 오브젝트 <code>CA_BUPA</code>) 아카이빙 <span class="bad">전에</span> 고객/벤더 마스터데이터를 먼저 아카이빙해야 합니다.</p>
+
+<div class="note ok">
+  <div class="t">📌 개인 E2E 프로젝트와의 연결점</div>
+  <p>프로젝트 규모에서 실제 아카이빙을 돌릴 일은 없지만, <b>대량 처리 프로그램(목표 2번, AL11 + 병렬처리)</b>을 설계할 때 이 Unit의 구조가 그대로 쓰입니다 — ① 파일 쓰기 → ② 파일 보관 → ③ <span class="hl">파일을 다시 읽어 확인한 뒤</span> DB 반영. 특히 STEP 3의 "삭제 전에 아카이브파일을 먼저 읽는다"가 핵심입니다. 인터페이스에서 <b>"파일을 썼다"와 "파일이 온전하다"를 구분</b>하는 설계가 여기서 나옵니다.</p>
+  <p>CBO 테이블에 상태필드 W/P/H를 두기로 한 것도 같은 맥락입니다. 아카이빙 오브젝트의 의존관계(선행이 끝나야 후속 가능)처럼, CBO도 <b>선행 처리 상태를 확인하지 않고 후속을 돌리면</b> 재고·회계가 어긋난 채로 남습니다. <code>ZBATCH_ZONE</code>(정상→임박 <code>311</code>) 직후에 <code>ZGATE_INSPECT</code>(<code>122</code> 반품)가 같은 배치를 잡으면 이 문제가 실제로 발생하므로, 실행 순서 ① → ③ → ②를 <b>상태로 강제</b>하는 편이 안전합니다.</p>
+</div>
+
+</div>
+
+
+<!-- ══════════ APPENDIX ══════════ -->
+<div class="lesson" id="lx">
+<h2><span class="no">APPENDIX</span>정리 · 반드시 기억할 것</h2>
+
+<h3>한 장 요약</h3>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>질문</th><th>답</th></tr></thead>
+<tbody>
+<tr><td>지급이 제안에 안 뜬다</td><td class="wrap">지급차단(마스터·문서·제안) / 지급방법 공란 / 은행선택 실패 → <b>Exception List</b> 세 갈래</td></tr>
+<tr><td>지급프로그램 설정은 어디서</td><td class="wrap"><code>FBZP</code> 하나에서 버튼 순서대로 — 전체 CC → Paying CC → 지급방법(국가) → 지급방법(CC) → Bank Selection</td></tr>
+<tr><td>어느 은행으로 나가는지 누가 정하나</td><td class="wrap">Ranking Order(순위) → Amounts(가용자금) 순. <b>문서의 House Bank 지정이 우선</b></td></tr>
+<tr><td>독촉이 안 나간다</td><td class="wrap">마스터에 <b>독촉절차</b>가 비었거나, 최종독촉일 + 독촉간격이 아직 안 지났거나, 지급방법이 지정돼 있거나</td></tr>
+<tr><td>독촉레벨을 한 번에 3으로 올릴 수 있나</td><td class="wrap"><b>없다.</b> 한 번에 한 단계씩만. 최소금액 미달이면 오히려 한 단계 내려간다</td></tr>
+<tr><td>코레스폰던스 생성 흐름</td><td class="wrap">항상 <b>요청(Request) → 인쇄(Print)</b> 2단계</td></tr>
+<tr><td>특수G/L 전기키</td><td class="wrap"><code>09</code> · <code>19</code> · <code>29</code> · <code>39</code> 만. 특수G/L지시자와 <b>항상 함께</b></td></tr>
+<tr><td>선급금이 잔액에 안 잡힌다</td><td class="wrap">선급금 <b>요청</b>은 메모항목이라 거래수치를 갱신하지 않는다 — 정상이다. 수령(<code>A</code>)부터 잡힌다</td></tr>
+<tr><td>Hold vs Park</td><td class="wrap">Hold는 문서번호 없음·평가 불가. Park은 문서번호 배정·<b>실시간 평가 가능</b></td></tr>
+<tr><td>파킹문서에 대체가 걸리나</td><td class="wrap"><b>안 걸린다.</b> 회계문서로 전환한 뒤에 걸린다</td></tr>
+<tr><td>검증 vs 대체 구조</td><td class="wrap">검증 = 전제조건 → <b>검사</b> → 메시지 / 대체 = 전제조건 → <b>치환</b></td></tr>
+<tr><td>한 회사코드에 검증 여러 개?</td><td class="wrap"><b>호출지점당 1개.</b> 요건이 늘면 단계(Step)를 추가한다 — 최대 999</td></tr>
+<tr><td>계정 50개 목록을 어떻게 검사하나</td><td class="wrap">OR 나열·익싯 대신 <b>세트(Set)</b> + <code>IN</code>. 성능도 유지보수도 낫다</td></tr>
+<tr><td>FI문서를 아카이빙하면 ACDOCA가 줄어드나</td><td class="wrap"><b>안 준다.</b> <code>BSTAT</code>만 <code>C</code>로 바뀐다. 실제 축소는 <b>압축실행</b>(<code>FINS_ARC</code>)</td></tr>
+</tbody>
+</table>
+</div>
+
+<div class="note warn">
+  <div class="t">반드시 지킬 것</div>
+  <p>· 표준 코레스폰던스 유형을 <b>직접 고치지 않는다.</b> 복사해서 고친다 — 업그레이드 때 덮어써진다.<br>
+     · 검증을 추가할 때 <b>새 검증을 만들지 않는다.</b> 회사코드 + 호출지점당 하나만 활성화되므로 기존 검증에 단계를 더한다.<br>
+     · 활성화 레벨 <code>2</code>는 <b>배치입력에 안 걸린다.</b> 인터페이스·대량전기 프로그램을 만들기 전에 레벨을 확인한다.<br>
+     · 회계에 영향을 주는 처리는 CBO가 자동 실행하지 않는다 — <b>파킹 또는 승인대기(P)</b>까지만 만들고 결재는 표준 워크플로우로 넘긴다.<br>
+     · 아카이빙 순서를 건너뛰지 않는다. 선행 오브젝트가 남아 있으면 리포팅이 조용히 깨진다.<br>
+     · 독촉제안을 고쳐도 <b>마스터·문서를 고친 변경은 반영되지 않는다.</b> 실행을 삭제하고 다시 돌려야 한다.</p>
+</div>
+
+<h3>참고</h3>
+
+<ul>
+  <li>원본: 노션 <b>SAP Learning Hub</b> → Implementing Financial Accounting in SAP S/4HANA → 2-1 ~ 2-7 (Learning Hub 레슨 본문 31개 정리, 다운로드 PDF 없음)</li>
+  <li>Further Reading: SAP Note 2115809(IBAN 유지보수) · 2180685 · 2316951(아카이브 접근 BAdI) · 2346296(압축 대상 항목)</li>
+  <li>이전 노트: <b>S4F12</b> FI 핵심 설정 — 조직단위 · 원장 · 전표통제</li>
+  <li>이어지는 노트: <b>S4F15</b> 결산마감 구성 · <b>S4F17</b> 자산회계 구성</li>
+</ul>
+
+</div>
+
+</div>
+<script src="../../assets/hub.js" defer></script>
+</body>
+</html>

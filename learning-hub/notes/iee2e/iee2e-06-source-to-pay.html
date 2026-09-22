@@ -1,0 +1,771 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Source-to-Pay — 조달 E2E 프로세스</title>
+<meta name="description" content="SAP Learning Hub의 Exploring End-to-End Business Processes in SAP Business Suite Unit 6 노트. 소싱부터 계약·구매요청·구매오더·입고·송장검증·지급까지 조달 전 구간과 GR/IR을 통한 MM-FI 통합 지점.">
+<link rel="icon" href="../../assets/favicon.svg">
+<link rel="stylesheet" href="../../assets/notes-paper.css">
+<style>
+/* ── 이 노트 전용: 도해(SVG) 스타일 ─────────────────────────── */
+.dgm{display:block; width:100%; height:auto;}
+.dgm text{font-family:"Malgun Gothic","맑은 고딕","Apple SD Gothic Neo",sans-serif; fill:#1e1e1e;}
+.dgm .t-h{font-size:15px; font-weight:700;}
+.dgm .t{font-size:13px;}
+.dgm .t-s{font-size:11.5px; fill:#555;}
+.dgm .t-xs{font-size:10.5px; fill:#6B7280;}
+.dgm .m{font-family:"D2Coding","Consolas",monospace; font-size:12px;}
+.dgm .m-s{font-family:"D2Coding","Consolas",monospace; font-size:10.5px;}
+.dgm .c-key{fill:#4338CA;} .dgm .c-bad{fill:#B91C1C;} .dgm .c-ok{fill:#047857;}
+.dgm .b{fill:#FFFFFF; stroke:#C7CBD6; stroke-width:1.2;}
+.dgm .b-key{fill:#EEF0FB; stroke:#4338CA; stroke-width:1.4;}
+.dgm .b-bad{fill:#FEF2F2; stroke:#B91C1C; stroke-width:1.3;}
+.dgm .b-ok{fill:#ECFDF5; stroke:#047857; stroke-width:1.3;}
+.dgm .b-mut{fill:#F3F4F6; stroke:#D1D5DB; stroke-width:1.1;}
+.dgm .b-hl{fill:#FEF08A; stroke:#CA8A04; stroke-width:1.2;}
+.dgm .b-ghost{fill:none; stroke:#9AA3B2; stroke-width:1.1; stroke-dasharray:5 4;}
+.dgm .ln{stroke:#7C8697; stroke-width:1.4; fill:none;}
+.dgm .ln-key{stroke:#4338CA; stroke-width:1.8; fill:none;}
+.dgm .ln-bad{stroke:#B91C1C; stroke-width:1.6; fill:none;}
+.dgm .ln-ok{stroke:#047857; stroke-width:1.6; fill:none;}
+.dgm .ln-d{stroke:#9AA3B2; stroke-width:1.2; stroke-dasharray:4 4; fill:none;}
+.dgm .arw{fill:#7C8697;} .dgm .arw-key{fill:#4338CA;}
+.dgm .arw-bad{fill:#B91C1C;} .dgm .arw-ok{fill:#047857;}
+.figwrap{background:#FAFAFE; border:1px solid var(--rule); border-radius:6px;
+  padding:18px 16px 10px; margin:22px 0;}
+.figwrap figcaption{margin-top:12px; padding-top:10px; border-top:1px solid var(--rule);}
+</style>
+</head>
+<body>
+<div class="crumb"><a href="../../index.html">← 자료실 홈</a> · <a href="../../journey.html?j=iee2e">E2E 저니</a> · IEE2E Unit 6 Source-to-Pay</div>
+<div class="sheet">
+
+<div class="doc-head">
+  <div class="kicker">LEARNING HUB · IEE2E UNIT 6</div>
+  <h1>Source-to-Pay — 조달 E2E 프로세스</h1>
+  <div class="sub">
+    Learning Journey <b>Exploring End-to-End Business Processes in SAP Business Suite</b> · Unit 6 · 8 레슨<br>
+    출처: 노션 <b>SAP Learning Hub</b> 노트 6-1 ~ 6-8 변환 (06. Performing the Source-to-Pay Process: Focus on Procurement)
+  </div>
+</div>
+
+<div class="lead">
+  <p><b>결론부터.</b> Source-to-Pay는 <span class="hl">하나의 금액이 여덟 개 문서를 통과하는 이야기</span>입니다. 견적에서 결정된 <b>95 EUR/PC</b>가 계약 → 구매오더 → 입고 전표(47,500) → 인보이스(52,250) → 지급(잔액 0)까지 한 번도 끊기지 않고 이어집니다. 중간 어디선가 금액이 달라졌다면, 그 지점에 반드시 이유가 있습니다.</p>
+  <p>이 노트는 개인 SD·MM·FI 프로젝트의 <b>구매 축 전체 지도</b>입니다. 벤더 사입 → 재판매 트레이딩 모델이므로 여기 나오는 PR·RFQ·계약·PO·입고·송장검증·지급이 그대로 프로젝트가 IMG로 깔아야 할 표준 경로이고, CBO 3종은 이 경로의 <span class="key">특정 지점에 붙는 보조장치</span>입니다. 세부 Customizing은 MM 저니 노트에 있으니, 여기서는 전체 그림과 <b>MM이 FI로 넘어가는 접점</b>에 집중합니다.</p>
+</div>
+
+<div class="toc">
+  <h4>목차</h4>
+  <ol>
+    <li><a href="#l1">조달 전 구간 지도 — 6단계와 두 시스템</a></li>
+    <li><a href="#l2">마스터데이터부터 계약까지 — PR · RFQ · Contract</a></li>
+    <li><a href="#l3">구매오더와 입고 — 문서 체인이 회계로 갈라지는 곳</a></li>
+    <li><a href="#l4">송장검증과 지급 — 3-way match에서 잔액 0까지</a></li>
+  </ol>
+</div>
+
+
+<!-- ══════════ LESSON 1 ══════════ -->
+<div class="lesson" id="l1">
+<h2><span class="no">LESSON 1</span>조달 전 구간 지도 — 6단계와 두 시스템</h2>
+
+<p><span class="tag">Unit 6</span><span class="tag">레슨 8개</span>6-1 Identifying the Procurement Process</p>
+
+<h3>언제 이걸 알아야 하는가</h3>
+
+<p>구매 쪽에서 제일 많이 오는 문의가 <b>"이 건 지금 어디까지 갔습니까"</b>입니다. 발주는 났다는데 입고가 안 보이고, 입고는 됐다는데 대금이 안 나갔다고 합니다.</p>
+
+<p>답은 늘 <span class="key">문서 체인</span>에 있습니다 — 구매요청(PR) → 구매오더(PO) → 자재문서(GR) → 회계문서 → 인보이스문서 → 지급전표. 어느 문서가 어느 문서를 낳는지를 알면 <b>Process Flow</b> 탭 한 번으로 끝나고, 모르면 앱을 열 곳부터 헤맵니다. 이 LESSON이 그 체인의 지도입니다.</p>
+
+<h3>Source-to-Pay 6단계</h3>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>단계</th><th>내용</th></tr></thead>
+<tbody>
+<tr><td>Master Data, Requirement, Sourcing</td><td class="wrap">공급업체·자재·가격·리베이트 등 마스터데이터 관리, 구매요청서(PR) 관리, 소싱 — S/4HANA와 Ariba 공통</td></tr>
+<tr><td>Contract Management</td><td class="wrap">구매를 위한 각종 계약(수량/금액 계약) 생성·관리 — SAP Ariba에서도 관리 가능</td></tr>
+<tr><td>Operational Procurement</td><td class="wrap">구매주문(PO) 생성·처리와 관련된 모든 프로세스 단계</td></tr>
+<tr><td>Receiving</td><td class="wrap">입고(Goods Receipt) 처리, 확장창고관리(EWM) 활용 가능</td></tr>
+<tr><td>Invoice Management</td><td class="wrap">공급업체 인보이스 전기와 관련된 프로세스 단계</td></tr>
+<tr><td>Reporting</td><td class="wrap">지출관리(spend management)를 위한 종합 리포팅·분석 기능</td></tr>
+</tbody>
+</table>
+</div>
+
+<figure class="figwrap">
+<svg class="dgm" viewBox="0 0 1000 432" role="img" aria-label="Source-to-Pay 전 구간 도해. 조달 6단계 아래로 구매요청·견적요청·낙찰·계약·구매오더·입고·인보이스·지급의 문서 체인이 이어지며, 견적 낙찰가 95 EUR가 마지막 지급 금액까지 끊기지 않고 연결된다.">
+  <defs>
+    <marker id="sa" markerWidth="9" markerHeight="9" refX="7" refY="4.5" orient="auto">
+      <polygon class="arw" points="0,0 9,4.5 0,9"/></marker>
+    <marker id="sk" markerWidth="9" markerHeight="9" refX="7" refY="4.5" orient="auto">
+      <polygon class="arw-key" points="0,0 9,4.5 0,9"/></marker>
+  </defs>
+
+  <text class="t-s c-key" x="20" y="22">조달 6단계 (Source-to-Pay)</text>
+
+  <rect class="b-key" x="20" y="32" width="145" height="70" rx="6"/>
+  <text class="t" x="34" y="54">① Master Data</text>
+  <text class="t-s" x="34" y="73">Requirement</text>
+  <text class="t-s" x="34" y="90">Sourcing</text>
+
+  <rect class="b-key" x="182" y="32" width="145" height="70" rx="6"/>
+  <text class="t" x="196" y="54">② Contract</text>
+  <text class="t-s" x="196" y="73">Management</text>
+
+  <rect class="b-key" x="344" y="32" width="145" height="70" rx="6"/>
+  <text class="t" x="358" y="54">③ Operational</text>
+  <text class="t-s" x="358" y="73">Procurement (PO)</text>
+
+  <rect class="b-key" x="506" y="32" width="145" height="70" rx="6"/>
+  <text class="t" x="520" y="54">④ Receiving</text>
+  <text class="t-s" x="520" y="73">입고 · EWM</text>
+
+  <rect class="b-key" x="668" y="32" width="145" height="70" rx="6"/>
+  <text class="t" x="682" y="54">⑤ Invoice</text>
+  <text class="t-s" x="682" y="73">Management</text>
+
+  <rect class="b" x="830" y="32" width="145" height="70" rx="6"/>
+  <text class="t" x="844" y="54">⑥ Reporting</text>
+  <text class="t-s" x="844" y="73">spend management</text>
+
+  <path class="ln" d="M165 67 H176" marker-end="url(#sa)"/>
+  <path class="ln" d="M327 67 H338" marker-end="url(#sa)"/>
+  <path class="ln" d="M489 67 H500" marker-end="url(#sa)"/>
+  <path class="ln" d="M651 67 H662" marker-end="url(#sa)"/>
+  <path class="ln" d="M813 67 H824" marker-end="url(#sa)"/>
+
+  <rect class="b-mut" x="20" y="112" width="955" height="28" rx="5"/>
+  <text class="t-s" x="38" y="131">SAP S/4HANA MM — 전 구간 수행 가능. <tspan class="c-key">이 Unit의 실습 화면은 전부 이쪽이다.</tspan></text>
+
+  <rect class="b-ghost" x="20" y="146" width="307" height="28" rx="5"/>
+  <text class="t-s" x="38" y="165">SAP Ariba — 소싱 · 계약 · RFQ</text>
+
+  <rect class="b-ghost" x="668" y="146" width="307" height="28" rx="5"/>
+  <text class="t-s" x="686" y="165">SAP Ariba — Buying and Invoicing</text>
+
+  <text class="t-s c-key" x="20" y="200">실제로 남는 문서 체인 — 자전거 회사 사례의 금액이 끝까지 이어진다</text>
+
+  <rect class="b" x="20" y="212" width="222" height="62" rx="6"/>
+  <text class="t" x="38" y="236">구매요청 PR</text>
+  <text class="m-s" x="38" y="257">10000315 · 500 PC</text>
+
+  <rect class="b" x="262" y="212" width="222" height="62" rx="6"/>
+  <text class="t" x="280" y="236">견적요청 RFQ</text>
+  <text class="m-s" x="280" y="257">7000000003 · 2개 업체</text>
+
+  <rect class="b-hl" x="504" y="212" width="222" height="62" rx="6"/>
+  <text class="t" x="522" y="236">공급업체 견적 낙찰</text>
+  <text class="m-s" x="522" y="257">8000000006 · 95 EUR/PC</text>
+
+  <rect class="b" x="746" y="212" width="222" height="62" rx="6"/>
+  <text class="t" x="764" y="236">수량계약 MK</text>
+  <text class="m-s" x="764" y="257">Target Qty 10,000</text>
+
+  <path class="ln" d="M242 243 H256" marker-end="url(#sa)"/>
+  <path class="ln" d="M484 243 H498" marker-end="url(#sa)"/>
+  <path class="ln" d="M726 243 H740" marker-end="url(#sa)"/>
+  <path class="ln-key" d="M857 274 V292 H131 V306" marker-end="url(#sk)"/>
+
+  <rect class="b" x="20" y="308" width="222" height="62" rx="6"/>
+  <text class="t" x="38" y="332">구매오더 PO</text>
+  <text class="m-s" x="38" y="353">4500000061 · 계약가 95</text>
+
+  <rect class="b-ok" x="262" y="308" width="222" height="62" rx="6"/>
+  <text class="t c-ok" x="280" y="332">자재문서 (입고)</text>
+  <text class="m-s" x="280" y="353">5000000260 · 47,500</text>
+
+  <rect class="b-ok" x="504" y="308" width="222" height="62" rx="6"/>
+  <text class="t c-ok" x="522" y="332">공급업체 인보이스</text>
+  <text class="m-s" x="522" y="353">47,500 + 세 4,750</text>
+
+  <rect class="b-ok" x="746" y="308" width="222" height="62" rx="6"/>
+  <text class="t c-ok" x="764" y="332">지급 처리</text>
+  <text class="m-s" x="764" y="353">52,250 · 잔액 0</text>
+
+  <path class="ln" d="M242 339 H256" marker-end="url(#sa)"/>
+  <path class="ln" d="M484 339 H498" marker-end="url(#sa)"/>
+  <path class="ln" d="M726 339 H740" marker-end="url(#sa)"/>
+
+  <rect class="b-ghost" x="20" y="384" width="955" height="42" rx="6"/>
+  <text class="t-s" x="42" y="404">낙찰가 <tspan class="m-s">95 EUR/PC × 500 PC = 47,500 EUR</tspan> 이 입고 회계전표 금액이 되고, 부가세 4,750 이 붙어 매입채무 52,250 이 되고, 그대로 지급된다.</text>
+  <text class="t-s" x="42" y="421">금액이 달라지는 지점은 <tspan class="c-bad">세금이 붙는 송장검증 한 곳뿐</tspan> — 그 외에서 달라졌다면 그건 사건이다.</text>
+</svg>
+<figcaption><span class="fno">그림 1</span>Source-to-Pay 6단계와 실제 문서 체인. 하나의 단가가 여덟 문서를 관통한다.</figcaption>
+</figure>
+
+<div class="note">
+  <div class="t">🔰 초보자 설명 — 왜 두 개의 조달 시스템(Ariba / S/4HANA)이 공존하는가</div>
+  <p>SAP S/4HANA MM은 원래부터 있던 <b>온프레미스 구매 모듈</b>이고, SAP Ariba는 클라우드 기반으로 외부 공급업체 네트워크(Ariba Network)와 연결된 <b>별도 솔루션</b>입니다.</p>
+  <p>작은 회사이거나 단순한 구매만 필요하면 S/4HANA MM만으로 충분합니다. 수많은 외부 공급업체와 카탈로그 기반 구매·소싱 협업이 필요하면 Ariba를 붙여 두 시스템을 연동해서 씁니다. <b>이 Unit의 실습은 전부 S/4HANA MM 쪽 화면입니다.</b></p>
+</div>
+
+<h3>SAP Ariba Procurement 구성</h3>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>솔루션</th><th>역할</th></tr></thead>
+<tbody>
+<tr><td>Buying and Invoicing</td><td class="wrap">사용하기 쉬운 procure-to-pay 솔루션, 지출 관련 프로세스 관리</td></tr>
+<tr><td>Catalog</td><td class="wrap">카탈로그 콘텐츠 정의·검증·보강</td></tr>
+<tr><td>Invoice Management</td><td class="wrap">SAP Business Network를 통한 <b>인보이스 사전검증</b>으로 예외 최소화</td></tr>
+<tr><td>Buying</td><td class="wrap">procure-to-order 프로세스 자동화, 백엔드 ERP와 연동</td></tr>
+<tr><td>Supply Chain / Supplier Management</td><td class="wrap">전략적 소싱 / 공급업체 정보·라이프사이클·성과·리스크 관리</td></tr>
+</tbody>
+</table>
+</div>
+
+<div class="note ok">
+  <div class="t">📌 개인 E2E 프로젝트와의 연결점</div>
+  <p>개인 프로젝트는 <b>벤더 사입 → 재판매 트레이딩</b> 모델이므로 생산이 없고, 그림 1의 체인이 <span class="hl">프로젝트 구매 축 전체와 1:1로 대응</span>합니다. 다만 범위는 줄입니다 — <b>Ariba는 쓰지 않고</b>, S/4HANA MM 단독 경로만 IMG로 깝니다.</p>
+  <p>RFQ(견적요청) 구간도 개인 프로젝트에서는 <b>선택 사항</b>입니다. 벤더가 고정된 사입 모델이면 정보레코드(<code>EINA</code>/<code>EINE</code>)로 단가를 고정하고 PR → PO로 바로 가는 편이 현실적입니다. 다만 정보레코드 단가는 CBO <code>ZPRICE_CHECK</code>의 비교 기준(<code>EINE-NETPR</code>)이 되므로 <b>반드시 존재해야 합니다</b> — 이 선택이 뒤의 CBO 설계를 결정합니다.</p>
+</div>
+
+</div>
+
+
+<!-- ══════════ LESSON 2 ══════════ -->
+<div class="lesson" id="l2">
+<h2><span class="no">LESSON 2</span>마스터데이터부터 계약까지 — PR · RFQ · Contract</h2>
+
+<p><span class="tag">Unit 6</span><span class="tag">레슨 2개</span>6-2 Requisitioning Process · 6-3 Contract Management</p>
+
+<h3>언제 이걸 알아야 하는가</h3>
+
+<p><b>"PR은 만들었는데 PO 전환이 안 됩니다"</b> — 자재도 있고 벤더도 있는데 안 됩니다.</p>
+
+<p>대부분 <span class="key">소스오브서플라이(source of supply)가 지정되지 않은 것</span>입니다. PR 아이템에 계약이나 정보레코드가 붙어 있어야 시스템이 "어디서 살지"를 압니다. 그 앞 단계로 가면 <b>Business Partner에 Supplier Role이 확장되어 있는가</b>, <b>제품 마스터에 Purchasing View와 플랜트 데이터가 있는가</b>가 원인인 경우도 많습니다.</p>
+
+<h3>Supplier Master Data — BP Role 확장</h3>
+
+<p>FI에서 쓰던 공급업체(Business Partner)를 조달에서도 쓰려면 그 BP에 <b>Supplier Role</b>을 확장하고, Purchasing Organization을 포함한 구매 관련 데이터를 함께 입력해야 합니다. 모든 Role이 공통으로 쓰는 일반 데이터(General Data)는 한 번만 유지합니다.</p>
+
+<h4>실습 — BP 999를 공급업체로 확장 (02-1)</h4>
+
+<div class="step"><span class="n">STEP 1</span><p><b>Manage Supplier Master Data</b> 앱에서 Business Partner <code>I-BP999</code> 검색 (이미 FI Customer / FI Vendor 롤 보유)</p></div>
+<div class="step"><span class="n">STEP 2</span><p><b>Roles</b> 탭에서 신규 Role <code>FLVN01</code>(Business Partner Supplier) 추가 — 같은 BP에 <b>세 번째 Role</b></p></div>
+<div class="step"><span class="n">STEP 3</span><p><b>Purchasing Organizations</b> 탭에서 Purchasing Organization <code>1010</code>, Purchasing Group <code>Z00</code> 생성</p></div>
+<div class="step"><span class="n">STEP 4</span><p>Purchasing 탭에서 <span class="key">Goods Receipt-Based Invoice Verification</span>·<b>Automatic Purchasing Order</b> 플래그 체크, Payment Terms <code>0001</code>, Incoterms <code>FH</code>(Free house) 입력 → Apply · Save</p></div>
+
+<div class="note warn">
+  <div class="t">GR-Based IV 플래그가 뒤 레슨을 좌우한다</div>
+  <p>STEP 4에서 체크한 <b>Goods Receipt-Based Invoice Verification</b>은 이 시점에서는 별 의미 없어 보이지만, LESSON 3(입고)·LESSON 4(인보이스)에서 <span class="hl">GR과 Invoice가 서로 연결되는 전제조건</span>이 됩니다. 이 플래그가 없으면 인보이스가 GR을 참조하지 않고 PO만 참조합니다.</p>
+</div>
+
+<h3>Product / Material Master — 부서별 View</h3>
+
+<p>제품 마스터는 ERP에서 가장 중심이 되는 오브젝트이며, 모든 부서가 함께 쓰기 때문에 <b>각 부서가 자기에게 필요한 데이터(View)를 각각 유지</b>합니다.</p>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>부서</th><th>담당 데이터 · 유효 레벨</th></tr></thead>
+<tbody>
+<tr><td>Engineering / Construction</td><td class="wrap">기초 데이터(설명·중량·치수) — <b>클라이언트 레벨</b>에서 유효, CAD 시스템에서 이관되기도 함</td></tr>
+<tr><td>Purchasing</td><td class="wrap">구매그룹·허용오차(tolerance)·품질검사재고 여부 — <b>플랜트 레벨</b></td></tr>
+<tr><td>Storage</td><td class="wrap">저장 빈(storage bin) 등 — <b>저장위치 레벨</b>. 빈 1개당 자재 1종류만 가능, 복수 빈이 필요하면 창고관리 기능이 필요</td></tr>
+<tr><td>Finance</td><td class="wrap">평가등급(valuation class)·평가가격(<b>이동평균가 / 표준가</b>) — <b>평가레벨</b>(이 사례는 플랜트)</td></tr>
+</tbody>
+</table>
+</div>
+
+<p>자재유형(<code>FERT</code> 완제품 · <code>ROH</code>/<code>RAW</code> 원자재 · <code>SEMI</code> 반제품)과 산업분야(industry sector)가 필요한 필드를 결정합니다. 사입 자재의 평가방식은 <b>이동평균가</b> 또는 <b>표준가</b> 중 선택합니다.</p>
+
+<div class="note">
+  <div class="t">이 부분은 MM 저니 노트에서 더 깊게 다룬다</div>
+  <p>조직구조(구매조직·플랜트·저장위치)와 마스터데이터 View 구성의 상세는 <a href="../mm/s4500-business-processes.html">S4500 Business Processes in Sourcing &amp; Procurement</a>에 정리되어 있습니다. 여기서는 <b>전체 흐름에서 이것들이 어느 자리에 있는지</b>만 확인하고 넘어갑니다.</p>
+</div>
+
+<h3>Purchase Requisition — 재고용인가 소비용인가</h3>
+
+<p>PR은 <b>구매부서에 조달을 시작하라고 알리는 내부 문서</b>입니다. 수동·자동 생성이 모두 가능하며 헤더와 아이템으로 구성됩니다. 갈림길은 <b>재고용 구매냐 직접소비용 구매냐</b>입니다.</p>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>구분</th><th>처리 방식</th></tr></thead>
+<tbody>
+<tr><td>재고자재 (Stock material)</td><td class="wrap">마스터 레코드가 필요하고 <b>계정지정이 필요 없다</b> — 입고 시 자동으로 재고·소비계정에 전기된다</td></tr>
+<tr><td>직접소비 (Direct consumption)</td><td class="wrap">계정지정 카테고리와 추가 계정지정 데이터가 필요 — 하청은 아이템 카테고리 <code>L</code>, 원가센터는 계정지정 카테고리 <code>K</code>, WBS 요소는 <code>P</code></td></tr>
+<tr><td>아이템 카테고리</td><td class="wrap">Normal / Consignment / Stock Transfer / Subcontracting / Service</td></tr>
+<tr><td>계정지정 카테고리</td><td class="wrap">Cost Center / Asset / WBS element / Order(설비관리·생산오더 등)</td></tr>
+</tbody>
+</table>
+</div>
+
+<h4>실습 — 제품 마스터와 PR 생성 (02-2 / 02-3)</h4>
+
+<div class="step"><span class="n">STEP 1</span><p><b>Manage Product Master Data</b>에서 <code>I-R3999</code>(IEE2E Bike Computer) 생성 — Base Unit <code>PC</code>, Product Type <code>ROH</code>(원자재), Product Group <code>L002</code></p></div>
+<div class="step"><span class="n">STEP 2</span><p>탭 순서대로 확장: <b>Purchasing</b>(Purchasing Value Key <code>1</code>) → <b>Plants</b>(Plant <code>1010</code>, Profit Center <code>T-PCB00</code>) → Purchasing(Purchasing Group <code>Z00</code>, MRP Type <code>ND</code>) → <b>Storage Locations</b>(<code>101C</code>, Storage Bin <code>PL-3999</code>) → <b>Valuation Areas</b>(Valuation Area <code>1010</code>, Valuation Class <code>3000</code>, Inventory Price <b>100 EUR</b>)</p></div>
+<div class="step"><span class="n">STEP 3</span><p><b>Manage Purchase Requisitions - Professional</b>에서 Document Type <code>NB</code> → Material <code>I-R3999</code>, Quantity <b>500 PC</b> → Plant <code>1010</code>·Material Group <code>L002</code> <span class="good">자동 반영</span> 확인 → PR <code>10000315</code> 생성, 총액 <b>50,000 EUR</b>, 상태 <code>Approved</code></p></div>
+
+<p>여기서 중요한 건 <span class="hl">재고(Storage)와 평가(Valuation)는 플랜트 하위의 별도 레코드로 각각 생성</span>해야 한다는 점, 그리고 PR의 50,000 EUR는 <span class="bad">Inventory Price 100 EUR 기준의 임시 금액</span>이라는 점입니다. 실제 구매가는 다음 단계에서 결정됩니다.</p>
+
+<h3>PR의 세 갈래 후속 처리</h3>
+
+<div class="step"><span class="n">갈래 1</span><p>바로 <b>구매오더(PO)로 전환</b> — 벤더와 조건이 이미 정해진 경우</p></div>
+<div class="step"><span class="n">갈래 2</span><p>여러 공급업체에 <b>견적요청(RFQ)</b>을 보내 비교한 뒤, 정보레코드나 계약을 만들고 후속 PO 생성</p></div>
+<div class="step"><span class="n">갈래 3</span><p><b>SAP Ariba로 이관</b>해 RFQ·견적 처리</p></div>
+
+<h4>실습 — RFQ 비교와 낙찰 (02-4)</h4>
+
+<div class="step"><span class="n">STEP 1</span><p><b>Process Purchase Requisitions</b>에서 PR <code>10000315/10</code> 선택 → <b>Create RFQ</b> → RFQ Type <b>Request for Quote</b>, Submission Deadline 지정 → Bidders에 <code>I-BP999</code>, <code>T-SUP02</code>(Louis Parts) 추가 → <b>Publish</b> → RFQ <code>7000000003</code></p></div>
+<div class="step"><span class="n">STEP 2</span><p><b>Manage RFQs</b>에서 Bidder별 <b>Create Quotation</b> → I-BP999 <b>95 EUR/PC</b> · Louis Parts <b>120 EUR/PC</b> → 양쪽 <b>Submit</b></p></div>
+<div class="step"><span class="n">STEP 3</span><p><b>Compare Supplier Quotations</b>에서 두 견적 비교 — <code>8000000006</code>/I-BP999 총 <b>47,500 EUR</b> vs <code>8000000007</code>/Louis Parts 총 <b>60,000 EUR</b></p></div>
+<div class="step"><span class="n">STEP 4</span><p>Select All → Save → <b>Award</b> → 저렴한 I-BP999 낙찰. <span class="key">여기서 확정된 95 EUR/PC가 이후 전 구간 금액의 출발점</span></p></div>
+
+<h3>Outline Purchasing Agreement — 계약 2종</h3>
+
+<p>선호 공급업체와 장기 관계를 맺을 때 쓰는 <b>개괄구매계약</b>은 특정 납품일·수량을 명시하지 않는 장기 계약이며, 후속 데이터 전달 방식에 따라 둘로 갈립니다.</p>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>비교 항목</th><th>Contract</th><th>Scheduling Agreement</th></tr></thead>
+<tbody>
+<tr><td>Document Volume</td><td class="wrap">계약분을 출고받을 때마다 <b>매번 새 PO 생성</b></td><td class="wrap">계약 외에 <b>납품스케줄라인 문서 1개만</b> 추가 — 계속 연장되는 방식</td></tr>
+<tr><td>Automatic Materials Planning</td><td class="wrap">계약 아이템이 PR 아이템의 소스로 자동 지정되나, <b>PR을 PO(계약해제오더)로 전환하는 과정은 별도로 필요</b></td><td class="wrap">계획실행(planning run)에서 <b>납품스케줄이 바로 생성</b>되어 구매부서의 추가 처리가 필요 없음</td></tr>
+</tbody>
+</table>
+</div>
+
+<h4>실습 — 수량계약 생성 (03-1)</h4>
+
+<div class="step"><span class="n">STEP 1</span><p><b>Manage Supplier Quotations</b>에서 <code>Awarded</code> 상태 필터로 낙찰 견적 조회 → <code>8000000006</code> 선택</p></div>
+<div class="step"><span class="n">STEP 2</span><p><b>Follow-On Document → Create Purchase Contract</b> → Contract Type <code>MK</code>(Quantity Contract), Valid To 지정</p></div>
+<div class="step"><span class="n">STEP 3</span><p><b>Items</b> 탭에서 <b>Target Quantity 10,000</b> 입력 → Create → <b>Release Documentation</b>으로 릴리스</p></div>
+
+<p>주목할 점은 계약이 견적의 <b>단가만 계승</b>하고, 총량은 최초 PR 수량(500)보다 훨씬 큰 <b>장기 총량(10,000)</b>으로 별도 설정된다는 것입니다 — "개괄계약은 특정 수량을 명시하지 않는다"는 개념이 실제로는 이렇게 구현됩니다.</p>
+
+<div class="note ok">
+  <div class="t">📌 개인 E2E 프로젝트와의 연결점</div>
+  <p>프로젝트의 자재그룹은 온도군으로 갈립니다 — <code>CHKN</code>·<code>RICE</code>(냉동·냉장), <code>SHAK</code>·<code>PROT</code>·<code>PBAR</code>(실온). 위 실습의 Product Group <code>L002</code> 자리가 이것입니다. 그리고 <b>Valuation Areas 탭의 평가방식</b>이 중요합니다 — 프로젝트는 <span class="key">이동평균가(V)</span>로 확정했으므로 <code>MBEW-VERPR</code>가 입고마다 움직입니다. 이 움직이는 값이 CBO <code>ZPRICE_CHECK</code>의 감시 대상입니다.</p>
+  <p>또 하나 — 프로젝트는 <b>배치관리 + 유통기한(<code>MCHA-VFDAT</code>)</b>을 쓰므로, 제품 마스터 확장 시 <b>배치관리 체크와 유통기한 관련 필드</b>(최소잔여유통기한 등)가 반드시 포함되어야 합니다. 이게 빠지면 입고 시 배치가 생성되지 않고, 배치가 없으면 CBO <code>ZBATCH_ZONE</code>도 SD의 FEFO 배치결정도 성립하지 않습니다. <b>마스터가 먼저입니다.</b></p>
+</div>
+
+</div>
+
+
+<!-- ══════════ LESSON 3 ══════════ -->
+<div class="lesson" id="l3">
+<h2><span class="no">LESSON 3</span>구매오더와 입고 — 문서 체인이 회계로 갈라지는 곳</h2>
+
+<p><span class="tag">Unit 6</span><span class="tag">레슨 3개</span>6-4 Purchase Orders · 6-5 Goods Movements · 6-6 Warehouse Processing</p>
+
+<h3>언제 이걸 알아야 하는가</h3>
+
+<p><b>"입고는 했는데 재고금액이 이상합니다"</b> 또는 <b>"GR/IR 잔액이 안 맞습니다"</b>. 이 둘은 사실 같은 질문입니다.</p>
+
+<p>입고 전기 한 번이 <span class="key">자재문서(수량)와 회계문서(가치) 두 개를 동시에</span> 만들기 때문입니다. 수량은 맞는데 금액이 이상하면 평가가격(이동평균가/표준가)을 보고, GR/IR 잔액이 남아 있으면 <b>입고는 됐는데 송장이 안 왔거나, 송장은 왔는데 입고가 없는 것</b>입니다. 이 계정 하나가 MM과 FI의 접점 전부입니다.</p>
+
+<h3>Purchase Order — 데이터가 어디서 오는가</h3>
+
+<p>PO는 공급업체에 정해진 조건으로 재화·서비스를 공급해달라고 요청하는 <b>공식 문서</b>이며, 자재가 재고용인지 직접소비용인지를 명시합니다. 입고와 인보이스검증은 통상 PO를 근거로 수행됩니다.</p>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>데이터 유형</th><th>설명</th></tr></thead>
+<tbody>
+<tr><td>References</td><td class="wrap">기존 PO·PR·견적·계약을 참조해 아이템을 생성하면 입력시간 단축</td></tr>
+<tr><td>Master Records</td><td class="wrap">제품 마스터가 있으면 단축텍스트·구매단위·자재그룹 자동 이관, <b>구매정보레코드가 있으면 가격 자동 제안</b></td></tr>
+<tr><td>Default Values</td><td class="wrap">참조 문서 없이 입력해도 시스템이 플랜트 발주주소 등 기본값 제안</td></tr>
+<tr><td>Supplier</td><td class="wrap">사내 플랜트가 공급원이면 <b>재고이송오더(stock transport order)</b>, 외부 공급업체면 표준 PO</td></tr>
+</tbody>
+</table>
+</div>
+
+<p>PO 문서구조는 <b>헤더</b>(문서유형·공급업체·구매조직·구매그룹·회사코드·통화·문서일자·지급조건)와 <b>아이템</b>(자재/서비스·수량·단위·납기일·가격·플랜트)으로 구성됩니다. 하나의 PO로 여러 플랜트의 자재를 조달할 수 있으나, <span class="bad">모든 플랜트는 PO 헤더의 구매조직에 속해야</span> 합니다.</p>
+
+<h4>PO 자동 생성 조건 4가지</h4>
+
+<div class="step"><span class="n">조건 1</span><p>자재 마스터(구매데이터)에 <b>Automatic Purchase Order</b> 지시자 설정</p></div>
+<div class="step"><span class="n">조건 2</span><p>공급업체 마스터(구매데이터)에도 동일 지시자 설정 — LESSON 2의 02-1에서 체크했던 그 플래그</p></div>
+<div class="step"><span class="n">조건 3</span><p>PR 아이템에 <b>유효한 소스오브서플라이</b>가 지정되어 있을 것</p></div>
+<div class="step"><span class="n">조건 4</span><p>전환 시 추가 입력(예: 자동 GR 정산용 세금코드)이 필요 없을 것</p></div>
+
+<p>실습(04-1)에서는 <b>Process Purchase Requisitions (Assignment List)</b>에서 PR <code>10000315</code>의 Assigned Supplier를 확인하고 BP <code>999</code>를 지정해 <b>Create Purchase Order</b>로 전환했습니다. 이때 LESSON 2에서 만든 수량계약이 <b>소스오브서플라이로 자동 지정</b>되어, 별도 가격입력 없이 계약가 95 EUR/PC가 그대로 PO에 반영됩니다. 생성된 PO <code>4500000061</code>이 이후 전체 문서 체인의 시작점입니다.</p>
+
+<h3>Inventory Management — 이동유형과 세 가지 갱신</h3>
+
+<p>재고관리는 ①수량·가치 기준 자재재고 관리, ②자재이동의 계획·입력·문서화, ③실사(physical inventory) 수행을 다룹니다. 재고는 <b>수량 기준으로 저장위치 레벨</b>, <b>가치 기준으로 평가영역(이 사례는 플랜트) 레벨</b>에서 관리됩니다.</p>
+
+<p>재고이동이 발생할 때마다 시스템은 세 가지를 동시에 갱신합니다 — ①재고관리용 수량·가치, ②재무회계용 G/L계정(<b>자동계정결정</b>), ③원가회계용 계정지정.</p>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>이동 종류</th><th>설명</th></tr></thead>
+<tbody>
+<tr><td>Goods Receipt (GR)</td><td class="wrap">외부 공급업체·생산에서 받은 물품 입고 — 창고재고 <b>증가</b></td></tr>
+<tr><td>Goods Issue (GI)</td><td class="wrap">자재 인출·소비·고객 출하 — 창고재고 <b>감소</b></td></tr>
+<tr><td>Stock Transfer</td><td class="wrap">한 저장위치에서 다른 저장위치로 이동 (동일 플랜트 / 타 플랜트 모두 가능)</td></tr>
+<tr><td>Transfer Posting</td><td class="wrap">물리적 이동 여부와 무관하게 자재의 <b>식별·자격을 변경</b> (예: 품질검사재고 해제, 위탁재고 → 자사재고 전환)</td></tr>
+</tbody>
+</table>
+</div>
+
+<div class="note">
+  <div class="t">이동유형 번호와 실사는 MM 저니 노트에서</div>
+  <p>이동유형(<code>101</code>·<code>122</code>·<code>301</code>·<code>311</code>·<code>601</code> 등)별 전기 로직과 실사재고조사 절차는 <a href="../mm/s4510-inventory.html">S4510 Inventory Management</a>에 정리되어 있습니다. 이 노트에서는 <b>입고가 회계로 갈라지는 지점</b>만 봅니다.</p>
+</div>
+
+<h3>Integration to Finance — GR/IR 계정</h3>
+
+<p>밸류에이션(valuated) 입고를 전기하면 <b>재고계정</b>(대차대조표)과 <b>GR/IR계정</b> 두 라인아이템이 만들어집니다. GR/IR계정은 <span class="key">입고(Goods Receipt)와 인보이스수령(Invoice Receipt)이 서로 일치하는지 보장하는 역할</span>을 합니다.</p>
+
+<figure class="figwrap">
+<svg class="dgm" viewBox="0 0 1000 352" role="img" aria-label="GR/IR 계정을 매개로 한 세 전표 도해. 입고 시 대변에 선 GR/IR이 송장검증 시 차변으로 상계되고, 남은 매입채무가 지급으로 정리되어 공급업체 잔액이 0이 된다.">
+  <defs>
+    <marker id="ga" markerWidth="9" markerHeight="9" refX="7" refY="4.5" orient="auto">
+      <polygon class="arw-key" points="0,0 9,4.5 0,9"/></marker>
+  </defs>
+
+  <rect class="b-ghost" x="20" y="44" width="300" height="216" rx="8"/>
+  <text class="t-h" x="40" y="70">① 입고 (GR)</text>
+  <text class="m-s" x="40" y="88">이동 101 · 자재문서 5000000260</text>
+
+  <rect class="b" x="40" y="100" width="262" height="30" rx="4"/>
+  <text class="t-s" x="54" y="120">차변  Inventory Raw Mat.</text>
+  <text class="m-s" x="242" y="120">47,500</text>
+
+  <rect class="b-hl" x="40" y="138" width="262" height="30" rx="4"/>
+  <text class="t-s" x="54" y="158">대변  GR/IR</text>
+  <text class="m-s" x="242" y="158">47,500</text>
+
+  <text class="t-s" x="40" y="190">재고가 들어왔지만</text>
+  <text class="t-s" x="40" y="210">아직 청구서는 오지 않았다.</text>
+  <text class="t-s" x="40" y="230">그 미착 상태를 담아두는 계정이</text>
+  <text class="t-s c-key" x="40" y="250">GR/IR 이다.</text>
+
+  <rect class="b-ghost" x="350" y="44" width="300" height="216" rx="8"/>
+  <text class="t-h" x="370" y="70">② 송장검증 (IV)</text>
+  <text class="m-s" x="370" y="88">MM 인보이스문서 + FI 문서</text>
+
+  <rect class="b-hl" x="370" y="100" width="262" height="30" rx="4"/>
+  <text class="t-s" x="384" y="120">차변  GR/IR</text>
+  <text class="m-s" x="572" y="120">47,500</text>
+
+  <rect class="b" x="370" y="138" width="262" height="30" rx="4"/>
+  <text class="t-s" x="384" y="158">차변  Input Tax</text>
+  <text class="m-s" x="576" y="158">4,750</text>
+
+  <rect class="b" x="370" y="176" width="262" height="30" rx="4"/>
+  <text class="t-s" x="384" y="196">대변  Payables Domestic</text>
+  <text class="m-s" x="572" y="196">52,250</text>
+
+  <text class="t-s" x="370" y="228">GR/IR 이 차변으로 상계되어</text>
+  <text class="t-s c-key" x="370" y="248">0 이 되면 3-way match 성립.</text>
+
+  <rect class="b-ghost" x="680" y="44" width="296" height="216" rx="8"/>
+  <text class="t-h" x="700" y="70">③ 지급 (Payment)</text>
+  <text class="m-s" x="700" y="88">Create Single Payment</text>
+
+  <rect class="b" x="700" y="100" width="258" height="30" rx="4"/>
+  <text class="t-s" x="714" y="120">차변  Payables Domestic</text>
+  <text class="m-s" x="898" y="120">52,250</text>
+
+  <rect class="b" x="700" y="138" width="258" height="30" rx="4"/>
+  <text class="t-s" x="714" y="158">대변  Bank</text>
+  <text class="m-s" x="898" y="158">52,250</text>
+
+  <rect class="b-ok" x="700" y="180" width="258" height="34" rx="4"/>
+  <text class="t-s c-ok" x="714" y="202">공급업체 잔액 = 0 (마감)</text>
+
+  <text class="t-s" x="700" y="236">Source-to-Pay 전 구간의</text>
+  <text class="t-s" x="700" y="252">금액이 여기서 닫힌다.</text>
+
+  <path class="ln-key" d="M302 153 H344" marker-end="url(#ga)"/>
+  <path class="ln-key" d="M632 196 H674" marker-end="url(#ga)"/>
+
+  <rect class="b-ghost" x="20" y="276" width="956" height="62" rx="6"/>
+  <text class="t-s" x="42" y="298">GR/IR 잔액이 남아 있다는 것은 둘 중 하나다 — <tspan class="c-bad">입고는 됐는데 송장이 안 왔거나</tspan>, 송장은 왔는데 입고가 없거나.</text>
+  <text class="t-s" x="42" y="316">그래서 GR/IR 잔액 조회는 "미착 송장"과 "미착 입고"를 동시에 찾는 리스트가 된다.</text>
+  <text class="t-s" x="42" y="334">개인 프로젝트의 CBO <tspan class="m-s">ZGATE_INSPECT</tspan> 가 "송장 미발생 건"을 고르는 기준도 결국 이 상태다.</text>
+</svg>
+<figcaption><span class="fno">그림 2</span>GR/IR 계정이 MM과 FI를 잇는 방식. 입고에서 선 대변이 송장검증에서 차변으로 상계된다.</figcaption>
+</figure>
+
+<h4>실습 — 입고와 회계문서 확인 (05-1 / 05-2)</h4>
+
+<div class="step"><span class="n">STEP 1</span><p><b>Post Goods Receipt for Purchasing Document</b>에서 PO <code>4500000061</code> 선택 → Delivery Note <code>LS-01-999</code> 입력 → Storage Location <code>101C</code>(Raw mat. SL) 지정 → <b>Post</b></p></div>
+<div class="step"><span class="n">STEP 2</span><p><b>Stock - Single Material</b>로 <code>I-R3999</code> 재고 조회 → <b>Material Documents Overview</b>에서 자재문서 <code>5000000260</code> 확인</p></div>
+<div class="step"><span class="n">STEP 3</span><p><b>Process Flow</b> 탭에서 Purchasing Document → Material Document → Accounting Document로 이어지는 <span class="key">문서 체인</span> 확인</p></div>
+<div class="step"><span class="n">STEP 4</span><p>회계문서 선택 → More Links → <b>Display Journal Entries - In T-Account View</b> → 원장 <code>2L</code>·<code>Z0</code>·<code>ZP</code>·<code>ZS</code>를 제거해 리딩원장 <code>0L</code>만 남김 → <b>차변 Inventory Raw Mat. 47,500 / 대변 GR/IR 47,500</b> 확인</p></div>
+
+<div class="note">
+  <div class="t">🔰 초보자 설명 — 왜 원장을 하나씩 지워서 보는가</div>
+  <p>Universal Journal 구조에서는 <b>여러 회계원장</b>(리딩원장 · 그룹원장 · 현지법정원장 등)이 같은 거래를 각자의 기준으로 동시에 기록합니다. T계정 뷰를 그냥 열면 이 원장들이 겹쳐 보여 금액이 두세 배로 읽힙니다.</p>
+  <p>그래서 분석할 때는 <b>리딩원장 <code>0L</code> 하나만 남기고</b> 봅니다 — 금액을 확인하려는 것이지 원장을 비교하려는 게 아니기 때문입니다.</p>
+</div>
+
+<h3>Warehouse Processing — 재고관리와 EWM의 경계</h3>
+
+<p>필요한 창고 수준은 취급 품목의 수·종류·다양성에 따라 달라집니다. 광석을 캐서 바로 제철소로 보내는 광산회사는 창고가 필요 없지만, <b>수천 개 제품을 수백 개 고객사에 유통하는 업체는 복잡한 WMS가 필요</b>합니다. WMS는 보관수량 추적, <b>저장 빈(storage bin) 위치 추적</b>, 창고 내 모든 이동의 통제·기록을 가능하게 합니다.</p>
+
+<p>EWM은 S/4HANA에 임베디드되어 있으며, <b>플랜트와 저장위치의 조합이 창고번호(warehouse number)와 연결</b>되어 창고관리가 활성화됩니다. 복수 저장위치를 두면 자재별 재고 구분, 물리적 보관 특성 구분, 재고 용도(판매가능 등)나 논리적 위치(제3자 물류창고 등) 구분이 가능해집니다. 복잡한 창고에서는 시리얼번호·배치번호·최소유통기한·위탁재고(VMI)·야드관리·부가서비스(VAS)도 지원됩니다.</p>
+
+<div class="note">
+  <div class="t">🔰 초보자 설명 — 재고관리(IM)와 창고관리(EWM)는 뭐가 다른가</div>
+  <p>재고관리는 <b>"이 자재가 몇 개 있는가"</b>만 알면 충분한 수준입니다. 창고관리(EWM)는 <b>"그 자재가 창고 안 정확히 어느 저장 빈에 있는가"</b>까지 추적합니다.</p>
+  <p>저장위치가 몇 개 안 되는 단순한 창고라면 재고관리만으로 충분하고, 저장 빈이 수천 개인 대형 물류센터는 입고 시 적치 빈을 자동 지정하고 출고 시 피킹 빈을 자동으로 찾아주는 EWM이 필요합니다.</p>
+</div>
+
+<p>이 레슨은 Learning Hub 자료 확인 결과 <b>별도 실습(Demo) 없이 이론 설명으로만</b> 구성되어 있습니다.</p>
+
+<div class="note ok">
+  <div class="t">📌 개인 E2E 프로젝트와의 연결점</div>
+  <p>프로젝트는 <b>QM·WM 미사용</b>이 전제입니다. 위 구분에 따르면 옳은 선택입니다 — 저장 빈 단위 추적이 필요한 대형 물류 시나리오가 아니므로, <span class="key">저장위치 레벨의 재고관리(IM)만으로 충분</span>합니다.</p>
+  <p>대신 프로젝트는 <b>저장위치를 업무 의미로 쪼개는</b> 방식을 택했습니다 — 플랜트 <code>STOR</code> 아래 온도군 × 정상·임박 6개(냉동 <code>1100</code>/<code>1900</code> · 냉장 <code>2100</code>/<code>2900</code> · 실온 <code>3100</code>/<code>3900</code>). 위 이론의 "복수 저장위치를 두면 재고의 <b>용도</b>를 구분할 수 있다"가 정확히 이 설계의 근거입니다. 빈 단위 추적 없이 저장위치 단위로만 정상/임박을 가르는 것입니다.</p>
+</div>
+
+</div>
+
+
+<!-- ══════════ LESSON 4 ══════════ -->
+<div class="lesson" id="l4">
+<h2><span class="no">LESSON 4</span>송장검증과 지급 — 3-way match에서 잔액 0까지</h2>
+
+<p><span class="tag">Unit 6</span><span class="tag">레슨 2개</span>6-7 Managing Invoices · 6-8 Managing Payments</p>
+
+<h3>언제 이걸 알아야 하는가</h3>
+
+<p><b>"인보이스가 지급차단(block)에 걸렸습니다"</b> — 벤더는 대금이 안 들어온다고 독촉합니다.</p>
+
+<p>차단은 오류가 아니라 <span class="key">PO/GR과 인보이스 사이에 불일치가 있다는 시스템의 신고</span>입니다. 수량이 다른지 단가가 다른지부터 확인해야 하고, 그 판단 근거가 <b>3-way match(PO · GR · Invoice)</b>입니다. 차단을 그냥 풀어버리면 그 차액은 그대로 회계에 남습니다.</p>
+
+<h3>Logistics Invoice Verification</h3>
+
+<p>인보이스 전기는 통상 재무 부서가 수행하지만, <b>Logistics Invoice Verification</b>은 SAP S/4HANA Sourcing and Procurement의 일부로서 <span class="hl">구매 → 재고관리 → 인보이스검증으로 이어지는 로지스틱 체인의 끝</span>에서 내용·가격·회계 정확성을 검증합니다.</p>
+
+<p>인보이스는 <b>PO · GR · 서비스입력분</b> 중 하나를 참조해 전기할 수 있고, 참조 문서에 따라 시스템이 아이템을 제안하며 관련 계정전기가 자동으로 이루어집니다. 인보이스 하나당 <b>MM 인보이스문서와 FI 회계문서가 함께</b> 생성됩니다.</p>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>항목</th><th>내용</th></tr></thead>
+<tbody>
+<tr><td>접수 경로</td><td class="wrap">회계프로그램 정기 실행 / Ariba Network 연동 / EDI(IDoc)·XML 전송 / 수동 입력</td></tr>
+<tr><td>PO 참조 시 자동 제안</td><td class="wrap">인보이싱 파티 · 자재 · 수량 · 예상금액 · 지급조건을 PO/GR 데이터에서 제안 (필요시 덮어쓰기 가능)</td></tr>
+<tr><td>불일치 처리</td><td class="wrap">PO/GR과 인보이스 사이 불일치가 있으면 시스템이 경고하고, <b>설정에 따라 지급 차단(block)</b>을 건다</td></tr>
+<tr><td>전기의 효과</td><td class="wrap">개별 아이템 금액이 해당 계정에 전기 · MM 인보이스문서와 FI문서 생성 · <b>PO 이력(history) 갱신</b> · 필요시 자재마스터 갱신</td></tr>
+</tbody>
+</table>
+</div>
+
+<div class="note">
+  <div class="t">차단 사유·허용오차·해제 절차는 MM 저니 노트에서</div>
+  <p>3-way match의 허용오차 키(tolerance key), 차단 사유별 구분, <code>MRBR</code> 계열 해제 절차는 <a href="../mm/s4515-invoice-verification.html">S4515 Invoice Verification in SAP S/4HANA</a>에 상세히 정리되어 있습니다. 여기서는 <b>인보이스가 전체 체인의 어느 자리에 있는지</b>와 금액이 닫히는 방식만 확인합니다.</p>
+</div>
+
+<h4>실습 — 인보이스 전기 (07-1)</h4>
+
+<div class="step"><span class="n">STEP 1</span><p><b>Create Supplier Invoice</b>에서 Company Code <code>1010</code>, Gross Invoice Amount <b>52,250 EUR</b>, Invoicing Party <code>I-BP999</code> 입력</p></div>
+<div class="step"><span class="n">STEP 2</span><p><b>Purchasing Document References</b> 탭에서 PO <code>4500000061</code> 연결 — 이 연결이 3-way match의 근거</p></div>
+<div class="step"><span class="n">STEP 3</span><p><b>Simulate</b>로 사전 확인 → <span class="good">차변 GR/IR 47,500 + 차변 Input Tax 4,750 = 대변 Payables Domestic 52,250</span></p></div>
+<div class="step"><span class="n">STEP 4</span><p><b>Post</b> → <b>Supplier Invoices List</b>에서 확인 → Journal Entries 드릴다운 → <b>Display Process Flow - Accounts Payable</b> → T계정 뷰에서 원장 <code>0L</code>만 남겨 검증</p></div>
+
+<p>여기서 입고 시 대변에 섰던 <b>GR/IR 47,500</b>이 그대로 차변으로 상계되고, 부가세 4,750(10%)이 더해져 매입채무 <b>52,250 EUR</b>로 확정됩니다. 이 금액이 다음 단계의 결제 대상입니다.</p>
+
+<h3>Payment Management — 제안과 실행</h3>
+
+<p>지급 처리는 MM이 아닌 <b>재무부서</b>가 담당하며, 공급업체별 미결항목(open item)을 정리해 지급을 관리합니다. <b>자동지급프로그램(Automatic Payment Program)</b>의 흐름은 다음과 같습니다.</p>
+
+<div class="step"><span class="n">STEP 1</span><p><b>Maintain Payment Run Data</b> — 지급런 기본데이터 입력</p></div>
+<div class="step"><span class="n">STEP 2</span><p><b>Maintain parameters</b> — 지급대상 회사코드·통화·기준일 등 파라미터 설정</p></div>
+<div class="step"><span class="n">STEP 3</span><p><b>Schedule proposal run</b> → <b>Edit proposal</b> — 지급제안서 실행·검토·수정</p></div>
+<div class="step"><span class="n">STEP 4</span><p><b>Schedule payment run</b> — 실제 지급런 예약 → Payments Processed / Posted</p></div>
+<div class="step"><span class="n">STEP 5</span><p><b>DME 파일</b>(Data Medium Exchange) 자동 생성 → 은행 전송에 사용</p></div>
+
+<div class="note">
+  <div class="t">🔰 초보자 설명 — 왜 지급도 "제안(Proposal) → 실행" 두 단계로 나뉘는가</div>
+  <p>인보이스의 Simulate → Post와 같은 이유입니다. <b>실제로 돈이 나가는 작업은 반드시 사전 검토 단계를 거칩니다.</b></p>
+  <p>지급제안서는 "이번 지급런에서 어떤 공급업체에 얼마를 지급할 것인지"를 계산만 해보는 단계입니다. 여기서 이중지급·차단된 항목 같은 문제를 걸러낸 뒤에야 실제 지급런으로 넘어가 이체가 일어나고 DME 파일이 만들어집니다.</p>
+</div>
+
+<h4>실습 — 지급 전기 (08-3)</h4>
+
+<div class="step"><span class="n">STEP 1</span><p><b>Display Supplier Balances</b>에서 Supplier <code>I-BP999</code> · Company Code <code>1010</code> 조회 → 잔액 <b>-52,250.00 EUR</b> 확인</p></div>
+<div class="step"><span class="n">STEP 2</span><p><b>Manage Supplier Line Items</b>에서 회계전표 <code>5100000003</code> 선택 → <b>Create Single Payment</b> → Create</p></div>
+<div class="step"><span class="n">STEP 3</span><p>새로 생성된 Journal Entry <code>2000000004</code> → T계정 뷰(<code>0L</code>) → <b>차변 Payables Domestic 52,250 / 대변 Bank 52,250</b> 상계 확인</p></div>
+<div class="step"><span class="n">STEP 4</span><p><b>Display Supplier Balances</b> 재조회 → 잔액 <span class="good">0</span>으로 마감 확인</p></div>
+
+<div class="note warn">
+  <div class="t">이 실습에서 무시한 경고는 운영에서 무시하면 안 된다</div>
+  <p>08-3에서 <b>House Bank 미지정 경고를 Accept로 넘긴 것</b>은 학습용 데모이기 때문입니다. 실제 운영환경에서는 지급수단(은행·수표 등)이 반드시 <b>사전에 마스터데이터로 설정</b>되어 있어야 자동지급프로그램이 오류 없이 동작합니다.</p>
+</div>
+
+<h3>이 흐름의 어디에 개인 프로젝트 CBO가 붙는가</h3>
+
+<figure class="figwrap">
+<svg class="dgm" viewBox="0 0 1000 472" role="img" aria-label="개인 프로젝트의 구매 흐름과 CBO 배치 도해. GATE 플랜트에서 101로 입고하고 301로 STOR에 이관하며, ZPRICE_CHECK는 가격 괴리 알림, ZGATE_INSPECT는 이관 차이 반품, ZBATCH_ZONE은 유통기한 기반 저장위치 이동을 담당한다.">
+  <defs>
+    <marker id="ca" markerWidth="9" markerHeight="9" refX="7" refY="4.5" orient="auto">
+      <polygon class="arw" points="0,0 9,4.5 0,9"/></marker>
+    <marker id="ck" markerWidth="9" markerHeight="9" refX="7" refY="4.5" orient="auto">
+      <polygon class="arw-key" points="0,0 9,4.5 0,9"/></marker>
+    <marker id="cb" markerWidth="9" markerHeight="9" refX="7" refY="4.5" orient="auto">
+      <polygon class="arw-bad" points="0,0 9,4.5 0,9"/></marker>
+  </defs>
+
+  <text class="t-s c-key" x="20" y="24">개인 프로젝트 (회사코드 CL04) — 표준 구매 경로</text>
+
+  <rect class="b" x="20" y="34" width="178" height="58" rx="6"/>
+  <text class="t" x="36" y="58">구매오더 PO</text>
+  <text class="t-s" x="36" y="78">정보레코드 단가</text>
+
+  <rect class="b" x="215" y="34" width="178" height="58" rx="6"/>
+  <text class="t" x="231" y="58">입고 GR</text>
+  <text class="m-s" x="231" y="78">101 · 플랜트 GATE</text>
+
+  <rect class="b" x="410" y="34" width="178" height="58" rx="6"/>
+  <text class="t" x="426" y="58">이관</text>
+  <text class="m-s" x="426" y="78">301 · GATE → STOR</text>
+
+  <rect class="b" x="605" y="34" width="178" height="58" rx="6"/>
+  <text class="t" x="621" y="58">송장검증</text>
+  <text class="t-s" x="621" y="78">GR/IR 상계</text>
+
+  <rect class="b" x="800" y="34" width="178" height="58" rx="6"/>
+  <text class="t" x="816" y="58">지급</text>
+  <text class="t-s" x="816" y="78">매입채무 정리</text>
+
+  <path class="ln" d="M198 63 H209" marker-end="url(#ca)"/>
+  <path class="ln" d="M393 63 H404" marker-end="url(#ca)"/>
+  <path class="ln" d="M588 63 H599" marker-end="url(#ca)"/>
+  <path class="ln" d="M783 63 H794" marker-end="url(#ca)"/>
+
+  <path class="ln-key" d="M304 92 V118" marker-end="url(#ck)"/>
+  <path class="ln-key" d="M499 92 V106 H660 V118" marker-end="url(#ck)"/>
+
+  <rect class="b-ghost" x="20" y="122" width="300" height="172" rx="8"/>
+  <text class="t-h" x="40" y="146">플랜트 GATE (입고 게이트)</text>
+  <text class="t-s" x="40" y="172">GR 101 은 여기로 받는다</text>
+  <text class="t-s" x="40" y="192">검수 후 301 로 STOR 이관</text>
+  <text class="t-s c-bad" x="40" y="212">차이 건은 122 로 반품</text>
+  <rect class="b-mut" x="40" y="226" width="260" height="30" rx="4"/>
+  <text class="m-s" x="56" y="246">이동유형 101 · 301 · 122</text>
+  <text class="t-xs" x="40" y="276">입고와 보관을 분리한 2플랜트 구조</text>
+
+  <rect class="b-ghost" x="340" y="122" width="636" height="172" rx="8"/>
+  <text class="t-h" x="360" y="146">플랜트 STOR (보관) — 온도군 × 정상 · 임박 6 SLoc</text>
+
+  <rect class="b" x="360" y="158" width="180" height="34" rx="4"/>
+  <text class="t-s" x="376" y="180">냉동 정상</text>
+  <text class="m-s" x="490" y="180">1100</text>
+  <rect class="b" x="560" y="158" width="180" height="34" rx="4"/>
+  <text class="t-s" x="576" y="180">냉장 정상</text>
+  <text class="m-s" x="690" y="180">2100</text>
+  <rect class="b" x="760" y="158" width="180" height="34" rx="4"/>
+  <text class="t-s" x="776" y="180">실온 정상</text>
+  <text class="m-s" x="890" y="180">3100</text>
+
+  <path class="ln-bad" d="M450 192 V208" marker-end="url(#cb)"/>
+  <path class="ln-bad" d="M650 192 V208" marker-end="url(#cb)"/>
+  <path class="ln-bad" d="M850 192 V208" marker-end="url(#cb)"/>
+  <text class="m-s c-bad" x="458" y="206">311</text>
+  <text class="m-s c-bad" x="658" y="206">311</text>
+  <text class="m-s c-bad" x="858" y="206">311</text>
+
+  <rect class="b-bad" x="360" y="210" width="180" height="34" rx="4"/>
+  <text class="t-s" x="376" y="232">냉동 임박</text>
+  <text class="m-s" x="490" y="232">1900</text>
+  <rect class="b-bad" x="560" y="210" width="180" height="34" rx="4"/>
+  <text class="t-s" x="576" y="232">냉장 임박</text>
+  <text class="m-s" x="690" y="232">2900</text>
+  <rect class="b-bad" x="760" y="210" width="180" height="34" rx="4"/>
+  <text class="t-s" x="776" y="232">실온 임박</text>
+  <text class="m-s" x="890" y="232">3900</text>
+
+  <text class="t-s" x="360" y="268">정상 → 임박 이동은 <tspan class="m-s">311</tspan> (플랜트 내 저장위치 간 이전기표)</text>
+  <text class="t-xs" x="360" y="286">SD 출고 시 FEFO 배치결정이 유통기한 순으로 이 재고를 집어간다</text>
+
+  <text class="t-xs c-key" x="20" y="316">붙는 지점 → PO · 입고 가격</text>
+  <text class="t-xs c-key" x="345" y="316">붙는 지점 → 101 / 301 / 송장</text>
+  <text class="t-xs c-key" x="670" y="316">붙는 지점 → STOR 보관 중</text>
+
+  <rect class="b-key" x="20" y="322" width="310" height="96" rx="6"/>
+  <text class="t-h c-key" x="38" y="346">③ ZPRICE_CHECK</text>
+  <text class="t-s" x="38" y="366">정보레코드가 vs 이동평균가</text>
+  <text class="m-s" x="38" y="384">EINE-NETPR ↔ MBEW-VERPR</text>
+  <text class="t-s c-ok" x="38" y="406">괴리 시 알림만 — 자동 변경 없음</text>
+
+  <rect class="b-key" x="345" y="322" width="310" height="96" rx="6"/>
+  <text class="t-h c-key" x="363" y="346">② ZGATE_INSPECT</text>
+  <text class="t-s" x="363" y="366">GR 101 vs 이관 301 수량 차이</text>
+  <text class="t-s" x="363" y="386">송장 미발생 건에 한해</text>
+  <text class="t-s c-bad" x="363" y="406">122 자동반품 (회계 영향 주의)</text>
+
+  <rect class="b-key" x="670" y="322" width="306" height="96" rx="6"/>
+  <text class="t-h c-key" x="688" y="346">① ZBATCH_ZONE</text>
+  <text class="t-s" x="688" y="366">잔여 유통기한 30% 미달 시</text>
+  <text class="t-s" x="688" y="386">정상 → 임박 311 자동이동</text>
+  <text class="m-s" x="688" y="406">기준 필드: MCHA-VFDAT</text>
+
+  <rect class="b-ghost" x="20" y="430" width="956" height="32" rx="6"/>
+  <text class="t-s" x="42" y="451">개발 순서는 ① → ③ → ② — <tspan class="c-bad">회계 영향이 가장 큰 ②를 마지막에</tspan> 둔다. 표준으로 되는 것은 IMG로 깔고, CBO는 표준이 비운 자리에만 넣는다.</text>
+</svg>
+<figcaption><span class="fno">그림 3</span>개인 프로젝트의 구매 경로와 CBO 3종이 붙는 지점. 표준 흐름 위에 얹히는 구조다.</figcaption>
+</figure>
+
+<div class="note ok">
+  <div class="t">📌 개인 E2E 프로젝트와의 연결점 — 이 Unit이 프로젝트 구매 축의 전체 지도다</div>
+  <p><b>ZPRICE_CHECK</b>는 그림 1의 ①~③ 구간에 붙습니다. 정보레코드 단가(<code>EINE-NETPR</code>)는 계약·협상으로 고정된 값이고, 이동평균가(<code>MBEW-VERPR</code>)는 입고할 때마다 움직입니다. 둘이 벌어지면 <b>사입가와 재고평가가 어긋나고 있다</b>는 신호입니다. 프로젝트 원칙대로 <span class="key">알림까지만</span> 하고 값을 고치지 않습니다 — 평가가격 변경은 곧바로 재고금액을 바꾸는 회계 처리이기 때문입니다.</p>
+  <p><b>ZGATE_INSPECT</b>는 LESSON 3~4 구간에 걸쳐 붙습니다. GATE에서 <code>101</code>로 받은 수량과 STOR로 <code>301</code> 이관한 수량의 차이가 곧 "게이트에서 걸러진 물량"인데, 표준에는 이걸 반품으로 이어주는 경로가 없습니다. 다만 <span class="bad">송장이 이미 전기된 건은 건드리면 안 됩니다</span> — 그림 2에서 본 대로 송장검증 시점에 GR/IR이 이미 상계되고 매입채무가 확정되기 때문입니다. 그래서 대상을 <b>송장 미발생 건</b>으로 한정하는 것입니다. 이 한정이 이 CBO 설계의 핵심 판단입니다.</p>
+  <p><b>ZBATCH_ZONE</b>은 이 Unit 이후, 즉 STOR 보관 중에 도는 프로그램입니다. LESSON 3에서 본 "복수 저장위치로 재고의 용도를 구분한다"는 표준 개념을 <b>유통기한이라는 시간 축</b>으로 자동화한 것입니다.</p>
+</div>
+
+</div>
+
+
+<!-- ══════════ APPENDIX ══════════ -->
+<div class="lesson" id="lx">
+<h2><span class="no">APPENDIX</span>정리 · 반드시 기억할 것</h2>
+
+<h3>한 장 요약</h3>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>질문</th><th>답</th></tr></thead>
+<tbody>
+<tr><td>Source-to-Pay 6단계는</td><td class="wrap">Master Data/Requirement/Sourcing → Contract → Operational Procurement → Receiving → Invoice Management → Reporting</td></tr>
+<tr><td>문서 체인 순서는</td><td class="wrap">PR → (RFQ → 견적 → 계약) → PO → 자재문서(GR) + 회계문서 → 인보이스문서 + FI문서 → 지급전표</td></tr>
+<tr><td>PR이 PO로 안 넘어가면</td><td class="wrap"><b>소스오브서플라이</b>(계약 · 정보레코드) 지정 여부부터 확인. 그 앞은 BP Supplier Role과 제품마스터 View</td></tr>
+<tr><td>입고 전기의 회계 분개는</td><td class="wrap"><b>차변 재고계정 / 대변 GR/IR</b></td></tr>
+<tr><td>송장검증의 회계 분개는</td><td class="wrap"><b>차변 GR/IR + 차변 매입세 / 대변 매입채무</b> — GR/IR이 여기서 상계된다</td></tr>
+<tr><td>GR/IR 잔액이 남아 있다면</td><td class="wrap">입고는 됐는데 송장이 안 왔거나, 송장은 왔는데 입고가 없거나 — 둘 중 하나</td></tr>
+<tr><td>3-way match란</td><td class="wrap">PO · GR · Invoice 세 문서의 수량·금액이 서로 맞는지 검증. 불일치 시 <b>지급 차단(block)</b></td></tr>
+<tr><td>재고관리(IM)와 EWM의 갈림길</td><td class="wrap">저장위치 단위로 충분한가, <b>저장 빈</b> 단위 추적이 필요한가</td></tr>
+<tr><td>돈이 나가기 전 반드시 거치는 단계</td><td class="wrap">인보이스 <b>Simulate</b> → 지급 <b>Proposal run</b> → 검토 후 실행</td></tr>
+</tbody>
+</table>
+</div>
+
+<div class="note warn">
+  <div class="t">반드시 지킬 것</div>
+  <p>· <b>송장이 전기된 건은 반품·수량조정으로 건드리지 않는다.</b> GR/IR이 이미 상계되어 매입채무가 확정된 상태다 — CBO <code>ZGATE_INSPECT</code>의 대상을 송장 미발생 건으로 한정한 이유가 이것이다.<br>
+     · <b>이동평균가를 프로그램으로 직접 바꾸지 않는다.</b> 재고금액이 그대로 움직인다. <code>ZPRICE_CHECK</code>는 알림까지만 한다.<br>
+     · <b>지급 차단(block)을 원인 확인 없이 풀지 않는다.</b> 차단은 오류가 아니라 불일치 신고다.<br>
+     · House Bank 미지정 같은 <b>경고를 Accept로 넘기는 것은 학습 데모에서만</b> 통한다. 운영에서는 마스터를 먼저 갖춘다.<br>
+     · 실습에 나오는 조직단위(<code>1010</code> · <code>Z00</code> · <code>101C</code>)는 학습 시스템 값이다. 개인 프로젝트는 <code>CL04</code> / <code>GATE</code> / <code>STOR</code>를 쓴다 — 섞어 쓰지 않는다.</p>
+</div>
+
+<div class="note warn">
+  <div class="t">확인 필요 — 실제 시스템에서 확정할 것</div>
+  <p>· 정보레코드 단가 필드가 조건레코드로 관리되는 구성인지(<code>EINE-NETPR</code> 직접 참조로 충분한지) — 가격결정 스키마에 따라 갈린다<br>
+     · GR-Based IV 플래그를 벤더 단위로 일괄 적용할지, 자재별로 다르게 갈지<br>
+     · 세율·매입세 코드(위 사례는 10%) — 국가별·회사코드별 설정<br>
+     실제 시스템(<b>winerp01 / MEP</b>)에서 확인 후 보강한다.</p>
+</div>
+
+<h3>참고</h3>
+
+<ul>
+  <li>원본: 노션 <b>SAP Learning Hub</b> → IEE2E → <b>06. Performing the Source-to-Pay Process: Focus on Procurement</b> (Unit 6, 레슨 8개 · 6-1 ~ 6-8)</li>
+  <li>과정: Exploring End-to-End Business Processes in SAP Business Suite</li>
+  <li>겹치는 깊이 있는 내용은 MM 저니 노트로: <a href="../mm/s4500-business-processes.html">S4500 조직구조·마스터데이터·P2P</a> · <a href="../mm/s4510-inventory.html">S4510 이동유형·이전기표</a> · <a href="../mm/s4515-invoice-verification.html">S4515 3-Way Match·차단과 해제</a> · <a href="../mm/s4520-purchasing.html">S4520 소스결정·승인절차</a></li>
+  <li>앞 노트: <b>IEE2E Unit 5</b> Recruit-to-Retire — 인적자원 E2E 프로세스</li>
+  <li>이 노트는 개인 학습·포트폴리오용 정리이며, 실습 화면의 문서번호·금액은 SAP 학습 시스템의 가상 데이터다</li>
+</ul>
+
+</div>
+
+</div>
+<script src="../../assets/hub.js" defer></script>
+</body>
+</html>

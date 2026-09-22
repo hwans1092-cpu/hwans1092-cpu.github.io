@@ -1,0 +1,548 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>IEE2E U3 — 핵심 개념과 오브젝트</title>
+<meta name="description" content="SAP Learning Hub의 Exploring End-to-End Business Processes in SAP Business Suite 노트 3. 엔터프라이즈 구조 구성요소와 할당, 마스터 데이터·트랜잭션 데이터·문서의 3층 관계, 문서 흐름, 마스터 데이터 통합(MDI)과 거버넌스(MDG).">
+<link rel="icon" href="../../assets/favicon.svg">
+<link rel="stylesheet" href="../../assets/notes-paper.css">
+<style>
+/* ── 이 노트 전용: 도해(SVG) 스타일 ─────────────────────────── */
+.dgm{display:block; width:100%; height:auto;}
+.dgm text{font-family:"Malgun Gothic","맑은 고딕","Apple SD Gothic Neo",sans-serif; fill:#1e1e1e;}
+.dgm .t-h{font-size:15px; font-weight:700;}
+.dgm .t{font-size:13px;}
+.dgm .t-s{font-size:11.5px; fill:#555;}
+.dgm .t-xs{font-size:10.5px; fill:#6B7280;}
+.dgm .m{font-family:"D2Coding","Consolas",monospace; font-size:12px;}
+.dgm .m-s{font-family:"D2Coding","Consolas",monospace; font-size:10.5px;}
+.dgm .c-key{fill:#4338CA;} .dgm .c-bad{fill:#B91C1C;} .dgm .c-ok{fill:#047857;}
+.dgm .b{fill:#FFFFFF; stroke:#C7CBD6; stroke-width:1.2;}
+.dgm .b-key{fill:#EEF0FB; stroke:#4338CA; stroke-width:1.4;}
+.dgm .b-bad{fill:#FEF2F2; stroke:#B91C1C; stroke-width:1.3;}
+.dgm .b-ok{fill:#ECFDF5; stroke:#047857; stroke-width:1.3;}
+.dgm .b-mut{fill:#F3F4F6; stroke:#D1D5DB; stroke-width:1.1;}
+.dgm .b-hl{fill:#FEF08A; stroke:#CA8A04; stroke-width:1.2;}
+.dgm .b-ghost{fill:none; stroke:#9AA3B2; stroke-width:1.1; stroke-dasharray:5 4;}
+.dgm .ln{stroke:#7C8697; stroke-width:1.4; fill:none;}
+.dgm .ln-key{stroke:#4338CA; stroke-width:1.8; fill:none;}
+.dgm .ln-bad{stroke:#B91C1C; stroke-width:1.6; fill:none;}
+.dgm .ln-ok{stroke:#047857; stroke-width:1.6; fill:none;}
+.dgm .ln-d{stroke:#9AA3B2; stroke-width:1.2; stroke-dasharray:4 4; fill:none;}
+.dgm .arw{fill:#7C8697;} .dgm .arw-key{fill:#4338CA;}
+.dgm .arw-bad{fill:#B91C1C;} .dgm .arw-ok{fill:#047857;}
+.figwrap{background:#FAFAFE; border:1px solid var(--rule); border-radius:6px;
+  padding:18px 16px 10px; margin:22px 0;}
+.figwrap figcaption{margin-top:12px; padding-top:10px; border-top:1px solid var(--rule);}
+</style>
+</head>
+<body>
+<div class="crumb"><a href="../../index.html">← 자료실 홈</a> · <a href="../../journey.html?j=iee2e">E2E 저니</a> · U3 핵심 개념과 오브젝트</div>
+<div class="sheet">
+
+<div class="doc-head">
+  <div class="kicker">LEARNING HUB · IEE2E U3</div>
+  <h1>핵심 개념과 오브젝트</h1>
+  <div class="sub">
+    Learning Journey <b>Exploring End-to-End Business Processes in SAP Business Suite</b> · Unit 3 · 레슨 3개 · Beginner<br>
+    출처: 노션 <b>SAP Learning Hub</b> → IEE2E → <b>3. Discussing Central Concepts and Objects in SAP Business Suite</b> (3-1 ~ 3-3, 실습 PDF 2건 포함)
+  </div>
+</div>
+
+<div class="lead">
+  <p><b>결론부터.</b> SAP 안에서 일어나는 모든 일은 <span class="hl">세 층</span>으로 설명됩니다 — 회사를 시스템에 그려 넣은 <b>엔터프라이즈 구조</b>, 오래 변하지 않는 <b>마스터 데이터</b>, 그리고 매번 새로 생기는 <b>트랜잭션 데이터·문서</b>.</p>
+  <p>세 층의 관계도 한 줄입니다. 조직단위는 커스터마이징에서 정의되고, 마스터 데이터는 <b>조직단위 레벨별로</b> 유지되며, 문서는 생성될 때 <span class="key">항상 하나 이상의 조직단위에 할당</span>되고 마스터 데이터로부터 값을 제안받습니다. "이 값은 어디서 왔나"라는 질문의 답이 전부 이 그림 안에 있습니다.</p>
+</div>
+
+<div class="toc">
+  <h4>목차</h4>
+  <ol>
+    <li><a href="#l1">엔터프라이즈 구조 — 회사를 시스템에 그려 넣기</a></li>
+    <li><a href="#l2">조직단위 · 마스터 데이터 · 문서의 3층 관계</a></li>
+    <li><a href="#l3">마스터 데이터 동기화 — MDI와 MDG</a></li>
+  </ol>
+</div>
+
+
+<!-- ══════════ LESSON 1 ══════════ -->
+<div class="lesson" id="l1">
+<h2><span class="no">LESSON 1</span>엔터프라이즈 구조 — 회사를 시스템에 그려 넣기</h2>
+
+<p><span class="tag">Unit 3</span><span class="tag">3-1</span>Defining the Enterprise Structure Using the Example of a Bike Company</p>
+
+<h3>언제 이걸 알아야 하는가</h3>
+
+<p><b>"왜 이 자재는 이 플랜트에서 안 나옵니까"</b>, <b>"왜 이 전표가 저 회사코드로 갔습니까"</b> — 이런 문의는 프로그램 버그처럼 들리지만 대부분 <span class="key">조직단위 할당(assignment)</span> 문제입니다.</p>
+
+<p>엔터프라이즈 구조는 <b>일상 업무가 아니라 시스템 설정(커스터마이징)</b>의 일부입니다. 그래서 응용 화면을 아무리 뒤져도 답이 없고, IMG 쪽 할당 관계를 봐야 풀립니다. 이 레슨은 그 할당 관계에 어떤 이름들이 붙어 있는지를 세웁니다.</p>
+
+<h3>엔터프라이즈 구조란</h3>
+
+<p>기업의 비즈니스 프로세스·부문·조직 단위를 반영·관리하는 <b>포괄적인 조직 프레임워크</b>입니다. 답을 주는 질문이 이런 것들입니다 — 제품을 어디서 생산하는가? 원자재 구매 책임자는 누구인가? 판매 가격은 누가 계산하는가?</p>
+
+<p>회사를 SAP에 모델링할 때 고려하는 것은 둘입니다. ① 부서가 일상 업무(자재 주문, 제품 판매)를 수행하는 <b>애플리케이션</b>, ② 각 애플리케이션과 조직 구조에 대한 <b>비즈니스 프로세스 설정</b>, 즉 커스터마이징. <span class="hl">엔터프라이즈 구조 정의는 ②에 속합니다.</span></p>
+
+<div class="note warn">
+  <div class="t">확인 필요 — On-Premise 기준 설명이다</div>
+  <p>강의가 설명하는 엔터프라이즈 구조는 <b>SAP S/4HANA On-Premise 기준</b>입니다. 대부분 Cloud와 동일하고 사용 목적·필요성도 같지만, <span class="hl">Cloud Public Edition에서는 설정 가능 범위와 설정 도구가 다릅니다.</span> 실제 시스템(winerp01 / MEP)에서 IMG 경로를 열어 확인할 것.</p>
+</div>
+
+<h3>구성요소 — 영역별로 묶어서</h3>
+
+<p>최상위는 <b>Client</b>입니다. SAP 시스템 내 최상위 계층 구조로, 마스터 레코드와 테이블을 포함하며 <b>하나의 기업 그룹</b>을 대표합니다.</p>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>영역</th><th>구성요소</th><th>설명</th></tr></thead>
+<tbody>
+<tr><td>Controlling</td><td>Operating Concern</td><td class="wrap">영업시장이 통일된 구조를 가지는 기업의 조직 구조 — <b>수익성 분석</b>의 분석 레벨</td></tr>
+<tr><td>Controlling</td><td>Controlling Area</td><td class="wrap">관리회계의 기본 구조. 원가·수익 회계를 위한 <span class="key">폐쇄적 단위</span> — 하나의 Controlling Area 안에서만 비용·수익 배분이 가능</td></tr>
+<tr><td>Financial Accounting</td><td><span class="key">Company Code</span></td><td class="wrap">그룹 내 <b>개별 법인</b>의 대외 회계를 매핑. 회사코드를 기준으로 재무보고의 법적 요건(상법·세법)을 충족</td></tr>
+<tr><td>Financial Accounting</td><td>Segment</td><td class="wrap">회사코드 하위 객체(지역·사업영역 등)의 재무 수치 제공. <b>선택적</b> 구조 — US-GAAP·IFRS 세그먼트 보고 등 법적 요건에 따라 사용</td></tr>
+<tr><td>Sales and Distribution</td><td>Sales Organization</td><td class="wrap">영업 요구사항에 따라 기업을 세분화, 재화·서비스 판매를 담당</td></tr>
+<tr><td>Sales and Distribution</td><td>Distribution Channel</td><td class="wrap">재화·서비스가 유통되는 방식을 특성화 — 제품/서비스/유지보수 판매 구분에 사용</td></tr>
+<tr><td>Sales and Distribution</td><td>Shipping Point</td><td class="wrap">재화가 출하되는 장소·위치를 정의</td></tr>
+<tr><td>Logistics / MM</td><td>Purchasing Organization</td><td class="wrap">견적 요청·계약 처리 등 모든 구매 활동을 담당</td></tr>
+<tr><td>Logistics / MM</td><td><span class="key">Plant</span></td><td class="wrap">로지스틱스의 중심 구조 — 생산·구매·유지보수·자재계획 관점에서 기업을 세분화</td></tr>
+<tr><td>Logistics / MM</td><td>Storage Location</td><td class="wrap">플랜트 내에서 재고가 물리적으로 저장·관리되는 하위 구조 — <b>플랜트당 최소 1개 필요</b></td></tr>
+<tr><td>Logistics / MM</td><td>Division</td><td class="wrap">특정 자재·서비스 그룹을 대표, 주로 영업 분석에 사용</td></tr>
+<tr><td>Logistics / MM</td><td>Valuation Level</td><td class="wrap">자재 재고를 평가하는 레벨 — <b>Plant 레벨</b>(생산계획·원가계산 컴포넌트 사용 시 필수) 또는 Company Code 레벨</td></tr>
+<tr><td>HR</td><td>Personnel Area</td><td class="wrap">회사코드의 하위 구조, 인사 관점에서 조직됨 — 서로 다른 물리적 사업장·보고 영역을 표현</td></tr>
+<tr><td>Logistics Execution</td><td>Warehouse Number</td><td class="wrap">창고관리시스템 내 복잡한 창고 설정을 식별. 물리적 위치가 보통 정의의 결정 요인. 저장유형·저장구역을 그룹화</td></tr>
+</tbody>
+</table>
+</div>
+
+<figure class="figwrap">
+<svg class="dgm" viewBox="0 0 1000 448" role="img" aria-label="엔터프라이즈 구조 계층 도해. Client 아래에 Company Code가 있고 그 아래로 Plant, Purchasing Organization, Sales Organization, Personnel Area가 할당되며, Plant 아래에 Storage Location과 Shipping Point, Sales Organization 아래에 Distribution Channel과 Division이 붙는다.">
+  <defs>
+    <marker id="esa" markerWidth="9" markerHeight="9" refX="7" refY="4.5" orient="auto">
+      <polygon class="arw-key" points="0,0 9,4.5 0,9"/></marker>
+  </defs>
+
+  <rect class="b-key" x="300" y="26" width="400" height="52" rx="6"/>
+  <text class="t-h c-key" x="322" y="50">Client</text>
+  <text class="t-s" x="322" y="68">최상위 계층 · 하나의 기업 그룹 · 마스터 레코드와 테이블을 포함</text>
+
+  <path class="ln-key" d="M500 78 V100" marker-end="url(#esa)"/>
+
+  <rect class="b-mut" x="20" y="100" width="260" height="56" rx="6"/>
+  <text class="t-s" x="38" y="122">Operating Concern — 수익성 분석 레벨</text>
+  <text class="t-s" x="38" y="142">Controlling Area — 원가·수익의 폐쇄 단위</text>
+
+  <rect class="b-key" x="300" y="100" width="400" height="56" rx="6"/>
+  <text class="t-h c-key" x="322" y="124">Company Code</text>
+  <text class="t-s" x="322" y="144">개별 법인 · 재무제표의 법적 단위</text>
+
+  <rect class="b-mut" x="720" y="100" width="260" height="56" rx="6"/>
+  <text class="t-s" x="738" y="122">Segment — 회사코드 하위</text>
+  <text class="t-xs" x="738" y="142">선택적 구조 · IFRS/US-GAAP 세그먼트 보고</text>
+
+  <line class="ln-d" x1="280" y1="128" x2="300" y2="128"/>
+  <line class="ln-d" x1="700" y1="128" x2="720" y2="128"/>
+
+  <path class="ln-d" d="M500 156 V178"/>
+  <path class="ln-d" d="M133 178 H847"/>
+  <text class="t-xs c-key" x="512" y="173">할당(assignment) — 커스터마이징에서 연결한다</text>
+  <path class="ln-key" d="M133 178 V200" marker-end="url(#esa)"/>
+  <path class="ln-key" d="M371 178 V200" marker-end="url(#esa)"/>
+  <path class="ln-key" d="M609 178 V200" marker-end="url(#esa)"/>
+  <path class="ln-key" d="M847 178 V200" marker-end="url(#esa)"/>
+
+  <rect class="b" x="20" y="202" width="226" height="60" rx="5"/>
+  <text class="t-h" x="38" y="226">Plant</text>
+  <text class="t-xs" x="38" y="246">생산·구매·유지보수·자재계획</text>
+
+  <rect class="b" x="258" y="202" width="226" height="60" rx="5"/>
+  <text class="t" x="276" y="226">Purchasing Org.</text>
+  <text class="t-xs" x="276" y="246">구매 활동 · 플랜트에 할당 가능</text>
+
+  <rect class="b" x="496" y="202" width="226" height="60" rx="5"/>
+  <text class="t-h" x="514" y="226">Sales Organization</text>
+  <text class="t-xs" x="514" y="246">재화·서비스 판매 담당</text>
+
+  <rect class="b" x="734" y="202" width="226" height="60" rx="5"/>
+  <text class="t" x="752" y="226">Personnel Area</text>
+  <text class="t-xs" x="752" y="246">인사 관점의 사업장 단위</text>
+
+  <path class="ln-key" d="M133 262 V284" marker-end="url(#esa)"/>
+  <path class="ln-key" d="M609 262 V284" marker-end="url(#esa)"/>
+
+  <rect class="b-ok" x="20" y="286" width="440" height="90" rx="6"/>
+  <text class="t-h c-ok" x="40" y="308">Plant 하위</text>
+  <text class="t-s" x="40" y="330">Storage Location — 플랜트당 최소 1개</text>
+  <text class="t-s" x="40" y="348">Shipping Point — 재화가 출하되는 장소</text>
+  <text class="t-s" x="40" y="366">Warehouse Number — WM에서 저장유형·구역 그룹화</text>
+
+  <rect class="b-ok" x="496" y="286" width="484" height="90" rx="6"/>
+  <text class="t-h c-ok" x="516" y="308">Sales Organization 하위</text>
+  <text class="t-s" x="516" y="330">Distribution Channel — 유통 방식(직접판매·인터넷·리셀러)</text>
+  <text class="t-s" x="516" y="348">Division — 자재·서비스 그룹, 주로 영업 분석에 사용</text>
+  <text class="t-s c-key" x="516" y="366">→ Sales Org + Channel + Division = Sales Area</text>
+
+  <rect class="b-ghost" x="20" y="388" width="960" height="52" rx="6"/>
+  <text class="t-s" x="42" y="410">점선은 <tspan class="c-key">할당(assignment)</tspan>이다 — 커스터마이징에서 Plant → Sales Organization, Purchasing Organization → Plant 처럼 연결하며, 이 연결이 있어야 프로세스가 E2E로 실행된다.</text>
+  <text class="t-s" x="42" y="430">Valuation Level(재고 평가 레벨)은 별도 축이다 — Plant 레벨 또는 Company Code 레벨 중 하나를 고른다.</text>
+</svg>
+<figcaption><span class="fno">그림 1</span>엔터프라이즈 구조 계층과 할당. 왼쪽 회색 박스(Controlling)와 오른쪽 Segment는 회계 축, 가운데 아래가 로지스틱스·영업 축이다.</figcaption>
+</figure>
+
+<div class="note">
+  <div class="t">🔰 초보자 설명 — 한 줄 요약</div>
+  <p><b>Client</b>(전사) &gt; <b>Company Code</b>(법인) &gt; <b>Plant / Sales Organization</b>(공장·영업조직) &gt; <b>Storage Location / Distribution Channel</b>(세부 구역·채널) 순으로 점점 더 작은 단위로 쪼개진다고 생각하면 됩니다. 실제 회사 조직도를 SAP 언어로 옮긴 것뿐입니다.</p>
+  <p>헷갈리기 쉬운 셋만 다시 짚으면 — <b>Distribution Channel</b>은 "어떤 경로로 파는가"(온라인몰/도매/직판), <b>Division</b>은 "어떤 제품군을 파는가"(식품 사업부/의류 사업부), <b>Storage Location</b>은 한 공장 안의 창고 구역(냉동창고/상온창고)입니다.</p>
+</div>
+
+<h3>자전거 회사 ↔ SAP 매핑</h3>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>자전거 회사 특징</th><th>SAP S/4HANA 구조</th></tr></thead>
+<tbody>
+<tr><td>비용·수익을 통합된 하나의 시각으로</td><td class="wrap">Controlling Area 1개</td></tr>
+<tr><td>여러 기준에 따른 수익성 마진</td><td class="wrap">Operating Concern 1개</td></tr>
+<tr><td>12개의 독립 법인</td><td class="wrap">Company Code 12개</td></tr>
+<tr><td>3개 사업 영역(자전거/부품/서비스)</td><td class="wrap">Segment 3개</td></tr>
+<tr><td>사업장·부서별 다양한 직원 구조</td><td class="wrap">Personnel Area 12개</td></tr>
+<tr><td>원가가 다른 4개 생산기지</td><td class="wrap">Plant 4개 + 플랜트별 Valuation Level</td></tr>
+<tr><td>추가 유통센터 8개</td><td class="wrap">Distribution Center 8개</td></tr>
+<tr><td>중앙 구매 + 로컬 구매</td><td class="wrap">중앙 Purchasing Organization 1개 + 플랜트별 Purchasing Organization</td></tr>
+<tr><td>플랜트별 저장 위치</td><td class="wrap">Storage Location</td></tr>
+<tr><td>법인당 영업부서 1개</td><td class="wrap">법인별 Sales Organization 1개</td></tr>
+<tr><td>3개 판매채널(직접판매/인터넷/리셀러)</td><td class="wrap">Distribution Channel 3개</td></tr>
+<tr><td>사업장별 서비스부서 1개</td><td class="wrap">Sales Organization과 동일하게 매핑</td></tr>
+</tbody>
+</table>
+</div>
+
+<div class="note ok">
+  <div class="t">📌 개인 E2E 프로젝트와의 연결점</div>
+  <p>이 프로젝트의 조직 설계가 위 표의 <b>축소판</b>입니다. 자전거 회사가 12 법인 · 4 플랜트라면 이쪽은 1 법인 · 2 플랜트입니다.</p>
+  <div class="tbl-wrap">
+  <table>
+  <thead><tr><th>구성요소</th><th>이 프로젝트의 값</th></tr></thead>
+  <tbody>
+  <tr><td>Company Code</td><td class="wrap"><code>CL04</code> 1개 — 모든 FI 전표(매입채무·매출채권)가 여기 귀속된다</td></tr>
+  <tr><td>Plant</td><td class="wrap"><code>GATE</code>(입고 게이트) · <code>STOR</code>(보관) 2개. 플랜트를 둘로 쪼갠 이유가 <code>ZGATE_INSPECT</code>의 전제다 — 입고(<code>101</code>)와 보관 이관(<code>301</code>)을 분리해야 차이를 잡을 수 있다</td></tr>
+  <tr><td>Storage Location</td><td class="wrap"><code>STOR</code> 하위 6개 = 온도군 × 정상·임박. 냉동 <code>1100</code>/<code>1900</code> · 냉장 <code>2100</code>/<code>2900</code> · 실온 <code>3100</code>/<code>3900</code></td></tr>
+  <tr><td>Valuation Level</td><td class="wrap">이동평균가(<code>V</code>) 사용. 평가 레벨을 Plant로 둘지 Company Code로 둘지가 <code>ZPRICE_CHECK</code>가 읽는 <code>MBEW-VERPR</code>의 단위를 결정한다</td></tr>
+  <tr><td>Division</td><td class="wrap">자재그룹 <code>CHKN</code> <code>RICE</code>(냉동·냉장) / <code>SHAK</code> <code>PROT</code> <code>PBAR</code>(실온)과 어떻게 대응시킬지 아직 미정</td></tr>
+  <tr><td>Warehouse Number</td><td class="wrap">사용 안 함 — WM 미사용이 프로젝트 전제다. 온도군 구분은 Storage Location 레벨에서만 한다</td></tr>
+  </tbody>
+  </table>
+  </div>
+  <p><b>확인 필요</b>: Valuation Level을 Plant로 잡으면 <code>GATE</code>와 <code>STOR</code>의 이동평균가가 따로 계산되어 <code>301</code> 이관 시 평가차액이 생길 수 있습니다. 실제 시스템에서 <code>OX14</code> / <code>MM03</code> 회계1 뷰로 확정할 것.</p>
+</div>
+
+</div>
+
+
+<!-- ══════════ LESSON 2 ══════════ -->
+<div class="lesson" id="l2">
+<h2><span class="no">LESSON 2</span>조직단위 · 마스터 데이터 · 문서의 3층 관계</h2>
+
+<p><span class="tag">Unit 3</span><span class="tag">3-2</span>Relating Enterprise Structures, Master Data, Transaction Data, and Documents</p>
+
+<h3>오브젝트 3종</h3>
+
+<p>SAP에서 비즈니스 데이터를 표현·조직하는 엔티티를 통틀어 <b>오브젝트</b>라고 부릅니다. 엔터프라이즈 구조도 그중 하나이고, 나머지 셋이 이것입니다.</p>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>오브젝트</th><th>정의</th><th>예시</th></tr></thead>
+<tbody>
+<tr><td><span class="key">마스터 데이터</span></td><td class="wrap">시간이 지나도 비교적 변하지 않는 핵심 기초 데이터. 비즈니스의 <b>명사</b></td><td class="wrap">고객(이름·주소·연락처), 제품(제품명·설명·가격), 직원, 공급업체</td></tr>
+<tr><td><span class="key">트랜잭션 데이터</span></td><td class="wrap">일상 운영·거래로 생성되는, 자주 변하는 데이터. 비즈니스의 <b>동사</b></td><td class="wrap">판매오더, 인보이스, 결제, 배송, 채용·퇴사</td></tr>
+<tr><td><span class="key">문서</span></td><td class="wrap">마스터·트랜잭션 데이터 맥락에서 비즈니스 운영 정보를 캡처·저장하는 <b>구조화된 기록</b></td><td class="wrap">마스터 데이터 문서(고객 레코드, 제품 정보, 벤더 파일) / 트랜잭션 데이터 문서(판매오더 문서)</td></tr>
+</tbody>
+</table>
+</div>
+
+<figure class="figwrap">
+<svg class="dgm" viewBox="0 0 1000 384" role="img" aria-label="조직단위·마스터데이터·트랜잭션데이터의 3층 관계 도해. 조직단위는 커스터마이징에서 정의되고, 마스터 데이터는 조직단위 레벨별로 유지되며, 문서는 마스터에서 값을 제안받고 항상 하나 이상의 조직단위에 할당된다.">
+  <defs>
+    <marker id="l3a" markerWidth="9" markerHeight="9" refX="7" refY="4.5" orient="auto">
+      <polygon class="arw-key" points="0,0 9,4.5 0,9"/></marker>
+    <marker id="l3o" markerWidth="9" markerHeight="9" refX="8" refY="4.5" orient="auto">
+      <polygon class="arw-ok" points="0,0 9,4.5 0,9"/></marker>
+  </defs>
+
+  <rect class="b-key" x="20" y="30" width="800" height="84" rx="6"/>
+  <text class="t-h c-key" x="42" y="54">① 엔터프라이즈 구조 (조직단위)</text>
+  <text class="t-s" x="42" y="76">Client · Company Code · Plant · Storage Location · Sales Organization · Shipping Point …</text>
+  <text class="t-s" x="42" y="98">일상 업무가 아니라 <tspan class="c-bad">시스템 설정(커스터마이징)</tspan>에서 정의하고 서로 할당한다</text>
+
+  <path class="ln-key" d="M420 114 V140" marker-end="url(#l3a)"/>
+  <text class="t-xs c-key" x="432" y="132">레벨별로 차등 유지</text>
+
+  <rect class="b-ok" x="20" y="140" width="800" height="84" rx="6"/>
+  <text class="t-h c-ok" x="42" y="164">② 마스터 데이터</text>
+  <text class="t-s" x="42" y="186">자재(제품) 마스터 · 고객/벤더 마스터 · G/L 계정 · 원가센터 · 직원 마스터</text>
+  <text class="t-s" x="42" y="208">같은 자재라도 <tspan class="c-key">플랜트마다 다른 값</tspan>(예: 입고 처리 시간)을 유지할 수 있다</text>
+
+  <path class="ln-key" d="M420 224 V250" marker-end="url(#l3a)"/>
+  <text class="t-xs c-key" x="432" y="242">값을 자동 제안 · 복사</text>
+
+  <rect class="b-hl" x="20" y="250" width="800" height="84" rx="6"/>
+  <text class="t-h" x="42" y="274">③ 트랜잭션 데이터 · 문서</text>
+  <text class="t-s" x="42" y="296">판매오더 생성 · 벤더 인보이스 등록 · 생산오더 생성 → 결과가 "문서"로 저장된다</text>
+  <text class="t-s" x="42" y="318">수명이 짧다. 문서는 <tspan class="c-bad">리포팅(평가)의 재료</tspan>이기도 하다</text>
+
+  <path class="ln-ok" d="M820 72 H900 V292 H824" marker-end="url(#l3o)"/>
+  <text class="t-s c-ok" x="846" y="168">문서는 항상</text>
+  <text class="t-s c-ok" x="846" y="186">하나 이상의</text>
+  <text class="t-s c-ok" x="846" y="204">조직단위에</text>
+  <text class="t-s c-ok" x="846" y="222">할당된다</text>
+
+  <rect class="b-ghost" x="20" y="344" width="960" height="32" rx="6"/>
+  <text class="t-s" x="42" y="365">마스터 데이터를 완전하게 유지할수록 시스템이 트랜잭션 필드를 자동으로 채워 <tspan class="c-key">처리 시간이 줄어든다</tspan> — 마스터 관리가 곧 처리 속도다.</text>
+</svg>
+<figcaption><span class="fno">그림 2</span>3층 관계. 위에서 아래로 값이 흐르고, 오른쪽 초록 화살표(조직단위 할당)는 세 층을 관통한다.</figcaption>
+</figure>
+
+<h3>마스터 데이터는 왜 조직단위별로 갈리나</h3>
+
+<p>강의의 예시가 명확합니다. 자전거 회사는 <b>4개 생산 플랜트에서 동일한 자전거를 생산</b>합니다. 제품 마스터를 모든 플랜트에 걸쳐 중앙에서 유지할 수 있는가? 그런데 <span class="hl">플랜트별로 다른 데이터(예: 입고 처리 시간)</span>도 유지하고 싶다. 그래서 <b>조직단위별로 차등화된 데이터 유지</b>가 가능해야 합니다.</p>
+
+<h4>실습 — Display Product Master Data</h4>
+
+<p>Fiori 앱 <b>Manage Product Master Data</b>에서 제품 <code>T-F130</code>(eBike iEE2E)의 마스터가 레벨별로 어떻게 나뉘는지 보는 실습입니다.</p>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>레벨</th><th>필드</th><th>값</th></tr></thead>
+<tbody>
+<tr><td>Client</td><td>Product Type</td><td class="wrap">Finished Product (<code>FERT</code>)</td></tr>
+<tr><td>(전사 공통, 1번만)</td><td>Product Group</td><td class="wrap">Finished Goods (<code>L004</code>)</td></tr>
+<tr><td></td><td>Base Unit</td><td class="wrap">Piece (<code>PC</code>)</td></tr>
+<tr><td></td><td>Division</td><td class="wrap">Product Division <code>00</code></td></tr>
+<tr><td>Plant</td><td>Plant</td><td class="wrap"><code>1010</code> Bike Company DE / <code>1710</code> Bike Company US</td></tr>
+<tr><td>(1010 · 1710 각각)</td><td>MRP Type</td><td class="wrap">Forecast Consumption No Planning Time Fence (<code>PD</code>)</td></tr>
+<tr><td></td><td>MRP Controller</td><td class="wrap"><code>001</code></td></tr>
+<tr><td></td><td>Valuation Type</td><td class="wrap">Transaction-Based (<code>2</code>)</td></tr>
+<tr><td></td><td>Price Control</td><td class="wrap">Finished Goods (<code>7920</code>)</td></tr>
+<tr><td>Storage Location</td><td>Std. storage 1</td><td class="wrap"><code>101A</code>, Storage Bin <code>PL-01</code></td></tr>
+<tr><td>(Plant 1010 하위)</td><td>Std. storage 2</td><td class="wrap"><code>101B</code>, Storage Bin <code>AB-01</code></td></tr>
+</tbody>
+</table>
+</div>
+
+<p>앱 탭 구성: General Information / Product Compliance / Components / Classification / Configuration / Sales / Storage / Warehouse Management / Distribution Chains / Plants / Valuation Areas / Texts / Attachments.</p>
+
+<div class="note">
+  <div class="t">🔰 초보자 설명 — 실습에 나온 용어</div>
+  <p>· <b>MRP Type</b> — 이 자재의 재고를 어떤 방식으로 자동 보충할지에 대한 규칙(예: 수요예측 기반 자동 발주)<br>
+     · <b>Valuation Type / Price Control</b> — 재고를 회계장부에 얼마짜리로 기록할지 정하는 방식(표준원가로 고정할지, 실제 매입가로 움직이게 할지)<br>
+     · <b>Storage Bin</b> — 창고 안에서 "몇 번 선반, 몇 번 칸"까지 정해주는 최소 단위 위치</p>
+</div>
+
+<h3>문서 흐름 — 값은 어디서 와서 어디로 가는가</h3>
+
+<p>판매오더 생성 같은 프로세스 단계의 데이터는 결과적으로 <b>문서</b>로 저장되고, 이 문서는 평가(리포팅)에도 쓰입니다. 예를 들어 특정 고객과의 매출 합계는 <span class="key">그 고객 관련 매출 문서들의 합</span>으로 구성됩니다. 그리고 문서 생성 시 <b>항상 하나 이상의 엔터프라이즈 구조에 할당</b>됩니다.</p>
+
+<figure class="figwrap">
+<svg class="dgm" viewBox="0 0 1000 300" role="img" aria-label="문서 흐름 도해. 마스터 데이터가 판매오더에 값을 제안하고, 판매오더에서 납품문서, 자재문서와 FI 전표, 청구문서로 이어지며 각 문서는 서로 다른 조직단위에 귀속된다.">
+  <defs>
+    <marker id="dfa" markerWidth="9" markerHeight="9" refX="7" refY="4.5" orient="auto">
+      <polygon class="arw-key" points="0,0 9,4.5 0,9"/></marker>
+  </defs>
+
+  <rect class="b-ok" x="20" y="34" width="170" height="76" rx="6"/>
+  <text class="t c-ok" x="38" y="58">마스터 데이터</text>
+  <text class="t-xs" x="38" y="78">자재 · 고객 · 조건</text>
+  <text class="t-xs" x="38" y="96">값을 자동 제안</text>
+  <path class="ln-key" d="M190 72 H226" marker-end="url(#dfa)"/>
+
+  <rect class="b-key" x="230" y="44" width="170" height="56" rx="6"/>
+  <text class="t c-key" x="248" y="68">판매오더</text>
+  <text class="m-s" x="248" y="88">VA01</text>
+  <path class="ln-key" d="M400 72 H420" marker-end="url(#dfa)"/>
+
+  <rect class="b-key" x="424" y="44" width="170" height="56" rx="6"/>
+  <text class="t c-key" x="442" y="68">납품문서</text>
+  <text class="m-s" x="442" y="88">VL01N</text>
+  <path class="ln-key" d="M594 72 H614" marker-end="url(#dfa)"/>
+
+  <rect class="b-key" x="618" y="44" width="170" height="56" rx="6"/>
+  <text class="t c-key" x="636" y="68">자재문서 + FI전표</text>
+  <text class="m-s" x="636" y="88">PGI</text>
+  <path class="ln-key" d="M788 72 H808" marker-end="url(#dfa)"/>
+
+  <rect class="b-key" x="812" y="44" width="168" height="56" rx="6"/>
+  <text class="t c-key" x="830" y="68">청구문서 + FI전표</text>
+  <text class="m-s" x="830" y="88">VF01</text>
+
+  <path class="ln-key" d="M315 100 V148" marker-end="url(#dfa)"/>
+  <path class="ln-key" d="M509 100 V148" marker-end="url(#dfa)"/>
+  <path class="ln-key" d="M703 100 V148" marker-end="url(#dfa)"/>
+  <path class="ln-key" d="M896 100 V148" marker-end="url(#dfa)"/>
+
+  <rect class="b-mut" x="230" y="150" width="170" height="84" rx="5"/>
+  <text class="t-xs" x="248" y="174">Sales Area</text>
+  <text class="t-xs" x="248" y="194">(Org · Channel · Div)</text>
+  <text class="t-xs" x="248" y="214">Company Code</text>
+
+  <rect class="b-mut" x="424" y="150" width="170" height="84" rx="5"/>
+  <text class="t-xs" x="442" y="174">Shipping Point</text>
+  <text class="t-xs" x="442" y="194">Plant</text>
+  <text class="t-xs" x="442" y="214">Storage Location</text>
+
+  <rect class="b-mut" x="618" y="150" width="170" height="84" rx="5"/>
+  <text class="t-xs" x="636" y="174">Plant</text>
+  <text class="t-xs" x="636" y="194">Storage Location</text>
+  <text class="t-xs" x="636" y="214">Company Code</text>
+
+  <rect class="b-mut" x="812" y="150" width="168" height="84" rx="5"/>
+  <text class="t-xs" x="830" y="174">Company Code</text>
+  <text class="t-xs" x="830" y="194">Sales Organization</text>
+  <text class="t-xs" x="830" y="214">(→ 매출 집계 단위)</text>
+
+  <text class="t-s c-key" x="20" y="160">귀속 조직단위</text>
+  <text class="t-xs" x="20" y="182">문서마다</text>
+  <text class="t-xs" x="20" y="200">다르다</text>
+
+  <rect class="b-ghost" x="20" y="250" width="960" height="40" rx="6"/>
+  <text class="t-s" x="42" y="272">"이 값은 왜 여기 들어왔나"의 답은 둘 중 하나다 — <tspan class="c-ok">마스터에서 제안됐거나</tspan>, <tspan class="c-key">선행문서에서 복사됐거나.</tspan></text>
+  <text class="t-s" x="42" y="284">"이 전표가 왜 저 회사코드로 갔나"의 답은 하나다 — 문서가 그 조직단위에 할당됐기 때문이다.</text>
+</svg>
+<figcaption><span class="fno">그림 3</span>문서 흐름과 조직단위 귀속. 같은 프로세스의 문서라도 귀속되는 조직단위는 서로 다르다.</figcaption>
+</figure>
+
+<h4>실습 — Create a Sales Order</h4>
+
+<p>Fiori 앱 <b>Create Sales Orders</b>(<code>VA01</code> 상당)에서 값이 어디서 오는지 확인하는 실습입니다.</p>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>구분</th><th>필드</th><th>값</th></tr></thead>
+<tbody>
+<tr><td>헤더</td><td>Sales Order Type</td><td class="wrap"><code>OR</code> (Standard Order)</td></tr>
+<tr><td></td><td>Sales Org / Channel / Division</td><td class="wrap"><code>1010</code> / <code>10</code> Direct Sales / <code>00</code></td></tr>
+<tr><td></td><td>Sold-to-Party</td><td class="wrap"><code>T-BP30</code> — 주소는 고객 마스터에서 자동 반영</td></tr>
+<tr><td></td><td>Customer Reference</td><td class="wrap"><code>IEE2E-30</code></td></tr>
+<tr><td>Advanced (조직)</td><td>Sales Office / Group / District</td><td class="wrap">Southern Germany <code>DE0002</code></td></tr>
+<tr><td>Advanced (조건)</td><td>Incoterms</td><td class="wrap">Free House (<code>FH</code>)</td></tr>
+<tr><td></td><td>Terms of Payment</td><td class="wrap">Pay Immediately w/o Deduction (<code>0001</code>)</td></tr>
+<tr><td></td><td>Pricing Procedure</td><td class="wrap">Materials Germany (<code>T10101</code>)</td></tr>
+<tr><td>아이템</td><td>Product / Quantity</td><td class="wrap"><code>T-F130</code> eBike iEE2E / 10 <code>PC</code></td></tr>
+<tr><td>아이템 Advanced</td><td>Plant / Shipping Point</td><td class="wrap"><code>1010</code> / <code>1010</code></td></tr>
+<tr><td></td><td>Storage Location / Route</td><td class="wrap">마스터 데이터 기준 자동 제안</td></tr>
+</tbody>
+</table>
+</div>
+
+<p>중량은 <b>제품 마스터의 단위 중량 × 주문 수량</b>으로 자동 계산됩니다 — 마스터에서 값이 오는 대표적인 예입니다. 최종적으로 <b>Sales Order #53</b>이 생성되고, "Manage Sales Orders" 앱에서 Sold-to-Party로 필터링해 조회할 수 있습니다.</p>
+
+<div class="note warn">
+  <div class="t">확인 필요 — 총중량 수치</div>
+  <p>강의 설명은 <b>15 KG/PC × 10 PC</b> 공식이지만, 화면 캡처상의 총중량 수치는 소스 자료 확인이 필요합니다. <span class="hl">중요한 것은 수치가 아니라 "중량은 입력값이 아니라 마스터에서 계산된 값"이라는 점</span>입니다.</p>
+</div>
+
+<div class="note">
+  <div class="t">🔰 초보자 설명 — 마스터 데이터 vs 트랜잭션 데이터</div>
+  <p>마스터 데이터는 <b>메뉴판</b>, 트랜잭션 데이터는 <b>그날그날의 주문 영수증</b>입니다. 메뉴판은 자주 안 바뀌지만 영수증은 주문할 때마다 새로 생깁니다.</p>
+  <p>이 프로젝트로 바꿔 말하면 — "냉동 닭가슴살 100g"이라는 상품 자체 정보(이름·중량·보관온도·원가)가 마스터, "9월 14일에 닭가슴살 100박스를 A업체에 팔았다"가 트랜잭션입니다.</p>
+</div>
+
+<div class="note ok">
+  <div class="t">📌 개인 E2E 프로젝트와의 연결점</div>
+  <p>실습의 <b>Client / Plant / Storage Location</b> 3단 구조가 이 프로젝트의 자재마스터 설계와 그대로 겹칩니다.</p>
+  <p>· <b>Client 레벨</b> — <code>CHKN</code> <code>RICE</code> <code>SHAK</code> <code>PROT</code> <code>PBAR</code> 각 품목의 Product Type · Base Unit · 자재그룹. <span class="hl">배치관리 체크(<code>MARA-XCHPF</code>)도 이 레벨</span>이라 한 번 켜면 전 플랜트에 걸린다<br>
+     · <b>Plant 레벨</b> — <code>GATE</code>와 <code>STOR</code> 각각의 회계 뷰. Price Control을 <code>V</code>(이동평균가)로 두는 것이 여기, <code>MBEW-VERPR</code>가 생기는 자리도 여기다<br>
+     · <b>Storage Location 레벨</b> — 온도군 × 정상·임박 6개. 실습의 <code>101A</code>/<code>101B</code> 자리에 <code>1100</code>/<code>1900</code>…이 들어간다</p>
+  <p>그림 3의 문서 흐름에 이 프로젝트의 CBO를 얹으면 자리가 분명해집니다. <code>ZBATCH_ZONE</code>은 <b>문서가 아니라 마스터·재고</b>를 보고 움직이고(<code>MCHA-VFDAT</code> 판정 후 <code>311</code>), <code>ZGATE_INSPECT</code>는 <b>자재문서 두 건의 차이</b>(<code>101</code> vs <code>301</code>)를 보며, <code>ZPRICE_CHECK</code>는 <b>마스터 두 개의 차이</b>(<code>EINE-NETPR</code> vs <code>MBEW-VERPR</code>)를 봅니다. <span class="key">세 CBO가 각각 다른 층을 읽는다</span>는 점을 설계서에 적어두면 테이블 설계 근거가 됩니다.</p>
+</div>
+
+</div>
+
+
+<!-- ══════════ LESSON 3 ══════════ -->
+<div class="lesson" id="l3">
+<h2><span class="no">LESSON 3</span>마스터 데이터 동기화 — MDI와 MDG</h2>
+
+<p><span class="tag">Unit 3</span><span class="tag">3-3</span>Describing the Effects of the Central Objects on Different SAP Applications</p>
+
+<h3>왜 동기화가 문제가 되는가</h3>
+
+<p>SAP는 E2E 운영을 위해 여러 솔루션을 통합합니다 — Recruit to Retire에는 <b>SAP SuccessFactors</b>, Procure to Pay에는 <b>SAP Ariba</b>. 그런데 S/4HANA의 핵심 오브젝트(엔터프라이즈 구조 · 마스터 데이터 · 트랜잭션 데이터 · 문서)는 <span class="key">다른 솔루션에도 그대로 중요</span>합니다. 그래서 데이터는 여러 솔루션에 걸쳐 제대로 통합·동기화되어야 합니다.</p>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>약어</th><th>풀이</th><th>역할</th></tr></thead>
+<tbody>
+<tr><td><span class="key">MDI</span></td><td class="wrap">Master Data Integration</td><td class="wrap">여러 소스의 데이터를 통합해 <b>단일하고 신뢰할 수 있는 뷰</b> 제공</td></tr>
+<tr><td><span class="key">MDG</span></td><td class="wrap">Master Data Governance</td><td class="wrap">데이터 <b>품질·보안·컴플라이언스</b> 감독</td></tr>
+</tbody>
+</table>
+</div>
+
+<p>둘은 부서·시스템 간 데이터의 <b>일관성·정확성·책임성</b>을 보장하기 때문에 E2E 프로세스 운영에 필수입니다. 함께 작동해 데이터 사일로·오류·중복을 줄이고 의사결정과 효율성을 개선합니다.</p>
+
+<div class="note">
+  <div class="t">🔰 초보자 설명 — MDI와 MDG의 차이</div>
+  <p>여러 시스템(SAP 본체, 인사 시스템, 구매 시스템)을 같이 쓰면 "같은 고객"이나 "같은 상품"인데 시스템마다 이름·코드가 다르게 저장되는 문제가 생깁니다.</p>
+  <p>· <b>MDI</b> = 흩어진 같은 데이터를 <b>하나의 진짜 정답</b>으로 합쳐서 보여주는 것 — "정보를 하나로 모으는 것"<br>
+     · <b>MDG</b> = 그 데이터를 <b>누가, 어떻게 수정할 수 있는지</b> 규칙을 정하고 품질을 관리하는 것 — "정보를 깨끗하고 정확하게 유지하는 규칙"</p>
+</div>
+
+<div class="note ok">
+  <div class="t">📌 개인 E2E 프로젝트와의 연결점</div>
+  <p>이 프로젝트는 단일 S/4HANA 시스템 안에서 SD-MM-FI가 도는 구조라 별도 MDI/MDG 솔루션은 필요 없습니다. 하지만 <span class="hl">개념은 그대로 적용됩니다</span> — 자재마스터가 SD(판매)와 MM(구매) 양쪽에서 동일하게 참조되어야 재고 수량·평가가 어긋나지 않습니다.</p>
+  <p>더 직접적인 연결은 <b>목표 3번, 웹페이지 → RFC 호출</b>입니다. 외부에서 SAP를 호출하는 순간 이 프로젝트도 "두 시스템"이 되고, MDG가 말하는 <b>"누가 어떻게 수정할 수 있는지"</b>가 곧 RFC FM의 권한 체크 문제가 됩니다.</p>
+  <p>인터페이스 설계서에 미리 고정해 둘 것 — ① RFC FM에서 <code>AUTHORITY-CHECK</code>를 어느 오브젝트로 걸 것인가(<code>M_MSEG_WMB</code> 계열 · <code>V_VBAK_VKO</code> 계열), ② 외부에서 넘어온 조직단위(회사코드·플랜트)를 그대로 믿지 않고 <b>서버에서 재검증</b>할 것, ③ 마스터를 외부에서 변경하는 FM은 만들지 않을 것(조회와 트랜잭션 생성만).</p>
+</div>
+
+</div>
+
+
+<!-- ══════════ APPENDIX ══════════ -->
+<div class="lesson" id="lx">
+<h2><span class="no">APPENDIX</span>정리 · 반드시 기억할 것</h2>
+
+<h3>한 장 요약</h3>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>질문</th><th>답</th></tr></thead>
+<tbody>
+<tr><td>최상위 조직단위는</td><td class="wrap"><b>Client</b> — 마스터 레코드와 테이블을 포함하며 하나의 기업 그룹을 대표</td></tr>
+<tr><td>법적 실체·재무제표 단위는</td><td class="wrap"><b>Company Code</b></td></tr>
+<tr><td>원가·수익 배분의 경계는</td><td class="wrap"><b>Controlling Area</b> — 하나의 Controlling Area 안에서만 배분 가능한 <b>폐쇄적 단위</b></td></tr>
+<tr><td>Storage Location은 몇 개 필요한가</td><td class="wrap"><b>플랜트당 최소 1개</b></td></tr>
+<tr><td>Sales Area의 구성</td><td class="wrap">Sales Organization + Distribution Channel + Division</td></tr>
+<tr><td>Valuation Level 선택지</td><td class="wrap"><b>Plant 레벨</b>(생산계획·원가계산 사용 시 필수) 또는 Company Code 레벨</td></tr>
+<tr><td>엔터프라이즈 구조는 어디서 정의하나</td><td class="wrap">일상 업무가 아니라 <b>커스터마이징</b>에서. 구성요소끼리는 <b>할당(assignment)</b>으로 연결</td></tr>
+<tr><td>마스터 데이터의 성격</td><td class="wrap">비즈니스의 <b>명사</b>. 오래 변하지 않음. 조직단위를 참조해 레벨별로 차등 유지</td></tr>
+<tr><td>트랜잭션 데이터·문서의 성격</td><td class="wrap">비즈니스의 <b>동사</b>. 수명이 짧음. <span class="hl">항상 하나 이상의 조직단위에 할당</span></td></tr>
+<tr><td>마스터를 잘 유지하면 뭐가 좋나</td><td class="wrap">시스템이 트랜잭션 필드를 자동 제안 → <b>처리 시간 감소</b></td></tr>
+<tr><td>MDI / MDG</td><td class="wrap">MDI = 여러 소스를 단일 신뢰 뷰로 통합 / MDG = 품질·보안·컴플라이언스 감독</td></tr>
+</tbody>
+</table>
+</div>
+
+<div class="note warn">
+  <div class="t">반드시 지킬 것</div>
+  <p>· 조직단위 문의를 <b>응용 화면에서 풀려고 하지 않는다.</b> 답은 커스터마이징의 할당 관계에 있다.<br>
+     · 이 레슨의 구조 설명은 <b>On-Premise 기준</b>이다. Cloud Public Edition의 설정 범위는 다르므로 실제 시스템에서 확인한다.<br>
+     · <b>Segment와 Valuation Level은 선택 축</b>이다. 계층 트리에 억지로 끼워 넣어 설명하지 않는다.<br>
+     · 실습 캡처의 수치(총중량, Sales Order #53 등)는 <b>강의 환경 값</b>이다. 개념만 가져오고 수치는 인용하지 않는다.<br>
+     · 배치관리 체크는 <b>Client 레벨</b>이다. "이 플랜트만 배치관리"는 자재마스터 기본 설정으로는 안 된다는 뜻이므로, 설계 시 이 제약을 먼저 확인한다.</p>
+</div>
+
+<h3>참고</h3>
+
+<ul>
+  <li>원본: 노션 <b>SAP Learning Hub</b> → <b>IEE2E</b> → 3. Discussing Central Concepts and Objects in SAP Business Suite (3-1 ~ 3-3 + 실습 PDF 2건)</li>
+  <li>과정명: <b>Exploring End-to-End Business Processes in SAP Business Suite</b></li>
+  <li>앞 노트: <b>U1</b> End-to-End 프로세스와 통합 과제 · <b>U2</b> SAP Business Suite 개관</li>
+  <li>관련 노트: SD 저니 <b>S46000</b> Sales Essentials(조직단위와 Order-to-Cash 상세) · MM 저니 <b>S4500</b> · <b>S4510</b> 재고관리</li>
+  <li>이 노트는 <b>개인 학습용</b> 정리다. 실무 프로젝트 산출물이 아니다.</li>
+</ul>
+
+</div>
+
+</div>
+<script src="../../assets/hub.js" defer></script>
+</body>
+</html>

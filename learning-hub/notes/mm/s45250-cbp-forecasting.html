@@ -1,0 +1,843 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>S45250 Consumption-based Planning and Forecasting — 재주문점 · 로트사이징 · MRP 실행</title>
+<meta name="description" content="SAP Learning Hub의 Consumption-based Planning and Forecasting(S45250) 노트. 소비기반계획 개요, 재주문점·예측기반 순소요량계산, 로트사이즈계산과 라운딩, 일정계획, 조달제안·소스결정, MRP Live와 Classic MRP, MRP영역과 예측 실행.">
+<link rel="icon" href="../../assets/favicon.svg">
+<link rel="stylesheet" href="../../assets/notes-paper.css">
+<style>
+/* ── 이 노트 전용: 도해(SVG) 스타일 ─────────────────────────── */
+.dgm{display:block; width:100%; height:auto;}
+.dgm text{font-family:"Malgun Gothic","맑은 고딕","Apple SD Gothic Neo",sans-serif; fill:#1e1e1e;}
+.dgm .t-h{font-size:15px; font-weight:700;}
+.dgm .t{font-size:13px;}
+.dgm .t-s{font-size:11.5px; fill:#555;}
+.dgm .t-xs{font-size:10.5px; fill:#6B7280;}
+.dgm .m{font-family:"D2Coding","Consolas",monospace; font-size:12px;}
+.dgm .m-s{font-family:"D2Coding","Consolas",monospace; font-size:10.5px;}
+.dgm .c-key{fill:#4338CA;} .dgm .c-bad{fill:#B91C1C;} .dgm .c-ok{fill:#047857;}
+.dgm .b{fill:#FFFFFF; stroke:#C7CBD6; stroke-width:1.2;}
+.dgm .b-key{fill:#EEF0FB; stroke:#4338CA; stroke-width:1.4;}
+.dgm .b-bad{fill:#FEF2F2; stroke:#B91C1C; stroke-width:1.3;}
+.dgm .b-ok{fill:#ECFDF5; stroke:#047857; stroke-width:1.3;}
+.dgm .b-mut{fill:#F3F4F6; stroke:#D1D5DB; stroke-width:1.1;}
+.dgm .b-hl{fill:#FEF08A; stroke:#CA8A04; stroke-width:1.2;}
+.dgm .b-ghost{fill:none; stroke:#9AA3B2; stroke-width:1.1; stroke-dasharray:5 4;}
+.dgm .ln{stroke:#7C8697; stroke-width:1.4; fill:none;}
+.dgm .ln-key{stroke:#4338CA; stroke-width:1.8; fill:none;}
+.dgm .ln-bad{stroke:#B91C1C; stroke-width:1.6; fill:none;}
+.dgm .ln-ok{stroke:#047857; stroke-width:1.6; fill:none;}
+.dgm .ln-d{stroke:#9AA3B2; stroke-width:1.2; stroke-dasharray:4 4; fill:none;}
+.dgm .arw{fill:#7C8697;} .dgm .arw-key{fill:#4338CA;}
+.dgm .arw-bad{fill:#B91C1C;} .dgm .arw-ok{fill:#047857;}
+.figwrap{background:#FAFAFE; border:1px solid var(--rule); border-radius:6px;
+  padding:18px 16px 10px; margin:22px 0;}
+.figwrap figcaption{margin-top:12px; padding-top:10px; border-top:1px solid var(--rule);}
+</style>
+</head>
+<body>
+<div class="crumb"><a href="../../index.html">← 자료실 홈</a> · <a href="../../journey.html?j=mm">MM 저니</a> · S45250 Consumption-based Planning</div>
+<div class="sheet">
+
+<div class="doc-head">
+  <div class="kicker">LEARNING HUB · S45250</div>
+  <h1>소비기반계획(CBP) — 재주문점 · 로트사이징 · MRP 실행</h1>
+  <div class="sub">
+    Learning Journey <b>Implementing SAP S/4HANA Cloud Private Edition, Sourcing and Procurement</b> · Course 3 / S45250 · 9 Unit · 17 레슨 · 3 hr+<br>
+    출처: 노션 <b>SAP Learning Hub</b> 노트 3-1 ~ 3-3 변환
+  </div>
+</div>
+
+<div class="lead">
+  <p><b>결론부터.</b> 소비기반계획(CBP)은 미래 수요를 예측해서 발주하는 방식이 아니라, <span class="hl">과거에 얼마나 나갔는지만 보고 발주하는 방식</span>입니다. BOM도 생산오더도 필요 없습니다. 재고가 정해 둔 선(재주문점) 아래로 떨어지는 그 순간 시스템이 구매요청을 뱉습니다.</p>
+  <p>그래서 이 코스에서 정말 중요한 건 <b>계획실행(Planning Run)이 어떤 순서로 무엇을 결정하는가</b> 하나입니다. 부족분을 세고(순소요량계산) → 실제 발주수량을 정하고(로트사이즈계산) → 날짜를 붙이고(일정계획) → 어떤 문서를 누구에게 낼지(조달제안·소스결정) 정합니다. 이 네 단계의 어디를 잘못 세팅했느냐로 "왜 이 수량이 나왔나" "왜 이 날짜인가"가 전부 갈립니다.</p>
+</div>
+
+<div class="toc">
+  <h4>목차</h4>
+  <ol>
+    <li><a href="#l1">CBP 개요 · 순소요량계산 · 로트사이징 · 일정계획</a></li>
+    <li><a href="#l2">조달제안·소스결정 · MRP Live와 Classic MRP</a></li>
+    <li><a href="#l3">MRP영역 · 예측 실행 · FAQ</a></li>
+  </ol>
+</div>
+
+
+<!-- ══════════ LESSON 1 ══════════ -->
+<div class="lesson" id="l1">
+<h2><span class="no">LESSON 1</span>CBP 개요 · 순소요량계산 · 로트사이징 · 일정계획</h2>
+
+<p><span class="tag">Unit 1-4</span><span class="tag">레슨 7개</span>Introducing CBP · Net Requirements Calculation · Lot Size Calculation · Scheduling</p>
+
+<h3>언제 이걸 알아야 하는가</h3>
+
+<p>MM 유지보수에서 반복해서 들어오는 문의가 <b>"MRP 돌렸는데 이 자재는 구매요청이 안 나옵니다"</b>, 그리고 그 짝인 <b>"왜 이렇게 많이 나왔습니까"</b> 두 가지입니다.</p>
+
+<p>둘 다 원인이 같은 자리에 있습니다. 앞쪽은 <span class="key">순소요량계산</span>에서 부족분이 0으로 계산된 것이고 — 재주문점보다 가용재고가 아직 높거나, 애초에 MRP유형이 계획 대상이 아니거나 — 뒤쪽은 <span class="key">로트사이즈계산</span>에서 라운딩값·최소로트사이즈가 부족분을 부풀린 것입니다. 부족분과 발주수량은 <b>같은 숫자가 아닙니다.</b> 이 구분이 이 LESSON의 핵심입니다.</p>
+
+<h3>소비기반계획이란</h3>
+
+<p>MRP의 핵심 역할은 재고를 모니터링하고, 구매·생산을 위한 <b>조달제안</b>(계획오더 · 구매요청 · 납품일정라인)을 자동 생성하는 것입니다. <span class="key">소비기반계획(Consumption-based Planning)</span>은 그 여러 계획방법 중 <b>과거 소비실적 데이터로 미래 소요량을 결정</b>하는 방식입니다.</p>
+
+<div class="note">
+  <div class="t">🔰 초보자 설명 — 소비기반계획을 어디에 쓰나</div>
+  <p>비교적 구현이 쉬운 자재계획절차입니다. <b>사내생산이 없는 영역</b>(= 사서 되파는 유통), 또는 생산플랜트라도 B/C급 부품·운영자재(MRO) 계획에 씁니다. 순소요량계산이 트리거되는 계기는 둘 중 하나입니다 — 재고수준이 <b>재주문점 아래로 떨어지거나</b>, 과거 소비실적에서 계산된 <b>예측소요량</b>이 발생하거나.</p>
+</div>
+
+<p>자재를 어떤 방법으로 계획할지는 <span class="key">MRP 유형(MRP Type)</span>이 결정합니다. 자재마스터의 컨트롤필드이고, 자재계획에서 가장 중요한 필드 중 하나입니다. 소비기반계획에 쓰는 표준 MRP유형은 재주문점계획의 수동방식 <code>VB</code>, 자동방식 <code>VM</code>입니다.</p>
+
+<h3>계획실행(Planning Run)은 무엇을 순서대로 결정하는가</h3>
+
+<figure class="figwrap">
+<svg class="dgm" viewBox="0 0 1000 400" role="img" aria-label="계획실행의 단계 도해. 계획파일 확인을 첫 단계로 순소요량계산이 부족분을 세고, 로트사이즈계산이 실제 발주수량을 정하고, 일정계획이 날짜를 붙이고, 조달제안결정과 공급소스결정이 문서 유형과 공급업체를 정한 뒤 예외메시지가 생성된다.">
+  <defs>
+    <marker id="pa" markerWidth="9" markerHeight="9" refX="7" refY="4.5" orient="auto">
+      <polygon class="arw" points="0,0 9,4.5 0,9"/></marker>
+    <marker id="pk" markerWidth="9" markerHeight="9" refX="7" refY="4.5" orient="auto">
+      <polygon class="arw-key" points="0,0 9,4.5 0,9"/></marker>
+  </defs>
+
+  <rect class="b-ghost" x="50" y="18" width="900" height="36" rx="6"/>
+  <text class="t-s" x="70" y="41">0. <tspan class="t-h">계획파일(Planning File) 확인</tspan> — 계획실행의 첫 번째 단계. 계획 대상 자재 목록에 들어 있는지부터 본다</text>
+
+  <path class="ln-key" d="M130 54 V96" marker-end="url(#pk)"/>
+
+  <rect class="b-key" x="50" y="100" width="160" height="72" rx="6"/>
+  <text class="t-h c-key" x="68" y="126">순소요량계산</text>
+  <text class="t-s" x="68" y="146">가용재고 vs 재주문점</text>
+  <text class="t-s" x="68" y="162">→ 부족분 식별</text>
+
+  <rect class="b-key" x="235" y="100" width="160" height="72" rx="6"/>
+  <text class="t-h c-key" x="253" y="126">로트사이즈계산</text>
+  <text class="t-s" x="253" y="146">절차 + 라운딩</text>
+  <text class="t-s" x="253" y="162">→ 실제 발주수량</text>
+
+  <rect class="b-key" x="420" y="100" width="160" height="72" rx="6"/>
+  <text class="t-h c-key" x="438" y="126">일정계획</text>
+  <text class="t-s" x="438" y="146">3개 시간요소 역산</text>
+  <text class="t-s" x="438" y="162">→ 조달제안 일자</text>
+
+  <rect class="b-key" x="605" y="100" width="160" height="72" rx="6"/>
+  <text class="t-h c-key" x="623" y="126">조달제안결정</text>
+  <text class="t-s" x="623" y="146">외부조달 / 사내생산</text>
+  <text class="t-s" x="623" y="162">→ 문서 유형</text>
+
+  <rect class="b-key" x="790" y="100" width="160" height="72" rx="6"/>
+  <text class="t-h c-key" x="808" y="126">공급소스결정</text>
+  <text class="t-s" x="808" y="146">계약·일정계약·IR</text>
+  <text class="t-s" x="808" y="162">→ 공급업체</text>
+
+  <path class="ln-key" d="M210 136 H231" marker-end="url(#pk)"/>
+  <path class="ln-key" d="M395 136 H416" marker-end="url(#pk)"/>
+  <path class="ln-key" d="M580 136 H601" marker-end="url(#pk)"/>
+  <path class="ln-key" d="M765 136 H786" marker-end="url(#pk)"/>
+
+  <rect class="b-mut" x="50" y="196" width="160" height="44" rx="5"/>
+  <text class="m-s" x="68" y="216">부족수량</text>
+  <text class="t-xs" x="68" y="232">예: 부족 21개</text>
+  <rect class="b-mut" x="235" y="196" width="160" height="44" rx="5"/>
+  <text class="m-s" x="253" y="216">발주수량 ≠ 부족수량</text>
+  <text class="t-xs" x="253" y="232">라운딩 후 25개</text>
+  <rect class="b-mut" x="420" y="196" width="160" height="44" rx="5"/>
+  <text class="m-s" x="438" y="216">발주일 · 납품일</text>
+  <text class="t-xs" x="438" y="232">근무일 + 역일 혼합</text>
+  <rect class="b-mut" x="605" y="196" width="160" height="44" rx="5"/>
+  <text class="m-s" x="623" y="216">PR / 일정라인</text>
+  <text class="t-xs" x="623" y="232">MRP Live 기준</text>
+  <rect class="b-mut" x="790" y="196" width="160" height="44" rx="5"/>
+  <text class="m-s" x="808" y="216">Vendor</text>
+  <text class="t-xs" x="808" y="232">할당 &gt; 소스리스트 …</text>
+
+  <path class="ln-d" d="M130 172 V194"/>
+  <path class="ln-d" d="M315 172 V194"/>
+  <path class="ln-d" d="M500 172 V194"/>
+  <path class="ln-d" d="M685 172 V194"/>
+  <path class="ln-d" d="M870 172 V194"/>
+
+  <path class="ln" d="M500 240 V276" marker-end="url(#pa)"/>
+  <rect class="b-hl" x="300" y="280" width="400" height="44" rx="6"/>
+  <text class="t-h" x="322" y="300">예외메시지 생성</text>
+  <text class="t-s" x="322" y="317">계획담당자가 봐야 할 예외상황 통지 — 계획실행의 산출물</text>
+
+  <rect class="b-bad" x="50" y="344" width="900" height="40" rx="6"/>
+  <text class="t-s c-bad" x="70" y="362">여기서 제일 많이 헷갈리는 지점: <tspan class="t-h c-bad">부족수량 ≠ 발주수량</tspan>. 순소요량계산은 "얼마나 모자라나"만 답하고,</text>
+  <text class="t-s c-bad" x="70" y="378">"그래서 얼마를 시킬까"는 로트사이즈계산이 라운딩값 · 최소/최대 로트사이즈를 얹어서 따로 결정한다.</text>
+</svg>
+<figcaption><span class="fno">그림 1</span>계획실행의 결정 순서. 부족분을 세는 단계와 발주수량을 정하는 단계는 분리되어 있다.</figcaption>
+</figure>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>단계</th><th>설명</th></tr></thead>
+<tbody>
+<tr><td>순소요량계산<br>Net Requirements Calculation</td><td class="wrap">재고 부족분을 식별</td></tr>
+<tr><td>로트사이즈계산<br>Lot Size Calculation</td><td class="wrap">실제 조달제안 수량 결정</td></tr>
+<tr><td>일정계획<br>Scheduling</td><td class="wrap">조달제안의 일자 결정</td></tr>
+<tr><td>조달제안결정<br>Procurement Proposal Determination</td><td class="wrap">어떤 유형의 조달제안(계획오더 / 구매요청 등)을 생성할지 결정</td></tr>
+<tr><td>예외메시지 생성<br>Exception Message</td><td class="wrap">계획담당자가 주의해야 할 예외상황 통지</td></tr>
+</tbody>
+</table>
+</div>
+
+<h3>재주문점계획 — 재고가 선 아래로 떨어지는 순간</h3>
+
+<p>재주문점계획의 원리는 한 줄입니다. <span class="hl">가용재고를 재주문점과 비교해서, 가용재고가 더 적으면 그 차이가 부족분이 되어 조달이 트리거됩니다.</span></p>
+
+<p>재주문점은 <b>보충리드타임(Replenishment Lead Time) 동안 예상되는 평균 소요량을 커버</b>하도록 계산되어야 하고, 자재마스터레코드의 <b>플랜트 레벨</b>에서 유지합니다. <span class="key">안전재고(Safety Stock)</span>도 자재마스터에서 유지하며, 보충리드타임 동안의 초과소요나 납품지연에 대비하는 완충입니다.</p>
+
+<div class="note ok">
+  <div class="t">재주문점 공식</div>
+  <p><b>재주문점 = 안전재고 + 보충리드타임 동안의 예상 일일소요량</b><br>
+  정의할 때 고려할 요소는 셋입니다 — 안전재고 · 과거소비실적(또는 미래소요량) · 보충리드타임.</p>
+</div>
+
+<figure class="figwrap">
+<svg class="dgm" viewBox="0 0 1000 470" role="img" aria-label="재주문점 방식의 동작 도해. 가용재고가 시간에 따라 줄어들다 재주문점 선을 뚫는 순간 조달제안이 생성되고, 보충리드타임이 지나 입고되면 재고가 목표수준으로 회복되며, 정상적인 경우 그 사이에 안전재고는 인출되지 않는다.">
+  <defs>
+    <marker id="ta" markerWidth="9" markerHeight="9" refX="7" refY="4.5" orient="auto">
+      <polygon class="arw" points="0,0 9,4.5 0,9"/></marker>
+  </defs>
+
+  <rect x="150" y="270" width="800" height="60" fill="#FEF2F2"/>
+
+  <path class="ln" d="M150 30 V330 H958" marker-end="url(#ta)"/>
+  <text class="t-xs" x="158" y="26">재고수량</text>
+  <text class="t-xs" x="900" y="348">시간 →</text>
+
+  <path class="ln-d" d="M150 70 H950"/>
+  <path d="M150 190 H950" stroke="#4338CA" stroke-width="1.4" stroke-dasharray="6 4" fill="none"/>
+  <path d="M150 270 H950" stroke="#B91C1C" stroke-width="1.4" stroke-dasharray="6 4" fill="none"/>
+
+  <text class="t" x="14" y="66">목표재고 수준</text>
+  <text class="t-xs" x="14" y="82">입고 직후 도달점</text>
+  <text class="t-h c-key" x="14" y="186">재주문점</text>
+  <text class="m-s" x="14" y="202">Reorder Point</text>
+  <text class="t-h c-bad" x="14" y="266">안전재고</text>
+  <text class="m-s" x="14" y="282">Safety Stock</text>
+  <text class="t-s" x="128" y="335">0</text>
+
+  <path class="ln-key" d="M170 75 L430 190 L600 252 L600 72 L870 190 L950 218"/>
+  <circle cx="430" cy="190" r="5.5" fill="#4338CA"/>
+  <circle cx="600" cy="72" r="5.5" fill="#047857"/>
+  <circle cx="870" cy="190" r="5.5" fill="#4338CA"/>
+
+  <path class="ln-d" d="M430 190 V345"/>
+  <path class="ln-d" d="M600 252 V345"/>
+
+  <path class="ln" d="M430 352 H600"/>
+  <path class="ln" d="M430 346 V358"/>
+  <path class="ln" d="M600 346 V358"/>
+  <text class="t-s" x="515" y="372" text-anchor="middle">보충리드타임</text>
+
+  <text class="t-xs c-key" x="430" y="392" text-anchor="middle">① 가용재고 &lt; 재주문점</text>
+  <text class="t-xs c-key" x="430" y="406" text-anchor="middle">→ 조달제안 생성</text>
+  <text class="t-xs c-ok" x="600" y="392" text-anchor="middle">② 입고(GR)</text>
+  <text class="t-xs c-ok" x="600" y="406" text-anchor="middle">→ 가용수량 회복</text>
+  <text class="t-xs c-key" x="870" y="392" text-anchor="middle">③ 다시 재주문점</text>
+
+  <text class="t-xs c-bad" x="170" y="308">이 아래로 내려가면 결품 위험. 정상적인 경우 입고 시점까지 안전재고는 인출되지 않아야 한다.</text>
+
+  <rect class="b-ghost" x="150" y="420" width="800" height="40" rx="6"/>
+  <text class="t-s" x="170" y="438"><tspan class="t-h">재주문점 = 안전재고 + 일평균소요량 × 조달소요기간</tspan>　· 수동 유지 = MRP유형 <tspan class="m-s">VB</tspan></text>
+  <text class="t-s" x="170" y="454">예측프로그램이 자동 계산·갱신하도록 하려면 MRP유형 <tspan class="m-s">VM</tspan> — 계산 근거는 LESSON 3에서.</text>
+</svg>
+<figcaption><span class="fno">그림 2</span>재주문점 방식의 시간축 동작. 조달이 트리거되는 것은 "재고가 떨어진 순간"이지 "필요한 날"이 아니다.</figcaption>
+</figure>
+
+<p>재고가 재주문점에 도달하면 조달제안이 생성됩니다. 보충리드타임 동안 재고는 계속 인출되며, <b>정상적인 경우 발주수량 입고 시점까지 안전재고는 인출되지 않아야 합니다.</b> 신규 가용수량은 재고가 다시 재주문점에 도달할 때까지 유지됩니다.</p>
+
+<h3>예측기반계획 — 예측값 자체가 소요량이 된다</h3>
+
+<p><span class="key">예측기반계획(Forecast-based Planning)</span>은 자재 소비실적을 기반으로 합니다. 예측도구가 과거값을 근거로 예상소비값을 결정하고, 전통적 방식에서는 <b>그 예측값이 계획실행의 소요값으로 그대로 사용</b>됩니다.</p>
+
+<div class="note warn">
+  <div class="t">⚠️ Further Reading — 클래식 예측기반계획은 단계적 폐지 대상</div>
+  <p>클래식 예측기반계획은 SAP S/4HANA <b>호환성패키지(Compatibility Package)</b>의 일환으로 <b>2025년 말</b>(특정 상황에서는 2030년 말)까지 단계적으로 폐지될 예정입니다. SAP는 대체방식 사용을 권장합니다 — 예측값을 <b>계획독립소요(Planned Independent Requirements)</b>로 전환해 쓰는 방식입니다. 최신정보는 SAP Note <code>2268095</code>, <code>2269324</code>.<br>
+  <b>확인 필요</b> — 실제 시스템(winerp01 / MEP)의 릴리스·호환성범위 적용 여부는 도입 전에 확정할 것.</p>
+</div>
+
+<div class="note">
+  <div class="t">🔰 초보자 설명 — 분할지시자(Splitting Indicator)</div>
+  <p>클래식 예측기반계획에서는 분할지시자로 예측소요량을 더 작은 기간단위로 쪼갤 수 있습니다. 예측소요량은 <b>각 자재인출(withdrawal)마다 차감</b>되어, 이미 실현된 부분의 예측소요는 다시 계획되지 않습니다.</p>
+</div>
+
+<h3>로트사이즈계산 — 부족분을 발주수량으로 바꾸는 단계</h3>
+
+<p>로트사이즈계산은 순소요량계산 <b>이후</b>에 옵니다. 순소요량계산이 각 소요일자별 부족수량을 결정하면, 로트사이즈계산이 그 부족을 덮을 <b>발주제안수량</b>을 계산합니다. 다시 강조하면 <span class="bad">부족수량과 발주수량은 반드시 같지 않습니다.</span></p>
+
+<p>조달수량 결정 순서는 이렇습니다.</p>
+
+<div class="step"><span class="n">1</span><p>순소요량계산 — 부족수량 산출</p></div>
+<div class="step"><span class="n">2</span><p>자재마스터에 지정된 <b>로트사이징절차</b> 적용</p></div>
+<div class="step"><span class="n">3</span><p>자재마스터에 <b>라운딩 지시</b>가 유지되어 있으면 최종 반올림</p></div>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>라운딩방식</th><th>설명</th></tr></thead>
+<tbody>
+<tr><td>라운딩값<br>Rounding Value</td><td class="wrap">유지되어 있으면, 계산된 수량을 <b>이 값의 배수</b>로 반올림</td></tr>
+<tr><td>라운딩프로파일<br>Rounding Profile</td><td class="wrap">단계별(scaled) 라운딩. <span class="bad">SAP는 기본설정을 제공하지 않으므로 개별 Customizing 필요.</span> <b>임계값(threshold)</b>과 <b>라운딩값</b>의 쌍으로 구성 — 소요값이 첫 임계값을 초과하면 해당 라운딩값의 다음 배수로 올림, 첫 임계값 미만이면 원래 소요값 그대로</td></tr>
+</tbody>
+</table>
+</div>
+
+<p>라운딩은 배송·포장·운송 단위의 제약에 맞추려고 씁니다. 박스 단위로만 납품 가능하거나, 완전한 팔레트 단위로만 운송 가능한 경우가 전형입니다.</p>
+
+<div class="note">
+  <div class="t">🔰 초보자 설명 — 라운딩프로파일 계산 예시</div>
+  <p>자재가 개(piece) 단위로 관리되고 1레이어 = 5개, 1팔레트 = 8레이어 = 40개 단위로 납품된다고 합시다. Customizing에 임계값 <code>2</code>→라운딩값 <code>5</code>, 임계값 <code>32</code>→라운딩값 <code>40</code> 이 설정되어 있을 때의 결과입니다.</p>
+</div>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>반올림 전</th><th>반올림 후</th><th>근거</th></tr></thead>
+<tbody>
+<tr><td>1</td><td>1</td><td class="wrap">첫 임계값 2 미만 — 반올림하지 않음</td></tr>
+<tr><td>2</td><td>5</td><td class="wrap">첫 임계값 도달 — 5로 반올림</td></tr>
+<tr><td>6</td><td>10</td><td class="wrap">5가 1번 포함, 나머지 1개를 5로 올림</td></tr>
+<tr><td>21</td><td>25</td><td class="wrap">5가 4번 포함, 나머지 1개를 5로 올림</td></tr>
+<tr><td>32</td><td>40</td><td class="wrap">두 번째 임계값 도달 — 40으로 반올림</td></tr>
+<tr><td>74</td><td>80</td><td class="wrap">40이 1번 포함, 나머지 34개를 40으로 올림</td></tr>
+</tbody>
+</table>
+</div>
+
+<p>라운딩프로파일은 <b>구매정보레코드에도</b> 입력할 수 있습니다. 다만 이 경우 라운딩은 계획실행 시점이 아니라, <span class="key">구매요청을 전환하거나 구매오더를 수동 생성할 때</span> 비로소 적용됩니다.</p>
+
+<p><b>최소/최대 로트사이즈</b>도 자재마스터에 지정합니다. 최소 로트사이즈는 조달제안의 최소수량, 최대 로트사이즈는 최대수량을 정의하며 로트사이즈 계산 시 함께 고려됩니다.</p>
+
+<div class="note ok">
+  <div class="t">📌 개인 E2E 프로젝트와의 연결점 — 유통기한 상품에서 라운딩은 곧 폐기다</div>
+  <p>프로젝트 자재는 전부 배치관리 + 유통기한(<code>MCHA-VFDAT</code>)입니다. 여기서 <b>과잉 발주 = 폐기</b>입니다. 그림 2의 목표재고 수준이 높아질수록 마지막 한 박스가 소진되기까지의 시간이 길어지고, 그 시간이 유통기한을 넘기면 <code>ZBATCH_ZONE</code>이 잔여 유통기한 30% 미달로 잡아 정상 → 임박 SLoc(냉동 <code>1100</code>→<code>1900</code>, 냉장 <code>2100</code>→<code>2900</code>, 실온 <code>3100</code>→<code>3900</code>)으로 <code>311</code> 이동시키게 됩니다.</p>
+  <p>즉 <span class="hl">ZBATCH_ZONE이 자주 도는 자재는 재주문점 또는 라운딩값이 과대하다는 신호</span>입니다. 냉장 <code>CHKN</code>·<code>RICE</code>처럼 유통기한이 짧은 자재에 팔레트 단위 라운딩프로파일을 그대로 걸면, 회전일수보다 발주 로트가 커져서 임박 이동 → 폐기가 구조적으로 발생합니다. 실온 <code>SHAK</code>·<code>PROT</code>·<code>PBAR</code>은 상대적으로 여유가 있으므로 라운딩 정책을 자재그룹별로 다르게 가져가는 편이 맞습니다.</p>
+</div>
+
+<h3>일정계획 — 날짜를 만드는 세 가지 시간</h3>
+
+<p>일정계획은 로트사이즈계산으로 조달수량이 정해진 <b>다음</b>에 수행됩니다. 소비기반계획으로 계획되고 <b>외부조달</b>되는 자재를 전제로 한 일정계획은 아래 세 시간요소를 씁니다.</p>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>시간요소</th><th>설명</th><th>유지 위치</th></tr></thead>
+<tbody>
+<tr><td>구매처리시간<br>Purchasing Dept. Processing Time</td><td class="wrap">구매담당자가 구매요청을 구매오더로 전환하는 데 걸리는 <b>근무일수</b></td><td class="wrap">Customizing: <code>MM → Consumption-Based Planning → Plant Parameters → Carry Out Overall Maintenance of Plant Parameters</code> — 플랜트별 정의</td></tr>
+<tr><td>계획입고시간<br>Planned Delivery Time</td><td class="wrap">외부조달로 자재를 조달하는 데 필요한 <b>역일수(calendar days)</b></td><td class="wrap">자재마스터(플랜트 레벨). 장기계약 · 구매정보레코드에도 저장 가능</td></tr>
+<tr><td>입고처리시간<br>GR Processing Time</td><td class="wrap">자재 수령부터 창고에서 <b>사용가능</b>해지기까지의 근무일수. 포장해제 · 검사 · 보관</td><td class="wrap">자재마스터(플랜트 레벨) 또는 장기계약</td></tr>
+</tbody>
+</table>
+</div>
+
+<div class="note warn">
+  <div class="t">우선순위 — 여기서 자주 틀린다</div>
+  <p>계획실행 중 시스템이 <b>공급소스(정보레코드 또는 장기계약)를 결정할 수 있는 경우</b>, 그 소스에 존재하는 계획입고시간·입고처리시간이 <span class="bad">자재마스터레코드의 값보다 우선</span>합니다. "자재마스터를 고쳤는데 날짜가 안 바뀐다"는 문의는 대부분 정보레코드 값이 이기고 있는 경우입니다.</p>
+</div>
+
+<div class="note ok">
+  <div class="t">📌 개인 E2E 프로젝트와의 연결점 — 입고처리시간은 GATE 플랜트의 시간이다</div>
+  <p>프로젝트는 플랜트를 <b>GATE</b>(입고 게이트)와 <b>STOR</b>(보관) 둘로 나눠 뒀습니다. 여기서 말하는 <b>입고처리시간</b>이 개념적으로 정확히 GATE 구간 — <code>101</code>로 받은 뒤 <code>301</code>로 STOR에 넘어가 실제 판매 가용재고가 될 때까지의 시간입니다. <code>ZGATE_INSPECT</code>가 감시하는 "GR(101) vs STOR이관(301) 차이"가 바로 이 구간에 눌러앉은 재고입니다. 일정계획상 입고처리시간을 0으로 두면 MRP는 GR 당일을 가용일로 계산하므로, GATE 체류를 반영한 근무일수를 자재마스터에 실제로 넣어야 계획 날짜가 현실과 맞습니다.</p>
+</div>
+
+</div>
+
+
+<!-- ══════════ LESSON 2 ══════════ -->
+<div class="lesson" id="l2">
+<h2><span class="no">LESSON 2</span>조달제안·소스결정 · MRP Live와 Classic MRP</h2>
+
+<p><span class="tag">Unit 5-6</span><span class="tag">레슨 4개</span>Determining Procurement Proposal and Source of Supply · Performing Planning</p>
+
+<h3>언제 이걸 알아야 하는가</h3>
+
+<p><b>"MRP가 계획오더를 만들어 놨는데 이 자재는 사서 파는 자재입니다"</b> — 외부조달 자재인데 계획오더가 나왔다는 문의입니다. 답은 <span class="key">어떤 실행 방식으로 돌렸느냐</span>에 있습니다. Classic MRP는 생성지시자에 따라 계획오더를 만들 수 있고, MRP Live는 외부조달 자재에 <span class="bad">계획오더를 아예 만들지 않습니다.</span></p>
+
+<p>반대로 <b>"MRP 결과 리스트가 안 보입니다"</b>도 같은 자리입니다. MRP Live는 MRP리스트를 더 이상 생성하지 않습니다. 볼 곳은 <code>MD04</code>입니다.</p>
+
+<h3>조달제안 유형은 무엇이 결정하나</h3>
+
+<p>MRP는 부족분을 감지하면 조달제안을 자동 생성합니다. 생성되는 <b>유형</b>은 그 자재가 <span class="key">외부조달인지 사내생산인지</span>에 따라 갈립니다. MRP Live 기준으로 외부조달 자재는 — <b>유효한 일정계약이 있으면 납품일정라인</b>, 없으면 <b>구매요청</b>입니다.</p>
+
+<p>부족분이 감지되면 계획실행은 생산할지 외부조달할지를 먼저 결정하고, 외부조달이면 시스템에 존재하는 유효한 공급소스(<b>장기계약 · 일정계약 · 정보레코드</b>) 중에서 소스를 찾습니다. 자동 소스결정의 우선순위 로직은 Course 2(S4520) Unit 3 "Source Determination"과 같습니다 — <span class="hl">할당버전(Quota Arrangement) &gt; 소스리스트 &gt; 일정계약/계약 &gt; Automatic Sourcing 지시자가 선 정보레코드</span> 순입니다.</p>
+
+<div class="note ok">
+  <div class="t">📌 개인 E2E 프로젝트와의 연결점 — MRP가 붙인 소스가 ZPRICE_CHECK의 입력이 된다</div>
+  <p>자동 소스결정이 구매요청에 공급업체를 붙이면, 그 업체의 <b>구매정보레코드가</b>(<code>EINE-NETPR</code>)가 그대로 발주 단가가 됩니다. <code>ZPRICE_CHECK</code>가 감시하는 "정보레코드가 vs 이동평균가(<code>MBEW-VERPR</code>) 괴리"의 대상 건수가 MRP 도입과 동시에 늘어난다는 뜻입니다 — 사람이 발주할 때는 담당자가 눈으로 거르던 것을 MRP는 안 거릅니다.</p>
+  <p>프로젝트 원칙(<b>회계 영향 처리는 자동화하지 않는다</b>)에 비춰 보면 선이 여기 있습니다. <span class="good">MRP가 구매요청을 자동 생성하는 것까지는 회계 전표가 없으므로 자동화해도 됩니다.</span> 구매요청 → 구매오더 전환(= 가격 확정)은 자동화 대상이 아니고, 그 앞에 <code>ZPRICE_CHECK</code>의 알림이 놓이는 구조가 맞습니다.</p>
+</div>
+
+<h3>MRP Live</h3>
+
+<p><span class="key">MRP Live</span>는 SAP HANA에 최적화된 계획실행 방식입니다. 자재 입고·소요를 처리하고 부족분을 계산하고 계획오더·구매요청 생성까지 <b>단일 데이터베이스 프로시저 안에서</b> 수행해 데이터 전송을 크게 줄입니다. 계획범위도 유연합니다 — 모든 구성요소를 포함한 자재세트, 특정 계획담당자의 자재, 전체 플랜트에 걸친 단일 자재 등.</p>
+
+<p>대신 <b>더 빠르지만 모든 비즈니스 프로세스를 지원하지는 않습니다.</b> 최적화 로트사이징(optimum lot-sizing) 같은 일부 로트사이징절차와 <b>예측기반계획(MRP유형 <code>VV</code>)</b>은 지원되지 않습니다.</p>
+
+<figure class="figwrap">
+<svg class="dgm" viewBox="0 0 1000 440" role="img" aria-label="MRP Live와 Classic MRP 비교 도해. MRP Live는 빠르고 옵션이 최소화된 대신 외부조달 자재에 계획오더를 만들지 않고 MRP리스트도 생성하지 않으며, Classic MRP는 생성지시자와 계획모드로 정밀하게 통제할 수 있어 두 방식이 S4HANA에서 함께 유지된다.">
+  <defs>
+    <marker id="ca" markerWidth="9" markerHeight="9" refX="7" refY="4.5" orient="auto">
+      <polygon class="arw" points="0,0 9,4.5 0,9"/></marker>
+  </defs>
+
+  <rect class="b-mut" x="20" y="18" width="200" height="42" rx="5"/>
+  <text class="t-h" x="40" y="45">비교 기준</text>
+  <rect class="b-key" x="230" y="18" width="390" height="42" rx="5"/>
+  <text class="t-h c-key" x="252" y="45">MRP Live</text>
+  <text class="m-s c-key" x="360" y="45">MD01N · Schedule MRP Runs</text>
+  <rect class="b" x="630" y="18" width="350" height="42" rx="5"/>
+  <text class="t-h" x="652" y="45">Classic MRP</text>
+  <text class="m-s" x="752" y="45">MD01 · MDBT · MD03</text>
+
+  <rect class="b-mut" x="20" y="66" width="200" height="56" rx="5"/>
+  <text class="t" x="40" y="90">외부조달</text>
+  <text class="t" x="40" y="108">조달제안</text>
+  <rect class="b" x="230" y="66" width="390" height="56" rx="5"/>
+  <text class="t-s" x="252" y="88">일정계약 有 → 납품일정라인 / 그 외 → 구매요청</text>
+  <text class="t-s c-bad" x="252" y="108">계획오더는 생성하지 않는다</text>
+  <rect class="b" x="630" y="66" width="350" height="56" rx="5"/>
+  <text class="t-s" x="652" y="88">생성지시자로 선택한다</text>
+  <text class="t-s" x="652" y="108">계획오더 / 구매요청 / 일정라인</text>
+
+  <rect class="b-mut" x="20" y="128" width="200" height="56" rx="5"/>
+  <text class="t" x="40" y="152">MRP 리스트</text>
+  <text class="t-xs" x="40" y="170">실행 시점 스냅샷</text>
+  <rect class="b" x="230" y="128" width="390" height="56" rx="5"/>
+  <text class="t-s c-bad" x="252" y="150">생성하지 않는다</text>
+  <text class="t-s" x="252" y="170">→ MD04 (Monitor Stock/Requirements) 실시간 조회</text>
+  <rect class="b" x="630" y="128" width="350" height="56" rx="5"/>
+  <text class="t-s" x="652" y="150">생성 가능 — 생성지시자로 통제</text>
+  <text class="t-s" x="652" y="170">평가: MD05 · MD06</text>
+
+  <rect class="b-mut" x="20" y="190" width="200" height="56" rx="5"/>
+  <text class="t" x="40" y="214">미지원 범위</text>
+  <rect class="b-bad" x="230" y="190" width="390" height="56" rx="5"/>
+  <text class="t-s c-bad" x="252" y="212">최적화 로트사이징 · 예측기반계획(VV)</text>
+  <text class="t-s" x="252" y="232">→ 해당 자재는 Classic MRP로 넘어간다</text>
+  <rect class="b-ok" x="630" y="190" width="350" height="56" rx="5"/>
+  <text class="t-s c-ok" x="652" y="212">전 범위 지원</text>
+  <text class="t-xs" x="652" y="232">제약 목록: SAP Note 1914010</text>
+
+  <rect class="b-mut" x="20" y="252" width="200" height="56" rx="5"/>
+  <text class="t" x="40" y="276">통제 파라미터</text>
+  <rect class="b" x="230" y="252" width="390" height="56" rx="5"/>
+  <text class="t-s" x="252" y="274">옵션·결정사항을 최소화</text>
+  <text class="t-s" x="252" y="294">재생성계획 · 계획모드 · 계획범위 지시자</text>
+  <rect class="b" x="630" y="252" width="350" height="56" rx="5"/>
+  <text class="t-s" x="652" y="274">Processing key (NEUPL / NETCH)</text>
+  <text class="t-s" x="652" y="294">생성지시자 · 계획모드 1 / 2 / 3</text>
+
+  <rect class="b-mut" x="20" y="314" width="200" height="56" rx="5"/>
+  <text class="t" x="40" y="338">고르는 이유</text>
+  <rect class="b" x="230" y="314" width="390" height="56" rx="5"/>
+  <text class="t-s" x="252" y="336">성능 · 단순화 · 유연한 계획범위</text>
+  <text class="t-s" x="252" y="356">신규 구축이면 기본값</text>
+  <rect class="b" x="630" y="314" width="350" height="56" rx="5"/>
+  <text class="t-s" x="652" y="336">정밀 통제 · MRP리스트 유지</text>
+  <text class="t-s" x="652" y="356">이미 확립된 기존 프로세스</text>
+
+  <path class="ln" d="M425 370 V396" marker-end="url(#ca)"/>
+  <rect class="b-hl" x="120" y="400" width="760" height="36" rx="6"/>
+  <text class="t-s" x="142" y="422">MRP Live 실행 시 시스템이 <tspan class="t-h">자재별로 자동 판단</tspan> — 로우레벨코드 0부터 MRP Live를 먼저 시도하고, 안 되거나 오류난 자재만 Classic으로 넘긴다.</text>
+</svg>
+<figcaption><span class="fno">그림 3</span>MRP Live와 Classic MRP 비교. 둘 중 하나를 고르는 것이 아니라, MRP Live가 못 하는 자재를 Classic이 받는 구조다.</figcaption>
+</figure>
+
+<div class="note">
+  <div class="t">🔰 초보자 설명 — 로우레벨코드(Low-Level Code)</div>
+  <p>계획실행 중 자재는 로우레벨코드 기준으로 순서가 정해집니다. 로우레벨코드는 그 자재가 <b>어떤 BOM에서든 나타나는 최하위 레벨</b>입니다. 시스템은 레벨 0의 모든 자재를 먼저 계획하고 레벨 1로 넘어갑니다. 각 레벨에서 먼저 MRP Live로 시도하고, 그 다음 단계로 MRP Live로 계획할 수 없거나 오류가 난 자재를 Classic MRP로 처리합니다. 이 순서가 레벨마다 반복됩니다.</p>
+</div>
+
+<h3>MRP Live 실행과 계획범위</h3>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>환경</th><th>실행 방법</th></tr></thead>
+<tbody>
+<tr><td>백엔드 시스템</td><td class="wrap">SAP Easy Access 화면에서 트랜잭션 <code>MD01N</code></td></tr>
+<tr><td>SAP Fiori 런치패드</td><td class="wrap"><b>Schedule MRP Runs</b> 앱</td></tr>
+</tbody>
+</table>
+</div>
+
+<p>계획범위(Planning Scope)는 아래 지시자로 확장합니다.</p>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>지시자</th><th>설명</th></tr></thead>
+<tbody>
+<tr><td>Changed BOM Components</td><td class="wrap">선택 자재 외에 BOM 구성요소도 계획. <b>현재 계획실행 중 종속소요가 변경된 구성요소만</b> 계획하고, 변경 없는 것은 무시</td></tr>
+<tr><td>All Order BOM Components</td><td class="wrap">소요 변경 여부와 무관하게 <b>모든</b> 오더 BOM 구성요소를 계획</td></tr>
+<tr><td>Stock Transfer Material</td><td class="wrap">재고이체용 특수조달유형 자재에 영향. 계획범위에 지정된 플랜트뿐 아니라 <b>공급플랜트에서도</b> 계획 가능</td></tr>
+</tbody>
+</table>
+</div>
+
+<p>통제파라미터는 둘입니다. <b>Regenerative Planning(재생성계획)</b> 을 선택하면 마지막 계획실행 이후 변경이 없어도 사전선택된 모든 자재를 강제로 계획합니다. <b>Planning Mode(계획모드)</b> 는 마지막 계획실행의 <b>비확정(non-fixed)</b> 조달제안을 다음 실행에서 어떻게 처리할지 지정합니다 — <span class="good">확정된 조달제안은 변경되지 않습니다.</span> Scheduling 지시자는 계획오더에만 영향을 줍니다.</p>
+
+<h3>계획파일(Planning File) — 계획실행의 첫 단계</h3>
+
+<p>계획실행 범위(플랜트 · 자재 · MRP컨트롤러 등)를 정의하면, 시스템은 백그라운드에서 계획할 각 자재가 <span class="key">계획파일</span>에 포함되어 있는지부터 확인합니다.</p>
+
+<ul>
+  <li>MRP 데이터와 <b>유효한 MRP유형</b>을 가진 자재마스터가 생성되면 자동으로 계획파일에 포함된다</li>
+  <li>이후 계획관련 활동(재고이동 · 신규 구매오더 생성 등)이 발생하면 <b>계획파일의 지시자가 자동 갱신</b>되어 신규 계획실행 대상임을 표시한다</li>
+  <li><span class="hl">계획파일 확인이 계획실행의 첫 번째 단계다</span></li>
+</ul>
+
+<h3>개별계획 앱</h3>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>앱</th><th>용도</th></tr></thead>
+<tbody>
+<tr><td>Manage Material Coverage<br><code>F02510</code></td><td class="wrap">선택한 자재들의 커버리지 이슈 표시·분석. 자재별 부족정보를 포함한 재고/소요량리스트 확인, 앱 안에서 바로 MRP실행 시작 가능. 기존 <code>F0251</code>의 후속 버전 — 향상된 UI, 다중 자재선택, 자재개요 테이블·퀵뷰 내비게이션 제공. <span class="bad">다만 F0251의 모든 측면을 아직 완전히 커버하지는 않음</span></td></tr>
+<tr><td>Monitor Material Coverage<br>Net and Individual Segments</td><td class="wrap">담당영역 내 <b>모든</b> 자재를 한눈에 감독. 부족 이슈에 신속 대응해 생산·고객수요충족 지연 방지. 여기서 Manage Material Coverage로 직접 이동</td></tr>
+<tr><td>Monitor Stock/Requirements List<br><code>MD04</code></td><td class="wrap">자재 수급상황 <b>실시간</b> 조회. MRP Live가 MRP리스트를 만들지 않는 대신 쓰는 도구</td></tr>
+<tr><td>My Area of Responsibility<br>MRP Controller</td><td class="wrap">담당 MRP컨트롤러·플랜트 조합 배정. MRP 관련 앱을 처음 실행할 때 지정해야 하며, 이후 앱들은 담당 자재만 표시. 배정은 언제든 변경 가능</td></tr>
+</tbody>
+</table>
+</div>
+
+<h3>Classic MRP — 언제 아직도 쓰는가</h3>
+
+<ul>
+  <li>회사 내에 이미 확립되고 익숙한 프로세스가 있는 경우</li>
+  <li>상세한 계획파라미터로 <b>정밀한 통제</b>가 필요한 경우</li>
+  <li>MRP Live에서 더 이상 생성되지 않는 <b>MRP리스트</b>를 계속 활용하고 싶은 경우</li>
+  <li>계획오더와 구매요청 중 <b>어느 것을 생성할지 직접 고르고</b> 싶은 경우</li>
+</ul>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>실행 방식</th><th>설명</th></tr></thead>
+<tbody>
+<tr><td>총괄계획<br>Total Planning</td><td class="wrap">특정 플랜트 또는 MRP영역에 대해 실행. 해당 단위의 계획관련 <b>모든</b> 자재를 계획하며 BOM 전개 포함</td></tr>
+<tr><td>총괄계획 온라인<br><code>MD01</code></td><td class="wrap"><code>Logistics → MM → MRP → MRP → Planning → Total Planning → Online</code></td></tr>
+<tr><td>총괄계획 백그라운드<br><code>MDBT</code></td><td class="wrap"><code>… → Total Planning → As Background Job</code></td></tr>
+<tr><td>개별품목계획<br><code>MD03</code></td><td class="wrap">개별 자재 소요계획. 단일레벨(선택 자재의 BOM 레벨만) 또는 다중레벨(선택 자재 + 모든 하위 BOM 레벨). Fiori: <b>MRP - Individual Planning - Single Level</b></td></tr>
+</tbody>
+</table>
+</div>
+
+<p>계획실행 완료 시 계획범위 · 예외상황 · 중단(termination) 통계를 받습니다. 전체 계획소요시간과 개별 자재 계획소요시간도 확인할 수 있고, 백그라운드 총괄계획은 로그·결과 출력이 가능합니다.</p>
+
+<p><b>계획범위기능(Scope of Planning)</b> 을 쓰면 여러 플랜트/MRP영역에 대해 <b>순차적으로</b> 총괄계획을 돌릴 수 있습니다. Customizing <code>MM → Consumption-Based Planning → Planning → Define Scope of Planning for Total Planning</code> 에서 정의하고, 계획범위마다 카운터를 입력해 개별 MRP레벨의 계획 순서를 지정합니다.</p>
+
+<p>계획실행 트랜잭션 <code>MD01</code> <code>MD02</code> <code>MD03</code> <code>MD40</code> <code>MD41</code> <code>MD42</code> <code>MD43</code> <code>MD50</code> <code>MD51</code> 은 S/4HANA에서도 계속 사용 가능하고, 평가용 <code>MD05</code> <code>MD06</code> <code>MD45</code> <code>MD46</code> 도 마찬가지입니다.</p>
+
+<h3>계획실행유형 — Processing key</h3>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>계획실행유형</th><th>Processing Key</th><th>설명</th></tr></thead>
+<tbody>
+<tr><td>재생성계획<br>Regenerative Planning</td><td><code>NEUPL</code></td><td class="wrap">이전 계획데이터나 변경사항과 무관하게, 계획파일에 등록된 <b>모든</b> 자재를 포함하는 포괄적 계획실행</td></tr>
+<tr><td>총괄기간 순변경계획<br>Net Change Planning</td><td><code>NETCH</code></td><td class="wrap">계획파일에 <b>NETCH 지시자가 설정된 자재만</b> 계획. 계획 관련 변경이 발생한 자재만 표시되므로 전체를 처음부터 계획하는 것보다 효율적</td></tr>
+</tbody>
+</table>
+</div>
+
+<h3>Classic MRP의 통제파라미터</h3>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>파라미터</th><th>설명</th></tr></thead>
+<tbody>
+<tr><td>Processing key</td><td class="wrap">계획유형을 재생성계획(<code>NEUPL</code>) 또는 순변경계획(<code>NETCH</code>)으로 정의</td></tr>
+<tr><td>구매요청 생성지시자</td><td class="wrap">외부조달자재에 구매요청을 만들지 계획오더를 만들지 통제. ① 계획오더만 ② 구매요청만 ③ <b>개시기간(opening period) 내에는 구매요청, 밖에는 계획오더</b> — ③ 선택 시 시스템이 결정한 개시일이 계획실행일보다 이전이면 계획오더 대신 구매요청을 생성.<br>개시기간은 오더개시일을 정하려고 오더시작일에서 <b>차감하는 근무일수</b>로, MRP컨트롤러가 계획오더를 구매요청으로 전환할 시간여유(float)로 작용. Customizing <code>MM → Consumption-Based Planning → Planning → Define floats (Scheduling Margin Key)</code> 에서 정의하고 자재마스터 <b>MRP 2</b> 뷰의 Scheduling Margin Key 필드에 배정</td></tr>
+<tr><td>일정계약 납품일정라인<br>생성지시자</td><td class="wrap">외부조달자재에 유효한 일정계약이 있을 때 납품일정라인을 직접 생성할지. ① 일정라인 없음 ② 일정라인만 ③ 개시기간 내에는 일정라인, 밖에는 구매요청</td></tr>
+<tr><td>MRP리스트 생성지시자</td><td class="wrap">① 생성 안 함 ② 항상 생성 ③ <b>예외메시지로 문서화된 특정 예외상황에서만</b> 생성</td></tr>
+<tr><td>계획모드<br>Planning Mode</td><td class="wrap">마지막 계획실행의 <b>비확정</b> 조달제안 처리 방식(확정 조달제안은 변경되지 않음). 계획파일에서 자동설정되나 각 계획실행 초기화면에서 오버라이드 가능.<br>① 기존 계획데이터 조정 ② BOM변경 후 재전개 ③ 모든 계획데이터 삭제 후 조달제안 재생성</td></tr>
+</tbody>
+</table>
+</div>
+
+<div class="note warn">
+  <div class="t">계획모드 우선순위 규칙</div>
+  <p>계획파일의 계획모드를 계획실행 초기화면의 계획모드가 오버라이드할 수 있는데, 규칙은 <span class="bad">숫자값이 높은 계획모드가 우선</span>입니다 — 계획모드 2(BOM 재전개) &gt; 계획모드 1(계획데이터 조정), 계획모드 3(삭제·재생성) &gt; 1·2.<br>
+  보통은 초기화면에서 계획모드 1로 두면 충분합니다. 다른 모드가 필요한 자재는 계획파일에 해당 항목이 <b>자동 설정</b>되어 계획실행에서 평가됩니다.</p>
+</div>
+
+<h3>플랜트파라미터와 MRP그룹 — 파라미터를 어디에 둘 것인가</h3>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>레벨</th><th>Customizing 경로</th><th>유지 파라미터</th></tr></thead>
+<tbody>
+<tr><td>플랜트파라미터<br>Plant Parameters</td><td class="wrap"><code>MM → Consumption-Based Planning → Plant Parameters → Carry Out Overall Maintenance of Plant Parameters</code> (<code>OMI8</code>)</td><td class="wrap">일정계약 납품일정라인 생성지시자, 구매처리시간 등</td></tr>
+<tr><td>MRP그룹<br>MRP Group</td><td class="wrap"><code>MM → Consumption-Based Planning → MRP Groups → Carry Out Overall Maintenance of MRP Groups</code> (<code>OPPZ</code>)</td><td class="wrap">구매요청·일정라인·MRP리스트 생성지시자, 최대 MRP구간 등</td></tr>
+<tr><td>자재유형별 기본값</td><td class="wrap"><code>MM → Consumption-Based Planning → MRP Groups → Define MRP Group for Each Material Type</code> (<code>OMIG</code>)</td><td class="wrap">자재마스터 생성 시 MRP그룹 기본값</td></tr>
+</tbody>
+</table>
+</div>
+
+<p>MRP그룹은 <b>특정 MRP 통제파라미터를 자재그룹에 배정하는 조직오브젝트</b>입니다. 총괄계획에서는 각 자재에 MRP그룹이 배정되어 있는지 확인하고, <span class="hl">배정되어 있지 않으면 플랜트파라미터로 계획</span>합니다. 개별품목계획에서는 <b>초기화면에 입력한 파라미터가 항상 우선</b>합니다.</p>
+
+<div class="note">
+  <div class="t">🔰 초보자 설명 — 생성지시자는 왜 생겼나</div>
+  <p>원래는 생산계획담당자(계획오더 담당)와 구매담당자(구매요청 담당)의 <b>역할을 분리</b>하려고 도입된 장치입니다. 오늘날에는 구매담당자가 공급업체와의 계약협상에 집중하고, 구매요청의 실무적 생성과 구매오더 처리는 자재계획담당자·MRP가 맡는 경우가 많습니다. MRP Live가 유효한 납품일정이 있으면 항상 일정라인, 그 외에는 항상 구매요청으로 단순화한 배경이 이것입니다.</p>
+</div>
+
+<p>참고로 <code>MD01</code>·<code>MD03</code>에서는 메뉴 <b>Settings → Save</b> 로 계획실행 파라미터를 저장할 수 있습니다.</p>
+
+</div>
+
+
+<!-- ══════════ LESSON 3 ══════════ -->
+<div class="lesson" id="l3">
+<h2><span class="no">LESSON 3</span>MRP영역 · 예측 실행 · FAQ</h2>
+
+<p><span class="tag">Unit 7-9</span><span class="tag">레슨 6개</span>MRP Area 설정 · Forecast 실행·스케줄링·재주문점 활용 · FAQ</p>
+
+<h3>언제 이걸 알아야 하는가</h3>
+
+<p><b>"창고에 재고가 있는데 왜 발주가 났습니까"</b> 또는 그 반대인 <b>"재고가 있다고 나오는데 실제로는 쓸 수 없는 재고입니다"</b> — 계획 단위가 잘못 잡힌 경우입니다.</p>
+
+<p>기본적으로 MRP는 <span class="key">플랜트 전체 재고</span>를 하나로 봅니다. 쓸 수 없는 재고(다른 라인 전용, 임박재고, 위탁가공업체에 나가 있는 부품)까지 가용재고에 들어가면 재주문점을 안 뚫으므로 발주가 늦어집니다. 이걸 쪼개는 장치가 <b>MRP영역</b>입니다.</p>
+
+<h3>MRP영역(MRP Area)</h3>
+
+<p>MRP영역은 SAP S/4HANA에서 자재소요계획을 수행하는 <b>조직 레벨</b>입니다. 플랜트 전체가 아니라 플랜트 내 특정 <b>저장위치</b> 또는 특정 <b>위탁가공업체</b> 기준으로 별도 계획을 수행할 수 있게 합니다.</p>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>MRP영역 유형</th><th>설명</th></tr></thead>
+<tbody>
+<tr><td>플랜트 MRP영역</td><td class="wrap">플랜트 생성 시 <b>자동 생성</b>되는 기본 MRP영역 (전체 플랜트 재고 기준)</td></tr>
+<tr><td>저장위치 MRP영역</td><td class="wrap">특정 저장위치를 별도 계획 단위로 분리 (예: 생산라인 전용 창고, 예비부품 창고)</td></tr>
+<tr><td>위탁가공업체 MRP영역</td><td class="wrap">위탁가공업체에게 제공된 부품(구성품)을 별도 계획 단위로 분리</td></tr>
+</tbody>
+</table>
+</div>
+
+<div class="note warn">
+  <div class="t">두 유형의 배정 방식이 다르다 — 여기서 걸린다</div>
+  <p>· <b>저장위치 MRP영역</b>: 영역을 만든 뒤, 그 레벨에서 계획하려는 자재는 <span class="bad">MRP영역별 자재마스터 데이터를 별도로 유지</span>해야 합니다. 즉 자재를 MRP영역에 <b>배정하는 절차가 따로</b> 필요합니다.<br>
+  · <b>위탁가공업체 MRP영역</b>: 영역만 만들면 그 업체에 제공되는 구성품은 <span class="good">별도 배정 없이 자동으로</span> 그 MRP영역 레벨에서 계획됩니다. 구성품별 MRP영역 파라미터가 없으면 시스템이 플랜트의 계획 데이터를 그대로 씁니다.</p>
+</div>
+
+<p>자재를 저장위치 MRP영역에 배정할지는 <b>선택 사항</b>입니다. 특정 MRP영역 레벨에서 계획하려는 자재만 MRP영역별 데이터를 입력하면 되고, 배정되지 않은 자재는 그대로 플랜트 레벨에서 계획됩니다.</p>
+
+<p>핵심은 이 문장입니다 — <span class="hl">자재를 MRP영역 레벨에서 계획하면, 순소요량계산에는 해당 MRP영역에 속한 저장위치의 재고만 포함됩니다.</span></p>
+
+<div class="note">
+  <div class="t">🔰 초보자 설명 — MRP영역을 왜 나누나</div>
+  <p>하나의 플랜트 재고를 통째로 계획하면 생산라인 전용 재고와 예비부품 재고가 뒤섞여 계획 정확도가 떨어집니다. MRP영역으로 나누면 저장위치별·업체별로 <b>독립적인 재고 소요계산</b>이 가능해져, 필요한 자재를 더 정확한 타이밍과 수량으로 조달할 수 있습니다.</p>
+</div>
+
+<p>활용 장점을 정리하면 셋입니다.</p>
+
+<ul>
+  <li>저장위치·위탁가공업체별로 계획을 분리해 <b>세분화된 소요계획</b> 수행</li>
+  <li>특정 영역(생산라인 · 예비부품 창고 · 위탁가공업체 재고)에 더 정밀하고 시의적절한 공급</li>
+  <li>같은 자재라도 <b>MRP영역마다 다른 계획 파라미터</b> 적용 가능</li>
+</ul>
+
+<p>MRP영역별 데이터는 <b>Manage Product Master Data</b> 앱에서 유지하고, 해당 MRP영역 단위로 계획실행한 뒤 결과를 확인합니다.</p>
+
+<div class="note ok">
+  <div class="t">📌 개인 E2E 프로젝트와의 연결점 — 임박 SLoc을 가용재고로 세면 안 된다</div>
+  <p>프로젝트의 STOR 플랜트는 저장위치가 <b>온도군 × 정상·임박</b> 6개입니다 — 냉동 <code>1100</code>/<code>1900</code>, 냉장 <code>2100</code>/<code>2900</code>, 실온 <code>3100</code>/<code>3900</code>. 여기서 MRP영역 개념이 정확히 맞아 들어가는 지점이 하나 있습니다.</p>
+  <p><code>ZBATCH_ZONE</code>이 잔여 유통기한 30% 미달 배치를 임박 SLoc으로 <code>311</code> 이동시키면, 그 재고는 <b>정상 판매에 쓸 수 없는 재고</b>입니다. 그런데 플랜트 레벨로만 계획하면 임박 <code>1900</code>의 수량까지 가용재고에 합산되어 재주문점을 뚫지 않습니다. 결과는 <span class="bad">발주 지연 + 임박재고 폐기가 동시에</span> 나는 최악의 조합입니다.</p>
+  <p>따라서 정상 SLoc(<code>1100</code>/<code>2100</code>/<code>3100</code>)만 저장위치 MRP영역으로 묶어 계획하고, 임박 SLoc은 계획에서 빼는 구성이 맞습니다. <b>GATE</b> 플랜트는 입고 게이트일 뿐 판매 가용재고가 아니므로 애초에 계획 대상이 아닙니다.<br>
+  <b>확인 필요</b> — 저장위치 MRP영역을 쓸지, 아니면 임박 SLoc을 MRP 비관련 저장위치로 두고 플랜트 레벨 계획을 유지할지는 실제 시스템(winerp01 / MEP)에서 두 안을 다 만들어 보고 확정할 것.</p>
+</div>
+
+<h3>예측(Forecast) 실행</h3>
+
+<p>예측은 과거 소비실적으로 미래 수요를 산출합니다. 실행하려면 먼저 <b>자재마스터에 예측 관련 데이터</b>를 유지해야 합니다.</p>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>예측 모델</th><th>적용 상황</th></tr></thead>
+<tbody>
+<tr><td>정상모델<br>Constant Model</td><td class="wrap">소비실적이 일정 수준에서 큰 변동 없이 유지되는 경우</td></tr>
+<tr><td>추세모델<br>Trend Model</td><td class="wrap">소비실적이 지속적으로 증가하거나 감소하는 추세를 보이는 경우</td></tr>
+<tr><td>계절모델<br>Seasonal Model</td><td class="wrap">소비실적이 계절적으로 반복되는 패턴을 보이는 경우</td></tr>
+<tr><td>추세-계절모델<br>Trend-Seasonal Model</td><td class="wrap">추세와 계절성이 동시에 나타나는 경우</td></tr>
+</tbody>
+</table>
+</div>
+
+<p>실행 방법은 둘입니다 — 자재마스터 유지화면에서 <b>개별 자재 단위</b>로 실행하거나, 유연한 자재 선택조건을 걸어 <b>주기적 자동 예측실행 잡(Job)</b>으로 스케줄링하거나.</p>
+
+<h3>자동 재주문점계획 — 예측이 재주문점을 계산한다</h3>
+
+<p>재주문점계획에서는 <b>재고 + 확정입고</b> 합계가 재주문점 아래로 떨어지면 조달이 트리거됩니다. 여기까지는 LESSON 1과 같습니다. 차이는 그 재주문점을 누가 넣느냐입니다.</p>
+
+<ul>
+  <li><b>수동</b> 재주문점계획(<code>VB</code>) — 재주문점과 안전재고를 자재마스터에 사람이 입력</li>
+  <li><b>자동</b> 재주문점계획(<code>VM</code>) — <span class="hl">예측실행(Forecast Run) 시 시스템이 재주문점과 안전재고를 자동 계산</span></li>
+</ul>
+
+<p>자동 계산에 들어가는 입력은 셋입니다.</p>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>입력값</th><th>내용</th></tr></thead>
+<tbody>
+<tr><td>조달소요기간<br>Replenishment Lead Time</td><td class="wrap">외부조달 자재의 경우 <b>계획입고시간(Planned Delivery Time) + 입고처리시간(GR Processing Time) + 구매처리시간(Purchasing Processing Time)</b> 의 합</td></tr>
+<tr><td>서비스레벨<br>Service Level</td><td class="wrap">자재마스터에 정의</td></tr>
+<tr><td>평균절대편차<br>Mean Absolute Deviation</td><td class="wrap">예측실행 중 계산됨. <b>예측의 정확도</b>를 나타내는 값</td></tr>
+</tbody>
+</table>
+</div>
+
+<div class="note ok">
+  <div class="t">자동 재주문점 공식</div>
+  <p><b>재주문점 = 안전재고 + 일평균소요량 × 조달소요기간</b><br>
+  안전재고는 조달소요기간 중 추가 소비나 납품지연을 대비하는 완충이며, <span class="key">재주문점의 일부를 구성</span>합니다. 그림 2의 두 선(재주문점 · 안전재고)이 별개가 아니라 포함 관계라는 뜻입니다.</p>
+</div>
+
+<div class="note">
+  <div class="t">🔰 초보자 설명 — 예측기반계획과 재주문점계획에서 예측을 쓰는 것은 무엇이 다른가</div>
+  <p><b>예측기반계획(VV)</b> 에서는 예측값 <b>자체가 소요량</b>으로 순소요량계산에 직접 투입됩니다.<br>
+  <b>재주문점계획(VM)</b> 에서 예측을 쓰는 경우, 예측값은 소요량으로 쓰이는 게 아니라 <b>재주문점과 안전재고를 산출하기 위한 입력값</b>으로만 쓰입니다.<br>
+  같은 예측실행인데 자재의 MRP유형이 무엇이냐에 따라 쓰임새가 달라집니다.</p>
+</div>
+
+<h3>FAQ</h3>
+
+<h4>Q1. 재주문점계획에도 예외적인 외부수요(판매오더 등)를 반영할 수 있나</h4>
+
+<p>재주문점계획 절차는 <b>일반적으로 개별 소요요소(판매오더 · 종속소요량 · 예약)를 순소요량계산에 포함하지 않습니다.</b> <span class="key">과잉계획(Overplanning)을 방지</span>하기 위해서입니다 — 원칙적으로 그런 미래 소요는 이미 재주문점이 커버한다고 보기 때문입니다.</p>
+
+<p>다만 예비부품창고가 이따금 납품하지 못해 생산 위치에 예외적인 판매오더·예약이 생기는 경우처럼, 외부수요를 넣는 게 유용한 상황이 있습니다. 재주문점계획용 MRP유형의 Customizing에서 <b>"외부수요 포함(Include External Requirements)"</b> 지시자로 결정합니다.</p>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>절차</th><th>수동 재주문점계획</th><th>자동 재주문점계획</th></tr></thead>
+<tbody>
+<tr><td>외부수요 미포함 (표준)</td><td><code>VB</code></td><td><code>VM</code></td></tr>
+<tr><td>외부수요 포함</td><td><code>V1</code></td><td><code>V2</code></td></tr>
+</tbody>
+</table>
+</div>
+
+<h4>Q2. 위탁가공·수탁판매·재고이전 같은 특별조달로 구매요청을 자동 생성할 수 있나</h4>
+
+<p>됩니다. 계획실행이 <b>적절한 품목범주(Item Category)를 가진 구매요청</b>을 직접 생성하도록 할 수 있습니다. 이를 위해 자재마스터 <b>플랜트 레벨</b>에 <span class="key">특별조달유형(Special Procurement Type)</span>을 유지합니다.</p>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>특별조달유형</th><th>의미</th></tr></thead>
+<tbody>
+<tr><td><code>10</code></td><td class="wrap">수탁판매(Consignment)</td></tr>
+<tr><td><code>30</code></td><td class="wrap">위탁가공(Subcontracting)</td></tr>
+<tr><td>기타</td><td class="wrap">재고이전 등 — 조직구조에 맞게 Customizing 필요 (예: 특정 플랜트 간 이전)</td></tr>
+</tbody>
+</table>
+</div>
+
+<p>필드 위치는 앱에 따라 다릅니다. <b>Manage Product Master Data</b> 앱에서는 플랜트 레벨의 <b>MRP Data 탭 → Procurement 섹션</b>, 구형 트랜잭션 기반 화면(Create/Change/Display Material)에서는 <b>MRP2 탭</b>입니다.</p>
+
+<h4>Q3. 예측기반계획(VV)은 더 이상 못 쓰나</h4>
+
+<p>MRP유형 <code>VV</code>를 쓰는 예측기반계획은 SAP S/4HANA <b>호환성 범위(Compatibility Scope)</b>에 속하며, <b>2025년 12월 31일</b>까지 (일부 경우 <b>2030년 12월 31일</b>까지) 사용 가능합니다.</p>
+
+<p>이유 중 하나는 HANA 기반 MRP Live가 예측기반계획을 직접 수행하지 않고 <b>해당 자재를 클래식 계획절차로 넘기기 때문</b>입니다 — 성능 저하를 부릅니다. 예측소요량과 계획독립소요량은 의미상 매우 유사하고 전자에서 후자를 생성할 수 있으므로, SAP는 다음 대체를 권장합니다.</p>
+
+<ul>
+  <li>MRP유형 <code>VV</code> 대신 <code>PD</code> · <code>P1</code> · <code>P2</code> · <code>P3</code> · <code>P4</code> 중 하나를 사용</li>
+  <li>예측소요량을 <b>계획독립소요량으로 복사(Copy)</b></li>
+</ul>
+
+<div class="note warn">
+  <div class="t">⚠️ Further Reading</div>
+  <p>SAP Note <code>2268095</code>, <code>2269324</code> (예측기반계획 단종 관련 공지) · SAP Note <code>1914010</code> (MRP Live 제약사항).<br>
+  <b>확인 필요</b> — 단종 시점은 릴리스·계약 조건에 따라 갈립니다. 실제 시스템(winerp01 / MEP)의 호환성범위 적용 여부를 확인하기 전에는 VV로 설계하지 말 것.</p>
+</div>
+
+<h4>Q4. 시간기준계획(Time-Phased Planning)이란</h4>
+
+<p>자재를 <b>특정 시간간격(주기)으로</b> 계획하는 MRP 절차입니다. 공급업체가 항상 특정 요일에만 납품한다면 그 주기에 맞춰 계획하는 것이 합리적입니다.</p>
+
+<div class="step"><span class="n">1</span><p>MRP유형으로 시간기준계획용 유형 선택 — 표준은 <code>R1</code>, <code>R2</code></p></div>
+<div class="step"><span class="n">2</span><p>자재마스터의 <b>계획주기(Planning Cycle)</b> 필드에 <b>계획달력(Planning Calendar)</b> 입력 — 계획달력은 별도 Customizing 필요</p></div>
+<div class="step"><span class="n">3</span><p>대상 자재는 계획파일에 <b>계획일자(Planning Date)</b>가 부여됨. 자재마스터 생성 시, 그리고 계획실행 후마다 재설정되며, 자재는 <b>계획주기가 지정한 날에만</b> 계획됨</p></div>
+
+<p>계획실행 시 시스템이 순소요량을 계산하는 구간은 이렇습니다.</p>
+
+<pre><code>계획구간 = 계획일자 + 계획주기 + 조달소요기간</code></pre>
+
+<p>이 구간 내 소요량을 <b>실제재고 + 확정·고정입고</b> 합계와 비교해 발주수량을 계산합니다. 시간기준계획에서는 <b>정확(exact) 로트사이징 또는 최적화 로트사이징</b> 절차 사용이 권장됩니다. 소요량으로는 예측소요량만 쓸 수도 있고 판매소요량·종속소요량·독립소요량도 쓸 수 있는데, <span class="key">무엇을 쓸지는 MRP유형의 Customizing이 결정</span>합니다.</p>
+
+<div class="note">
+  <div class="t">🔰 초보자 설명 — 시간기준계획 + 재주문점 결합 (R2)</div>
+  <p>둘을 결합할 수 있습니다. 이 경우 자재는 <b>계획파일상 계획일자</b>가 되거나, <b>출고 후 재고가 재주문점 아래로 떨어질 때</b> 계획됩니다. 재주문점 부족 시점부터 다음 정규 계획일자의 가용일까지의 구간을 기준으로 소요량을 계산하고, 다음 계획일자에는 다시 정규 주기로 돌아갑니다. 재주문점을 포함한 시간기준계획의 표준 MRP유형이 <code>R2</code>입니다.</p>
+</div>
+
+<h4>Q5. 계획실행 후 위험상황을 사전에 알림받을 수 있나 (Situation Handling)</h4>
+
+<p><b>MRP Material Exceptions</b> 상황템플릿(Situation Template)을 쓰면, MRP실행 결과 더 이상 필요하지 않게 된 구매오더·생산오더 같은 예외메시지가 발생했을 때 조직 내 특정 담당자에게 자동 알림을 보낼 수 있습니다. 과잉재고 상황이 계획실행 후 발생하면 알림이 생성되고, 사용자는 클릭해서 바로 <b>Manage Material Coverage</b> 앱으로 이동합니다.</p>
+
+<div class="note warn">
+  <div class="t">알림은 보조 수단이다</div>
+  <p>Situation Handling은 어디까지나 <b>보완</b>입니다. MRP담당자의 핵심 업무 도구인 <b>Monitor Material Coverage</b> 앱과 <b>Monitor Stock/Requirements List</b>(<code>MD04</code>) 앱으로 MRP 예외사항을 <span class="hl">정기적으로 검토하는 것이 원칙</span>입니다. 알림이 안 왔으니 문제가 없다는 판단은 하지 않습니다.</p>
+</div>
+
+<div class="note ok">
+  <div class="t">📌 개인 E2E 프로젝트와의 연결점 — Situation Handling과 CBO 알림의 경계</div>
+  <p>프로젝트 CBO 3종 중 <code>ZPRICE_CHECK</code>(정보레코드가 vs 이동평균가 괴리 <b>알림</b>)가 하는 일이 개념적으로 Situation Handling과 같은 계열입니다 — <b>자동으로 고치지 않고 사람에게 던진다.</b> 표준 우선 원칙에 따르면 이런 종류는 원래 Situation Handling으로 먼저 검토하는 것이 맞고, 표준으로 안 되는 조건(정보레코드가와 이동평균가의 <b>비율</b> 비교)이라서 CBO로 가는 것입니다. 포트폴리오 문서의 "표준의 한계 → CBO가 메우는 것" 절에 이 비교를 그대로 쓸 수 있습니다.</p>
+  <p>반대로 <code>ZGATE_INSPECT</code>의 <code>122</code> 자동반품은 재고·금액을 움직이므로 알림 계열이 아닙니다. 프로젝트 원칙대로 <b>송장 미발생 건에 한정</b>하고 승인 대기를 두는 이유가 여기 있습니다.</p>
+</div>
+
+</div>
+
+
+<!-- ══════════ APPENDIX ══════════ -->
+<div class="lesson" id="lx">
+<h2><span class="no">APPENDIX</span>정리 · 반드시 기억할 것</h2>
+
+<h3>한 장 요약</h3>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>질문</th><th>답</th></tr></thead>
+<tbody>
+<tr><td>소비기반계획은 무엇을 보고 발주하나</td><td class="wrap">미래 예측이 아니라 <b>과거 소비실적</b>. BOM·생산오더 없이 동작한다</td></tr>
+<tr><td>계획실행의 첫 단계는</td><td class="wrap"><b>계획파일(Planning File) 확인</b> — 계획 대상 목록에 있는지부터 본다</td></tr>
+<tr><td>계획실행의 결정 순서</td><td class="wrap">순소요량계산 → 로트사이즈계산 → 일정계획 → 조달제안결정 → 소스결정 → 예외메시지</td></tr>
+<tr><td>부족수량 = 발주수량인가</td><td class="wrap"><b>아니다.</b> 로트사이징절차 + 라운딩값 + 최소/최대 로트사이즈가 얹힌다</td></tr>
+<tr><td>재주문점 공식</td><td class="wrap">재주문점 = 안전재고 + 일평균소요량 × 조달소요기간</td></tr>
+<tr><td>재주문점 MRP유형</td><td class="wrap">수동 <code>VB</code> / 자동 <code>VM</code> · 외부수요 포함이면 <code>V1</code> / <code>V2</code></td></tr>
+<tr><td>조달소요기간의 구성</td><td class="wrap">계획입고시간(역일) + 입고처리시간(근무일) + 구매처리시간(근무일)</td></tr>
+<tr><td>일정계획 시간값의 우선순위</td><td class="wrap">공급소스(정보레코드·장기계약)의 값이 <b>자재마스터보다 우선</b></td></tr>
+<tr><td>MRP Live가 외부조달에 만드는 것</td><td class="wrap">일정계약 有 → 납품일정라인 / 그 외 → 구매요청. <b>계획오더는 만들지 않는다</b></td></tr>
+<tr><td>MRP Live가 못 하는 것</td><td class="wrap">최적화 로트사이징 · 예측기반계획(<code>VV</code>) → Classic으로 넘어간다</td></tr>
+<tr><td>MRP리스트는 어디서 보나</td><td class="wrap">MRP Live는 생성 안 함 → <code>MD04</code> 실시간 조회</td></tr>
+<tr><td>계획모드 충돌 시</td><td class="wrap"><b>숫자값이 높은 계획모드가 우선</b> (3 &gt; 2 &gt; 1)</td></tr>
+<tr><td>MRP그룹이 없으면</td><td class="wrap">총괄계획에서 <b>플랜트파라미터</b>로 계획된다. 개별품목계획은 초기화면 값이 항상 우선</td></tr>
+<tr><td>MRP영역으로 계획하면 재고는</td><td class="wrap">그 <b>MRP영역에 속한 저장위치의 재고만</b> 순소요량계산에 들어간다</td></tr>
+<tr><td>MRP영역 배정 방식 차이</td><td class="wrap">저장위치 = 자재별 배정 <b>필요</b> / 위탁가공업체 = 배정 없이 <b>자동</b></td></tr>
+<tr><td>재주문점계획에 판매오더가 들어가나</td><td class="wrap">표준은 <b>안 들어간다</b>(과잉계획 방지). 넣으려면 "외부수요 포함" 지시자 = <code>V1</code>/<code>V2</code></td></tr>
+</tbody>
+</table>
+</div>
+
+<div class="note warn">
+  <div class="t">반드시 지킬 것</div>
+  <p>· <b>"MRP가 수량을 이상하게 냈다"는 문의는 순소요량계산이 아니라 로트사이즈계산부터 본다.</b> 라운딩값·최소로트사이즈·라운딩프로파일 순서로 확인한다.<br>
+     · <b>안전재고는 소비 대상이 아니다.</b> 정상적인 경우 입고 시점까지 안전재고는 인출되지 않아야 한다. 계속 깎이고 있으면 재주문점이나 리드타임이 틀린 것이다.<br>
+     · <b>자재마스터의 계획입고시간을 고쳤는데 날짜가 안 바뀌면 정보레코드를 본다.</b> 공급소스 값이 자재마스터를 이긴다.<br>
+     · <b>MRP유형 <code>VV</code>(예측기반계획)로 신규 설계하지 않는다.</b> 호환성범위 단종 대상이고 MRP Live가 Classic으로 떨군다.<br>
+     · <b>유통기한 자재에 팔레트 단위 라운딩을 그대로 걸지 않는다.</b> 회전일수를 넘기는 로트는 폐기로 직결된다.<br>
+     · <b>Situation Handling 알림이 없다고 이상 없다고 판단하지 않는다.</b> 원칙은 <code>MD04</code>·Monitor Material Coverage 정기 검토다.</p>
+</div>
+
+<h3>참고</h3>
+
+<ul>
+  <li>원본: 노션 <b>SAP Learning Hub</b> → Implementing SAP S/4HANA Cloud Private Edition, Sourcing and Procurement → 3-1 ~ 3-3 (Unit 1-9, 레슨 17개 정리)</li>
+  <li>선행 코스: <b>S4500</b>(조달 프로세스 기초) · <b>S4520</b>(소스결정 — 할당버전 · 소스리스트 · 정보레코드 우선순위)</li>
+  <li>관련 SAP Note: <code>1914010</code>(MRP Live 제약) · <code>2268095</code> · <code>2269324</code>(예측기반계획 단종)</li>
+  <li>핵심 T-Code: <code>MD01N</code> <code>MD01</code> <code>MDBT</code> <code>MD03</code> <code>MD04</code> <code>MD05</code> <code>MD06</code> · Customizing <code>OMI8</code>(플랜트파라미터) <code>OPPZ</code>(MRP그룹) <code>OMIG</code>(자재유형별 MRP그룹)</li>
+</ul>
+
+</div>
+
+</div>
+<script src="../../assets/hub.js" defer></script>
+</body>
+
+</html>

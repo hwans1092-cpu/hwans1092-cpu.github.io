@@ -1,0 +1,633 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>S46055 Customizing Output Control — Decision Table 기반 출력결정</title>
+<meta name="description" content="SAP Learning Hub의 Customizing Output Control in SAP S/4HANA Sales(S46055) 노트. SAP S/4HANA Output Management의 핵심 Customizing 객체 5종, BRFplus Decision Table의 평가 순서와 INCLUDE/EXCLUDE 결합 규칙, 판매오더 출력 파라미터 5단계 결정.">
+<link rel="icon" href="../../assets/favicon.svg">
+<link rel="stylesheet" href="../../assets/notes-paper.css">
+<style>
+/* ── 이 노트 전용: 도해(SVG) 스타일 ─────────────────────────── */
+.dgm{display:block; width:100%; height:auto;}
+.dgm text{font-family:"Malgun Gothic","맑은 고딕","Apple SD Gothic Neo",sans-serif; fill:#1e1e1e;}
+.dgm .t-h{font-size:15px; font-weight:700;}
+.dgm .t{font-size:13px;}
+.dgm .t-s{font-size:11.5px; fill:#555;}
+.dgm .t-xs{font-size:10.5px; fill:#6B7280;}
+.dgm .m{font-family:"D2Coding","Consolas",monospace; font-size:12px;}
+.dgm .m-s{font-family:"D2Coding","Consolas",monospace; font-size:10.5px;}
+.dgm .c-key{fill:#4338CA;} .dgm .c-bad{fill:#B91C1C;} .dgm .c-ok{fill:#047857;}
+.dgm .b{fill:#FFFFFF; stroke:#C7CBD6; stroke-width:1.2;}
+.dgm .b-key{fill:#EEF0FB; stroke:#4338CA; stroke-width:1.4;}
+.dgm .b-bad{fill:#FEF2F2; stroke:#B91C1C; stroke-width:1.3;}
+.dgm .b-ok{fill:#ECFDF5; stroke:#047857; stroke-width:1.3;}
+.dgm .b-mut{fill:#F3F4F6; stroke:#D1D5DB; stroke-width:1.1;}
+.dgm .b-hl{fill:#FEF08A; stroke:#CA8A04; stroke-width:1.2;}
+.dgm .b-ghost{fill:none; stroke:#9AA3B2; stroke-width:1.1; stroke-dasharray:5 4;}
+.dgm .ln{stroke:#7C8697; stroke-width:1.4; fill:none;}
+.dgm .ln-key{stroke:#4338CA; stroke-width:1.8; fill:none;}
+.dgm .ln-bad{stroke:#B91C1C; stroke-width:1.6; fill:none;}
+.dgm .ln-ok{stroke:#047857; stroke-width:1.6; fill:none;}
+.dgm .ln-d{stroke:#9AA3B2; stroke-width:1.2; stroke-dasharray:4 4; fill:none;}
+.dgm .arw{fill:#7C8697;} .dgm .arw-key{fill:#4338CA;}
+.dgm .arw-bad{fill:#B91C1C;} .dgm .arw-ok{fill:#047857;}
+.figwrap{background:#FAFAFE; border:1px solid var(--rule); border-radius:6px;
+  padding:18px 16px 10px; margin:22px 0;}
+.figwrap figcaption{margin-top:12px; padding-top:10px; border-top:1px solid var(--rule);}
+</style>
+</head>
+<body>
+<div class="crumb"><a href="../../index.html">← 자료실 홈</a> · <a href="../../journey.html?j=sd">SD 저니</a> · S46055 Output Control</div>
+<div class="sheet">
+
+<div class="doc-head">
+  <div class="kicker">LEARNING HUB · S46055</div>
+  <h1>Output Control — Decision Table 기반 출력결정</h1>
+  <div class="sub">
+    Learning Journey <b>Implementing Sales in SAP S/4HANA Cloud Private Edition</b> · Course 6 / S46055 · 2 Unit · 4 레슨 · Intermediate<br>
+    출처: 노션 <b>SAP Learning Hub</b> 노트 6-1 ~ 6-2 변환
+  </div>
+</div>
+
+<div class="lead">
+  <p><b>결론부터.</b> S/4HANA에서 오더확인서가 나가느냐 마느냐는 프린트 프로그램이 아니라 <span class="hl">Decision Table 한 줄</span>이 결정합니다. 문서가 저장되는 순간 시스템은 "무엇을 · 누구에게 · 어떤 채널로 · 어떤 폼으로" 보낼지를 규칙표에서 조회해 <b>Output Parameter(출력 파라미터)</b>로 문서에 박아 넣습니다. 파라미터가 없으면 Output은 발행되지 않습니다.</p>
+  <p>그래서 이 코스의 실체는 "출력물 만드는 법"이 아니라 <b>규칙표를 읽는 법</b>입니다. 행은 위에서 아래로, 컬럼은 왼쪽에서 오른쪽으로, 컬럼끼리는 AND, 같은 셀 안은 OR — 이 네 줄이 전부이고, 여기에 <code>exclusive</code> 표시 하나가 붙으면 이후 행이 통째로 무시됩니다. Pricing의 Condition Technique과 <span class="key">저장 위치만 다르고 발상은 같습니다.</span></p>
+</div>
+
+<div class="toc">
+  <h4>목차</h4>
+  <ol>
+    <li><a href="#l1">Output Control 개념과 핵심 Customizing 객체 5종</a></li>
+    <li><a href="#l2">Decision Table — 평가 순서와 파라미터 결정 5단계</a></li>
+    <li><a href="#lx">정리 · 반드시 기억할 것</a></li>
+  </ol>
+</div>
+
+
+<!-- ══════════ LESSON 1 ══════════ -->
+<div class="lesson" id="l1">
+<h2><span class="no">LESSON 1</span>Output Control 개념과 핵심 Customizing 객체 5종</h2>
+
+<p><span class="tag">Unit 1-2</span><span class="tag">레슨 2개</span>Explaining the Concept of Output Control · Customizing Core Components of Output Control</p>
+
+<h3>언제 이걸 알아야 하는가</h3>
+
+<p>운영에서 가장 자주 나오는 문의가 <b>"이 오더는 오더확인서가 안 나갑니다"</b>입니다. 폼도 있고 프린터도 살아 있는데 안 나갑니다. 십중팔구 프로그램 문제가 아니라 <span class="key">그 문서에 출력 파라미터가 결정되지 않은 것</span>입니다 — 규칙표에 걸리는 행이 없었던 겁니다.</p>
+
+<p>그래서 이 문의의 조사 순서는 "폼 → 프린터"가 아니라 <b>"어느 프레임워크로 만들어진 문서인가 → Decision Table에 걸렸는가 → Output Relevance가 켜졌는가"</b> 셋입니다. 이 LESSON은 그 첫 번째 질문을, LESSON 2가 나머지 둘을 다룹니다.</p>
+
+<h3>왜 Output이 필요한가</h3>
+
+<p>ERP의 핵심은 <b>비즈니스 트랜잭션의 문서화</b>입니다. 판매 트랜잭션은 판매문서로, 출하 활동은 납품문서로, 청구·대변전표는 청구문서로 각각 문서화·처리·평가됩니다. 그런데 거래처는 대개 <span class="bad">이 시스템에 접근권한이 없습니다.</span> 그래서 문서를 기반으로 <b>Output(출력물)</b>을 발행해 거래처에게 전달합니다.</p>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>Output</th><th>받는 쪽</th></tr></thead>
+<tbody>
+<tr><td>오더확인서 (Order Confirmation)</td><td class="wrap">오더 입력자</td></tr>
+<tr><td>납품서 (Delivery Note)</td><td class="wrap">수화인 (Ship-to Party)</td></tr>
+<tr><td>청구서 (Invoice)</td><td class="wrap">청구수신자 (Bill-to Party)</td></tr>
+</tbody>
+</table>
+</div>
+
+<h3>프레임워크가 둘이다 — 어느 쪽으로 만들어진 문서인가</h3>
+
+<p>Output을 발행하려면 문서 안에 <span class="key">"어떤 유형의 Output을, 언제, 어떤 거래처에게, 어떤 채널로, 어떤 언어로"</span>를 정의해야 합니다. 이 묶음이 <b>Output Parameter</b>이고, 문서가 생성될 때 자동으로 결정됩니다. SAP S/4HANA Sales에는 이를 담당하는 프레임워크가 <b>두 가지</b> 있습니다.</p>
+
+<figure class="figwrap">
+<svg class="dgm" viewBox="0 0 1000 470" role="img" aria-label="Output Control 프레임워크 분기 도해. Sales_Document에 SAP S4HANA Output Management가 활성이면 BRFplus Decision Table을 조회해 출력 파라미터를 결정하고, 비활성이면 조건기법 기반 Output Determination(SD-BF-OC)이 출력조건레코드에서 파라미터를 가져온다.">
+  <defs>
+    <marker id="oc1a" markerWidth="9" markerHeight="9" refX="7" refY="4.5" orient="auto">
+      <polygon class="arw" points="0,0 9,4.5 0,9"/></marker>
+    <marker id="oc1k" markerWidth="9" markerHeight="9" refX="7" refY="4.5" orient="auto">
+      <polygon class="arw-key" points="0,0 9,4.5 0,9"/></marker>
+  </defs>
+
+  <rect class="b-key" x="340" y="16" width="320" height="52" rx="6"/>
+  <text class="t-h c-key" x="364" y="42">판매문서 생성 · 저장</text>
+  <text class="t-s" x="364" y="60">Sales_Document (application object type)</text>
+
+  <path class="ln" d="M500 68 V96" marker-end="url(#oc1a)"/>
+
+  <rect class="b-hl" x="320" y="98" width="360" height="46" rx="6"/>
+  <text class="t-h" x="344" y="118">이 문서는 어느 프레임워크인가</text>
+  <text class="t-s" x="344" y="136">활성 상태는 Customizing에서 전환</text>
+
+  <path class="ln" d="M420 144 V168 H180 V190" marker-end="url(#oc1a)"/>
+  <path class="ln-key" d="M580 144 V168 H760 V190" marker-end="url(#oc1k)"/>
+  <text class="t-xs c-bad" x="196" y="163">비활성으로 전환한 경우</text>
+  <text class="t-xs c-key" x="600" y="163">활성 — S/4HANA 기본값</text>
+
+  <rect class="b-mut" x="40" y="192" width="300" height="62" rx="6"/>
+  <text class="t-h" x="62" y="216">Output Determination</text>
+  <text class="t-s" x="62" y="234">SD-BF-OC · 조건기법 기반</text>
+  <text class="t-s" x="62" y="248">파라미터를 출력조건레코드에 저장</text>
+
+  <rect class="b-key" x="540" y="192" width="440" height="62" rx="6"/>
+  <text class="t-h c-key" x="564" y="216">SAP S/4HANA Output Management</text>
+  <text class="t-s" x="564" y="234">BRFplus 프레임워크 기반 · 다른 모든 OM의 후속 버전</text>
+  <text class="t-s" x="564" y="248">파라미터를 Decision Table에 규칙으로 저장</text>
+
+  <path class="ln-key" d="M760 254 V286" marker-end="url(#oc1k)"/>
+
+  <rect class="b" x="540" y="288" width="440" height="58" rx="6"/>
+  <text class="t-h" x="564" y="312">Decision Table 조회</text>
+  <text class="t-s" x="564" y="332">결정단계(Determination Step) 8개 · 단계마다 테이블 1개</text>
+
+  <path class="ln-key" d="M760 346 V378" marker-end="url(#oc1k)"/>
+
+  <rect class="b-ok" x="540" y="380" width="440" height="76" rx="6"/>
+  <text class="t-h c-ok" x="564" y="404">Output Parameter 확정</text>
+  <text class="t-s" x="564" y="424">무엇을 · 누구에게 · 어떤 채널로 · 어떤 폼으로</text>
+  <text class="t-s c-bad" x="564" y="444">파라미터가 없으면 Output 발행 자체가 불가</text>
+
+  <rect class="b-ghost" x="40" y="288" width="460" height="82" rx="6"/>
+  <text class="t-s" x="62" y="312">활성 상태를 바꿔도 <tspan class="c-bad">신규 문서에만</tspan> 적용된다.</text>
+  <text class="t-s" x="62" y="332">기존 문서는 생성 당시 활성이던 프레임워크로</text>
+  <text class="t-s" x="62" y="352">계속 처리된다 — 전환일 전후 문서가 갈린다.</text>
+
+  <rect class="b-ghost" x="40" y="380" width="460" height="76" rx="6"/>
+  <text class="t-s" x="62" y="404">파라미터가 결정되면 <tspan class="t-h">문서 저장 즉시</tspan> 또는</text>
+  <text class="t-s" x="62" y="424">백그라운드 작업 실행 시점에 발행된다.</text>
+  <text class="t-s" x="62" y="444">문서의 Print Outputs 화면에서 미리보기 가능.</text>
+</svg>
+<figcaption><span class="fno">그림 1</span>두 프레임워크의 분기와 S/4HANA Output Management의 결정 흐름. 갈림길은 문서 생성 시점에 이미 확정된다.</figcaption>
+</figure>
+
+<div class="note">
+  <div class="t">🔰 초보자 설명 — Output Control을 한 줄로</div>
+  <p>판매오더 같은 SAP 문서 안의 정보를 <b>"누구에게, 언제, 어떤 방식(출력·이메일·EDI)으로 내보낼지"</b> 자동으로 결정해 주는 규칙 엔진입니다. 오더확인서·납품서·청구서가 저절로 이메일이나 출력물로 나가는 것이 이 기능 덕분입니다.</p>
+</div>
+
+<div class="note warn">
+  <div class="t">확인 필요 — 원문에 없는 것</div>
+  <p>· 조건기법 기반 <b>Output Determination(SD-BF-OC)</b> 쪽의 저장 구조는 원문이 "출력조건레코드"까지만 언급합니다. 메시지 상태 테이블·전송매체 코드 같은 구식 구조의 세부는 강의에 나오지 않으므로 여기 적지 않았습니다.<br>
+     · 출력 파라미터에 <b>언어</b>가 포함된다고 개념 레슨은 설명하지만, LESSON 2의 결정단계 8개 목록에는 언어에 해당하는 단계가 별도로 없습니다. 언어가 어느 단계에서 확정되는지는 실제 시스템(<code>winerp01</code> / <code>MEP</code>)의 Output Parameter Determination 앱에서 확인할 것.</p>
+</div>
+
+<h3>핵심 Customizing 객체 5종</h3>
+
+<p>커스터마이징은 순서가 곧 논리입니다 — <b>"어떤 프레임워크를 쓸지 → 어떤 종류의 문서인지 → 언제·누구에게 보낼지 → 어떤 방법으로 → 어떤 모양으로"</b>. 다섯 단계를 하나씩 설정합니다.</p>
+
+<figure class="figwrap">
+<svg class="dgm" viewBox="0 0 1000 420" role="img" aria-label="Output Control 핵심 커스터마이징 객체 관계도. 프레임워크 선택, Output Type 정의, 비즈니스 규칙, Output Channel 배정, Form Template 배정 순으로 이어지며 비즈니스 규칙이 채널·수신자·프린터설정·이메일주소·폼템플릿·Output Relevance를 결정한다.">
+  <defs>
+    <marker id="oc2k" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto">
+      <polygon class="arw-key" points="0,0 8,4 0,8"/></marker>
+    <marker id="oc2a" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto">
+      <polygon class="arw" points="0,0 8,4 0,8"/></marker>
+  </defs>
+
+  <rect class="b-key" x="20" y="34" width="176" height="56" rx="6"/>
+  <text class="t-h c-key" x="38" y="58">① Framework</text>
+  <text class="t-s" x="38" y="78">프레임워크 선택</text>
+
+  <rect class="b-key" x="220" y="34" width="176" height="56" rx="6"/>
+  <text class="t-h c-key" x="238" y="58">② Output Type</text>
+  <text class="t-s" x="238" y="78">문서와 Output 연결</text>
+
+  <rect class="b-hl" x="420" y="34" width="176" height="56" rx="6"/>
+  <text class="t-h" x="438" y="58">③ 비즈니스 규칙</text>
+  <text class="t-s" x="438" y="78">Decision Table</text>
+
+  <rect class="b-key" x="620" y="34" width="176" height="56" rx="6"/>
+  <text class="t-h c-key" x="638" y="58">④ Channel</text>
+  <text class="t-s" x="638" y="78">전달 매체 배정</text>
+
+  <rect class="b-key" x="820" y="34" width="176" height="56" rx="6"/>
+  <text class="t-h c-key" x="838" y="58">⑤ Form Template</text>
+  <text class="t-s" x="838" y="78">콘텐츠 · 레이아웃</text>
+
+  <path class="ln-key" d="M196 62 H214" marker-end="url(#oc2k)"/>
+  <path class="ln-key" d="M396 62 H414" marker-end="url(#oc2k)"/>
+  <path class="ln-key" d="M596 62 H614" marker-end="url(#oc2k)"/>
+  <path class="ln-key" d="M796 62 H814" marker-end="url(#oc2k)"/>
+
+  <rect class="b-ghost" x="20" y="112" width="176" height="96" rx="5"/>
+  <text class="t-s" x="36" y="134">Sales_Document 에 대해</text>
+  <text class="t-s" x="36" y="152">OM 활성화 — 기본 활성</text>
+  <text class="t-s" x="36" y="176">비활성화하면</text>
+  <text class="t-s" x="36" y="194">SD-BF-OC 로 처리</text>
+
+  <rect class="b-ghost" x="220" y="112" width="176" height="96" rx="5"/>
+  <text class="t-s" x="236" y="134">표준 Type 다수 제공</text>
+  <text class="t-s" x="236" y="152">견적 · 오더확인 · 계약</text>
+  <text class="t-s" x="236" y="170">고객반품 · 계좌이체요청</text>
+  <text class="t-s c-bad" x="236" y="194">운영 신규 생성 비권장</text>
+
+  <rect class="b-ghost" x="420" y="112" width="176" height="96" rx="5"/>
+  <text class="t-s" x="436" y="134">문서 속성을 읽어</text>
+  <text class="t-s" x="436" y="152">파라미터를 반환</text>
+  <text class="t-s" x="436" y="176">조건기법의 조건레코드</text>
+  <text class="t-s" x="436" y="194">검색에 대응하는 자리</text>
+
+  <rect class="b-ghost" x="620" y="112" width="176" height="96" rx="5"/>
+  <text class="t-s" x="636" y="134">Sales_Document 는</text>
+  <text class="t-s" x="636" y="152">EMAIL · PRINT · EDI</text>
+  <text class="t-s" x="636" y="176">3가지만 지원</text>
+
+  <rect class="b-ghost" x="820" y="112" width="176" height="96" rx="5"/>
+  <text class="t-s" x="836" y="134">SAPscript · Smart Forms</text>
+  <text class="t-s" x="836" y="152">프래그먼트 없는 PDF폼</text>
+  <text class="t-s c-ok" x="836" y="176">프래그먼트 있는 PDF폼</text>
+  <text class="t-s c-ok" x="836" y="194">= SAP 권장 방식</text>
+
+  <path class="ln-key" d="M508 208 V244 H150 V276" marker-end="url(#oc2k)"/>
+  <path class="ln" d="M708 208 V244 H415 V276" marker-end="url(#oc2a)"/>
+  <path class="ln" d="M708 244 H645 V276" marker-end="url(#oc2a)"/>
+  <path class="ln" d="M708 244 H875 V276" marker-end="url(#oc2a)"/>
+
+  <rect class="b-ok" x="20" y="278" width="260" height="126" rx="6"/>
+  <text class="t-h c-ok" x="38" y="300">③이 결정하는 것</text>
+  <text class="t-s" x="38" y="322">Output Type · 수신자 · 채널</text>
+  <text class="t-s" x="38" y="340">프린터설정 (PRINT 한정)</text>
+  <text class="t-s" x="38" y="358">발신 · 수신 이메일 주소</text>
+  <text class="t-s" x="38" y="376">(EMAIL 한정) · 폼 템플릿</text>
+  <text class="t-s" x="38" y="394">Output Relevance</text>
+
+  <rect class="b" x="310" y="278" width="210" height="126" rx="6"/>
+  <text class="t-h c-key" x="328" y="300">EMAIL</text>
+  <text class="t-s" x="328" y="324">발신 · 수신자를</text>
+  <text class="t-s" x="328" y="342">유연하게 설정</text>
+  <text class="t-s" x="328" y="366">이메일 템플릿</text>
+  <text class="t-s" x="328" y="384">사용 가능</text>
+
+  <rect class="b" x="540" y="278" width="210" height="126" rx="6"/>
+  <text class="t-h c-key" x="558" y="300">PRINT</text>
+  <text class="t-s" x="558" y="324">SAP Spool System</text>
+  <text class="t-s" x="558" y="342">을 통해 출력</text>
+  <text class="t-s" x="558" y="366">프린터 · 출력매수를</text>
+  <text class="t-s" x="558" y="384">별도 단계에서 결정</text>
+
+  <rect class="b-bad" x="770" y="278" width="210" height="126" rx="6"/>
+  <text class="t-h c-bad" x="788" y="300">EDI</text>
+  <text class="t-s" x="788" y="324">IDoc — 내부 청구</text>
+  <text class="t-s" x="788" y="342">용도로만 지원</text>
+  <text class="t-s" x="788" y="366">SOA / XML — SAP</text>
+  <text class="t-s" x="788" y="384">Ariba 연동 전용</text>
+</svg>
+<figcaption><span class="fno">그림 2</span>핵심 Customizing 객체 5종과 그 연결. 실제 파라미터를 뱉어내는 것은 ③ 비즈니스 규칙 하나뿐이고, ②④⑤는 그 규칙이 고를 수 있는 선택지를 준비하는 단계다.</figcaption>
+</figure>
+
+<h4>① Framework 선택</h4>
+
+<p><code>Sales_Document</code>라는 application object type에 대해 SAP S/4HANA Output Management를 <b>활성화</b>해야 쓸 수 있습니다. S/4HANA에서는 기본적으로 활성 상태입니다. 반대로 조건기법 기반 Output Determination(SD-BF-OC)을 쓰려면 Customizing에서 <code>Sales_Document</code>에 대해 비활성화합니다.</p>
+
+<div class="note warn">
+  <div class="t">전환은 소급되지 않는다</div>
+  <p>활성 상태를 변경해도 <span class="hl">신규 문서에만 적용</span>됩니다. 기존 문서는 생성 당시 활성이던 프레임워크로 계속 처리됩니다 — 전환 직후 "어제 오더는 되는데 오늘 오더는 안 된다"(또는 그 반대)는 문의가 나오면 먼저 이걸 의심합니다.</p>
+</div>
+
+<h4>② Output Type 정의</h4>
+
+<p>Output Type(출력유형)은 <b>거래처와 정보를 교환하는 행위·문서</b>를 기술합니다. 문서와 Output을 연결하고, 그 문서의 출력 파라미터를 정의하는 축입니다. 하나의 application object type에 <span class="key">여러 Output Type이 배정</span>될 수 있습니다 — <code>Sales_Document</code>의 경우 견적서·오더확인서·계좌이체요청서·판매계약·고객반품 등.</p>
+
+<div class="note warn">
+  <div class="t">운영에서 Output Type 신규 생성은 SAP 권장사항이 아니다</div>
+  <p>자체 <b>Callback Class</b>와 함께 쓸 때만 실무적 의미가 있고, 이 코스에서는 Callback Class 정의를 다루지 않습니다. 강의의 신규 생성 시연은 <span class="bad">로직 이해를 위한 학습 목적</span>입니다. 프로젝트에서도 표준 Output Type을 먼저 뒤지고, 없을 때만 신규를 검토하는 순서가 맞습니다.</p>
+</div>
+
+<h4>③ Output Parameter Determination을 위한 비즈니스 규칙</h4>
+
+<p>특정 비즈니스 문서에 대해 <b>시스템이 출력 파라미터를 어떻게 결정할지</b> 정의하는 핵심 Customizing 활동입니다. 문서 속성을 기반으로 Decision Table의 규칙이 다음을 결정합니다.</p>
+
+<ul>
+  <li>Output Type · 수신자 · 채널</li>
+  <li>프린터 설정 — <b>PRINT 채널 한정</b></li>
+  <li>발신 / 수신 이메일 주소 — <b>EMAIL 채널 한정</b></li>
+  <li>PDF 생성용 폼 템플릿</li>
+  <li>Output Relevance(출력관련성)</li>
+</ul>
+
+<div class="note">
+  <div class="t">Pricing의 Condition Technique과 같은 검색 전략이다</div>
+  <p>원문은 이 활동을 <span class="key">"Output Determination(SD-BF-OC)의 조건기법에 의한 출력조건레코드 검색에 대응한다"</span>고 명시합니다. 즉 <b>"문서의 속성을 키로 규칙표를 뒤져서 값을 문서로 복사한다"</b>는 발상이 Pricing과 동일하고, 저장하는 그릇만 <b>조건레코드 → Decision Table</b>로 바뀐 것입니다.</p>
+  <p>Access Sequence가 구체적인 조건테이블부터 일반적인 것 순으로 훑는 것과, Decision Table이 구체적인 행을 위에 두고 위→아래로 훑는 것은 같은 전략입니다. 조건테이블·Access Sequence 쪽 구조는 <a href="s46200-pricing.html#l1">S46200 Pricing 노트 LESSON 1 — 가격이 찾아지는 순서</a>를 같이 보면 대응이 바로 보입니다.</p>
+</div>
+
+<h4>④ Output Channel 배정</h4>
+
+<p>Output Channel(출력채널)은 출력물의 <b>전달 매체</b>입니다. SAP S/4HANA Output Control은 <code>Sales_Document</code>에 대해 <b>EMAIL · PRINT · EDI</b> 3가지를 지원합니다.</p>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>채널</th><th>내용</th><th>제약</th></tr></thead>
+<tbody>
+<tr><td>EMAIL</td><td class="wrap">발신자·수신자를 유연하게 설정하고 <b>이메일 템플릿</b>을 쓸 수 있다</td><td class="wrap">—</td></tr>
+<tr><td>PRINT</td><td class="wrap"><b>SAP Spool System</b>을 통해 출력. 프린터와 출력 매수는 별도 결정단계에서 확정</td><td class="wrap">—</td></tr>
+<tr><td>EDI</td><td class="wrap"><b>IDoc</b> 또는 <b>SOA(XML 메시지)</b> 기술 메시지 포맷으로 거래처에 전송</td><td class="wrap"><span class="bad">IDoc은 내부 청구(internal billing) 용도로만 지원. XML은 SAP Ariba 연동 전용</span></td></tr>
+</tbody>
+</table>
+</div>
+
+<div class="note warn">
+  <div class="t">EDI 채널을 범용 인터페이스로 오해하면 설계가 무너진다</div>
+  <p>"S/4HANA Output Control이 EDI를 지원한다"를 <b>"고객·벤더와 임의의 EDI 연동을 이 채널로 할 수 있다"</b>로 읽으면 안 됩니다. <span class="hl">IDoc 채널은 내부 청구 외 용도가 지원되지 않고, XML 채널은 Ariba 전용</span>입니다. 일반적인 대외 인터페이스는 이 채널이 아니라 별도 인터페이스(IDoc 프로세스 코드 직접 구성, RFC, API)로 설계해야 합니다.</p>
+</div>
+
+<h4>⑤ Form Template 배정</h4>
+
+<p>Form Template(폼 템플릿)은 출력물의 콘텐츠와 <b>레이아웃</b>을 정의합니다. SAP는 각 비즈니스 애플리케이션에 표준 Form Template을 제공하고, 자체 템플릿도 만들어 쓸 수 있습니다 — 단 <span class="key">폼과 대응 프린트 프로그램이 SAP S/4HANA Output Management와 호환되어야</span> 합니다.</p>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>폼 기술</th><th>분류</th></tr></thead>
+<tbody>
+<tr><td>SAPscript</td><td class="wrap">"클래식" 방식</td></tr>
+<tr><td>Smart Forms</td><td class="wrap">"클래식" 방식</td></tr>
+<tr><td>PDF기반 인쇄폼 (프래그먼트 없음)</td><td class="wrap">"클래식" 방식</td></tr>
+<tr><td><span class="key">PDF기반 인쇄폼 (프래그먼트 있음)</span></td><td class="wrap"><span class="good">SAP 권장 방식</span></td></tr>
+</tbody>
+</table>
+</div>
+
+<div class="note">
+  <div class="t">🔰 초보자 설명 — 5가지 객체를 한 줄로</div>
+  <p>"어떤 프레임워크를 쓸지 → 어떤 종류의 문서인지(Output Type) → 언제·누구에게 보낼지(규칙) → 어떤 방법으로(채널) → 어떤 모양으로(폼 템플릿)" 순서로 다섯 단계를 하나씩 설정하는 것이 Output Control 커스터마이징입니다.</p>
+</div>
+
+<div class="note ok">
+  <div class="t">📌 개인 E2E 프로젝트와의 연결점</div>
+  <p>회사코드 <b>CL04</b>에서 오더확인서·납품서·청구서를 자동 발송한다면 이 <b>Output Type → Channel → Form Template</b> 체인이 그대로 설계 뼈대가 됩니다. 프로젝트는 표준 우선 원칙이므로 <span class="key">Output Type은 표준을 그대로 쓰고, 건드리는 것은 ③ 규칙(Decision Table)뿐</span>이라는 선을 먼저 그어 두는 편이 좋습니다.</p>
+  <p>다만 <b>목표 3번(웹페이지 → RFC로 SAP 호출)을 이 EDI 채널로 붙이려는 시도는 하면 안 됩니다.</b> IDoc은 내부 청구 전용, XML은 Ariba 전용이라 범용 연동 경로가 아닙니다 — 인터페이스 설계서에서는 Output Control과 무관하게 <b>독립 RFC FM</b>으로 정의하는 것이 맞습니다.</p>
+</div>
+
+</div>
+
+
+<!-- ══════════ LESSON 2 ══════════ -->
+<div class="lesson" id="l2">
+<h2><span class="no">LESSON 2</span>Decision Table — 평가 순서와 파라미터 결정 5단계</h2>
+
+<p><span class="tag">Unit 2</span><span class="tag">레슨 2개</span>Determining Output Parameters · Defining Output Parameters for Sales Orders</p>
+
+<h3>언제 이걸 알아야 하는가</h3>
+
+<p>이쪽 문의는 "안 나간다"보다 <b>"두 번 나갑니다"</b>가 더 성가십니다. 같은 오더에 대해 이메일도 가고 EDI도 가는데 한쪽만 보내고 싶다 — 이건 버그가 아니라 <span class="key">여러 행이 동시에 걸린(multiple hits) 정상 동작</span>이고, 고치는 곳은 프로그램이 아니라 규칙표의 <code>exclusive</code> 표시입니다.</p>
+
+<h3>Decision Table 구조와 8개 결정단계</h3>
+
+<p>SAP S/4HANA Output Management는 <b>출력 파라미터마다 별도의 Decision Table</b>을 유지합니다. <b>Output Parameter Determination</b> 애플리케이션에서 다음 <span class="key">8가지 결정단계(Determination Step)</span>로 관리합니다.</p>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>#</th><th>결정단계</th><th>결정하는 것</th></tr></thead>
+<tbody>
+<tr><td>1</td><td>Output Type</td><td class="wrap">무엇을 발행할 것인가. 이후 단계에서 <b>이 값 자체가 판단 기준(characteristic)</b>으로 재사용된다</td></tr>
+<tr><td>2</td><td>Recipient</td><td class="wrap">누가 받는가. 오더확인서는 보통 <b>Sold-to Party</b></td></tr>
+<tr><td>3</td><td>Channel</td><td class="wrap">PRINT · EMAIL · EDI(IDoc 또는 SOA/XML)</td></tr>
+<tr><td>4</td><td>Printer Settings</td><td class="wrap">PRINT 채널일 때 프린터와 <b>출력 매수</b></td></tr>
+<tr><td>5</td><td>E-Mail Settings</td><td class="wrap">이메일 설정</td></tr>
+<tr><td>6</td><td>E-Mail Recipient</td><td class="wrap">이메일 수신자</td></tr>
+<tr><td>7</td><td>Form Template</td><td class="wrap">콘텐츠·레이아웃. 인쇄물·이메일 모두 해당</td></tr>
+<tr><td>8</td><td><span class="key">Output Relevance</span></td><td class="wrap">파라미터가 아니라 <b>게이트</b>. 지금 정말 발행해도 되는 상태인가</td></tr>
+</tbody>
+</table>
+</div>
+
+<p>테이블은 <b>조건컬럼(흰색)</b>과 <b>결과컬럼(초록색, 1개 이상)</b>으로 구성됩니다 — 조건이 충족되면 결과, 즉 출력 파라미터가 반환됩니다.</p>
+
+<h3>평가 순서 — 왼쪽→오른쪽, 위→아래</h3>
+
+<p>Decision Table의 각 항목은 <span class="hl">왼쪽에서 오른쪽으로, 위에서 아래로</span> 처리됩니다. 따라서 <b>가장 구체적인 조건 세트를 위쪽에, 더 일반적인 조건 세트를 아래쪽에</b> 배치해야 합니다. 이 순서를 뒤집으면 일반 규칙이 먼저 걸려서 구체 규칙이 의미를 잃습니다.</p>
+
+<figure class="figwrap">
+<svg class="dgm" viewBox="0 0 1000 470" role="img" aria-label="Decision Table 평가 순서 도해. 행은 구체적인 조건에서 일반적인 조건 순으로 위에서 아래로 평가되고 컬럼은 AND로 연결되며, exclusive로 표시된 행에서 결정이 멈춰 이후 행은 적용되지 않는다.">
+  <defs>
+    <marker id="oc3a" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto">
+      <polygon class="arw" points="0,0 8,4 0,8"/></marker>
+    <marker id="oc3k" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto">
+      <polygon class="arw-key" points="0,0 8,4 0,8"/></marker>
+    <marker id="oc3b" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto">
+      <polygon class="arw-bad" points="0,0 8,4 0,8"/></marker>
+  </defs>
+
+  <text class="t-s c-key" x="20" y="34">결정단계 = Channel 의 Decision Table (예시: 장난감 제조사)</text>
+
+  <rect class="b-mut" x="120" y="44" width="740" height="34"/>
+  <line class="ln" x1="320" y1="44" x2="320" y2="262"/>
+  <line class="ln" x1="520" y1="44" x2="520" y2="262"/>
+  <line class="ln" x1="740" y1="44" x2="740" y2="262"/>
+  <text class="t-h" x="140" y="67">조건 · Sales Org</text>
+  <text class="t-h" x="340" y="67">조건 · Dist. Channel</text>
+  <text class="t-h c-ok" x="540" y="67">결과 (출력 파라미터)</text>
+  <text class="t-h" x="760" y="67">exclusive</text>
+
+  <rect class="b" x="120" y="78" width="740" height="60"/>
+  <text class="m" x="140" y="104">1010</text>
+  <text class="t-xs" x="140" y="124">가장 구체적</text>
+  <text class="m" x="340" y="104">10  (End Customer)</text>
+  <text class="t c-ok" x="540" y="108">이메일 발송</text>
+  <text class="t-h c-bad" x="760" y="108">✔ 표시</text>
+
+  <rect class="b" x="120" y="138" width="740" height="60"/>
+  <text class="m" x="140" y="164">1020</text>
+  <text class="t-xs" x="140" y="184">더 일반적</text>
+  <text class="t-s" x="340" y="164">(비움) — 모든 값 허용</text>
+  <text class="t c-ok" x="540" y="168">항상 인쇄 · 우편 발송</text>
+  <text class="t-s" x="760" y="168">없음</text>
+
+  <rect class="b" x="120" y="198" width="740" height="60"/>
+  <text class="t-s" x="140" y="224">(비움)</text>
+  <text class="t-xs" x="140" y="244">가장 일반적</text>
+  <text class="t-s" x="340" y="224">(비움) — 모든 값 허용</text>
+  <text class="t c-ok" x="540" y="228">EDI 발송</text>
+  <text class="t-s" x="760" y="228">없음</text>
+
+  <path class="ln-key" d="M320 108 H508" marker-end="url(#oc3k)"/>
+  <text class="t-xs c-key" x="356" y="94">컬럼 간 = AND</text>
+
+  <path class="ln" d="M70 78 V250" marker-end="url(#oc3a)"/>
+  <text class="t-xs" x="24" y="100">행 순서</text>
+  <text class="t-xs" x="24" y="118">구체적</text>
+  <text class="t-xs" x="24" y="240">일반적</text>
+
+  <path class="ln-bad" d="M880 108 V230 H876" marker-end="url(#oc3b)"/>
+  <text class="t-xs c-bad" x="890" y="150">1행이</text>
+  <text class="t-xs c-bad" x="890" y="166">exclusive 면</text>
+  <text class="t-xs c-bad" x="890" y="182">여기서 결정이</text>
+  <text class="t-xs c-bad" x="890" y="198">멈춘다 — 3행</text>
+  <text class="t-xs c-bad" x="890" y="214">EDI 는 미적용</text>
+
+  <rect class="b-ghost" x="120" y="270" width="740" height="34" rx="5"/>
+  <text class="t-s" x="140" y="292">exclusive 가 없으면 1행 이메일과 3행 EDI 가 <tspan class="c-bad">둘 다 발행된다</tspan> (multiple hits) — 의도일 수도, 사고일 수도 있다.</text>
+
+  <text class="t-h" x="20" y="340">같은 셀 안에서의 조건 결합 규칙</text>
+
+  <rect class="b" x="20" y="352" width="470" height="52" rx="5"/>
+  <text class="t" x="40" y="374">INCLUDE 여러 개 → 논리 <tspan class="t-h c-key">OR</tspan></text>
+  <text class="t-s" x="40" y="394">하나만 참이면 결과 반영</text>
+
+  <rect class="b" x="510" y="352" width="470" height="52" rx="5"/>
+  <text class="t" x="530" y="374">EXCLUDE 여러 개 → 논리 <tspan class="t-h c-key">OR</tspan></text>
+  <text class="t-s" x="530" y="394">하나만 참이면 결과 미반영</text>
+
+  <rect class="b-hl" x="20" y="412" width="470" height="52" rx="5"/>
+  <text class="t" x="40" y="434">INCLUDE 와 EXCLUDE → 논리 <tspan class="t-h">AND</tspan></text>
+  <text class="t-s" x="40" y="454">INCLUDE 참 · EXCLUDE 거짓이어야 결과 반영</text>
+
+  <rect class="b-hl" x="510" y="412" width="470" height="52" rx="5"/>
+  <text class="t" x="530" y="434">컬럼과 컬럼 사이 → 논리 <tspan class="t-h">AND</tspan></text>
+  <text class="t-s" x="530" y="454">조건셀이 비어 있으면 모든 값이 조건을 충족</text>
+</svg>
+<figcaption><span class="fno">그림 3</span>Decision Table의 평가 순서와 조건 결합 규칙. 행 순서와 exclusive 두 가지가 "몇 통이 나가는가"를 결정한다.</figcaption>
+</figure>
+
+<h3>조건 처리의 일반 규칙</h3>
+
+<p>조건은 <b>판매문서의 실제 데이터</b>로 체크됩니다.</p>
+
+<div class="step"><span class="n">STEP 1</span><p>1행의 1번째 조건이 충족되면 2번째 조건을 체크한다 — 컬럼들은 논리 <b>AND</b>로 연결된다</p></div>
+<div class="step"><span class="n">STEP 2</span><p>한 행의 <b>모든</b> 조건이 충족되면 그 행의 결과가 문서에 반영된다</p></div>
+<div class="step"><span class="n">STEP 3</span><p>결과가 <code>exclusive</code>가 아니면 <span class="hl">다음 행도 계속 평가한다</span></p></div>
+<div class="step"><span class="n">STEP 4</span><p>조건셀이 비어 있으면 모든 값이 조건을 충족한 것으로 본다</p></div>
+
+<h4>INCLUDE / EXCLUDE 조건</h4>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>구분</th><th>규칙</th></tr></thead>
+<tbody>
+<tr><td>INCLUDE 조건</td><td class="wrap"><b>참이어야만</b> 해당 행이 계속 평가된다. 거짓이면 그 행은 더 이상 평가되지 않는다</td></tr>
+<tr><td>EXCLUDE 조건</td><td class="wrap"><b>거짓이어야만</b> 해당 행이 계속 평가된다. 참이면 결과가 반환되지 않는다</td></tr>
+</tbody>
+</table>
+</div>
+
+<p>비교연산자(같음·작음·다름 등)로 문서의 실제 값(<b>Test Parameter</b>)과 조건셀에 지정된 값(<b>Comparison Parameter</b>)을 비교합니다.</p>
+
+<h4>실전 예시 — SD Document Category + Sales Document Type</h4>
+
+<p>Decision Table 1행에 INCLUDE 조건 <code>SD Document Category = C</code>가 있고, AND로 연결된 <code>Sales Document Type</code> 컬럼에 조건 3개(INCLUDE 1개 + EXCLUDE 2개)가 있는 경우입니다.</p>
+
+<ul>
+  <li>견적서는 Category <code>B</code>라서 <span class="bad">이 행은 평가 자체가 중단</span>됩니다</li>
+  <li>INCLUDE 조건 <code>Sales Document Type ≠ BV</code> — 표준오더 <code>OR</code>이면 참, <code>BV</code>면 거짓</li>
+  <li>이어지는 EXCLUDE 조건 <code>= SO01</code>은 테스트 파라미터가 <code>OR</code>이므로 거짓 → 계속 평가</li>
+  <li>그 다음 EXCLUDE 조건은 OR로 연결되어 있어 체크되지 않습니다</li>
+</ul>
+
+<p>결과적으로 <b>SD Document Category <code>C</code> + Sales Document Type <code>OR</code></b>인 표준오더에는 Output Type <span class="key">Order Confirmation</span>과 Dispatch Time <span class="key">1 Immediately</span>가 반영됩니다.</p>
+
+<h3>Simulation — 예측하지 말고 돌려 본다</h3>
+
+<p>각 결정단계마다 Decision Table 평가를 <b>시뮬레이션</b>할 수 있습니다. 조건이 복잡해질수록 어떤 파라미터가 실제로 결정될지 머리로 따라가기 어렵기 때문에, Output Parameter Determination 애플리케이션의 시뮬레이션 기능을 쓰는 편이 안전합니다. 행 순서는 신규·변경 요청에 따라 <b>재배열</b>할 수 있고, 테이블은 <b>Excel로 내보내기·가져오기</b>도 됩니다.</p>
+
+<div class="note">
+  <div class="t">🔰 초보자 설명 — Decision Table을 한 줄로</div>
+  <p>엑셀 표처럼 생긴 <b>"만약 이 조건이면 이 결과"</b> 규칙표입니다. 위에서부터 순서대로 체크하면서 조건에 맞는 행의 결과를 모으고, <code>exclusive</code> 표시된 행을 만나면 거기서 멈춥니다.</p>
+</div>
+
+<h3>판매오더 출력 파라미터 — 결정 5단계 + 게이트 1개</h3>
+
+<p>실제 판매오더에 적용할 때의 흐름입니다. 각 단계는 앞 단계의 결과를 <b>다음 단계의 판단 기준으로 다시 사용</b>한다는 점이 핵심입니다 — 특히 <span class="key">Output Type은 이후 거의 모든 단계에서 characteristic으로 쓰입니다.</span></p>
+
+<div class="step"><span class="n">1</span><p><b>Output Type 결정</b> — 오더확인서 같은 Output을 발행하려면 먼저 문서의 Output Type이 정해져야 한다. 이후 단계에서 이 값 자체가 판단 기준이 된다</p></div>
+<div class="step"><span class="n">2</span><p><b>Output Recipient 결정</b> — 받을 거래처. Order Confirmation은 보통 판매오더의 <b>Sold-to Party</b>. Receiver Determination 단계에서 설정하며 여기서도 Output Type이 기준으로 쓰인다</p></div>
+<div class="step"><span class="n">3</span><p><b>Output Channel 결정</b> — PRINT · EMAIL · EDI(IDoc 또는 SOA/XML). Channel Determination 단계</p></div>
+<div class="step"><span class="n">4</span><p><b>Printer Settings 결정</b> — PRINT 채널이면 프린터와 출력 매수를 여기서 정한다</p></div>
+<div class="step"><span class="n">5</span><p><b>Form Template 결정</b> — 인쇄물·이메일 모두 폼 템플릿이 콘텐츠·레이아웃을 결정한다. Form Template Determination 단계</p></div>
+
+<h4>PDF는 어떻게 만들어지는가</h4>
+
+<p>PDF 생성에 쓰이는 Form Template은 <b>데이터소스</b>와 <b>레이아웃</b> 두 조각으로 구성됩니다.</p>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>구성요소</th><th>역할</th></tr></thead>
+<tbody>
+<tr><td><b>OData Service</b></td><td class="wrap">판매문서 데이터를 DB에서 가져온다 (데이터소스)</td></tr>
+<tr><td><b>Adobe Livecycle Design Document</b></td><td class="wrap">레이아웃. OData 결과셋과 <b>병합</b>되어 PDF 문서로 렌더링된다</td></tr>
+</tbody>
+</table>
+</div>
+
+<h3>Output Relevance — 마지막 게이트</h3>
+
+<p>Output Relevance는 <span class="bad">그 자체로 출력 파라미터가 아닙니다.</span> Output이 트리거될 때 체크되는 단계로, <b>어떤 조건에서 Output이 실제로 발행될지를 통제</b>합니다.</p>
+
+<ul>
+  <li>문서가 <b>불완전</b>하면(Incompleteness Check) Output을 발행하지 않도록 지정</li>
+  <li>자재 <b>가용성이 없으면</b>(Availability Check) Output을 발행하지 않도록 지정</li>
+</ul>
+
+<div class="note warn">
+  <div class="t">출력관련성을 켜지 않으면 조용히 "준비 중"으로 남는다</div>
+  <p>Output 항목을 여기서 <b>출력관련성 있음</b>으로 표시하지 않으면 해당 Output은 발행되지 않고 <span class="hl">"준비 중(in preparation)"</span> 상태로 머뭅니다. 에러도 덤프도 나지 않기 때문에, "안 나간다" 문의의 조사 마지막 단계는 언제나 이 상태 확인입니다.</p>
+</div>
+
+<div class="note">
+  <div class="t">🔰 초보자 설명 — 5단계 결정 흐름을 한 줄로</div>
+  <p>"무엇을 보낼지(Type) → 누구에게(Recipient) → 어떤 방법으로(Channel) → (인쇄라면) 어느 프린터로 → 어떤 모양으로(Form Template)"를 순서대로 정하고, 마지막에 <b>"지금 정말 보내도 되는 상태인지(Relevance)"</b>를 체크하는 흐름입니다.</p>
+</div>
+
+<div class="note warn">
+  <div class="t">확인 필요 — 실제 시스템에서 확정할 것</div>
+  <p>· <b>Output Parameter Determination</b> 애플리케이션의 앱 ID와 IMG 경로가 원문(Learning Hub 본문)에 나오지 않습니다. <code>winerp01</code> / <code>MEP</code>에서 Fiori Launchpad 앱 검색으로 확인하고 이 노트에 보강할 것.<br>
+     · 결정단계 5 <b>E-Mail Settings</b>와 6 <b>E-Mail Recipient</b>의 역할 구분은 원문이 단계 이름만 나열하고 세부를 설명하지 않습니다. 실제 앱에서 컬럼 구성을 보고 확정할 것.<br>
+     · <b>Callback Class</b>는 이 코스에서 다루지 않습니다 — 자체 Output Type을 실제로 쓰려면 반드시 필요한 조각이므로 별도 학습 대상입니다.</p>
+</div>
+
+<div class="note ok">
+  <div class="t">📌 개인 E2E 프로젝트와의 연결점</div>
+  <p><b>규칙을 코드가 아니라 표에 두는 구조</b>가 이 프로젝트의 CBO 설계에 그대로 옮겨집니다. <code>ZBATCH_ZONE</code>의 "잔여 유통기한 30% 미달 → 정상 SLoc에서 임박 SLoc로 311 이동" 판정에서 <span class="bad">30%와 온도군별 SLoc 6개(1100/1900 · 2100/2900 · 3100/3900)를 소스에 하드코딩하면 안 됩니다.</span> Decision Table처럼 <b>자재그룹 · 온도군 · 임계율 · 출발 SLoc · 도착 SLoc</b> 컬럼을 가진 커스텀 설정테이블로 빼고, 구체적인 행(자재그룹 <code>CHKN</code> 지정)을 위에, 일반 행(자재그룹 비움 = 전체)을 아래에 두면 Decision Table의 <b>"구체적 → 일반적"</b> 순서 전략을 그대로 재현할 수 있습니다. 조회 순서를 제어할 <code>PRIO</code> 컬럼 하나를 PK에 넣어 두면 exclusive 대신 쓸 수 있습니다.</p>
+  <p><b>Output Relevance = 게이트</b>라는 발상은 <code>ZGATE_INSPECT</code>와 정확히 같습니다. GR(101)과 STOR이관(301) 차이 중 <span class="key">송장 미발생 건만</span> 122 반품 대상으로 거르는 것이, "불완전한 문서에는 Output을 발행하지 않는다"와 같은 구조 — <b>처리 직전에 상태를 한 번 더 확인하는 단계를 로직에서 분리해 두는 것</b>입니다. 다만 122 반품은 재고·금액에 영향을 주므로, Output Relevance처럼 자동 통과시키지 말고 프로젝트 원칙대로 <b>상태필드 W → 승인 후 P</b>로 끊어 둡니다.</p>
+</div>
+
+</div>
+
+
+<!-- ══════════ APPENDIX ══════════ -->
+<div class="lesson" id="lx">
+<h2><span class="no">APPENDIX</span>정리 · 반드시 기억할 것</h2>
+
+<h3>한 장 요약</h3>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>질문</th><th>답</th></tr></thead>
+<tbody>
+<tr><td>프레임워크는 몇 개인가</td><td class="wrap"><b>2개.</b> SAP S/4HANA Output Management(BRFplus 기반, 기본값)와 Output Determination(SD-BF-OC, 조건기법 기반)</td></tr>
+<tr><td>프레임워크 전환은 소급되나</td><td class="wrap">안 된다. <b>신규 문서에만</b> 적용 — 기존 문서는 생성 당시 프레임워크로 처리</td></tr>
+<tr><td>파라미터는 어디에 저장되나</td><td class="wrap">S/4HANA OM은 <b>Decision Table</b>, SD-BF-OC는 출력조건레코드</td></tr>
+<tr><td>Output이 발행되려면</td><td class="wrap">출력 파라미터가 결정되어야 한다. <b>없으면 발행 불가</b></td></tr>
+<tr><td>지원 채널</td><td class="wrap">EMAIL · PRINT · EDI. <span class="bad">IDoc은 내부청구 전용 / XML은 Ariba 전용</span></td></tr>
+<tr><td>결정단계 개수</td><td class="wrap"><b>8개</b> — Output Type · Recipient · Channel · Printer Settings · E-Mail Settings · E-Mail Recipient · Form Template · Output Relevance</td></tr>
+<tr><td>테이블 평가 순서</td><td class="wrap">왼쪽→오른쪽, 위→아래. <b>구체적인 조건을 위쪽에</b></td></tr>
+<tr><td>컬럼 간 결합</td><td class="wrap">논리 <b>AND</b>. 조건셀이 비면 모든 값 충족</td></tr>
+<tr><td>같은 셀 안 결합</td><td class="wrap">INCLUDE 끼리 OR · EXCLUDE 끼리 OR · INCLUDE와 EXCLUDE 사이는 AND</td></tr>
+<tr><td>결과가 두 번 나갈 때</td><td class="wrap">multiple hits — 정상 동작이다. 멈추려면 그 행을 <code>exclusive</code>로</td></tr>
+<tr><td>Output Relevance는</td><td class="wrap">파라미터가 아니라 <b>게이트</b>. 안 켜면 "준비 중"으로 남는다</td></tr>
+<tr><td>Pricing과의 관계</td><td class="wrap">문서 속성으로 규칙표를 검색해 값을 문서로 복사 — <b>같은 검색 전략</b>, 그릇만 다르다</td></tr>
+</tbody>
+</table>
+</div>
+
+<div class="note warn">
+  <div class="t">반드시 지킬 것</div>
+  <p>· Output Type을 운영에서 <b>함부로 신규 생성하지 않는다.</b> Callback Class 없이는 의미가 없고, SAP 권장사항도 아니다 — 표준을 먼저 뒤진다.<br>
+     · EDI 채널을 <b>범용 대외 인터페이스로 설계하지 않는다.</b> IDoc은 내부청구, XML은 Ariba 전용이다.<br>
+     · Decision Table은 <b>구체적인 행을 위에</b> 둔다. 일반 행이 위로 올라가면 아래 규칙이 전부 죽는다.<br>
+     · 결과가 여러 개 나오는 것은 버그가 아니다. 의도한 게 아니면 <code>exclusive</code>로 끊는다.<br>
+     · 조건이 세 줄 넘어가면 머리로 따라가지 말고 <b>Simulation을 돌린다.</b><br>
+     · "안 나간다" 문의는 폼·프린터가 아니라 <b>프레임워크 → Decision Table → Output Relevance</b> 순서로 본다.</p>
+</div>
+
+<h3>참고</h3>
+
+<ul>
+  <li>원본: 노션 <b>SAP Learning Hub</b> → Implementing Sales in SAP S/4HANA Cloud Private Edition → 6-1 · 6-2 (Learning Hub 레슨 본문 4개 정리)</li>
+  <li>강의에 다운로드 가능한 PDF·Further Reading 없음. 데모 영상은 본문 설명 텍스트로만 반영, 실습은 Learning Hub 내장 Demo 시뮬레이션</li>
+  <li>앞 노트: <b>S46052</b> Incompletion Procedure — Output Relevance가 참조하는 불완전성 체크의 본체</li>
+  <li>뒤 노트: <b>S46056</b> Text Control — 같은 "문서에 붙는 부가정보" 계열의 결정 로직</li>
+  <li>같이 볼 노트: <b>S46200</b> Pricing — <a href="s46200-pricing.html#l1">Condition Technique의 검색 순서</a>가 Decision Table의 행 순서와 대응한다</li>
+</ul>
+
+</div>
+
+</div>
+<script src="../../assets/hub.js" defer></script>
+</body>
+</html>

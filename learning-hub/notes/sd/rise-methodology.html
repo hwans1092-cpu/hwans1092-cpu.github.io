@@ -1,0 +1,738 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>SL_RISE419 RISE with SAP Methodology — Clean Core와 표준화 프레임워크</title>
+<meta name="description" content="SAP Learning Hub의 Introducing RISE with SAP Methodology for SAP Partners and Customers(SL_RISE419) 노트. Clean Core 5차원과 확장 전략, 표준화 프레임워크와 Quality Gate, 통합 툴체인, Joule, Clean Core Dashboard.">
+<link rel="icon" href="../../assets/favicon.svg">
+<link rel="stylesheet" href="../../assets/notes-paper.css">
+<style>
+/* ── 이 노트 전용: 도해(SVG) 스타일 ─────────────────────────── */
+.dgm{display:block; width:100%; height:auto;}
+.dgm text{font-family:"Malgun Gothic","맑은 고딕","Apple SD Gothic Neo",sans-serif; fill:#1e1e1e;}
+.dgm .t-h{font-size:15px; font-weight:700;}
+.dgm .t{font-size:13px;}
+.dgm .t-s{font-size:11.5px; fill:#555;}
+.dgm .t-xs{font-size:10.5px; fill:#6B7280;}
+.dgm .m{font-family:"D2Coding","Consolas",monospace; font-size:12px;}
+.dgm .m-s{font-family:"D2Coding","Consolas",monospace; font-size:10.5px;}
+.dgm .c-key{fill:#4338CA;} .dgm .c-bad{fill:#B91C1C;} .dgm .c-ok{fill:#047857;}
+.dgm .b{fill:#FFFFFF; stroke:#C7CBD6; stroke-width:1.2;}
+.dgm .b-key{fill:#EEF0FB; stroke:#4338CA; stroke-width:1.4;}
+.dgm .b-bad{fill:#FEF2F2; stroke:#B91C1C; stroke-width:1.3;}
+.dgm .b-ok{fill:#ECFDF5; stroke:#047857; stroke-width:1.3;}
+.dgm .b-mut{fill:#F3F4F6; stroke:#D1D5DB; stroke-width:1.1;}
+.dgm .b-hl{fill:#FEF08A; stroke:#CA8A04; stroke-width:1.2;}
+.dgm .b-ghost{fill:none; stroke:#9AA3B2; stroke-width:1.1; stroke-dasharray:5 4;}
+.dgm .ln{stroke:#7C8697; stroke-width:1.4; fill:none;}
+.dgm .ln-key{stroke:#4338CA; stroke-width:1.8; fill:none;}
+.dgm .ln-bad{stroke:#B91C1C; stroke-width:1.6; fill:none;}
+.dgm .ln-ok{stroke:#047857; stroke-width:1.6; fill:none;}
+.dgm .ln-d{stroke:#9AA3B2; stroke-width:1.2; stroke-dasharray:4 4; fill:none;}
+.dgm .arw{fill:#7C8697;} .dgm .arw-key{fill:#4338CA;}
+.dgm .arw-bad{fill:#B91C1C;} .dgm .arw-ok{fill:#047857;}
+.figwrap{background:#FAFAFE; border:1px solid var(--rule); border-radius:6px;
+  padding:18px 16px 10px; margin:22px 0;}
+.figwrap figcaption{margin-top:12px; padding-top:10px; border-top:1px solid var(--rule);}
+</style>
+</head>
+<body>
+<div class="crumb"><a href="../../index.html">← 자료실 홈</a> · <a href="../../journey.html?j=sd">SD 저니</a> · SL_RISE419 RISE with SAP Methodology</div>
+<div class="sheet">
+
+<div class="doc-head">
+  <div class="kicker">LEARNING HUB · SL_RISE419</div>
+  <h1>RISE with SAP Methodology — Clean Core와 표준화 프레임워크</h1>
+  <div class="sub">
+    Introducing RISE with SAP Methodology for SAP Partners and Customers · Course 11 / SL_RISE419 · 3 Unit · 9 레슨 · Beginner · 1h35min<br>
+    <b>모듈 공통 — FI · MM · PP 저니에서도 이 노트를 참조</b><br>
+    출처: 노션 <b>SAP Learning Hub</b> 노트 11-1 변환 (Learning Hub 레슨 본문 9개 정리)
+  </div>
+</div>
+
+<div class="lead">
+  <p><b>결론부터.</b> 이 코스는 기능 코스가 아니라 <span class="hl">"커스텀 코드를 어디에 둘 것인가"</span>를 정하는 코스입니다. SAP가 RISE with SAP를 판매 패키지에서 <b>전환 프레임워크·방법론</b>으로 바꾸면서 그 중심에 놓은 원칙이 Clean Core이고, Clean Core는 개발자에게는 곧 <b>확장을 코어 안에 넣지 말라</b>는 요구입니다.</p>
+  <p>나머지는 그 원칙을 지키게 만드는 장치들입니다 — 무엇을 언제 할지 정해 주는 <b>표준화 프레임워크</b>, 그 활동을 얹을 <b>통합 툴체인</b>, 사람이 붙는 <b>전문가 가이던스</b>, 그리고 실제로 지켜졌는지 점수로 보여 주는 <b>Dashboard</b>. ABAP 개발자 입장에서 읽을 값은 "표준 오브젝트를 고치면 무엇을 잃는가"와 "그 대안이 어디에 마련돼 있는가" 두 가지입니다.</p>
+</div>
+
+<div class="toc">
+  <h4>목차</h4>
+  <ol>
+    <li><a href="#l1">RISE with SAP Methodology와 Clean Core — 원칙</a></li>
+    <li><a href="#l2">핵심 구성요소 — 프레임워크 · TPS · 툴체인 · Joule · 전문가</a></li>
+    <li><a href="#l3">Clean Core Dashboard — 지켜졌는지 확인하는 창구</a></li>
+  </ol>
+</div>
+
+
+<!-- ══════════ LESSON 1 ══════════ -->
+<div class="lesson" id="l1">
+<h2><span class="no">LESSON 1</span>RISE with SAP Methodology와 Clean Core — 원칙</h2>
+
+<p><span class="tag">Unit 1</span><span class="tag">레슨 3개</span>Introducing the SAP Business Suite · Exploring the RISE with SAP Methodology · Exploring Clean Core Fundamentals</p>
+
+<h3>언제 이걸 알아야 하는가</h3>
+
+<p>개발자에게 이 코스가 걸리는 지점은 딱 한 문장입니다. <b>"이거 표준으로 안 되니까 그냥 표준 프로그램에 한 줄 넣으면 됩니다"</b> — 여기서 결정이 갈립니다. 그 한 줄이 들어가는 순간, 다음 업그레이드마다 그 자리를 다시 열어 보고 회귀 테스트를 해야 하는 채무가 생깁니다.</p>
+
+<p>Clean Core는 그 채무를 만들지 않는 규칙이고, 이 코스의 나머지 전부는 <span class="key">그 규칙을 프로젝트 일정 안에 강제로 끼워 넣는 장치</span>입니다. 답이 어디 있는지만 알면 됩니다 — 원칙은 Unit 1, 강제 장치는 Unit 2, 점수판은 Unit 3.</p>
+
+<h3>RISE with SAP의 위치가 바뀌었다</h3>
+
+<p>전통적으로 RISE with SAP는 <b>SAP Cloud ERP Private</b>(구 SAP S/4HANA Cloud Private Edition)을 포함하는 특정 <b>판매 패키지</b>였습니다. 클라우드로 전환하는 고객이 늘면서 SAP는 지속적·집중적 지원을 제공하는 방향으로 모델을 진화시켰고, 지금 RISE with SAP는 <span class="hl">SAP Business Suite로 가는 전환 프레임워크이자 방법론</span>입니다. SAP Cloud ERP Private는 여전히 많은 고객에게 핵심이며, 이를 지원하기 위해 SAP Business Suite가 자리합니다.</p>
+
+<p>고객은 현재 ERP 구성과 전략 목표에 따라 SAP Business Suite로 가는 경로가 여러 갈래입니다. 포괄적인 현대화를 원한다면 전체 랜드스케이프를 평가해야 하고, 그 평가와 이후 전환을 RISE with SAP 전환 프레임워크가 지원합니다.</p>
+
+<h3>Methodology의 핵심 구성요소 3가지</h3>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>구성요소</th><th>내용</th></tr></thead>
+<tbody>
+<tr><td>Standardized Framework</td><td class="wrap">비즈니스 니즈에 맞춘 <b>표준화된 프레임워크</b>로 더 빠른 도입을 지원 (→ LESSON 2)</td></tr>
+<tr><td>Integrated Toolchain</td><td class="wrap">협업과 프로젝트 실행을 위한 <b>통합 툴체인</b> (→ LESSON 2)</td></tr>
+<tr><td>Expert Guidance</td><td class="wrap">처음부터 끝까지 이어지는 <b>전문가 가이던스</b> (→ LESSON 2)</td></tr>
+</tbody>
+</table>
+</div>
+
+<p>이 방법론은 <span class="key">Clean Core 전략을 기반</span>으로 정의된 단계에 걸쳐 구조화된 가이던스를 제공하며, SAP 전문가와 파트너가 이를 뒷받침합니다. 데이터를 정돈하고 유연한 프로세스와 효율적 운영을 유지해 고객 라이프사이클 전반을 매끄럽게 만드는 것이 목적입니다.</p>
+
+<p>최근 추가된 것은 <b>Digital Discovery Assessment 툴킷을 갖춘 개선된 Discover 단계</b>, 다양한 애플리케이션을 아우르는 폭넓은 도입 로드맵, SAP Cloud ERP Private 고객 전용 전환 서비스, 개선된 온보딩과 <b>Clean Core Success Plan</b>, 강화된 툴체인입니다.</p>
+
+<h4>SAP Cloud ERP Private Package 전환 툴·서비스</h4>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>영역</th><th>도구 / 서비스</th></tr></thead>
+<tbody>
+<tr><td>프로세스 분석·최적화</td><td class="wrap">SAP Signavio Process Insights &amp; Intelligence, Process Manager, Process Collaboration Hub, Governance, Governance Collaborator, Process Transformation Manager</td></tr>
+<tr><td>엔터프라이즈 아키텍처</td><td class="wrap">SAP LeanIX Application Portfolio Manager, Architecture and Roadmap Planning, Technology Risk and Compliance</td></tr>
+<tr><td>온보딩 서비스</td><td class="wrap">Embedded launch activities</td></tr>
+<tr><td>전환 서비스</td><td class="wrap">Transformation preparation service for SAP Business Suite</td></tr>
+</tbody>
+</table>
+</div>
+
+<h3>Clean Core — 코어를 표준에 가깝게 유지한다</h3>
+
+<p>Clean Core는 <b>핵심 시스템을 표준 버전에 최대한 가깝게 유지</b>해 과도한 커스터마이징이 불러오는 업데이트·유지보수 복잡성을 피하는 개념입니다. 그 결과 신규 기능·기술을 저비용으로 최신 상태로 유지할 수 있고, 시스템이 향후 변화에 유연하게 대응합니다.</p>
+
+<p>ERP 시스템의 Core는 5개 차원으로 구성되고, 각 차원은 구현 시 베스트프랙티스·방법론·툴이 효과적으로 적용될 때 "clean"하다고 봅니다.</p>
+
+<figure class="figwrap">
+<svg class="dgm" viewBox="0 0 1000 500" role="img" aria-label="Clean Core 도해. ERP 코어는 Processes·Extensions·Data·Integrations·Operations 5차원으로 구성되며, 표준으로 해결되지 않는 요구사항을 코어 안에서 고치면 업그레이드마다 수정분 재적용 비용이 쌓이고, SAP BTP 위 확장으로 빼면 표준 업그레이드를 그대로 흡수할 수 있다.">
+  <defs>
+    <marker id="cc1" markerWidth="9" markerHeight="9" refX="7" refY="4.5" orient="auto">
+      <polygon class="arw-bad" points="0,0 9,4.5 0,9"/></marker>
+    <marker id="cc2" markerWidth="9" markerHeight="9" refX="7" refY="4.5" orient="auto">
+      <polygon class="arw-ok" points="0,0 9,4.5 0,9"/></marker>
+  </defs>
+
+  <text class="t-s" x="20" y="20">ERP Core 는 5개 차원으로 구성된다 — 각 차원이 clean 해야 Core 가 clean 하다</text>
+
+  <rect class="b-key" x="20" y="30" width="180" height="58" rx="6"/>
+  <text class="t-h c-key" x="38" y="54">Processes</text>
+  <text class="t-s" x="38" y="74">E2E 흐름의 액션 시퀀스</text>
+
+  <rect class="b-key" x="205" y="30" width="180" height="58" rx="6"/>
+  <text class="t-h c-key" x="223" y="54">Extensions</text>
+  <text class="t-s" x="223" y="74">표준을 넘어서는 추가기능</text>
+
+  <rect class="b-key" x="390" y="30" width="180" height="58" rx="6"/>
+  <text class="t-h c-key" x="408" y="54">Data</text>
+  <text class="t-s" x="408" y="74">설정 · 마스터 · 트랜잭션</text>
+
+  <rect class="b-key" x="575" y="30" width="180" height="58" rx="6"/>
+  <text class="t-h c-key" x="593" y="54">Integrations</text>
+  <text class="t-s" x="593" y="74">솔루션 간 통신 · 교환</text>
+
+  <rect class="b-key" x="760" y="30" width="180" height="58" rx="6"/>
+  <text class="t-h c-key" x="778" y="54">Operations</text>
+  <text class="t-s" x="778" y="74">거버넌스 · 모니터링</text>
+
+  <line class="ln-d" x1="20" y1="104" x2="980" y2="104"/>
+
+  <rect class="b-hl" x="330" y="114" width="340" height="46" rx="6"/>
+  <text class="t" x="352" y="142">표준 기능으로 해결되지 않는 요구사항</text>
+
+  <path class="ln-bad" d="M420 160 V180 H240 V196" marker-end="url(#cc1)"/>
+  <path class="ln-ok"  d="M580 160 V180 H760 V196" marker-end="url(#cc2)"/>
+
+  <rect class="b-bad" x="40" y="200" width="400" height="142" rx="6"/>
+  <text class="t-h c-bad" x="62" y="226">① 코어를 직접 고친다</text>
+  <text class="t-s" x="62" y="252">표준 프로그램 · 표준 테이블 수정</text>
+  <text class="t-s" x="62" y="274">USEREXIT · 표준 폼 복사 후 변경</text>
+  <text class="t-s" x="62" y="296">모디피케이션 등록</text>
+  <text class="t-xs" x="62" y="322">→ 당장은 가장 빠른 길</text>
+
+  <rect class="b-ok" x="560" y="200" width="400" height="142" rx="6"/>
+  <text class="t-h c-ok" x="582" y="226">② 코어 밖에 얹는다</text>
+  <text class="t-s" x="582" y="252">확장은 SAP BTP 위에 구축</text>
+  <text class="t-s" x="582" y="274">로우/노코드 — Build Apps · Process Automation</text>
+  <text class="t-s" x="582" y="296">프로코드 — Business Application Studio</text>
+  <text class="t-xs" x="582" y="322">→ Integration Suite 로 코어와 연결</text>
+
+  <path class="ln-bad" d="M240 342 V370" marker-end="url(#cc1)"/>
+  <path class="ln-ok"  d="M760 342 V370" marker-end="url(#cc2)"/>
+
+  <rect class="b-bad" x="40" y="374" width="400" height="70" rx="6"/>
+  <text class="t-h c-bad" x="62" y="400">업그레이드 때마다</text>
+  <text class="t-s" x="62" y="424">수정분 재적용 · 회귀 테스트 · 비용 누적</text>
+
+  <rect class="b-ok" x="560" y="374" width="400" height="70" rx="6"/>
+  <text class="t-h c-ok" x="582" y="400">업그레이드 때</text>
+  <text class="t-s" x="582" y="424">표준 변경을 그대로 흡수 · 확장은 독립 유지</text>
+
+  <rect class="b-ghost" x="40" y="456" width="920" height="34" rx="6"/>
+  <text class="t-s" x="62" y="478">신규 프로비저닝된 S/4HANA Cloud(Public · Private 모두)가 Signavio Process Navigator 의 표준 프로세스를 쓰면 기본적으로 clean 으로 본다.</text>
+</svg>
+<figcaption><span class="fno">그림 1</span>Clean Core의 5차원과 확장 위치 선택. 갈리는 지점은 "지금 빠른가"가 아니라 "업그레이드 때 무엇을 다시 해야 하는가".</figcaption>
+</figure>
+
+<p>Clean Core를 떠받치는 장치가 셋 더 있습니다. <b>SAP Activate Methodology 로드맵</b>이 각 차원을 깨끗하게 유지하는 데 필요한 태스크·산출물·액셀러레이터를 구조적으로 안내하고, 운영 쪽에서는 <b>Customer Center of Expertise</b>를 구성해 업그레이드를 감독하고 IT팀과 비즈니스 부서를 연계합니다. 그리고 Enterprise Support 패키지에 포함된 <b>SAP Cloud ALM Operations 앱</b>이 추가 비용 없이 전체 랜드스케이프 상태를 유지합니다.</p>
+
+<h4>Clean Core 시스템의 특징 5가지</h4>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>특징</th><th>설명</th></tr></thead>
+<tbody>
+<tr><td>Minimalism</td><td class="wrap">불필요·구식 기능 제거, 핵심 컴포넌트에 집중</td></tr>
+<tr><td>Modularity</td><td class="wrap">모듈 단위 분할로 유지보수·적응성 향상</td></tr>
+<tr><td>Scalability</td><td class="wrap">성능·안정성 저해 없이 성장·변화에 대응</td></tr>
+<tr><td>Maintainability</td><td class="wrap">코드베이스 단순화로 개발자의 이해·수정·개선이 용이</td></tr>
+<tr><td>Stability and Reliability</td><td class="wrap">의존성 감소로 버그·불일치 가능성 축소, 신뢰성 향상</td></tr>
+</tbody>
+</table>
+</div>
+
+<div class="note">
+  <div class="t">🔰 초보자 설명 — Clean Core를 한 줄로</div>
+  <p>"SAP 표준 기능은 그대로 두고, 커스터마이징이 필요하면 core 밖(BTP)에 별도로 얹는다"는 원칙입니다. core를 건드리지 않으니 다음 업그레이드가 훨씬 쉬워집니다.</p>
+</div>
+
+<div class="note warn">
+  <div class="t">확인 필요 — 확장 계층 용어와 온프레미스 적용 범위</div>
+  <p>원문(레슨 1-3 · 2-3)은 확장을 <span class="hl">"BTP 위에 구축해 코어 ERP와 분리"</span>하는 <b>side-by-side 방향만</b> 명시합니다. 업계에서 흔히 같이 말하는 <b>In-App(키유저 확장 · 릴리즈된 확장 포인트)</b> 계층은 이 코스 본문에 나오지 않으므로, 이 노트에서도 단정하지 않았습니다.</p>
+  <p>또한 Clean Core Success Plan · Quality Gate · Dashboard는 <b>SAP Cloud ALM</b> 전제입니다. 학습용 온프레미스 시스템(<code>winerp01</code> / <code>MEP</code>)에는 Cloud ALM도 BTP도 없으므로, 여기서 적용 가능한 것은 <b>"표준 오브젝트를 수정하지 않는다"는 원칙뿐</b>입니다. 실제 적용 범위는 시스템에서 확정할 것.</p>
+</div>
+
+<h3>개발자 관점 — 개인 프로젝트 CBO 3종은 어디에 있나</h3>
+
+<figure class="figwrap">
+<svg class="dgm" viewBox="0 0 1000 340" role="img" aria-label="개인 프로젝트 CBO 3종의 Clean Core 위치 도해. ZBATCH_ZONE·ZPRICE_CHECK·ZGATE_INSPECT는 모두 별도 Z 리포트로 표준 오브젝트를 수정하지 않고 표준 이동유형과 BAPI를 호출하므로 Extensions 차원에 해당하지만, 온프레미스 스택 안에 있어 BTP side-by-side는 아니다.">
+  <defs>
+    <marker id="cb1" markerWidth="9" markerHeight="9" refX="7" refY="4.5" orient="auto">
+      <polygon class="arw-key" points="0,0 9,4.5 0,9"/></marker>
+  </defs>
+
+  <text class="t-s" x="20" y="20">개인 프로젝트 CBO 3종을 Clean Core 기준으로 놓아 본 것</text>
+
+  <rect class="b-mut" x="20" y="36" width="300" height="230" rx="6"/>
+  <text class="t-h" x="42" y="62">표준 코어 (회사코드 CL04)</text>
+  <text class="t-s" x="42" y="90">SD · MM · FI 표준 트랜잭션</text>
+  <text class="t-s" x="42" y="112">IMG Customizing</text>
+  <text class="t-s" x="42" y="134">표준 이동유형 101 · 301 · 311 · 122</text>
+  <text class="t-s" x="42" y="156">표준 테이블 MCHA · MBEW · EINE</text>
+  <text class="t-h c-ok" x="42" y="196">표준 오브젝트 수정 0건</text>
+  <text class="t-xs" x="42" y="220">→ SAP 업그레이드 영향 없음</text>
+
+  <rect class="b-key" x="560" y="36" width="400" height="62" rx="6"/>
+  <text class="m c-key" x="582" y="62">ZBATCH_ZONE</text>
+  <text class="t-s" x="582" y="84">잔여 유통기한 30% 미달 → 정상에서 임박 SLoc 311</text>
+
+  <rect class="b-key" x="560" y="112" width="400" height="62" rx="6"/>
+  <text class="m c-key" x="582" y="138">ZPRICE_CHECK</text>
+  <text class="t-s" x="582" y="160">EINE-NETPR 과 MBEW-VERPR 괴리 알림</text>
+
+  <rect class="b-key" x="560" y="188" width="400" height="62" rx="6"/>
+  <text class="m c-key" x="582" y="214">ZGATE_INSPECT</text>
+  <text class="t-s" x="582" y="236">GR 101 과 STOR이관 301 차이 → 122 반품</text>
+
+  <path class="ln-key" d="M560 67 H338" marker-end="url(#cb1)"/>
+  <path class="ln-key" d="M560 143 H338" marker-end="url(#cb1)"/>
+  <path class="ln-key" d="M560 219 H338" marker-end="url(#cb1)"/>
+
+  <text class="t-xs" x="360" y="58">표준 이동유형 호출</text>
+  <text class="t-xs" x="360" y="134">읽기만 — 전기 없음</text>
+  <text class="t-xs" x="360" y="210">BAPI 호출 · 직접 INSERT 없음</text>
+
+  <rect class="b-ghost" x="20" y="274" width="940" height="52" rx="6"/>
+  <text class="t-s" x="44" y="296">세 본 모두 별도 Z 리포트 — 표준 프로그램 안에 코드를 넣지 않는다. Clean Core 의 Extensions 차원에 해당한다.</text>
+  <text class="t-s" x="44" y="316">다만 온프레미스 ABAP 스택 안에 있으므로 BTP side-by-side 는 아니다 — "코어 수정 없음"까지만 충족한 상태.</text>
+</svg>
+<figcaption><span class="fno">그림 2</span>개인 프로젝트 CBO 3종의 위치. 표준을 호출만 하고 고치지 않는 구조가 Clean Core가 요구하는 최소선이다.</figcaption>
+</figure>
+
+<div class="note ok">
+  <div class="t">📌 개인 E2E 프로젝트와의 연결점</div>
+  <p>프로젝트 개발 원칙 첫 줄이 <b>"표준 우선. IMG로 되는 건 IMG로. CBO는 표준으로 안 되는 지점만"</b>인데, 이게 정확히 이 코스의 Clean Core 원칙입니다. 세 본 다 표준 오브젝트를 건드리지 않은 선택이 왜 맞는지 근거를 코스 용어로 말할 수 있습니다.</p>
+  <p>· <code>ZBATCH_ZONE</code> — 잔여 유통기한 30% 미달 배치를 정상 SLoc(<code>1100</code>/<code>2100</code>/<code>3100</code>)에서 임박 SLoc(<code>1900</code>/<code>2900</code>/<code>3900</code>)으로 옮길 때, <b>MB1B의 표준 이동유형 311을 호출</b>합니다. 이동 로직을 표준 재고이동 프로그램에 끼워 넣지 않았으므로 <span class="key">Processes 차원은 표준 그대로</span>고, 판정 로직만 Extensions로 나와 있습니다.</p>
+  <p>· <code>ZPRICE_CHECK</code> — <code>EINE-NETPR</code>와 <code>MBEW-VERPR</code>를 <b>읽기만</b> 하고 전기하지 않습니다. 회계 영향이 있는 처리는 자동화하지 않는다는 원칙이 Clean Core의 <b>Data 차원</b>(마스터·트랜잭션 데이터를 임의로 건드리지 않음)과 같은 방향입니다.</p>
+  <p>· <code>ZGATE_INSPECT</code> — 반품 전기를 직접 <code>INSERT</code>하지 않고 <b>BAPI</b>로 만듭니다. 표준이 보장하는 검증·업데이트 태스크를 우회하지 않는다는 뜻이고, 이게 Clean Core에서 말하는 "코어의 무결성을 유지한 확장"입니다.</p>
+  <p>반대로, 같은 요구를 <code>MB_MIGO_BADI</code>나 표준 폼 복사로 해결했다면 그림 1의 왼쪽 경로가 됩니다 — 기능은 같지만 업그레이드 채무가 붙습니다.</p>
+</div>
+
+</div>
+
+
+<!-- ══════════ LESSON 2 ══════════ -->
+<div class="lesson" id="l2">
+<h2><span class="no">LESSON 2</span>핵심 구성요소 — 프레임워크 · TPS · 툴체인 · Joule · 전문가</h2>
+
+<p><span class="tag">Unit 2</span><span class="tag">레슨 5개</span>Standardized Framework · Transformation Preparation Service · Integrated Toolchain · Joule · Expert Guidance</p>
+
+<h3>언제 이걸 알아야 하는가</h3>
+
+<p>Unit 1의 원칙만으로는 아무것도 강제되지 않습니다. 실제 프로젝트에서 <b>"이번만 예외로 표준을 고칩시다"</b>가 나오는 순간을 막는 건 원칙이 아니라 <span class="key">단계마다 놓인 검문소</span>입니다. Unit 2는 그 검문소가 어디에, 누가, 무엇으로 서 있는지를 다룹니다.</p>
+
+<h3>① Standardized Framework — SAP Activate 위에 얹는 활동</h3>
+
+<p>목적은 기업이 <b>예측 가능하게 go-live</b>하고 클라우드 혁신의 잠재력을 최대한 쓰도록 자신감을 주는 것입니다. SAP Activate 원칙과 RISE with SAP 도입 프레임워크 같은 <b>기존 검증된 베스트프랙티스를 활용</b>하며, 숙련된 파트너 생태계가 뒷받침하는 셀프서비스·지원 서비스·툴을 통해 각 단계에서 전문가 가이던스를 받습니다.</p>
+
+<p>Standardized Framework가 실제로 하는 일은 <span class="hl">구현 전 핵심 정보 수집에 초점을 맞춘 활동을 기존 SAP Activate 로드맵 태스크·산출물에 추가</span>하는 것입니다.</p>
+
+<figure class="figwrap">
+<svg class="dgm" viewBox="0 0 1000 440" role="img" aria-label="표준화 프레임워크 도해. SAP Activate 로드맵의 Discover 단계에 Digital Discovery Assessment, Prepare 단계에 Onboarding Advisor 4회 세션과 TPS 워크숍이 붙고, Explore부터 Run까지는 SAP Cloud ALM의 Clean Core Success Plan과 단계별 Quality Gate가 태스크 완료를 검증하며 Enterprise Support 피드백 리포트로 이어진다.">
+  <defs>
+    <marker id="fw1" markerWidth="9" markerHeight="9" refX="7" refY="4.5" orient="auto">
+      <polygon class="arw-key" points="0,0 9,4.5 0,9"/></marker>
+  </defs>
+
+  <text class="t-s" x="20" y="20">SAP Activate 로드맵 위에 RISE with SAP Methodology 가 더하는 활동</text>
+
+  <rect class="b-key" x="20" y="32" width="144" height="46" rx="5"/>
+  <text class="t-h c-key" x="54" y="61">Discover</text>
+  <rect class="b-key" x="180" y="32" width="144" height="46" rx="5"/>
+  <text class="t-h c-key" x="216" y="61">Prepare</text>
+  <rect class="b-key" x="340" y="32" width="144" height="46" rx="5"/>
+  <text class="t-h c-key" x="380" y="61">Explore</text>
+  <rect class="b-key" x="500" y="32" width="144" height="46" rx="5"/>
+  <text class="t-h c-key" x="542" y="61">Realize</text>
+  <rect class="b-key" x="660" y="32" width="144" height="46" rx="5"/>
+  <text class="t-h c-key" x="704" y="61">Deploy</text>
+  <rect class="b-key" x="820" y="32" width="144" height="46" rx="5"/>
+  <text class="t-h c-key" x="876" y="61">Run</text>
+
+  <path class="ln-key" d="M164 55 H176" marker-end="url(#fw1)"/>
+  <path class="ln-key" d="M324 55 H336" marker-end="url(#fw1)"/>
+  <path class="ln-key" d="M484 55 H496" marker-end="url(#fw1)"/>
+  <path class="ln-key" d="M644 55 H656" marker-end="url(#fw1)"/>
+  <path class="ln-key" d="M804 55 H816" marker-end="url(#fw1)"/>
+
+  <path class="ln-key" d="M92 78 V100" marker-end="url(#fw1)"/>
+  <path class="ln-key" d="M252 78 V100" marker-end="url(#fw1)"/>
+  <path class="ln-key" d="M652 78 V100" marker-end="url(#fw1)"/>
+
+  <rect class="b" x="20" y="104" width="144" height="96" rx="5"/>
+  <text class="t-s" x="34" y="128">Digital Discovery</text>
+  <text class="t-s" x="34" y="146">Assessment (필수)</text>
+  <text class="t-xs" x="34" y="172">Value · Architecture</text>
+  <text class="t-xs" x="34" y="188">산출물 인계</text>
+
+  <rect class="b" x="180" y="104" width="144" height="96" rx="5"/>
+  <text class="t-s" x="194" y="128">Onboarding Advisor</text>
+  <text class="t-s" x="194" y="146">Call #1 ~ #4</text>
+  <text class="t-xs" x="194" y="172">TPS 3일 워크숍</text>
+  <text class="t-xs" x="194" y="188">Success Plan 설정</text>
+
+  <rect class="b-ok" x="340" y="104" width="624" height="96" rx="6"/>
+  <text class="t-h c-ok" x="364" y="130">Clean Core Success Plan — SAP Cloud ALM</text>
+  <text class="t-s" x="364" y="156">권장 Clean Core 태스크 150개 이상을 Clean Core Runbook 으로 관리 · 진행 추적</text>
+  <text class="t-xs" x="364" y="182">각 단계 종료 시 Clean Core Quality Gate 로 태스크 완료를 검증</text>
+
+  <path class="ln-key" d="M252 200 V218" marker-end="url(#fw1)"/>
+  <path class="ln-key" d="M412 200 V218" marker-end="url(#fw1)"/>
+  <path class="ln-key" d="M572 200 V218" marker-end="url(#fw1)"/>
+  <path class="ln-key" d="M732 200 V218" marker-end="url(#fw1)"/>
+  <path class="ln-key" d="M892 200 V218" marker-end="url(#fw1)"/>
+
+  <rect class="b-hl" x="180" y="222" width="144" height="42" rx="5"/>
+  <text class="t" x="200" y="248">Quality Gate 1</text>
+  <rect class="b-hl" x="340" y="222" width="144" height="42" rx="5"/>
+  <text class="t" x="364" y="248">Quality Gate</text>
+  <rect class="b-hl" x="500" y="222" width="144" height="42" rx="5"/>
+  <text class="t" x="524" y="248">Quality Gate</text>
+  <rect class="b-hl" x="660" y="222" width="144" height="42" rx="5"/>
+  <text class="t" x="684" y="248">Quality Gate</text>
+  <rect class="b-hl" x="820" y="222" width="144" height="42" rx="5"/>
+  <text class="t" x="844" y="248">Quality Gate</text>
+
+  <path class="ln-ok" d="M252 264 V286 H892 M412 264 V286 M572 264 V286 M732 264 V286 M892 264 V286"/>
+  <path class="ln-ok" d="M572 286 V314" marker-end="url(#fw1)"/>
+
+  <rect class="b-ok" x="300" y="316" width="400" height="66" rx="6"/>
+  <text class="t-h c-ok" x="324" y="342">SAP Enterprise Support 피드백 리포트</text>
+  <text class="t-s" x="324" y="366">설문 응답 기반 권고 + 시스템 데이터 분석</text>
+
+  <rect class="b-ghost" x="20" y="394" width="944" height="34" rx="6"/>
+  <text class="t-s" x="44" y="416">Quality Gate 는 SAP Cloud ALM 에서 설문 형태로 관리된다 — 파트너 또는 SAP 소속 프로젝트매니저가 태스크 완료를 검증한다.</text>
+</svg>
+<figcaption><span class="fno">그림 3</span>표준화 프레임워크가 SAP Activate 단계에 더하는 것. Clean Core는 선언이 아니라 단계별 Quality Gate로 검증된다.</figcaption>
+</figure>
+
+<h4>Discover — Digital Discovery Assessment</h4>
+
+<p>Digital Discovery Assessment로 핵심 정보를 수집하고, 이 결과가 프로젝트 방향을 잡고 고객이 계획한 여정에 대한 인사이트를 줍니다. <b>온보딩팀과 고객성공관리자(customer success manager)</b>가 이 데이터 수집에서 핵심 역할을 합니다.</p>
+
+<h4>Prepare — Onboarding Advisor의 4회 세션</h4>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>세션</th><th>내용</th></tr></thead>
+<tbody>
+<tr><td>Call #1<br>Get Started with SAP</td><td class="wrap">SAP Cloud ERP Private 패키지 솔루션 역량·인타이틀먼트(SAP S/4HANA Cloud Private Edition, SAP Signavio 등) 개요. 고객 IT 담당자("super admin")·핵심 프로젝트팀·파트너에게 기초 사항과 시스템 프로비저닝을 소개</td></tr>
+<tr><td>Call #2<br>Methodology &amp; Clean Core</td><td class="wrap">Clean Core 원칙 논의, RISE with SAP Methodology의 구조화된 지원 설명, <b>SAP Cloud ALM 내 Clean Core Success Plan 설정</b> 안내 (SAP Activate 단계별 태스크를 Clean Core Runbook에 집중)</td></tr>
+<tr><td>Call #3<br>Complete your Quality Gate</td><td class="wrap">Quality Gate 1 평가 완료 지원, SAP Cloud ALM을 통한 제출 전 질의응답</td></tr>
+<tr><td>Call #4<br>Review your Assessment</td><td class="wrap">Quality Gate 리포트 리뷰, 개선 인사이트·권고사항 제공</td></tr>
+</tbody>
+</table>
+</div>
+
+<h4>Explore ~ Run — Clean Core Success Plan</h4>
+
+<p>Clean Core Success Plan은 SAP Cloud ALM을 통해 <b>150개 이상의 권장 Clean Core 태스크</b>를 관리하고 상세 Runbook으로 진행 상황을 추적합니다. 각 단계(Explore · Realize · Deploy · Run)마다 파트너 또는 SAP 소속 프로젝트매니저가 <b>Clean Core Quality Gate</b>로 태스크 완료를 검증하며, Gate는 설문 형태로 Cloud ALM에서 관리되고 제출하면 <b>SAP Enterprise Support팀의 피드백</b>을 받습니다. 피드백 리포트는 설문 응답 기반 권고사항과 시스템 데이터 분석을 담고, <b>RISE with SAP Enterprise Architect</b>와 함께 검토해 업그레이드·혁신에 대한 시스템 준비도를 유지합니다.</p>
+
+<h4>Business Phase — Value &amp; Architecture Artifacts Handover</h4>
+
+<p>확장된 SAP Activate 로드맵은 Discover 단계에서 고객의 IT 아키텍처·비즈니스 프로세스·운영을 분석해 구현 범위와 가치제안을 구체화하는 것으로 시작합니다. Presales·영업팀이 요구사항과 기술 아키텍처 니즈를 문서화한 산출물을 만들어 구현팀에 인계해 <b>Discover → Prepare 전환을 매끄럽게</b> 만듭니다.</p>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>인계 산출물</th><th>요구 여부</th></tr></thead>
+<tbody>
+<tr><td>Business Strategy Map</td><td>권장</td></tr>
+<tr><td>Digital Discovery Assessment</td><td><b>필수</b></td></tr>
+<tr><td>Business Capability Map</td><td><b>필수</b></td></tr>
+<tr><td>Application Architecture Overview Diagram</td><td><b>필수</b></td></tr>
+<tr><td>Bill of Materials</td><td><b>필수</b></td></tr>
+<tr><td>Technical Assessment</td><td><b>필수</b></td></tr>
+<tr><td>Architecture Roadmap</td><td><b>필수</b></td></tr>
+<tr><td>Value Roadmap</td><td><b>필수</b></td></tr>
+<tr><td>RISE Adoption Plan</td><td><b>필수</b></td></tr>
+<tr><td>Executive Proposal</td><td><b>필수</b></td></tr>
+</tbody>
+</table>
+</div>
+
+<h3>② Transformation Preparation Service (TPS)</h3>
+
+<p>TPS는 <b>"Suite First"</b>와 <b>"AI First"</b>라는 변화하는 우선순위에 대응해 SAP Business Suite를 제품 전략의 중심에 두는 서비스입니다. RISE with SAP 여정의 일환으로 <span class="hl">비전과 실행 사이의 간극을 메워</span> 초기 프로젝트 약속이 측정 가능한 성과로 이어지게 설계되었습니다. SAP Activate의 <b>Prepare 단계</b>에서 SAP 전문가가 주도하는 몰입형 경험으로 제공되며, 엔드투엔드 프로세스 셋업을 통해 AI 역량 통합과 거버넌스 프레임워크 구축을 포함한 후속 계획을 세우게 합니다.</p>
+
+<h4>TPS의 3대 핵심 요소</h4>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>요소</th><th>내용</th></tr></thead>
+<tbody>
+<tr><td>Discovery-Based Insights</td><td class="wrap">비즈니스케이스 분석, 가치매핑, 아키텍처 청사진으로 로드맵 계획·일정 수립</td></tr>
+<tr><td>Guided Setup Services</td><td class="wrap">SAP 전문가와 협업해 클라우드 서비스 인타이틀먼트·툴체인 통합에 매끄럽게 접근</td></tr>
+<tr><td>Accelerated Value Delivery</td><td class="wrap">지식이전과 유스케이스 예시로 신속한 성과 달성, 지속 개선</td></tr>
+</tbody>
+</table>
+</div>
+
+<p>구성요소로는 맞춤형 전환 로드맵(프리세일즈 문서 검토 · 인타이틀먼트 매핑 · 산업별 전략 수립), 거버넌스를 강화하는 <b>Solution Standardization Board 세션</b>, Joule 등을 활용한 AI 유스케이스 탐색, <b>SAP Build</b> 툴을 활용한 애플리케이션 개발·통합 가이드(선구축 유스케이스로 신속한 효과 실현), SAP Signavio · SAP LeanIX · SAP Cloud ALM을 통한 프로세스 분석·관리 지원이 있습니다.</p>
+
+<h4>TPS 실행 — 초기 정렬 세션 + 3일 워크숍</h4>
+
+<div class="step"><span class="n">SET UP</span><p>초기 정렬 세션으로 <b>기술 프레임워크와 아젠다 범위</b>를 확정</p></div>
+<div class="step"><span class="n">DAY 1</span><p>전체 아키텍처와 Business Transformation Management 개념 소개 → <span class="key">Clean Core 기준선 설정</span></p></div>
+<div class="step"><span class="n">DAY 2</span><p>고객 비즈니스에 맞춘 베스트프랙티스 검토, 혁신을 위한 <b>AI 유스케이스 식별</b></p></div>
+<div class="step"><span class="n">DAY 3</span><p>RISE with SAP 맥락의 <b>거버넌스 전략</b>, 현재 SAP Business Suite에서 미래 상태로 가는 전환 접근법 정리</p></div>
+<div class="step"><span class="n">WRAP-UP</span><p>워크숍 인사이트를 종합 → <b>거버넌스 플레이북 + 통합 툴체인</b> 제공</p></div>
+
+<p>TPS는 <b>모든 SAP Business Suite 고객</b>에게 제공됩니다. 고객 측은 핵심 비즈니스·IT 담당자를 배정하고, 조직구조·IT전략 같은 핵심 정보를 공유하고, 프로젝트 헌장을 수립하고, 워크숍에 적극 참여함으로써 성공에 기여합니다.</p>
+
+<h3>③ Integrated Toolchain — 어느 활동에 어느 도구인가</h3>
+
+<p>Clean Core 접근을 채택한 고객은 <b>최대 75%의 점진적 비즈니스 가치</b>를 경험하며 IT 현대화 프로젝트가 미완료·취소될 가능성도 낮아집니다. 코스는 그 이유를 <span class="key">여정 전체를 뒷받침하는 통합 툴체인</span>에서 찾습니다.</p>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>단계</th><th>도구</th><th>역할</th></tr></thead>
+<tbody>
+<tr><td>랜드스케이프 분석</td><td>SAP LeanIX</td><td class="wrap">기존 랜드스케이프 아키텍처 분석, 현재 시스템·통합 식별, IT 랜드스케이프 전반의 이해 제공</td></tr>
+<tr><td>프로세스 평가<br>(ECC / S4 고객)</td><td>SAP Signavio</td><td class="wrap">기존 비즈니스 프로세스 평가. <b>Process Insights discovery edition</b>으로 1회 무료 데이터 로드, <b>Process Manager</b>로 BPMN 기반 커스텀 프로세스 문서화</td></tr>
+<tr><td>확장 개발</td><td>SAP BTP</td><td class="wrap">확장기능 구축·호스팅으로 코어 ERP를 clean하게 유지. 로우/노코드(Build Apps, Process Automation) ~ 프로코드(Business Application Studio, ABAP 환경, Build Code), Integration Suite·Connectivity Service로 통합 지원</td></tr>
+<tr><td>테스트</td><td>Tricentis Test Automation</td><td class="wrap">Cloud ALM 내 통합. 프로세스·통합·데이터의 수동/자동 테스트</td></tr>
+<tr><td>사용자 인에이블먼트</td><td>SAP Enable Now<br>SAP WalkMe</td><td class="wrap">시뮬레이션 기반 단계별 학습 콘텐츠 제작, 실사용 중 워크플로 가이던스·프로세스 자동화 제공</td></tr>
+<tr><td>프로젝트 실행·거버넌스</td><td>SAP Cloud ALM</td><td class="wrap">프로젝트 실행·태스크관리·리포팅·Clean Core Success Plan 유지의 <b>디지털 백본</b>. go-live 이후 운영 모니터링</td></tr>
+</tbody>
+</table>
+</div>
+
+<figure class="figwrap">
+<svg class="dgm" viewBox="0 0 1000 420" role="img" aria-label="통합 툴체인 도해. 랜드스케이프 분석(LeanIX)에서 프로세스 평가(Signavio), 확장 개발(BTP), 테스트(Tricentis), 인에이블먼트(Enable Now·WalkMe), 실행·거버넌스(Cloud ALM)로 이어지며, Signavio의 프로세스·앱 데이터가 LeanIX와 동기화되고 LeanIX의 fact sheet가 Cloud ALM과 통합되어 RISE Dashboard로 보인다.">
+  <defs>
+    <marker id="tc1" markerWidth="9" markerHeight="9" refX="7" refY="4.5" orient="auto">
+      <polygon class="arw-key" points="0,0 9,4.5 0,9"/></marker>
+  </defs>
+
+  <text class="t-s" x="20" y="20">전환 활동 단계별로 어느 도구를 쓰는가</text>
+
+  <rect class="b" x="20" y="32" width="144" height="104" rx="5"/>
+  <text class="t-xs" x="34" y="54">① 랜드스케이프 분석</text>
+  <text class="t-h c-key" x="34" y="80">SAP LeanIX</text>
+  <text class="t-s" x="34" y="102">현행 아키텍처 ·</text>
+  <text class="t-s" x="34" y="120">통합 식별</text>
+
+  <rect class="b" x="180" y="32" width="144" height="104" rx="5"/>
+  <text class="t-xs" x="194" y="54">② 프로세스 평가</text>
+  <text class="t-h c-key" x="194" y="80">SAP Signavio</text>
+  <text class="t-s" x="194" y="102">Process Insights ·</text>
+  <text class="t-s" x="194" y="120">BPMN 문서화</text>
+
+  <rect class="b-ok" x="340" y="32" width="144" height="104" rx="5"/>
+  <text class="t-xs" x="354" y="54">③ 확장 개발</text>
+  <text class="t-h c-ok" x="354" y="80">SAP BTP</text>
+  <text class="t-s" x="354" y="102">코어 밖에서</text>
+  <text class="t-s" x="354" y="120">구축 · 호스팅</text>
+
+  <rect class="b" x="500" y="32" width="144" height="104" rx="5"/>
+  <text class="t-xs" x="514" y="54">④ 테스트</text>
+  <text class="t-h c-key" x="514" y="80">Tricentis</text>
+  <text class="t-s" x="514" y="102">Cloud ALM 내</text>
+  <text class="t-s" x="514" y="120">통합 자동화</text>
+
+  <rect class="b" x="660" y="32" width="144" height="104" rx="5"/>
+  <text class="t-xs" x="674" y="54">⑤ 인에이블먼트</text>
+  <text class="t-h c-key" x="674" y="80">Enable Now</text>
+  <text class="t-h c-key" x="674" y="100">WalkMe</text>
+  <text class="t-s" x="674" y="120">시뮬레이션 학습</text>
+
+  <rect class="b-key" x="820" y="32" width="144" height="104" rx="5"/>
+  <text class="t-xs" x="834" y="54">⑥ 실행 · 거버넌스</text>
+  <text class="t-h c-key" x="834" y="80">SAP Cloud ALM</text>
+  <text class="t-s" x="834" y="102">프로젝트</text>
+  <text class="t-s" x="834" y="120">디지털 백본</text>
+
+  <path class="ln-key" d="M164 84 H176" marker-end="url(#tc1)"/>
+  <path class="ln-key" d="M324 84 H336" marker-end="url(#tc1)"/>
+  <path class="ln-key" d="M484 84 H496" marker-end="url(#tc1)"/>
+  <path class="ln-key" d="M644 84 H656" marker-end="url(#tc1)"/>
+  <path class="ln-key" d="M804 84 H816" marker-end="url(#tc1)"/>
+
+  <text class="t-s c-key" x="20" y="176">도구 간 데이터 연계</text>
+
+  <rect class="b" x="40" y="190" width="200" height="56" rx="5"/>
+  <text class="t-h" x="60" y="216">SAP Signavio</text>
+  <text class="t-xs" x="60" y="236">프로세스 모델 · 앱 매핑</text>
+
+  <rect class="b" x="400" y="190" width="200" height="56" rx="5"/>
+  <text class="t-h" x="420" y="216">SAP LeanIX</text>
+  <text class="t-xs" x="420" y="236">교차 앱 인벤토리 · fact sheet</text>
+
+  <rect class="b-key" x="760" y="190" width="200" height="56" rx="5"/>
+  <text class="t-h c-key" x="780" y="216">SAP Cloud ALM</text>
+  <text class="t-xs" x="780" y="236">프로젝트와 동기화</text>
+
+  <path class="ln-key" d="M240 218 H392" marker-end="url(#tc1)"/>
+  <text class="t-xs" x="248" y="208">프로세스 · 앱 데이터 동기화</text>
+  <path class="ln-key" d="M600 218 H752" marker-end="url(#tc1)"/>
+  <text class="t-xs" x="610" y="208">fact sheet 직접 통합</text>
+
+  <path class="ln-key" d="M860 246 V274" marker-end="url(#tc1)"/>
+  <rect class="b-hl" x="760" y="278" width="200" height="56" rx="5"/>
+  <text class="t-h" x="780" y="304">RISE Dashboard</text>
+  <text class="t-xs" x="780" y="324">Cloud ALM 통해 접근</text>
+
+  <rect class="b-ghost" x="20" y="346" width="940" height="52" rx="6"/>
+  <text class="t-s" x="44" y="368">Signavio 가 프로세스 가시성을 만들고, LeanIX 가 애플리케이션 인벤토리로 묶고, Cloud ALM 이 실행을 관리한다.</text>
+  <text class="t-s" x="44" y="388">BTP 는 이 체인의 결과물(확장)이 코어 밖에 놓이게 하는 자리 — 개발자가 직접 손대는 유일한 칸이다.</text>
+</svg>
+<figcaption><span class="fno">그림 4</span>통합 툴체인의 단계별 배치와 데이터 연계. 개발자가 서는 칸은 ③ SAP BTP 하나다.</figcaption>
+</figure>
+
+<h4>툴체인이 어떻게 이어지는가</h4>
+
+<p><b>SAP Signavio</b>는 프로젝트 착수 전부터 기존 비즈니스 프로세스에 대한 가시성을 제공해 개별 분석이 아닌 <b>전사적 평가</b>를 가능케 합니다. 상위 수준 맵에서 태스크 수준 다이어그램까지 드릴다운할 수 있고, 프로세스 모델과 엔터프라이즈 아키텍처 간 실시간 연결로 프로세스를 지원 비즈니스 역량·IT 애플리케이션에 매핑합니다.</p>
+
+<p><b>SAP LeanIX</b>는 Signavio의 프로세스·애플리케이션 데이터를 동기화해 프로세스 랜드스케이프 내 <b>교차 애플리케이션의 구조화된 인벤토리</b>를 제공합니다 — 중복 시스템 정리와 미래 시나리오 시뮬레이션에 쓰입니다. LeanIX의 전략적 전환 이니셔티브는 <b>fact sheet</b>로 캡처되어 SAP Cloud ALM과 직접 통합되고, Cloud ALM 프로젝트와 동기화되어 프로젝트 관리를 중앙화합니다.</p>
+
+<p>Explore · Realize 단계에서는 Signavio와 Cloud ALM이 프로세스 모델링 · 실행관리 · 지속적 추적성을 지원하며, Cloud ALM은 실현 단계의 <b>프로젝트 넥서스</b> 역할로 진행상황·태스크배정을 추적하고 프로세스 산출물을 프로젝트 요소와 연결합니다.</p>
+
+<p><b>RISE Dashboard</b>는 시스템 상태를 실시간 모니터링하며 프로세스 효율화를 제안합니다. Signavio · Cloud ALM은 베스트프랙티스 준수와 추적 단순화를, Syniti · Tricentis는 자동화 테스트를, Enable Now · WalkMe는 가이드 트레이닝·도입 추적을, SAP LeanIX는 전환 진행상황 모니터링·개선 제안을, BTP Build는 로우코드 기반 신속한 프로세스 변경을 지원합니다.</p>
+
+<h3>④ Joule for RISE with SAP Methodology</h3>
+
+<p>Joule은 방법론 탐색을 위한 <b>맞춤형·컨텍스트 인지형 전문지식</b>을 제공하는 클라우드 네이티브 플랫폼입니다. ERP·ALM 시스템과 통합된 개인화된 가이드 액션으로 워크플로를 개선하고 정보 탐색 시간을 줄입니다. 생성형 AI로 RISE with SAP Methodology를 더 실행 가능하고 자동화된 형태로 만들며, <b>Clean Core Success Plan을 안내</b>해 원칙 도입을 돕습니다.</p>
+
+<p>SAP Cloud ALM과 통합되어 정확한 프로젝트 단계를 파악하고 완료·진행중·예정 활동에 맞는 권고를 제시하며, <b>SAP AI Core · SAP Generative AI Hub</b>를 통해 거버넌스·컴플라이언스를 강화합니다.</p>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>핵심 기능</th><th>내용</th></tr></thead>
+<tbody>
+<tr><td>Generative AI-Powered Transformation</td><td class="wrap">생성형 AI로 통합적·직관적 경험을 제공해 전환 프로세스 전체를 간소화</td></tr>
+<tr><td>24/7 Expert Guidance</td><td class="wrap">LLM 기반 상시 가이던스. RISE 방법론 프레임워크 내 프로젝트별 정보를 전달하는 <b>1차 지원 시스템</b></td></tr>
+<tr><td>Tailored Support</td><td class="wrap">Onboarding Advisor · Enterprise Architect · Customer Success Manager 등 <b>페르소나별</b> 맞춤 정보</td></tr>
+<tr><td>Comprehensive Coverage</td><td class="wrap">SAP Cloud ALM · SAP Signavio · SAP LeanIX · Clean Core 차원 관련 질의 응답</td></tr>
+</tbody>
+</table>
+</div>
+
+<p>효과는 네 갈래입니다 — 24/7 컨텍스트 정보로 <b>신속한 의사결정</b>, 결정론적 출력으로 신뢰를 확보하는 <b>LLM 기반 권고</b>, Clean Core 태스크·프로세스 자동화로 일정을 줄이는 <b>태스크 자동화</b>, Quality Gate 설문의 스마트 알림·완결성 체크와 우선순위 관리로 이어지는 <b>거버넌스·품질보증</b>.</p>
+
+<h3>⑤ Expert Guidance — 사람이 붙는 자리</h3>
+
+<p>구현 목표 달성에는 고객 프로젝트팀 · 자격을 갖춘 구현 파트너 · SAP 간의 강력한 협업이 필요합니다. SAP 전문가팀이 <b>Clean Core 원칙 준수를 위한 전략적 조언</b>을 제공하고, 고객은 SAP Community에서 인사이트·베스트프랙티스 논의·지속 학습에 참여합니다.</p>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>가이드 인에이블먼트</th><th>내용</th></tr></thead>
+<tbody>
+<tr><td>Individual Sessions</td><td class="wrap">SAP Onboarding Advisor와 고객 핵심 프로젝트팀(파트너 소속 PM 포함)이 프로젝트관리 도구·로드맵을 수립하고 Clean Core 원칙·성공계획을 소개</td></tr>
+<tr><td>Expert Meetings</td><td class="wrap">SAP 전문가와 파트너 PM이 <b>Clean Core Quality Gate 리포트를 정기 리뷰</b>하고 맞춤 권고 제공</td></tr>
+<tr><td>Partner Ecosystem</td><td class="wrap">숙련된 파트너 생태계가 가치실현 시간을 단축. <b>SAP Competency Framework</b>가 역량을 보증하고, <b>SAP Partner Finder</b>로 자격 파트너를 찾는다</td></tr>
+<tr><td>Enhanced Support</td><td class="wrap">SAP Preferred Success, SAP MaxAttention 같은 추가 서비스로 보완</td></tr>
+</tbody>
+</table>
+</div>
+
+<h4>RISE with SAP Competency와 Validated Partner</h4>
+
+<p><b>RISE with SAP Competency</b>는 파트너가 RISE with SAP 파트너 자격을 얻기 위해 반드시 거치는 인증 경로이며 <span class="key">Essential · Advanced · Expert</span> 3단계입니다. <b>Essential 레벨 달성이 자격을 갖춘 구현 파트너로 인정받는 기준선</b>입니다.</p>
+
+<p>Expert 레벨에 도달하고 대규모 전환 프로젝트를 빈번히 수행하는 파트너는 <b>RISE with SAP Validated Partner</b> 자격을 얻을 수 있습니다. SAP 전문가의 평가를 거쳐 대기업 고객 대상 방법론 적용 역량을 검증받고, Clean Core 차원 준수를 보장해 고객의 지속적 혁신 준비도를 확보합니다.</p>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>Validated Partner 요건</th><th>기준</th></tr></thead>
+<tbody>
+<tr><td>프레임워크 상태</td><td class="wrap">RISE with SAP · SAP BTP · SAP Business Process Transformation 전반에서 <b>Expert</b> 달성</td></tr>
+<tr><td>프로젝트 실적</td><td class="wrap">최근 <b>24개월</b> 내 ACV <b>55만 유로</b> 이상 RISE 프로젝트 <b>5건 이상</b> 완료</td></tr>
+<tr><td>Quality Gate 통과율</td><td class="wrap">프로젝트의 최소 <b>80%</b>가 SAP Cloud ALM Clean Core Quality Gate에서 <b>Accepted 또는 Conditionally Accepted</b>로 완료</td></tr>
+<tr><td>인증</td><td class="wrap">프로젝트 레벨 전문인력(개발자·PM·엔터프라이즈아키텍트·프로세스컨설턴트) <b>100%</b> 인증, 실무 레벨 최소 <b>50%</b> 인증, 지원 인증 취득</td></tr>
+</tbody>
+</table>
+</div>
+
+<div class="note warn">
+  <div class="t">자격요건은 지속적으로 갱신된다</div>
+  <p>새로운 티어 요건을 충족하지 못하는 기존 파트너에게는 <b>일회성 180일 세이프가드 기간</b>(표준 기간의 2배)이 제공되며, 이후 발생하는 요건 변경에는 통상적인 <b>90일</b> 기간이 적용됩니다. 숫자 기준은 시점에 따라 바뀌므로 인용 시 최신 파트너 포털 문서를 확인할 것.</p>
+</div>
+
+<div class="note ok">
+  <div class="t">📌 개인 E2E 프로젝트와의 연결점</div>
+  <p>프로젝트에 Cloud ALM은 없지만, <b>Quality Gate 발상은 그대로 옮길 수 있습니다.</b> MM 설계서 v2가 쓰는 형식 — <span class="key">표준의 한계 → CBO가 메우는 것 → 테이블 정의 → 우선순위</span> — 이 사실상 "왜 표준으로 안 되는가"를 CBO 1본마다 통과시키는 게이트입니다. CBO를 늘리기 전에 이 네 칸을 못 채우면 만들지 않는다는 규칙이 Clean Core Runbook이 하는 일과 같습니다.</p>
+  <p>Toolchain 표에서 이 프로젝트가 실제로 쓰는 칸은 <b>③ 확장 개발</b>뿐입니다. 나머지 다섯 칸(LeanIX · Signavio · Tricentis · Enable Now · Cloud ALM)은 학습 환경에 없으므로 <b>개념만 알고 넘어가면 됩니다</b> — 포트폴리오 문서에서 "이 프로젝트에서 구축했다"고 쓰면 안 되는 영역입니다.</p>
+</div>
+
+</div>
+
+
+<!-- ══════════ LESSON 3 ══════════ -->
+<div class="lesson" id="l3">
+<h2><span class="no">LESSON 3</span>Clean Core Dashboard — 지켜졌는지 확인하는 창구</h2>
+
+<p><span class="tag">Unit 3</span><span class="tag">레슨 1개</span>Understanding the RISE with SAP Methodology Dashboard</p>
+
+<h3>언제 이걸 알아야 하는가</h3>
+
+<p>개발자에게 이 Unit이 직접 걸리는 문장은 하나입니다 — System View는 <span class="bad">Clean Core 원칙에 부합하지 않는 코드를 식별하고, 그 코드가 운영 시스템으로 이관되지 않도록</span> 돕습니다. 즉 이 대시보드는 보고용 그림이 아니라 <b>이관 게이트에 걸리는 점수판</b>입니다.</p>
+
+<h3>Dashboard가 하는 일</h3>
+
+<p>RISE with SAP Methodology Dashboard(<b>Clean Core Dashboard</b>라고도 함)는 고객 시스템의 Clean Core 원칙 준수도를 <b>확인 · 평가 · 발전</b>시키는 창구이며, <span class="key">SAP Cloud ALM을 통해 접근</span>합니다.</p>
+
+<p>코스는 여기서 Clean Core의 두 얼굴을 다시 정리합니다 — <b>표준 프로세스 채택은 운영 일관성·효율성</b>에, <b>확장 구축은 차별화·유연성</b>에 핵심적입니다. 둘 다 필요하고, 다만 자리가 다를 뿐입니다. Clean Core를 유지하면 민첩성·비용효율성이 올라 더 빠른 혁신·도입 사이클이 가능해집니다.</p>
+
+<h4>System View — 지금 세팅이 기준에 맞는가</h4>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>제공 정보</th><th>내용</th></tr></thead>
+<tbody>
+<tr><td>Version insights</td><td class="wrap">설치된 SAP S/4HANA 제품버전이 최신인지 확인</td></tr>
+<tr><td>Tool readiness</td><td class="wrap">Clean Core 데이터수집에 필요한 핵심 도구(예: <b>SAP EarlyWatch Alerts</b>) 활성화 여부 확인</td></tr>
+<tr><td>Upgrade preparation</td><td class="wrap">현재 <b>확장 기능을 평가</b>해 향후 업그레이드 리스크를 예측·완화</td></tr>
+</tbody>
+</table>
+</div>
+
+<p>System View는 시스템 준수도·최적화 기회 개요, Clean Core 상태 데이터 분석, <b>SAP 권고사항 대비 편차 식별</b>, 업그레이드 대비 확장성 관리를 제공합니다. <span class="hl">개발·테스트·운영 시스템 전체</span>에 대한 인사이트를 포함해 Clean Core 원칙에 부합하지 않는 코드를 식별하고 운영 이관을 막습니다.</p>
+
+<h4>Operations View — 매일 지키고 있는가</h4>
+
+<p>Operations View는 RISE with SAP 고객에게 제공되며, 시스템 상태 KPI의 <b>일별 인사이트와 과거 데이터</b>로 운영 차원의 Clean Core 준수 목표를 맞추게 합니다. SAP Cloud ALM에 구성·운영 중인 모든 S/4HANA 시스템의 지표를 수집해 매일 특정 임계값과 비교 평가하고, 결과를 <b>KPI·점수</b>로 집계합니다. 지표·임계값·평가 알고리즘은 모든 RISE 고객에게 동일하게 공유되어 <span class="key">일관된 준수도 산정</span>을 보장합니다.</p>
+
+<ul>
+  <li>최대 <b>30일치</b> 과거 데이터를 포함한 일별 인사이트, 전일 기준 최신값과 <b>System Health 점수 · KPI</b></li>
+  <li>모든 운영 S/4HANA 시스템(<b>Cloud Private Edition · On-Premise</b>)의 System Health 점수 개요</li>
+  <li>KPI 산정에 영향을 준 <b>지표 편차를 식별·분석</b>하는 시스템별 뷰</li>
+  <li>상세 확인을 위한 표준 SAP Cloud ALM 애플리케이션 바로가기</li>
+</ul>
+
+<div class="note">
+  <div class="t">🔰 초보자 설명 — System View vs Operations View를 한 줄로</div>
+  <p>System View는 "지금 이 시스템이 Clean Core 기준에 맞게 <b>세팅돼 있는가</b>"를 보는 정적 점검이고, Operations View는 "매일 운영하면서 그 기준을 <b>계속 지키고 있는가</b>"를 보는 일별 모니터링입니다.</p>
+</div>
+
+<div class="note warn">
+  <div class="t">확인 필요 — 학습 시스템에는 이 대시보드가 없다</div>
+  <p>Dashboard는 <b>SAP Cloud ALM 전제</b>이고 Operations View는 RISE with SAP 고객 대상입니다. 온프레미스 학습 시스템(<code>winerp01</code> / <code>MEP</code>)에서는 그대로 재현할 수 없습니다. 대체 가능한 표준 수단(예: <code>SCI</code>/ATC 코드검사, <code>SPAU</code>/<code>SPDD</code> 모디피케이션 조정 대상 목록)이 어디까지 붙어 있는지는 <b>실제 시스템에서 확정할 것</b>.</p>
+</div>
+
+<div class="note ok">
+  <div class="t">📌 개인 E2E 프로젝트와의 연결점</div>
+  <p>Dashboard를 흉내 낼 수는 없지만, "준수했는지 남기는" 자리는 프로젝트 안에 이미 있습니다. CBO 테이블에 두기로 한 <b>상태필드(W / P / H)</b>와 오류 로그 누적이 그것입니다. 특히 <code>ZPRICE_CHECK</code>는 <span class="key">판정만 하고 전기는 사람이 한다</span>는 구조여서, Operations View가 "편차를 식별해 사람에게 보여 준다"는 성격과 정확히 같습니다 — 회계 영향 처리는 자동화하지 않는다는 프로젝트 원칙의 근거를 이 코스 용어로 설명할 수 있습니다.</p>
+  <p>반대로 <code>ZBATCH_ZONE</code>은 311 이동을 <b>자동</b>으로 겁니다. 이동평균가(V) 기준 SLoc 간 이동이라 재고 금액 총액은 바뀌지 않지만, 자동 전기인 이상 System View가 말하는 "업그레이드 리스크 있는 확장"과 같은 논리로 <b>실행 이력과 취소 경로</b>는 반드시 남겨야 합니다.</p>
+</div>
+
+</div>
+
+
+<!-- ══════════ APPENDIX ══════════ -->
+<div class="lesson" id="lx">
+<h2><span class="no">APPENDIX</span>정리 · 반드시 기억할 것</h2>
+
+<h3>한 장 요약</h3>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>질문</th><th>답</th></tr></thead>
+<tbody>
+<tr><td>RISE with SAP는 무엇인가</td><td class="wrap">판매 패키지에서 <b>SAP Business Suite로 가는 전환 프레임워크·방법론</b>으로 역할이 확장되었다</td></tr>
+<tr><td>Methodology의 3요소</td><td class="wrap">Standardized Framework · Integrated Toolchain · Expert Guidance</td></tr>
+<tr><td>Core의 5차원</td><td class="wrap">Processes · Extensions · Data · Integrations · Operations</td></tr>
+<tr><td>Clean Core를 한 줄로</td><td class="wrap">코어를 표준에 최대한 가깝게 유지하고, 확장은 <b>코어 밖(SAP BTP)</b>에 둔다</td></tr>
+<tr><td>Clean Core 특징 5가지</td><td class="wrap">Minimalism · Modularity · Scalability · Maintainability · Stability and Reliability</td></tr>
+<tr><td>기본적으로 clean한 시스템</td><td class="wrap">신규 프로비저닝된 S/4HANA Cloud가 <b>Signavio Process Navigator의 표준 프로세스</b>를 쓰는 경우</td></tr>
+<tr><td>Prepare 단계의 온보딩</td><td class="wrap">Onboarding Advisor <b>Call #1 ~ #4</b> (마지막 둘이 Quality Gate 1 완료·리뷰)</td></tr>
+<tr><td>Clean Core Success Plan</td><td class="wrap">SAP Cloud ALM에서 <b>150개 이상</b> 권장 태스크를 Runbook으로 관리, 단계마다 Quality Gate로 검증</td></tr>
+<tr><td>TPS가 서는 단계</td><td class="wrap">SAP Activate <b>Prepare</b> — 초기 정렬 세션 + 3일 워크숍 + 랩업</td></tr>
+<tr><td>프로젝트 실행의 백본</td><td class="wrap"><b>SAP Cloud ALM</b> — 태스크관리·리포팅·Success Plan·go-live 후 운영 모니터링</td></tr>
+<tr><td>확장을 짓는 자리</td><td class="wrap"><b>SAP BTP</b> — 로우/노코드(Build Apps, Process Automation) ~ 프로코드(BAS, ABAP 환경, Build Code)</td></tr>
+<tr><td>Dashboard 접근 경로</td><td class="wrap">SAP Cloud ALM. System View(세팅 점검) + Operations View(일별 KPI·System Health, 최대 30일)</td></tr>
+<tr><td>파트너 인증 3단계</td><td class="wrap">Essential(기준선) · Advanced · Expert → 그 위에 Validated Partner</td></tr>
+</tbody>
+</table>
+</div>
+
+<div class="note warn">
+  <div class="t">반드시 지킬 것</div>
+  <p>· <b>표준 오브젝트를 고치는 선택은 "빠른 길"이 아니라 "이자 붙는 빚"이다.</b> 고치기 전에 확장으로 뺄 수 있는지 먼저 본다.<br>
+     · 확장을 만들 때는 <b>표준을 호출</b>한다 — 표준 이동유형, BAPI. 직접 <code>INSERT</code>·표준 로직 우회는 코어를 더럽히는 것과 같다.<br>
+     · <b>회계·재고 금액에 영향을 주는 판정은 자동 전기하지 않는다.</b> 알림 또는 승인 대기까지가 안전선이다.<br>
+     · Clean Core는 선언이 아니라 <b>단계별 게이트로 검증</b>된다. CBO 1본마다 "왜 표준으로 안 되는가"를 문서에 남기지 않으면 게이트가 없는 것과 같다.<br>
+     · 이 노트의 Cloud ALM · BTP · Dashboard는 <b>학습 환경에 없는 영역</b>이다. 포트폴리오에 "구축했다"고 쓰지 않는다 — 개념 이해까지만.</p>
+</div>
+
+<h3>참고</h3>
+
+<ul>
+  <li>원본: 노션 <b>SAP Learning Hub</b> → 11-1. RISE with SAP Methodology 개념 · Clean Core · 표준화프레임워크 · 툴체인 · Joule · Dashboard (Learning Hub 레슨 본문 9개 직접 정리, 다운로드 PDF 없음)</li>
+  <li>본문에 언급된 외부 자료: SAP Signavio 클릭스루 데모, RISE with SAP Methodology Dashboard 관련 SAP 블로그·비디오 — <b>언급뿐이며 별도 정리 자료는 아님</b></li>
+  <li><b>모듈 공통 노트</b>입니다. SD 저니에 두었지만 FI · MM · PP 저니에서도 같은 파일을 참조합니다</li>
+  <li>이어지는 노트: SD 저니의 <b>S46000</b> Sales Essentials 이후 코스들 — 이 노트는 기능 코스가 아니라 <b>커스텀 코드 배치 원칙</b>을 잡는 전제 문서로 먼저 읽는 것이 좋습니다</li>
+</ul>
+
+</div>
+
+</div>
+<script src="../../assets/hub.js" defer></script>
+</body>
+</html>

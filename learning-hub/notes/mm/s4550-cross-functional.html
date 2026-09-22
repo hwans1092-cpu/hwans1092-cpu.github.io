@@ -1,0 +1,1869 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>S4550 Cross-Functional Customizing in MM — 조직단위 · 자재마스터 · 자동계정결정</title>
+<meta name="description" content="SAP Learning Hub의 Cross-Functional Customizing in SAP S/4HANA Materials Management(S4550) 노트. 일반설정과 조직단위, 자재마스터·BP 설정, 자동계정결정(OBYC)과 분할평가, 구매문서 Customizing, 메시지결정(NAST), 재고관리 설정과 IMG 프로젝트.">
+<link rel="icon" href="../../assets/favicon.svg">
+<link rel="stylesheet" href="../../assets/notes-paper.css">
+<style>
+/* ── 이 노트 전용: 도해(SVG) 스타일 ─────────────────────────── */
+.dgm{display:block; width:100%; height:auto;}
+.dgm text{font-family:"Malgun Gothic","맑은 고딕","Apple SD Gothic Neo",sans-serif; fill:#1e1e1e;}
+.dgm .t-h{font-size:15px; font-weight:700;}
+.dgm .t{font-size:13px;}
+.dgm .t-s{font-size:11.5px; fill:#555;}
+.dgm .t-xs{font-size:10.5px; fill:#6B7280;}
+.dgm .m{font-family:"D2Coding","Consolas",monospace; font-size:12px;}
+.dgm .m-s{font-family:"D2Coding","Consolas",monospace; font-size:10.5px;}
+.dgm .c-key{fill:#4338CA;} .dgm .c-bad{fill:#B91C1C;} .dgm .c-ok{fill:#047857;}
+.dgm .b{fill:#FFFFFF; stroke:#C7CBD6; stroke-width:1.2;}
+.dgm .b-key{fill:#EEF0FB; stroke:#4338CA; stroke-width:1.4;}
+.dgm .b-bad{fill:#FEF2F2; stroke:#B91C1C; stroke-width:1.3;}
+.dgm .b-ok{fill:#ECFDF5; stroke:#047857; stroke-width:1.3;}
+.dgm .b-mut{fill:#F3F4F6; stroke:#D1D5DB; stroke-width:1.1;}
+.dgm .b-hl{fill:#FEF08A; stroke:#CA8A04; stroke-width:1.2;}
+.dgm .b-ghost{fill:none; stroke:#9AA3B2; stroke-width:1.1; stroke-dasharray:5 4;}
+.dgm .ln{stroke:#7C8697; stroke-width:1.4; fill:none;}
+.dgm .ln-key{stroke:#4338CA; stroke-width:1.8; fill:none;}
+.dgm .ln-bad{stroke:#B91C1C; stroke-width:1.6; fill:none;}
+.dgm .ln-ok{stroke:#047857; stroke-width:1.6; fill:none;}
+.dgm .ln-d{stroke:#9AA3B2; stroke-width:1.2; stroke-dasharray:4 4; fill:none;}
+.dgm .arw{fill:#7C8697;} .dgm .arw-key{fill:#4338CA;}
+.dgm .arw-bad{fill:#B91C1C;} .dgm .arw-ok{fill:#047857;}
+.figwrap{background:#FAFAFE; border:1px solid var(--rule); border-radius:6px;
+  padding:18px 16px 10px; margin:22px 0;}
+.figwrap figcaption{margin-top:12px; padding-top:10px; border-top:1px solid var(--rule);}
+</style>
+</head>
+<body>
+<div class="crumb"><a href="../../index.html">← 자료실 홈</a> · <a href="../../journey.html?j=mm">MM 저니</a> · S4550 Cross-Functional Customizing</div>
+<div class="sheet">
+
+<div class="doc-head">
+  <div class="kicker">LEARNING HUB · S4550</div>
+  <h1>MM 크로스펑셔널 Customizing — 조직단위 · 자재마스터 · 자동계정결정</h1>
+  <div class="sub">
+    Learning Journey <b>Implementing SAP S/4HANA Cloud Private Edition, Sourcing and Procurement</b> · Course 6 / S4550 · 7 Unit · 31 레슨<br>
+    출처: 노션 <b>SAP Learning Hub</b> 노트 6-1 ~ 6-10 변환
+  </div>
+</div>
+
+<div class="lead">
+  <p><b>결론부터.</b> MM Customizing에서 제일 많이 묻고 제일 자주 막히는 지점은 딱 하나입니다 — <span class="hl">"입고를 전기했는데 어느 계정으로 갔고, 왜 그 계정으로 갔는가"</span>.</p>
+  <p>이 코스는 그 답을 세 갈래로 나눠 놓습니다. <b>조직레벨</b>(플랜트 → 회사코드 → 계정과목표, 평가영역 → 평가그룹코드), <b>자재</b>(자재유형 → 계정범주참조 → 평가클래스), <b>비즈니스트랜잭션</b>(이동유형 → 값문자열 → 트랜잭션키). 이 셋이 <code>OBYC</code> 한 줄에서 만나 G/L 계정을 만듭니다. 앞의 Unit 1~3은 그 세 갈래의 <b>재료를 만드는 과정</b>이고, 뒤의 Unit 5~7은 그 위에 얹히는 구매문서·출력·재고관리 설정입니다.</p>
+</div>
+
+<div class="toc">
+  <h4>목차</h4>
+  <ol>
+    <li><a href="#l1">일반설정 — 국가·통화 · 측정단위 · 공장달력</a></li>
+    <li><a href="#l2">조직단위 — 회사코드 · 구매조직 · 플랜트 · 저장위치</a></li>
+    <li><a href="#l3">자재마스터 기본설정과 자재유형 · 필드선택</a></li>
+    <li><a href="#l4">화면시퀀스 · BP 마스터 · 파트너역할</a></li>
+    <li><a href="#l5">자동계정결정 — OBYC가 계정을 찾는 경로</a></li>
+    <li><a href="#l6">계정그룹코드 · 특수케이스 · 분할평가</a></li>
+    <li><a href="#l7">구매문서 — 문서유형 · 품목범주 · 계정지정범주 · 텍스트</a></li>
+    <li><a href="#l8">출력제어 — 메시지결정(NAST)과 S/4HANA 출력관리</a></li>
+    <li><a href="#l9">재고관리 — 전표 번호할당 · 이동유형 · 결품검사</a></li>
+    <li><a href="#l10">IMG와 Customizing 프로젝트 · BC Set · 비즈니스함수</a></li>
+  </ol>
+</div>
+
+
+<!-- ══════════ LESSON 1 ══════════ -->
+<div class="lesson" id="l1">
+<h2><span class="no">LESSON 1</span>일반설정 — 국가·통화 · 측정단위 · 공장달력</h2>
+
+<p><span class="tag">Unit 1</span><span class="tag">레슨 3개</span>Checking Countries and Currencies · Defining Units of Measurement · Setting Up a Factory Calendar</p>
+
+<h3>환율유형 — 왜 M 하나는 반드시 있어야 하는가</h3>
+
+<p>통화환산은 <span class="key">환율유형(exchange rate type)</span> 단위로 관리합니다. 같은 날짜에 목적이 다른 환율을 여러 개 둘 수 있게 하는 장치입니다. 전기와 청산 시 시스템이 쓰는 기본값은 <code>M</code>(평균환율에 의한 표준환산)입니다.</p>
+
+<div class="note warn">
+  <div class="t">환율테이블에 최소 한 줄은 반드시 있어야 한다</div>
+  <p>회사에서 쓰는 모든 외화에 대해 <span class="hl">회사코드통화 × 환율유형 M 조합의 항목이 최소 하나</span>는 있어야 합니다. 환율은 회사코드별이 아니라 <b>모든 회사코드에 공통</b>으로 적용됩니다.</p>
+  <p>외화 구매오더에 환율을 수동입력하지 않으면 시스템은 자동으로 <code>M</code> 또는 배정된 대체 환율유형을 씁니다. 대체 환율유형은 <b>Define Translation Ratios for Currency Translation</b>에서 통화조합별로 배정합니다.</p>
+</div>
+
+<p>다만 <span class="bad">시스템 구축 이후에 환산비율(translation ratio)을 바꾸면 불일치가 발생</span>합니다. 초기에 확정해야 하는 값입니다.</p>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>고시유형</th><th>의미</th><th>USD ↔ EUR 예시</th></tr></thead>
+<tbody>
+<tr><td>직접고시 (Direct)</td><td class="wrap">외화 1단위를 자국통화로 고시</td><td><code>USD 1 = EUR 0.80</code></td></tr>
+<tr><td>간접고시 (Indirect)</td><td class="wrap">자국통화 1단위를 외화로 고시</td><td><code>EUR 1 = USD 1.25</code></td></tr>
+</tbody>
+</table>
+</div>
+
+<p>환율을 매일 자동으로 받으려면 IDoc <code>EXCHANGE_RATE</code> 또는 리포트 <code>RFTBFF00</code>을 씁니다(ECB 연동은 SAP Note 1286897). Fiori에서는 <b>Import Foreign Exchange Rates</b> 앱 — 역할 <code>SAP_BR_TREASURY_SPECIALIST_BOE</code>에 들어 있습니다.</p>
+
+<p>신규 국가를 만들어야 하면 국가키 설정 방법을 SAP Note로 먼저 확인해야 합니다(예: 세르비아 — SAP Note 851943). 유로 도입처럼 통화가 사라지는 경우는 IMG <b>ABAP Platform → General Settings → Currencies → Expiring Currencies</b>에서 소멸사유·소멸예정통화·경고/오류 제어·특별권한·자동환산을 설정합니다.</p>
+
+<h3>측정단위(UoM) — SI 체계와 차원</h3>
+
+<p>측정단위는 국제단위계(SI)를 기반으로 합니다. <b>7개 기본측정단위</b>가 있고 나머지는 전부 여기서 유도됩니다. 서로 환산 가능한 단위는 하나의 <span class="key">차원(dimension)</span>에 묶입니다 — 예를 들어 차원 Volume의 SI단위는 세제곱미터이고 <span class="bad">변경할 수 없습니다</span>.</p>
+
+<ul>
+  <li>측정단위는 <b>모든 애플리케이션에서 중앙관리</b>되고, 환산계수는 고유한 내부키와 함께 저장된다</li>
+  <li><span class="bad">표준 제공 측정단위의 내부키는 변경하면 안 된다</span></li>
+  <li>외부표현은 언어별로 유지 — 각 언어마다 <b>상업용 키(최대 3자)</b>와 <b>기술용 키(최대 6자)</b></li>
+  <li><b>무차원(non-dimensional) 단위</b>는 SI단위가 없어 환산의 분자·분모를 지정할 수 없다. 대신 <span class="hl">자재마스터에 환산계수를 저장</span>한다</li>
+</ul>
+
+<p>물류에서 측정단위가 쓰이는 자리는 오더단위 · 구매오더 가격단위 · 출고단위 · 판매단위입니다.</p>
+
+<div class="note">
+  <div class="t">🔰 초보자 설명 — Value-based commitment 체크박스</div>
+  <p>계정커밋먼트를 쓸 때 이 체크박스가 <b>커밋먼트를 무엇으로 청산할지</b>를 가릅니다.</p>
+  <p>· <b>미선택 = 수량기준</b> — 전량 납품되거나 Delivery completed 체크 시 청산. 청구서검증의 가격차이는 커밋먼트에 영향 없음<br>
+     · <b>선택 = 가치기준</b> — <b>평가입고</b>가 있는 구매오더항목만 자동청산. 입고가 없거나 비평가입고인데 청구가격이 오더가격보다 낮으면, 청구서 입력 시나 구매오더의 <b>Final Invoice</b> 체크로 <span class="bad">수동 청산</span>해야 한다</p>
+</div>
+
+<h3>공장달력(Factory Calendar)</h3>
+
+<div class="note warn">
+  <div class="t">달력 정의는 클라이언트독립적(client-independent)이다</div>
+  <p>한 클라이언트에서 고치면 <span class="bad">같은 시스템의 다른 클라이언트에도 그대로 반영</span>됩니다. 개발기에서 테스트한다고 가볍게 손대면 안 되는 오브젝트입니다.</p>
+</div>
+
+<p>기간말 수량리베이트 계약처럼 특정 날짜에 중간/최종정산을 해야 하는 경우, 그 날짜를 <span class="key">특별규칙(special rule)</span>으로 지정합니다. 분기별 정산에는 특별규칙이 필요합니다.</p>
+
+<p>단 SAP S/4HANA에서는 <span class="bad">공급업체별 특별규칙(예: 공급업체 휴업일)은 생성할 수 없습니다.</span></p>
+
+<p>공장달력과 별개로 플랜트별 <b>계획달력(planning calendar)</b>이 있습니다 — <code>MD25</code>(Logistics → Materials Management → MRP → Master Data → Planning Calendar → Create Periods). MRP·계획주기·스케줄링에 쓰이고, MM 일정계약에서는 인도지시서생성프로필의 일부가 될 수 있습니다.</p>
+
+<div class="note warn">
+  <div class="t">공장달력을 바꿔도 계획달력은 갱신되지 않는다</div>
+  <p>두 달력의 유지보수는 <span class="bad">완전히 독립</span>입니다. 휴일을 공장달력에만 반영하고 계획달력을 방치하면 MRP 일정이 어긋납니다.</p>
+</div>
+
+<div class="note ok">
+  <div class="t">📌 개인 E2E 프로젝트와의 연결점</div>
+  <p>회사코드 <b>CL04</b> 하나에 국내 통화만 쓰므로 환율유형은 사실상 쓸 일이 없습니다. 다만 <span class="hl">환율테이블에 회사코드통화 × <code>M</code> 항목이 비어 있으면 나중에 외화 벤더를 하나라도 추가하는 순간 전기가 막힙니다</span> — 세팅 단계에서 한 줄 넣어 두는 편이 낫습니다.</p>
+  <p>실제로 손대야 하는 건 <b>측정단위</b> 쪽입니다. 식품 유통은 <code>EA</code>(낱개) · <code>BOX</code>(박스) · <code>KG</code>이 섞이므로, 자재마스터의 <b>대체측정단위(alternative UoM)</b>에 박스당 입수를 반드시 채워야 합니다. 프로틴바처럼 낱개 판매와 박스 사입이 갈리는 품목이 여기 걸립니다.</p>
+  <p>공장달력은 플랜트 <b>GATE</b>(입고 게이트) · <b>STOR</b>(보관) 두 개 모두에 배정해야 합니다. 한쪽만 빠뜨리면 납기 계산이 어긋납니다.</p>
+</div>
+
+</div>
+
+
+<!-- ══════════ LESSON 2 ══════════ -->
+<div class="lesson" id="l2">
+<h2><span class="no">LESSON 2</span>조직단위 — 회사코드 · 구매조직 · 플랜트 · 저장위치</h2>
+
+<p><span class="tag">Unit 2</span><span class="tag">레슨 2개</span>Defining Organizational Units in Materials Management · Defining and Assigning Plants</p>
+
+<h3>배정 규칙 — 어디가 필수이고 어디가 선택인가</h3>
+
+<figure class="figwrap">
+<svg class="dgm" viewBox="0 0 1000 440" role="img" aria-label="MM 조직단위 배정 도해. 구매조직의 회사코드 배정은 선택이고 플랜트 배정은 필수이며, 평가레벨을 플랜트로 잡으면 플랜트 하나가 곧 평가영역 하나가 된다.">
+  <defs>
+    <marker id="mo1" markerWidth="9" markerHeight="9" refX="7" refY="4.5" orient="auto">
+      <polygon class="arw" points="0,0 9,4.5 0,9"/></marker>
+    <marker id="mo2" markerWidth="9" markerHeight="9" refX="7" refY="4.5" orient="auto">
+      <polygon class="arw-key" points="0,0 9,4.5 0,9"/></marker>
+  </defs>
+
+  <rect class="b-ok" x="330" y="14" width="320" height="46" rx="6"/>
+  <text class="t-h c-ok" x="352" y="36">관리회계영역</text>
+  <text class="t-s" x="352" y="52">1 : N 회사코드 · 동일 운영계정과목표 전제</text>
+  <path class="ln" d="M490 60 V98" marker-end="url(#mo1)"/>
+
+  <rect class="b-key" x="330" y="100" width="320" height="50" rx="6"/>
+  <text class="t-h c-key" x="352" y="124">회사코드</text>
+  <text class="t-s" x="352" y="142">계정과목표 · 현지통화 · 회계연도변형 · 여신관리영역</text>
+
+  <rect class="b-key" x="24" y="100" width="250" height="50" rx="6"/>
+  <text class="t-h c-key" x="44" y="124">구매조직</text>
+  <text class="t-s" x="44" y="142">자체 정보레코드 · 조건 · 파트너</text>
+  <path class="ln-d" d="M274 125 H326" marker-end="url(#mo1)"/>
+  <text class="t-xs c-bad" x="150" y="170">회사코드 배정은 선택</text>
+
+  <rect class="b-ghost" x="706" y="100" width="270" height="50" rx="6"/>
+  <text class="t-h" x="726" y="124">구매그룹</text>
+  <text class="t-s" x="726" y="142">클라이언트 레벨 · 어디에도 배정 안 함</text>
+
+  <path class="ln" d="M430 150 V188 H330 V214" marker-end="url(#mo1)"/>
+  <path class="ln" d="M560 150 V188 H660 V214" marker-end="url(#mo1)"/>
+  <path class="ln-key" d="M100 150 V202 H250 V214" marker-end="url(#mo2)"/>
+  <path class="ln-key" d="M100 150 V202 H580 V214" marker-end="url(#mo2)"/>
+  <text class="t-xs c-key" x="120" y="198">플랜트 배정은 필수 · N : M</text>
+
+  <rect class="b" x="200" y="216" width="230" height="52" rx="6"/>
+  <text class="t-h" x="220" y="240">플랜트 GATE</text>
+  <text class="t-s" x="220" y="258">입고 게이트 · 자체 자재마스터 뷰</text>
+
+  <rect class="b" x="530" y="216" width="230" height="52" rx="6"/>
+  <text class="t-h" x="550" y="240">플랜트 STOR</text>
+  <text class="t-s" x="550" y="258">보관 · 자체 자재마스터 뷰</text>
+
+  <rect class="b-hl" x="176" y="200" width="610" height="88" rx="8" fill="none" stroke="#CA8A04" stroke-dasharray="6 4"/>
+  <text class="t-xs" x="796" y="234">평가레벨을 플랜트로 잡으면</text>
+  <text class="t-xs" x="796" y="250">플랜트 키 = 평가영역 키</text>
+  <text class="t-xs c-bad" x="796" y="266">자재 생성 전에 확정할 것</text>
+
+  <path class="ln" d="M645 268 V306" marker-end="url(#mo1)"/>
+  <rect class="b-mut" x="430" y="308" width="430" height="66" rx="6"/>
+  <text class="t-h" x="450" y="332">저장위치 (플랜트 내에서만 고유)</text>
+  <text class="m-s" x="450" y="352">1100 / 1900   2100 / 2900   3100 / 3900</text>
+  <text class="t-xs" x="450" y="368">자체 주소 유지 시 구매오더 배송주소로 출력</text>
+
+  <rect class="b-ghost" x="24" y="386" width="952" height="42" rx="6"/>
+  <text class="t-s" x="46" y="404">구매조직 : 회사코드 = <tspan class="c-bad">N : 1</tspan> (회사코드 초월 운영이면 배정 자체를 안 함) · 구매조직 : 플랜트 = <tspan class="c-key">N : M, 필수</tspan></text>
+  <text class="t-s" x="46" y="421">표준구매조직은 위탁 · 파이프라인 · 재고이전 · 입고 시 구매오더 자동생성에서 시스템이 자동으로 집어 쓴다.</text>
+</svg>
+<figcaption><span class="fno">그림 1</span>MM 조직단위 배정 관계. 구매조직-회사코드는 선택, 구매조직-플랜트는 필수다.</figcaption>
+</figure>
+
+<h3>회계의 조직단위</h3>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>조직단위</th><th>정의 내용 / 배정</th><th>Customizing 경로</th></tr></thead>
+<tbody>
+<tr><td>회사코드</td><td class="wrap">주소·국가, <b>계정과목표</b>, 현지 장부통화, 회계연도변형, 여신관리영역, 사업영역 레벨 재무제표 작성 여부</td><td class="wrap">Enterprise Structure → Definition → Financial Accounting</td></tr>
+<tr><td>계정과목표</td><td class="wrap">회사코드에 배정. <span class="key">자동계정결정 테이블의 키</span></td><td class="wrap">FI Global Settings → Global Parameters for Company Code → Enter Global Parameters</td></tr>
+<tr><td>사업영역</td><td class="wrap">회사 내 활동분야·책임영역 구분</td><td class="wrap">Enterprise Structure → Definition → FI → Define Business Area</td></tr>
+<tr><td>관리회계영역</td><td class="wrap">독립적 원가회계 단위. <b>1 : N 회사코드</b>이되 포함된 회사코드는 전부 같은 운영계정과목표를 써야 한다</td><td class="wrap">Enterprise Structure → Assignment → Controlling → Assign company code to controlling area</td></tr>
+</tbody>
+</table>
+</div>
+
+<h3>구매조직과 구매그룹 — 배정 방향이 다르다</h3>
+
+<p>구매조직은 <b>자재·용역 조달</b>과 <b>공급업체와의 구매조건 협상</b>을 담당하는 조직단위입니다. 조직적 통합은 두 방향의 배정으로 이뤄집니다.</p>
+
+<ul>
+  <li><b>회사코드 배정 — 선택</b>. 구매조직이 회사코드를 초월해 운영되어야 하면 배정하지 않고, 모든 회사코드의 플랜트를 붙일 수 있다. 배정한 경우엔 <span class="bad">그 회사코드에 속한 플랜트만</span> 붙일 수 있다</li>
+  <li>구매조직 → 회사코드는 <b>1개만</b>. 반대로 회사코드 하나에 구매조직 여럿은 가능</li>
+  <li><b>플랜트 배정 — 필수</b>. 구매조직 : 플랜트는 양방향 N : M</li>
+</ul>
+
+<p>구매조직 단위로 갈리는 것들이 중요합니다 — 자체 <span class="key">정보레코드</span>와 가격결정 조건, BP 레코드의 구매데이터와 파트너역할, 공급업체 평가, 구매통계 집계레벨(Client 다음), 구매목록 선택기준.</p>
+
+<div class="note">
+  <div class="t">🔰 초보자 설명 — 구매그룹은 왜 아무 데도 배정하지 않는가</div>
+  <p>구매그룹(Purchasing Group)은 조직단위라기보다 <b>구매담당자 한 명 또는 한 무리</b>를 가리키는 꼬리표입니다. 그래서 구매조직에도 플랜트에도 배정하지 않고 <b>클라이언트 레벨</b>로 만들어 두면, 권한으로 따로 막지 않는 한 모든 구매조직·플랜트에서 씁니다.</p>
+  <p>실제 배정은 반대 방향으로 일어납니다 — <span class="hl">자재마스터의 구매 뷰(플랜트 레벨)에서 자재에 구매그룹을 지정</span>합니다.</p>
+</div>
+
+<p><b>표준구매조직</b>은 시스템이 구매조직을 스스로 정해야 하는 프로세스 — 파이프라인조달, 위탁(consignment), 재고이전, 입고 시 구매오더 자동생성 — 에 필요합니다. 위탁·파이프라인 자재의 출고를 평가할 때도 표준구매조직의 정보레코드로 가격을 잡습니다. 플랜트에 구매조직이 하나뿐이거나 위 프로세스를 안 쓰면 배정하지 않아도 됩니다. 경로는 <b>Enterprise Structure → Assignment → Materials Management → Assign standard purchasing organization to plant</b>.</p>
+
+<h3>플랜트와 저장위치</h3>
+
+<ul>
+  <li>플랜트와 부문(division)은 <b>하나의 사업영역</b>에만 속한다</li>
+  <li>플랜트는 여러 판매조직-유통채널 조합에 배정될 수 있고, 출하지점과는 N : M</li>
+  <li>플랜트는 <b>자체 자재마스터데이터</b>를 가진다 — MRP·구매·저장·작업계획·생산자원·예측·품질관리·판매·원가계산 뷰가 플랜트 레벨</li>
+  <li><span class="key">평가영역이 플랜트와 일치하면 가치기준 재고관리가 플랜트 레벨에서 이뤄진다</span></li>
+</ul>
+
+<p>저장위치키는 <b>플랜트 내에서만 고유</b>하면 됩니다. 같은 키를 여러 플랜트에서 재사용할 수 있으므로, 기능 기준으로 키를 정해 모든 플랜트에 통일된 구조를 세우는 편이 낫습니다. 저장위치마다 주소를 여러 개 둘 수 있고, 유지하면 구매오더의 <b>배송주소</b>로 출력됩니다(항상 첫 번째 주소를 제안 — Delivery Address 탭에서 주소번호로 변경).</p>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>저장위치 유효성</th><th>동작</th></tr></thead>
+<tbody>
+<tr><td>Valid</td><td class="wrap">유효. 입력도움말에 표시되고 선택 가능</td></tr>
+<tr><td>Deprecated</td><td class="wrap">향후 사용은 안 하지만 입력도움말에는 계속 표시 — 선택하면 <b>경고</b></td></tr>
+<tr><td>No longer valid</td><td class="wrap">무효. 입력도움말에 표시되지 않음</td></tr>
+</tbody>
+</table>
+</div>
+
+<h3>플랜트 복사·삭제·검사 (EC02)</h3>
+
+<p>조직단위 처리에는 <b>Copy · Delete · Check</b>와 프로젝트뷰 생성 확장기능이 있습니다. 이 기능들은 플랜트키·설명·주소·국가·언어·공장달력 같은 일반 데이터뿐 아니라 <span class="hl">플랜트종속 테이블 항목까지 같이</span> 다룹니다.</p>
+
+<div class="step"><span class="n">STEP 1</span><p>트랜잭션 <code>EC02</code> 실행. Copy/delete/check plant 화면에서 <b>Extras → Associated tables</b>로 플랜트종속 테이블 확인</p></div>
+<div class="step"><span class="n">STEP 2</span><p>Check plant 1단계 — 테이블키에 해당 조직단위가 들어간 <b>모든 테이블</b>에 항목이 존재하는지 확인</p></div>
+<div class="step"><span class="n">STEP 3</span><p>Check plant 2단계 — 테이블키를 기준으로 검증되는 <b>종속테이블</b>에도 항목이 있는지 확인</p></div>
+<div class="step"><span class="n">STEP 4</span><p>자재유형별 <b>평가영역별 수량/가치 업데이트</b> 테이블도 검사 대상 — 항목 존재 여부와 사용되는 자재유형이 아직 존재하는지까지 본다</p></div>
+
+<h3>자재원장(Material Ledger) — S/4HANA에서는 필수</h3>
+
+<div class="note warn">
+  <div class="t">신규 플랜트를 만들면 반드시 자재원장 활성화까지 확인한다</div>
+  <p>SAP S/4HANA에서 자재원장 사용은 <span class="bad">필수</span>입니다. 자재의 트랜잭션데이터를 모아 평가용 가격을 계산하고, 여러 통화·여러 평가접근법으로 재고를 평가하게 해 줍니다.</p>
+  <p>· 활성화: Customizing → <b>Controlling → Product Cost Controlling → Actual Costing / Material Ledger → Activate Material Ledger for Valuation Areas</b><br>
+     · 그다음 운영중 설정: SAP Easy Access → <b>Logistics → Materials Management → Valuation → Actual Costing / Material Ledger → Environment → Production Startup → Set Valuation Areas as Productive</b></p>
+  <p>이 두 단계 중 하나라도 빠지면 신규 플랜트에서 평가 관련 전기가 막힙니다.</p>
+</div>
+
+<div class="note ok">
+  <div class="t">📌 개인 E2E 프로젝트와의 연결점</div>
+  <p>프로젝트 구조가 이 그림에 그대로 얹힙니다. 회사코드 <b>CL04</b> 하나, 플랜트 <b>GATE</b>·<b>STOR</b> 둘, STOR의 저장위치는 <span class="hl">온도군 × 정상·임박 6개</span> — 냉동 <code>1100</code>/<code>1900</code>, 냉장 <code>2100</code>/<code>2900</code>, 실온 <code>3100</code>/<code>3900</code>.</p>
+  <p>여기서 <b>평가레벨을 플랜트로 잡느냐 회사코드로 잡느냐</b>가 뒤의 자동계정결정 전부를 가릅니다. 플랜트로 잡으면 GATE와 STOR이 서로 다른 평가영역이 되어 <span class="key">재고계정을 따로 줄 수 있고</span>, CBO <code>ZGATE_INSPECT</code>가 보는 "GR(101) vs STOR이관(301) 차이"도 평가영역이 갈린 상태에서의 이동이 됩니다. 회사코드로 잡으면 두 플랜트가 같은 계정을 공유합니다.</p>
+  <p>저장위치는 <b>플랜트 내에서만 고유</b>하면 되므로, GATE 쪽에도 같은 번호 체계를 재사용할 수 있습니다. 다만 CBO <code>ZBATCH_ZONE</code>이 "정상 → 임박" 이동을 할 때 하드코딩할 유혹이 큰 자리이므로, 저장위치 쌍(정상↔임박)은 <b>CBO 테이블에 매핑으로 두고 코드에 박지 않는 편</b>이 낫습니다.</p>
+</div>
+
+</div>
+
+
+<!-- ══════════ LESSON 3 ══════════ -->
+<div class="lesson" id="l3">
+<h2><span class="no">LESSON 3</span>자재마스터 기본설정과 자재유형 · 필드선택</h2>
+
+<p><span class="tag">Unit 3 전반</span><span class="tag">레슨 4개</span>Setting Up Material Master Records · Creating Material Types · Field Selection · Field References</p>
+
+<h3>언제 이걸 알아야 하는가</h3>
+
+<p>운영에서 반복되는 문의가 둘입니다. 하나는 <b>"이 필드가 회색이라 입력이 안 됩니다"</b>, 다른 하나는 <b>"자재유형을 바꿔 달라는데 안 바뀝니다"</b>.</p>
+
+<p>앞의 것은 자재마스터로 가 봐야 소용이 없습니다. 답은 <span class="key">필드선택그룹 → 필드참조 → 영향요소(자재유형·산업분야·플랜트)</span> 사슬 어딘가에 있고, 사슬을 모르면 어느 Customizing 활동을 열어야 하는지부터 못 정합니다. 뒤의 것은 아예 <span class="bad">바꿀 수 없는 경우가 정상</span>인데, 그 조건을 모르면 "왜 안 되냐"에 답을 못 합니다.</p>
+
+<h3>자재유형이 통제하는 것</h3>
+
+<p>자재유형은 원자재·반제품·완제품처럼 <b>기본속성이 같은 자재를 묶는</b> 방법입니다. 자재의 일반데이터에 속하고, 개별 애플리케이션의 중요한 프로세스를 통제합니다.</p>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>통제 대상</th><th>내용</th></tr></thead>
+<tbody>
+<tr><td>번호할당</td><td class="wrap">내부(internal)인지 외부(external)인지 · 어느 번호범위구간을 쓸지</td></tr>
+<tr><td>화면</td><td class="wrap">유지보수 중 나타나는 <b>화면과 그 순서</b>, 필드선택</td></tr>
+<tr><td>사용자부서</td><td class="wrap">어떤 뷰를 유지할 수 있는지 = 어떤 애플리케이션이 그 자재를 쓸 수 있는지</td></tr>
+<tr><td>조달유형</td><td class="wrap">외부오더·내부오더 항목으로 조달방식 지정. 자재마스터의 <b>자재상태</b>·<b>특별조달키</b>로 자재·플랜트별 추가 제한 가능</td></tr>
+<tr><td>제품유형그룹</td><td class="wrap">자재인지 서비스인지. 서비스용 표준 자재유형은 <code>SERV</code></td></tr>
+<tr><td>재고관리유형</td><td class="wrap"><b>평가영역별로</b> 수량기준만 쓸지 가치기준까지 쓸지 지정</td></tr>
+<tr><td>가격통제</td><td class="wrap">표준가(S) / 이동평균가(V)를 <b>기본값</b> 또는 <b>필수사전설정값</b>으로 지정</td></tr>
+<tr><td>계정결정</td><td class="wrap"><span class="key">계정범주참조</span>를 통해 평가클래스와 연결 → 재고계정·소비계정 배정</td></tr>
+</tbody>
+</table>
+</div>
+
+<div class="note warn">
+  <div class="t">자재유형은 조건이 맞을 때만 바꿀 수 있다</div>
+  <p>다음 둘 중 하나를 충족해야 합니다.</p>
+  <p>· 기존 유형과 새 유형이 <span class="hl">동일한 계정범주참조</span>에 배정되어 있거나<br>
+     · 해당 자재에 <span class="hl">재고·구매오더·예약이 전혀 없거나</span></p>
+  <p>둘 다 아니면 시스템이 막는 것이 맞습니다. 이미 전기된 재고의 계정이 바뀌어 버리기 때문입니다.</p>
+</div>
+
+<p><code>MMR1</code>처럼 자재유형이 이미 박힌 자재생성 트랜잭션은 S/4HANA에서 <b>obsolete</b>입니다. 계속 쓸 수는 있지만 <span class="bad">자재유형이 더 이상 보호되지 않습니다</span>(SAP Note 2340925).</p>
+
+<h3>번호할당 — 버퍼 때문에 번호에 구멍이 생긴다</h3>
+
+<ul>
+  <li>번호구간은 <b>하나의 그룹에만</b> 배정된다. 단 모든 그룹은 내부·외부 구간을 둘 다 가질 수 있다</li>
+  <li>구간의 현재 번호범위상태는 수동 변경 가능</li>
+  <li><b>External no. assignment w/o check</b> 체크 시 시스템이 번호범위 소속을 검사하지 않는다. 이 경우 그 자재유형의 외부 번호는 전부 <span class="bad">영숫자(alphanumeric)여야</span> 하고, 외부 번호범위구간을 배정할 필요가 없다</li>
+  <li>표준은 <b>버퍼 10개</b>를 쓴다 → 저장 전 번호가 먼저 빠지므로 <span class="hl">번호에 공백(gap)이 생긴다</span>. 현재 상태를 0으로 재설정하면 이후 생성 시 그 공백이 채워진다</li>
+</ul>
+
+<p>번호할당 사양 확인은 <code>SNRO</code>(Tools → ABAP Workbench → Development → Other Tools → Number Ranges), 오브젝트명 <code>MATERIALNR</code>.</p>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>자재번호</th><th>템플릿 없음</th><th>템플릿 <code>**.***.***.***.*__</code> 적용</th></tr></thead>
+<tbody>
+<tr><td><code>123456</code></td><td><code>123456</code></td><td><code>123.456</code></td></tr>
+<tr><td><code>123456XY</code></td><td><code>123456XY</code></td><td><code>12.345.6XY</code></td></tr>
+</tbody>
+</table>
+</div>
+
+<div class="note warn">
+  <div class="t">사전순형식(lexicographical)은 첫 자재를 만들기 전에 정해야 한다</div>
+  <p>숫자로 된 자재번호를 <b>숫자가 아닌 레이블</b>로 해석하게 하는 설정입니다. <span class="bad">첫 자재마스터레코드를 생성한 뒤에는 되돌릴 수 없습니다.</span> 18자를 넘는 자재번호를 쓸 계획이면 SAP Note 2233100의 제약사항도 먼저 확인해야 합니다.</p>
+</div>
+
+<h3>기본설정과 회사코드 초기화</h3>
+
+<p>Customizing의 <b>Global Settings</b>에서 정하는 것 중 실무에 걸리는 건 <b>기술데이터(테이블 <code>MSTA</code>) 관리데이터 업데이트 방식</b>입니다. 세 가지 중 하나를 고릅니다 — ① 테이블 레벨(클라이언트·플랜트 등)에서만, ② 유지보수상태(MRP·구매 등)와 데이터보유레벨에 따라, ③ 업데이트하지 않음.</p>
+
+<p>문서관리시스템을 쓰면 엔지니어링·설계도면의 표준 문서유형을 여기서 지정하고, 참조자재의 특수애플리케이션(후속자재 사용, 제조업체부품번호 사용)도 체크박스로 켭니다.</p>
+
+<div class="note warn">
+  <div class="t">기간마감은 취소(reverse)할 수 없다</div>
+  <p>월말마감은 <code>MMPV</code>(Logistics → Materials Management → Material Master → Other → Close Period)로 돌립니다. <span class="bad">실수로 마감한 기간을 프로그램으로 되돌릴 방법은 없습니다.</span> 다시 초기화해야 하며 SAP Note 487381을 봐야 합니다.</p>
+</div>
+
+<h3>필드선택 — 4가지 속성과 구성 절차</h3>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>속성</th><th>동작</th><th>쓰는 자리</th></tr></thead>
+<tbody>
+<tr><td>Hide</td><td class="wrap">유지보수 중 필드가 아예 보이지 않음</td><td class="wrap">회사에서 쓰지 않는 필드</td></tr>
+<tr><td>Display</td><td class="wrap">보이지만 입력 불가</td><td class="wrap">데이터전송 시점에만 채우고 이후 안 바꾸는 필드</td></tr>
+<tr><td>Required entry</td><td class="wrap">입력 필수</td><td class="wrap">반드시 채워야 하는 필드</td></tr>
+<tr><td>Optional entry</td><td class="wrap">입력 가능하되 필수는 아님</td><td class="wrap">필요할 때만 쓰는 정보</td></tr>
+</tbody>
+</table>
+</div>
+
+<div class="note warn">
+  <div class="t">프로그램이 입력을 요구하는 필드는 숨기면 안 된다</div>
+  <p>SAP S/4HANA에는 <b>기본측정단위</b>처럼 프로그램 레벨에서 입력을 요구하는 필드가 있습니다. 이런 필드를 Hide로 돌리면 <span class="bad">화면에서 사라진 채로 저장이 막힙니다.</span></p>
+</div>
+
+<p>필드선택은 <span class="key">필드선택그룹</span> 단위로 걸립니다. S/4HANA에는 그룹이 <b>240개</b>, 그중 <b>40개가 고객용 예약</b>입니다(예약 번호는 <b>Assign Fields to Field Selection Groups</b> 활동 문서에 있고, 긴텍스트필드 통제 힌트도 같이 들어 있습니다).</p>
+
+<div class="step"><span class="n">STEP 1</span><p>바꾸려는 필드가 속한 <b>필드선택그룹</b>을 확인한다</p></div>
+<div class="step"><span class="n">STEP 2</span><p>그 그룹에 <b>다른 필드도</b> 속하는지 확인한다</p></div>
+<div class="step"><span class="n">STEP 3</span><p>변경을 그 필드들에도 똑같이 적용해야 하는지 판단한다. 아니라면 <b>필드의 그룹 배정을 바꾼다</b></p></div>
+<div class="step"><span class="n">STEP 4</span><p><b>영향요소</b>(예: 자재유형)를 결정한다</p></div>
+<div class="step"><span class="n">STEP 5</span><p>그 영향요소의 현재 <b>필드참조</b>를 확인한다</p></div>
+<div class="step"><span class="n">STEP 6</span><p>필드참조를 변경하거나, 변경을 반영한 <b>새 필드참조를 생성</b>한다</p></div>
+<div class="step"><span class="n">STEP 7</span><p>테스트한다. 새 필드참조를 만들었다면 <span class="bad">먼저 영향요소에 배정해야</span> 한다</p></div>
+
+<div class="note warn">
+  <div class="t">필드를 필수로 바꾸기 전에 기존 자재를 확인한다</div>
+  <p>이미 존재하는 자재들이 그 필드를 비워 둔 상태라면, 필수로 돌린 순간 <span class="bad">그 자재들을 변경 저장할 수 없게</span> 됩니다. 누락 데이터를 먼저 채워야 합니다.</p>
+</div>
+
+<h3>필드참조(Field Reference)와 잠금관련 필드</h3>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>필드참조</th><th>적용 대상</th><th>변경 여부</th></tr></thead>
+<tbody>
+<tr><td><code>SAP1</code> / <code>SAP2</code></td><td class="wrap">표준 SAP 시스템(산업솔루션)</td><td><span class="bad">변경 금지</span></td></tr>
+<tr><td><code>SAPR</code></td><td class="wrap">SAP for Retail 클라이언트</td><td><span class="bad">변경 금지</span></td></tr>
+<tr><td><code>KB</code></td><td class="wrap">모든 유형의 클라이언트에 유효</td><td class="wrap"><span class="good">클라이언트 레벨 변경 시 여기를 조정</span></td></tr>
+</tbody>
+</table>
+</div>
+
+<p>특정 필드참조가 어디에 쓰이는지는 <b>Where-Used List</b>로 확인합니다.</p>
+
+<p>필드선택에는 논리적 종속관계도 있습니다 — MRP 1 뷰의 <code>Lot Sizing Procedure</code>에 <code>FX</code>(고정로트크기)를 넣으면 <code>Fixed Lot Size</code>가 필수가 되고, Basic Data 1의 <code>Material Group</code>은 <span class="hl">구매데이터를 선택해 자재를 생성할 때마다 필수</span>가 됩니다.</p>
+
+<div class="note">
+  <div class="t">🔰 초보자 설명 — 자재마스터 "잠금(lock)"</div>
+  <p>자재마스터레코드를 잠그면, Customizing에서 <b>잠금관련(lock-relevant)</b>으로 표시한 필드들이 더 이상 입력가능하지 않게 됩니다. 예외는 <span class="hl">자재마스터를 확장(extend)할 때 채워야 하는 필수입력필드</span>뿐입니다.</p>
+  <p>잠금은 <b>저장하는 시점</b>에 발효되고, 이미 변경이 계획된 필드를 잠금관련으로 표시하면 그 변경은 반영되지 않습니다. 해제는 권한이 있고 그 자재가 구성관리 대상이 아닐 때만 가능합니다.</p>
+  <p>· 권한오브젝트 <code>M_MATE_MAF</code> — Activity <code>16</code> 잠금 / <code>51</code> 잠금해제<br>
+     · 대량유지보수로도 가능 (필드 <code>MARA-MATFI</code>)<br>
+     · <span class="bad">산업용 SAP 시스템 전용 — SAP Retail에서는 쓸 수 없다</span></p>
+</div>
+
+<div class="note ok">
+  <div class="t">📌 개인 E2E 프로젝트와의 연결점</div>
+  <p>이 프로젝트는 <b>벤더 사입 → 재판매 트레이딩</b> 모델이라 생산이 없습니다. 그러면 자재유형은 원자재(<code>ROH</code>)나 완제품(<code>FERT</code>)이 아니라 <span class="hl">상품(<code>HAWA</code>) 계열</span>이 맞습니다. 여기서 두 가지가 자동으로 따라옵니다 — ① 계정범주참조가 달라지므로 <b>재고계정이 상품 계정</b>이 되고, ② 자재유형에 <b>가격통제 <code>V</code>(이동평균가)를 필수사전설정값</b>으로 걸어 두면 자재 생성 때 실수로 <code>S</code>를 넣는 사고를 원천 차단할 수 있습니다.</p>
+  <p>필드선택에서 반드시 손봐야 하는 자리는 <b>배치관리 체크박스</b>와 <b>유통기한 관련 필드</b>(최소잔여유효기간·기간단위)입니다. 프로젝트는 <code>MCHA-VFDAT</code>를 쓰고 CBO <code>ZBATCH_ZONE</code>이 "잔여 유통기한 30% 미달"을 계산하는데, <span class="bad">총 유효기간이 비어 있으면 30%라는 비율 자체를 계산할 수 없습니다.</span> 해당 자재유형의 필드참조에서 이 필드들을 <b>Required entry</b>로 올려 두는 것이 CBO의 전제조건입니다.</p>
+  <p>자재그룹 <code>CHKN</code> · <code>RICE</code> · <code>SHAK</code> · <code>PROT</code> · <code>PBAR</code>는 자재유형과 별개 축입니다. 자재그룹은 뒤 LESSON 6의 <b>자재마스터 없는 조달</b>에서 평가클래스를 끌어오는 열쇠로 다시 등장합니다.</p>
+</div>
+
+</div>
+
+
+<!-- ══════════ LESSON 4 ══════════ -->
+<div class="lesson" id="l4">
+<h2><span class="no">LESSON 4</span>화면시퀀스 · BP 마스터 · 파트너역할</h2>
+
+<p><span class="tag">Unit 3 후반</span><span class="tag">레슨 2개</span>Configuring the Material Master · Defining Settings for Business Partners</p>
+
+<h3>화면시퀀스 — 서브화면 → 논리화면 → 화면시퀀스</h3>
+
+<p>자재마스터 다이얼로그는 세 층으로 쌓여 있습니다.</p>
+
+<ul>
+  <li><b>서브화면(subscreen)</b> — 논리화면의 개별 프레임 하나. 표준 서브화면(프로그램 <code>SAPLMGD1</code>)은 최대 10행 × 정확히 83열</li>
+  <li><b>논리화면(logical screen)</b> — View Selection 대화상자에서 고를 수 있는 화면. 여러 서브화면 + <b>화면컨테이너</b> 하나</li>
+  <li><b>화면시퀀스(screen sequence)</b> — 논리화면들을 순서대로 이은 것. <b>두 자리 키</b>, 고객 네임스페이스 있음</li>
+</ul>
+
+<p>화면번호를 확인하려면 필드에 커서를 놓고 <kbd>F1</kbd> → <b>Technical Information</b>, 또는 메뉴 <b>System → Status</b>.</p>
+
+<p>SAP 표준 시퀀스 중 <code>01</code>과 <code>21</code>은 데이터화면 수와 레이아웃(탭페이지 형태)이 다릅니다. <code>21</code>은 산업고객용 사전설정이고, <span class="hl">어떤 탭에서도 스크롤이 필요 없도록</span> 필드를 배분합니다. 컨테이너가 허용하는 수보다 서브화면이 적으면 시스템이 <b>더미서브화면 <code>0001</code></b>을 자리표시자로 채웁니다.</p>
+
+<div class="note warn">
+  <div class="t">플랜트별 서브화면을 클라이언트전체 화면에 올리면 안 된다</div>
+  <p>예를 들어 <b>Purchasing 탭</b>(플랜트 레벨) 서브화면을 <b>Basic Data</b>(클라이언트 레벨) 화면에 배치하면 안 됩니다. 논리화면의 유지보수상태는 <span class="bad">그 화면이 담은 필드의 유지보수상태와 일치해야</span> 합니다(예: <code>EL</code> — 구매·저장데이터만 허용).</p>
+</div>
+
+<h3>화면시퀀스는 무엇으로 결정되는가 — 화면참조 4종</h3>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>화면참조</th><th>내용</th></tr></thead>
+<tbody>
+<tr><td>트랜잭션</td><td class="wrap">여러 트랜잭션에 같은 참조를 줘 그룹을 만든다. 표준 산업용 자재마스터 = <code>01</code>, SAP Retail 품목마스터 = <code>03</code></td></tr>
+<tr><td>사용자</td><td class="wrap">단일/복수 사용자에게 자유 배정</td></tr>
+<tr><td>자재유형</td><td class="wrap">자유 배정. <b>Define Attributes of Material Types</b>에서도 유지 가능. 표준은 제조업체부품용으로 별도 참조를 줘 화면시퀀스 <code>12</code>를 호출</td></tr>
+<tr><td>산업분야</td><td class="wrap">자유 배정</td></tr>
+</tbody>
+</table>
+</div>
+
+<p>세 조건이 전부 맞지 않으면 <b>와일드카드(<code>*</code>)</b>로 시퀀스를 찾습니다 — 조건 1만 맞으면 <code>Z2</code>, 조건 2·3만 맞으면 <code>Z3</code>, 조건 2만 맞으면 <code>Z4</code>, 아무것도 안 맞으면 표준 <code>21</code> 식입니다. 보조화면은 기능코드(<code>PBxx</code>)로 주화면 버튼에 붙입니다(Screen Painter).</p>
+
+<p>자재의 <b>간소화된 생성</b>(자재마스터 + 정보레코드를 한 화면에서)은 비즈니스함수 <code>LOG_MM_CI_3</code>가 활성화돼 있어야 씁니다. 직접 부르는 트랜잭션이 없고 <code>ME21N</code>의 품목개요 아래 <b>Enhanced Material Search</b> 아이콘 → 플랜트 입력 → <b>Create New Material</b> 경로로 들어갑니다. 설정은 <b>Logistics General → Material Master → Enhanced Material Search with Material Creation</b>.</p>
+
+<h3>비즈니스파트너(BP) — 역할과 번호할당</h3>
+
+<p>S/4HANA에서 공급업체·고객 마스터는 전부 <span class="key">비즈니스파트너(BP)</span>로 중앙 관리합니다. 트랜잭션 <code>BP</code> 또는 Fiori <b>Maintain Business Partner</b> 앱.</p>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>BP 역할</th><th>이름</th><th>데이터 레벨</th></tr></thead>
+<tbody>
+<tr><td><code>000000</code></td><td>Business Partner (일반)</td><td>클라이언트 레벨 일반데이터</td></tr>
+<tr><td><code>FLVN00</code></td><td>FI Vendor</td><td>회사코드 레벨 재무데이터</td></tr>
+<tr><td><code>FLVN01</code></td><td>Supplier</td><td>구매조직 레벨 데이터</td></tr>
+</tbody>
+</table>
+</div>
+
+<div class="step"><span class="n">STEP 1</span><p>번호범위구간 추가 — IMG → <b>Cross-Application Components → SAP Business Partner → Business Partner → Basic Settings → Number Ranges and Groupings → Define Number Ranges</b>. 구간은 <span class="bad">겹치면 안 되고</span>, 외부채번이면 체크박스를 켠다</p></div>
+<div class="step"><span class="n">STEP 2</span><p>그룹핑 정의 후 번호범위 배정 — 같은 경로의 <b>Define Groupings and Assign Number Ranges</b>. 같은 번호범위를 여러 그룹핑에 줘도 되고, 내부·외부용 <b>표준그룹핑</b>을 정해 두면 생성 시 그룹핑을 안 고를 때 그게 쓰인다</p></div>
+<div class="step"><span class="n">STEP 3</span><p>BP와 그룹핑의 배정 결과는 테이블 <code>BUT000</code>에 저장된다</p></div>
+
+<h3>계정그룹 — BP 뒤에서 공급업체 마스터가 만들어진다</h3>
+
+<p>공급업체용 BP를 만들면 <span class="hl">백그라운드에서 공급업체마스터레코드가 자동 생성</span>되고, 거기에 계정그룹이 자동 배정됩니다. 계정그룹은 <b>그룹핑</b>에 따라 결정되고 테이블 <code>TBC001</code>에 들어 있습니다.</p>
+
+<p>유지 경로는 IMG → <b>Cross-Application Components → Master Data Synchronization → Customer/Vendor Integration → Business Partner Settings → Settings for Vendor Integration → Field Assignment for Vendor Integration → Assign Keys → Define Number Assignment for Direction BP to Vendor</b>. 여기 <b>Same Numbers</b> 체크박스가 BP 번호와 공급업체 번호를 같게 할지 결정합니다 — 안 켜면 공급업체 번호는 계정그룹을 통해 배정됩니다. 배정 결과는 BP의 <b>Vendor: General Data</b> 탭에서 볼 수 있습니다.</p>
+
+<div class="note warn">
+  <div class="t">필드선택은 BP 설정과 클래식 ECC 설정 중 하나로만 통제한다</div>
+  <p>SAP ECC는 계정그룹·트랜잭션·구매조직으로 필드선택을 통제했습니다. S/4HANA도 그룹핑을 통해 BP에 계정그룹이 배정되므로 <b>클래식 방식이 여전히 동작</b>합니다 — 그래서 <span class="bad">양쪽을 동시에 쓰면 서로 싸웁니다.</span> 한쪽으로 정해야 합니다.</p>
+  <p>클래식 쪽 활동은 <b>Define Account Groups with Screen Layout (Vendors)</b> — 트랜잭션 <code>OBD3</code>, IMG → Financial Accounting → Accounts Receivable and Accounts Payable → Supplier Accounts → Master Data → Preparations for Creating Supplier Master Data.</p>
+</div>
+
+<p>필드상태 연결규칙은 자재마스터와 같습니다 — <b>Hide가 가장 세고</b>, Display · Required · Optional 순으로 합쳐집니다.</p>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>특성</th><th>Hide</th><th>Display</th><th>Required</th><th>Optional</th></tr></thead>
+<tbody>
+<tr><td>Hide</td><td>Hide</td><td>Hide</td><td>Hide</td><td>Hide</td></tr>
+<tr><td>Display</td><td>Hide</td><td>Display</td><td>Display</td><td>Display</td></tr>
+<tr><td>Required Entry</td><td>Hide</td><td>Display</td><td>Required</td><td>Required</td></tr>
+<tr><td>Optional Entry</td><td>Hide</td><td>Display</td><td>Required</td><td>Optional</td></tr>
+</tbody>
+</table>
+</div>
+
+<div class="note warn">
+  <div class="t">BP 역할 간 우선순위는 위 표와 다르다</div>
+  <p>서로 다른 <b>BP 역할</b>의 설정이 충돌하면 <span class="hl">필수입력 &gt; 선택입력 &gt; 표시 &gt; 숨김</span> 순으로 필수가 이깁니다.</p>
+  <p>예: <code>FLVN00</code>(FI Vendor)에서 E-Mail을 <b>필수</b>로, <code>FLVN01</code>(Supplier)에서 <b>숨김</b>으로 두면 — 어떤 역할을 유지보수하든 그 필드는 <span class="bad">항상 필수</span>가 됩니다. 표(Hide 우선)와 반대 방향이라 헷갈리는 지점입니다.</p>
+</div>
+
+<h3>파트너역할과 파트너스키마</h3>
+
+<p>파트너역할(= 파트너기능)은 거래 처리에서 각 파트너의 권리·의무·업무를 정의합니다. MM 사전정의 역할은 <code>VN</code>(공급업체) · <code>OA</code>(주문지주소) · <code>GS</code>(재화공급업체) · <code>PI</code>(청구요청업체) · <code>AZ</code>(대체지불수령인) · <code>HR</code>(제조업체).</p>
+
+<p>BP 마스터에 저장할 수 있는 레벨은 네 가지 — 구매조직 / 구매조직+플랜트 / 구매조직+서브레인지 / 구매조직+플랜트+서브레인지. <span class="hl">모든 역할을 한 파트너가 다 하면 따로 저장할 필요가 없고, 다른(differing) 파트너만 유지하면 됩니다.</span> 전제는 그 파트너의 마스터레코드가 이미 존재해야 한다는 것입니다.</p>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>설정 단계</th><th>Customizing 경로 (MM → Purchasing → Partner Determination →)</th></tr></thead>
+<tbody>
+<tr><td>파트너역할 정의</td><td class="wrap">Partner Roles → <b>Define Partner Roles</b>. <b>Unique</b> 체크 시 BP 하나당 조직레벨별로 그 역할을 한 번만 쓸 수 있다. 안 켜면 같은 역할의 파트너를 여럿 둘 수 있고, PO 생성 시 구매담당자가 목록에서 고른다(하나를 기본값으로 지정하면 목록 맨 위에 강조 표시)</td></tr>
+<tr><td>계정그룹별 허용역할</td><td class="wrap">Partner Roles → <b>Define Permissible Partner Roles per Account Group</b></td></tr>
+<tr><td>공급업체마스터용 스키마</td><td class="wrap">Partner Settings in Supplier Master Record → <b>Define Partner Schemas</b> → <b>Assign Partner Schemas to Account Groups</b> (배정은 <b>선택사항</b>, 구매조직·서브레인지·플랜트별로 다른 스키마 가능)</td></tr>
+<tr><td>구매문서용 스키마</td><td class="wrap">Partner Settings in Purchasing Documents → <b>Define Partner Schemas in Purchasing Documents</b> → <b>Assign Partner Schemas to Document Types</b></td></tr>
+</tbody>
+</table>
+</div>
+
+<p>스키마가 배정돼 있으면 시스템이 BP에 입력하는 역할이 스키마에 포함됐는지 검사하고, 없으면 <span class="bad">오류</span>입니다. 스키마가 없으면 기존 어떤 파트너기능이든 넣을 수 있습니다.</p>
+
+<h3>구매문서 파트너스키마의 4가지 지시자</h3>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>지시자</th><th>효과</th></tr></thead>
+<tbody>
+<tr><td>No Change</td><td class="wrap">결정된 파트너의 변경 방지. <b>구매문서 스키마에서는 삭제도 막지만</b>, 공급업체마스터 스키마에서는 <span class="bad">삭제까지는 막지 못한다</span></td></tr>
+<tr><td>Mandatory</td><td class="wrap">그 파트너역할이 필수인지</td></tr>
+<tr><td>Higher Level</td><td class="wrap">플랜트·서브레인지 레벨에 역할이 없으면 <b>구매조직 레벨</b>에서 찾는다. <code>ME21N</code>으로 수동생성하지 않은 PO(<code>ME59N</code> 자동생성, <code>ME58</code> 배정목록, <code>MD04</code>에서 구매요청 전환)에서 파트너를 찾게 하려면 이것도 필요</td></tr>
+<tr><td>End</td><td class="wrap">파트너 결정 <b>시점</b>. 설정하면 문서 저장·확인 시점에 결정, 미설정이면 헤더에 공급업체번호 넣고 <kbd>Enter</kbd>친 직후 결정</td></tr>
+</tbody>
+</table>
+</div>
+
+<div class="note warn">
+  <div class="t">End 지시자 때문에 청구요청업체 조건이 가격결정에 안 걸린다</div>
+  <p>청구요청업체(<code>PI</code>)는 표준에서 <b>End 지시자가 설정</b>돼 있어 PO를 확인·저장할 때까지 결정되지 않습니다. 그런데 <span class="hl">가격결정은 문서 시작 시점에 이미 끝납니다.</span></p>
+  <p>그래서 <code>MEKJ</code>(By Invoicing Party)로 청구요청업체별 조건을 만들어 둬도 <span class="bad">그 조건은 검색되지 않습니다.</span> 해결은 둘 중 하나 — ① 품목에서 <b>가격 재산정</b>, ② 파트너스키마에서 <b>End 지시자 제거</b>.</p>
+  <p>참고로 PO에 플랜트·서브레인지가 서로 다른 품목이 섞여 있으면, Higher Level 설정 여부와 무관하게 <b>구매조직 레벨</b>에서 결정됩니다.</p>
+</div>
+
+<h4>파트너를 메시지 출력에 쓰기까지 — 8단계 점검</h4>
+
+<div class="step"><span class="n">STEP 1</span><p>파트너를 가져야 할 공급업체의 <b>계정그룹</b> 확인 (예: 공급업체 S520-200 → 계정그룹 <code>SUPL</code>)</p></div>
+<div class="step"><span class="n">STEP 2</span><p>그 계정그룹의 <b>파트너스키마</b> 확인 (예: <code>SUPL</code>)</p></div>
+<div class="step"><span class="n">STEP 3</span><p>역할 <code>OA</code>(ordering address)가 그 스키마에 있는지 확인, 없으면 추가</p></div>
+<div class="step"><span class="n">STEP 4</span><p>주문지주소로 넣을 공급업체의 계정그룹 확인 (예: S520-100 → <code>SUPL</code>)</p></div>
+<div class="step"><span class="n">STEP 5</span><p>그 계정그룹의 공급업체에 <code>OA</code>가 <b>허용</b>되는지 확인, 없으면 테이블 항목 추가</p></div>
+<div class="step"><span class="n">STEP 6</span><p>BP S520-200의 마스터에 S520-100을 <code>OA</code>로 입력</p></div>
+<div class="step"><span class="n">STEP 7</span><p>구매문서유형의 파트너스키마 확인 (예: 문서유형 <code>NB</code> → 스키마 <code>0002</code>), 스키마에 <code>OA</code>가 있는지 확인</p></div>
+<div class="step"><span class="n">STEP 8</span><p>메시지결정 설정 — <code>MN04</code>(Purchasing → Master Data → Messages → Purchase Order → Create)로 조건레코드 생성. 신규 출력관리를 쓰면 대신 <b>규칙(rule)</b>을 만든다</p></div>
+
+<h3>청구서검증에서 파트너를 막는 두 메시지</h3>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>메시지</th><th>의미</th><th>Customizing</th></tr></thead>
+<tbody>
+<tr><td><code>M8 776</code></td><td class="wrap">구매오더에 대해 그 파트너로의 지불이 허용되지 않음. 예 — 공급업체 1058이 PO에서 운송대리점(<code>CR</code>)인데 1058로 청구서를 전기하려면 <code>CR</code>이 허용 역할이어야 한다</td><td class="wrap">MM → Logistics Invoice Verification → Incoming Invoice → <b>Define Partner Role as Allowed Payee</b></td></tr>
+<tr><td><code>M8 777</code></td><td class="wrap">청구요청업체가 PO에 파트너역할로 들어가 있지 않음. 예 — PO에 <code>PI</code>가 1005인데 청구서에서 1010으로 바꾸면 걸린다</td><td class="wrap">MM → Logistics Invoice Verification → <b>Define Attributes of System Messages</b></td></tr>
+</tbody>
+</table>
+</div>
+
+<p>둘 다 <b>경고 또는 오류</b>로 구성할 수 있고, 오류로 두면 청구서를 전기할 수 없습니다. 파트너결정 FAQ는 SAP Note 459350.</p>
+
+<p>계획된 부대비용은 조금 다릅니다 — 구매문서나 정보레코드의 <b>조건상세에 공급업체를 직접 입력</b>하면, 청구서 입력 시 자동 결정됩니다. 이 결정은 <span class="hl">파트너설정에 종속되지 않습니다.</span> 입고 전기 시 대체 운송업체를 넣을 수도 있습니다.</p>
+
+<div class="note ok">
+  <div class="t">📌 개인 E2E 프로젝트와의 연결점</div>
+  <p>사입 모델이라 벤더 BP만 만들면 되고, 실제로 필요한 역할은 <code>VN</code>과 <code>PI</code> 정도입니다. 그런데 <b>냉동·냉장 물류를 별도 업체가 맡는 시나리오</b>를 넣으려면 <code>GS</code>(재화공급업체)나 운송대리점 역할이 필요해지고, 그 순간 위 8단계 점검이 전부 걸립니다 — 계정그룹에 역할이 허용돼 있는지, 스키마에 들어 있는지.</p>
+  <p>화면시퀀스는 손대지 않는 편이 낫습니다. <span class="hl">표준 <code>21</code>로 두고 필드선택(LESSON 3)만 조정</span>하는 것이 표준 우선 원칙에도 맞고, 운영 이관 시 위험도 적습니다.</p>
+</div>
+
+</div>
+
+
+<!-- ══════════ LESSON 5 ══════════ -->
+<div class="lesson" id="l5">
+<h2><span class="no">LESSON 5</span>자동계정결정 — OBYC가 계정을 찾는 경로</h2>
+
+<p><span class="tag">Unit 4 전반</span><span class="tag">레슨 4개</span><span class="tag warn">이 코스의 핵심</span>Describing Automatic Account Determination · Relevance of Company Codes and Valuation Areas · Valuation Classes and Account Category References · Account Determination for Specific Transactions</p>
+
+<h3>언제 이걸 알아야 하는가</h3>
+
+<p>MM 유지보수에서 가장 많이 오는 장애 문의가 <b>"입고 전기가 계정결정 오류로 막혔습니다"</b>입니다. 그리고 그 다음으로 많은 게 회계팀에서 오는 <b>"이 금액이 왜 이 계정에 떨어졌습니까"</b>입니다.</p>
+
+<p>두 질문의 답은 같은 곳에 있습니다. 시스템은 G/L 계정을 <span class="key">조직레벨 · 자재 · 비즈니스트랜잭션</span> 세 갈래에서 뽑아낸 키로 찾습니다. 어느 갈래의 어느 단계가 비어 있는지 짚지 못하면 <span class="bad">OBYC 화면을 열어 놓고도 어느 줄을 봐야 할지 모릅니다.</span> 이 LESSON은 그 세 갈래를 하나의 키로 조립하는 과정 전부입니다.</p>
+
+<h3>먼저 그림 하나 — 숫자로 보는 자동전기</h3>
+
+<p>표준가 <code>EUR 10</code>으로 평가되는 자재를, 개당 <code>EUR 12</code>로 10개 발주한 경우입니다.</p>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>단계</th><th>전기</th><th>금액</th><th>계정</th></tr></thead>
+<tbody>
+<tr><td rowspan="3">1) 입고(GR)</td><td class="wrap">재고계정 — <b>표준가</b>로 평가 (10 × 10)</td><td><code>EUR 100</code></td><td><code>13100000</code></td></tr>
+<tr><td class="wrap">GR/IR청산 — <b>오더가격</b> 기준 상대전기 (10 × 12)</td><td><code>EUR 120</code></td><td><code>21120000</code></td></tr>
+<tr><td class="wrap">가격차이 — 오더가 &gt; 평가가 이므로 <span class="bad">비용</span></td><td><code>EUR 20</code></td><td><code>52041000</code></td></tr>
+<tr><td rowspan="4">2) 청구서수령(IR)</td><td class="wrap">공급업체(조정계정) — 10 × 11 + VAT 10%</td><td><code>EUR 121</code></td><td><code>21100000</code></td></tr>
+<tr><td class="wrap">GR/IR청산 — <b>입고값</b>만큼 대변전기</td><td><code>EUR 120</code></td><td><code>21120000</code></td></tr>
+<tr><td class="wrap">가격차이 — 청구가 &lt; 입고가 이므로 <span class="good">수익</span></td><td><code>EUR 10</code></td><td><code>52541000</code></td></tr>
+<tr><td class="wrap">매입세</td><td><code>EUR 11</code></td><td><code>12600000</code></td></tr>
+</tbody>
+</table>
+</div>
+
+<div class="note">
+  <div class="t">🔰 초보자 설명 — 왜 GR/IR청산계정이 필요한가</div>
+  <p>물건은 왔는데 청구서는 아직 안 왔습니다. 이 사이 기간의 <b>"받았지만 아직 안 낸 돈"</b>을 담아 두는 임시 계정이 <span class="key">GR/IR청산계정</span>입니다.</p>
+  <p>입고 때 대변에 쌓아 두고, 청구서가 오면 그만큼 차변으로 털어서 0으로 만듭니다. 그래서 <span class="hl">GR/IR 잔액이 남아 있다는 건 입고와 청구가 짝이 안 맞는다는 뜻</span>이고, 월말에 반드시 확인하는 항목입니다.</p>
+  <p>표에서 계정 출처가 <b>"비즈니스파트너의 계정"</b>인 공급업체 조정계정만 빼면, 나머지는 전부 <b>자동계정결정</b>이 찾아 준 것입니다.</p>
+</div>
+
+<p>전기키(<b>PK, Posting Key</b>)는 그 전기가 차변인지 대변인지, 어떤 유형의 계정(공급업체·자산 등)에 가는지를 정의합니다.</p>
+
+<h3>계정을 찾는 경로 — 세 갈래가 OBYC 한 줄로</h3>
+
+<figure class="figwrap">
+<svg class="dgm" viewBox="0 0 1000 530" role="img" aria-label="자동계정결정 경로 도해. 조직레벨에서 계정과목표와 평가그룹코드를, 자재에서 평가클래스를, 이동유형에서 값문자열을 거쳐 트랜잭션키와 계정그룹코드를 뽑아내고 이 다섯이 OBYC의 한 줄을 이뤄 G L 계정을 결정한다.">
+  <defs>
+    <marker id="ad1" markerWidth="9" markerHeight="9" refX="7" refY="4.5" orient="auto">
+      <polygon class="arw" points="0,0 9,4.5 0,9"/></marker>
+    <marker id="ad2" markerWidth="10" markerHeight="10" refX="8" refY="5" orient="auto">
+      <polygon class="arw-key" points="0,0 10,5 0,10"/></marker>
+  </defs>
+
+  <rect class="b-key" x="20" y="20" width="300" height="52" rx="6"/>
+  <text class="t-h c-key" x="42" y="44">① 조직레벨</text>
+  <text class="t-s" x="42" y="62">재화이동에 지정된 플랜트</text>
+  <rect class="b-key" x="350" y="20" width="300" height="52" rx="6"/>
+  <text class="t-h c-key" x="372" y="44">② 자재</text>
+  <text class="t-s" x="372" y="62">이동이 수행되는 자재</text>
+  <rect class="b-key" x="680" y="20" width="300" height="52" rx="6"/>
+  <text class="t-h c-key" x="702" y="44">③ 비즈니스트랜잭션</text>
+  <text class="t-s" x="702" y="62">재고관리 / 청구서검증</text>
+
+  <path class="ln" d="M170 72 V84" marker-end="url(#ad1)"/>
+  <path class="ln" d="M500 72 V84" marker-end="url(#ad1)"/>
+  <path class="ln" d="M830 72 V84" marker-end="url(#ad1)"/>
+
+  <rect class="b" x="20" y="88" width="300" height="52" rx="6"/>
+  <text class="t-h" x="42" y="112">회사코드</text>
+  <text class="t-s" x="42" y="130">→ 계정과목표를 결정</text>
+  <rect class="b" x="350" y="88" width="300" height="52" rx="6"/>
+  <text class="t-h" x="372" y="112">자재유형</text>
+  <text class="t-s" x="372" y="130">수량 · 가치 업데이트 지시자</text>
+  <rect class="b" x="680" y="88" width="300" height="52" rx="6"/>
+  <text class="t-h" x="702" y="112">이동유형 101 / 301 / 311</text>
+  <text class="t-s" x="702" y="130">IV는 프로세스 유형이 대신</text>
+
+  <path class="ln" d="M170 140 V152" marker-end="url(#ad1)"/>
+  <path class="ln" d="M500 140 V152" marker-end="url(#ad1)"/>
+  <path class="ln" d="M830 140 V152" marker-end="url(#ad1)"/>
+
+  <rect class="b" x="20" y="156" width="300" height="52" rx="6"/>
+  <text class="t-h" x="42" y="180">평가영역</text>
+  <text class="t-s" x="42" y="198">회사코드 또는 플랜트 중 택1</text>
+  <rect class="b" x="350" y="156" width="300" height="52" rx="6"/>
+  <text class="t-h" x="372" y="180">계정범주참조</text>
+  <text class="t-s" x="372" y="198">자재유형 ↔ 평가클래스 연결고리</text>
+  <rect class="b" x="680" y="156" width="300" height="52" rx="6"/>
+  <text class="t-h" x="702" y="180">값문자열 (Value String)</text>
+  <text class="t-s c-bad" x="702" y="198">SAP 고정 · 변경 불가</text>
+
+  <path class="ln" d="M170 208 V220" marker-end="url(#ad1)"/>
+  <path class="ln" d="M500 208 V220" marker-end="url(#ad1)"/>
+  <path class="ln" d="M830 208 V220" marker-end="url(#ad1)"/>
+
+  <rect class="b-hl" x="20" y="224" width="300" height="52" rx="6"/>
+  <text class="t-h" x="42" y="248">평가그룹코드 (VG)</text>
+  <text class="t-s" x="42" y="266">활성화해야 쓸 수 있다</text>
+  <rect class="b-hl" x="350" y="224" width="300" height="52" rx="6"/>
+  <text class="t-h" x="372" y="248">평가클래스 (VClass)</text>
+  <text class="t-s" x="372" y="266">자재마스터 회계뷰</text>
+  <rect class="b-hl" x="680" y="224" width="300" height="52" rx="6"/>
+  <text class="t-h" x="702" y="248">트랜잭션키 BSX WRX PRD GBB</text>
+  <text class="t-s" x="702" y="266">+ 계정그룹코드 (AG)</text>
+
+  <path class="ln-key" d="M170 276 V296 H500 V310" marker-end="url(#ad2)"/>
+  <path class="ln-key" d="M500 276 V310" marker-end="url(#ad2)"/>
+  <path class="ln-key" d="M830 276 V296 H500 V310" marker-end="url(#ad2)"/>
+
+  <rect class="b-key" x="20" y="312" width="960" height="102" rx="8"/>
+  <text class="t-h c-key" x="44" y="340">OBYC — Configure Automatic Postings</text>
+  <text class="m" x="44" y="366">계정과목표 + 트랜잭션키 + VG + AG + 평가클래스</text>
+  <text class="t-s" x="44" y="388">= 테이블 한 줄. 이 줄에 차변 G/L 계정과 대변 G/L 계정을 적어 둔다.</text>
+  <text class="t-xs c-bad" x="44" y="406">다섯 요소 중 하나라도 비면 계정을 못 찾고 전기가 막힌다 — 어느 칸이 비었는지부터 본다.</text>
+
+  <path class="ln-key" d="M500 414 V446" marker-end="url(#ad2)"/>
+  <rect class="b-ok" x="300" y="448" width="400" height="60" rx="6"/>
+  <text class="t-h c-ok" x="324" y="474">G/L 계정 → 회계전표 생성</text>
+  <text class="t-s" x="324" y="494">재고 13100000 · GR/IR 21120000 · 가격차이 52041000 …</text>
+</svg>
+<figcaption><span class="fno">그림 2</span>자동계정결정 경로. 세 갈래에서 뽑은 다섯 요소가 OBYC 한 줄을 이룬다.</figcaption>
+</figure>
+
+<h3>평가영역 — 계정결정이 갈리는 첫 번째 축</h3>
+
+<p>계정 배정은 <b>언제나 계정과목표에 종속</b>됩니다. 같은 계정번호라도 계정과목표가 다르면 의미가 다르므로, <span class="key">계정과목표마다 계정결정을 따로 설정</span>해야 합니다.</p>
+
+<div class="note warn">
+  <div class="t">평가레벨은 자재를 만들기 전에 정해야 한다</div>
+  <p>평가영역이 <b>회사코드</b>인지 <b>플랜트</b>인지는 Customizing에서 정합니다. 이 설정은 <span class="bad">자재가 생성되고 재고관리 트랜잭션이 입력되기 전</span>에 끝나 있어야 합니다.</p>
+  <p>플랜트를 평가레벨로 고르면 <span class="hl">각 플랜트가 곧 평가영역 하나</span>이고 평가영역 키 = 플랜트 키입니다. 회사코드로 고르면 <b>그 회사코드의 모든 플랜트에 G/L 배정이 균일하게</b> 적용되고, 플랜트별로 다르게 할 수 없습니다.</p>
+</div>
+
+<h4>평가그룹코드(VG) — 회사코드를 묶거나 가르는 스위치</h4>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>설정</th><th>동작</th></tr></thead>
+<tbody>
+<tr><td>평가그룹코드 <b>비활성화</b></td><td class="wrap">같은 계정과목표(<code>YCOA</code>)를 쓰는 회사코드 <code>1010</code>·<code>2010</code>·<code>2020</code>을 계정지정 측면에서 <b>전부 동일하게</b> 취급</td></tr>
+<tr><td>평가그룹코드 <b>활성화</b></td><td class="wrap">회사코드마다 코드를 배정. 동일하게 취급할 <code>2010</code>·<code>2020</code>에는 같은 코드(<code>0002</code>)를 준다 → <span class="hl">같은 계정과목표를 쓰면서도 회사코드별로 다른 G/L 계정</span>을 배정할 수 있다</td></tr>
+</tbody>
+</table>
+</div>
+
+<p>운영계정과목표 외에도 <b>국가별 계정과목표</b>(법적요건)와 <b>그룹계정과목표</b>(연결)가 함께 존재할 수 있습니다. 계정과목표는 FI뿐 아니라 원가계산에서도 쓰입니다.</p>
+
+<h3>평가클래스와 계정범주참조 — 자재 쪽 사슬</h3>
+
+<figure class="figwrap">
+<svg class="dgm" viewBox="0 0 1000 380" role="img" aria-label="자재유형과 평가클래스의 연결 도해. 계정범주참조가 자재유형과 평가클래스 사이의 연결고리이며, 자재유형에 배정된 계정범주참조가 그 자재에서 고를 수 있는 평가클래스의 범위를 정한다.">
+  <defs>
+    <marker id="vc1" markerWidth="9" markerHeight="9" refX="7" refY="4.5" orient="auto">
+      <polygon class="arw" points="0,0 9,4.5 0,9"/></marker>
+    <marker id="vc2" markerWidth="9" markerHeight="9" refX="7" refY="4.5" orient="auto">
+      <polygon class="arw-key" points="0,0 9,4.5 0,9"/></marker>
+  </defs>
+
+  <text class="t-s c-key" x="24" y="26">자재유형</text>
+  <text class="t-s c-key" x="294" y="26">계정범주참조 (ARef)</text>
+  <text class="t-s c-key" x="594" y="26">평가클래스</text>
+  <text class="t-s c-key" x="818" y="26">OBYC · 재고계정</text>
+
+  <rect class="b" x="20" y="40" width="200" height="54" rx="6"/>
+  <text class="t-h" x="40" y="64">원자재 ROH</text>
+  <text class="t-s" x="40" y="82">자체 생산에 투입</text>
+  <rect class="b-ok" x="20" y="112" width="200" height="54" rx="6"/>
+  <text class="t-h c-ok" x="40" y="136">상품 HAWA</text>
+  <text class="t-s" x="40" y="154">사입 후 재판매</text>
+  <rect class="b" x="20" y="184" width="200" height="54" rx="6"/>
+  <text class="t-h" x="40" y="208">완제품 FERT</text>
+  <text class="t-s" x="40" y="226">자체 생산 결과물</text>
+
+  <path class="ln" d="M220 67 H286" marker-end="url(#vc1)"/>
+  <path class="ln-ok" d="M220 139 H286" marker-end="url(#vc1)"/>
+  <path class="ln" d="M220 211 H260 V196 H286" marker-end="url(#vc1)"/>
+
+  <rect class="b-key" x="288" y="44" width="240" height="74" rx="6"/>
+  <text class="t-h c-key" x="310" y="70">ARef 0001</text>
+  <text class="t-s" x="310" y="90">이 참조에 묶인 평가클래스만</text>
+  <text class="t-s" x="310" y="108">자재마스터에서 고를 수 있다</text>
+  <rect class="b-key" x="288" y="160" width="240" height="74" rx="6"/>
+  <text class="t-h c-key" x="310" y="186">ARef 0003</text>
+  <text class="t-s" x="310" y="206">자재유형 : ARef = N : 1</text>
+  <text class="t-s" x="310" y="224">ARef : 평가클래스 = 1 : N</text>
+
+  <path class="ln-key" d="M528 70 H570 V67 H586" marker-end="url(#vc2)"/>
+  <path class="ln-key" d="M528 96 H570 V139 H586" marker-end="url(#vc2)"/>
+  <path class="ln-key" d="M528 197 H570 V211 H586" marker-end="url(#vc2)"/>
+
+  <rect class="b" x="588" y="40" width="190" height="54" rx="6"/>
+  <text class="m" x="608" y="64">평가클래스 3000</text>
+  <text class="t-s" x="608" y="82">원자재 재고</text>
+  <rect class="b-hl" x="588" y="112" width="190" height="54" rx="6"/>
+  <text class="m" x="608" y="136">평가클래스 3100</text>
+  <text class="t-s" x="608" y="154">상품 재고</text>
+  <rect class="b" x="588" y="184" width="190" height="54" rx="6"/>
+  <text class="m" x="608" y="208">평가클래스 7920</text>
+  <text class="t-s" x="608" y="226">완제품 재고</text>
+
+  <path class="ln" d="M778 67 H816" marker-end="url(#vc1)"/>
+  <path class="ln-key" d="M778 139 H816" marker-end="url(#vc2)"/>
+  <path class="ln" d="M778 211 H816" marker-end="url(#vc1)"/>
+
+  <rect class="b-ok" x="818" y="40" width="160" height="198" rx="6"/>
+  <text class="t-s" x="838" y="76">평가클래스마다</text>
+  <text class="t-s" x="838" y="96">다른 재고계정</text>
+  <text class="t-s" x="838" y="116">(트랜잭션키 BSX)</text>
+  <text class="t-s c-bad" x="838" y="152">같은 자재유형이어도</text>
+  <text class="t-s c-bad" x="838" y="172">평가클래스가 다르면</text>
+  <text class="t-s c-bad" x="838" y="192">계정이 갈린다</text>
+
+  <rect class="b-ghost" x="20" y="262" width="958" height="94" rx="6"/>
+  <text class="t-h" x="44" y="288">자재유형을 바꿀 수 있는 조건이 여기서 나온다</text>
+  <text class="t-s" x="44" y="310">기존 유형과 새 유형이 <tspan class="c-key">같은 계정범주참조</tspan>에 배정돼 있으면 평가클래스 후보군이 같으므로 계정이 흔들리지 않는다 → 변경 허용.</text>
+  <text class="t-s" x="44" y="330">그렇지 않으면 재고 · 구매오더 · 예약이 <tspan class="c-bad">전혀 없어야</tspan> 바꿀 수 있다.</text>
+  <text class="t-s" x="44" y="348">계정결정 오류를 줄이려면 <tspan class="c-ok">계정범주참조 하나에 평가클래스를 하나만</tspan> 배정하는 것이 가장 안전하다.</text>
+</svg>
+<figcaption><span class="fno">그림 3</span>자재유형 · 계정범주참조 · 평가클래스의 연결. 참조가 후보군을 정하고 평가클래스가 계정을 정한다.</figcaption>
+</figure>
+
+<p>자동계정결정은 <b>자재별</b>로도 <b>자재유형별</b>로도 정의할 수 있습니다. 원자재와 상품을 입고 시 서로 다른 재고계정으로 보내는 것이 전자의 예이고, <span class="hl">같은 자재유형이라도 자체생산인지 구매인지에 따라 다른 재고계정으로 보내는 것</span>도 가능합니다(뒤 LESSON 6의 분할평가).</p>
+
+<h3>트랜잭션키 — 값문자열이 계정번호 대신 담는 것</h3>
+
+<p>MM의 회계관련 트랜잭션은 SAP가 미리 정의해 둡니다. 회사마다 계정과목표가 다르므로, 시스템은 구체적인 계정번호 대신 <span class="key">일반화된 전기레코드</span>를 배정하는데 그 매개가 <b>값문자열(value string)</b>입니다. 값문자열 안에는 계정번호가 아니라 <b>트랜잭션/이벤트키</b>가 들어 있습니다.</p>
+
+<div class="note warn">
+  <div class="t">값문자열 배정과 값문자열 내부의 키는 변경할 수 없다</div>
+  <p>재고관리·청구서검증의 값문자열은 <span class="bad">SAP가 고정</span>해 둔 것입니다. 우리가 손대는 건 그 뒤 — <b>트랜잭션키에 어떤 G/L 계정을 걸 것인가</b>뿐입니다. "값문자열을 바꿔서 해결하자"는 접근 자체가 성립하지 않습니다.</p>
+</div>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>키</th><th>명칭</th><th>언제 타는가</th></tr></thead>
+<tbody>
+<tr><td><code>BSX</code></td><td>재고전기</td><td class="wrap">계정지정 없는 PO 품목의 <b>평가입고</b>는 항상 재고계정으로 간다</td></tr>
+<tr><td><code>WRX</code></td><td>GR/IR청산계정</td><td class="wrap">평가입고의 <b>상대전기</b></td></tr>
+<tr><td><code>PRD</code></td><td>가격차이</td><td class="wrap">자재가 <b>표준가(S)</b>인데 오더가격(또는 청구가격)이 표준가와 다를 때</td></tr>
+<tr><td><code>KDM</code></td><td>환율차이</td><td class="wrap">외화 PO에서 GR과 IR의 환율이 다를 때. <span class="hl">표준가 통제나 재고부족으로 자재계정에 차·대변을 못 걸 때</span> 이 키가 대신 받는다</td></tr>
+<tr><td><code>EIN</code></td><td>구매계정</td><td class="wrap">구매계정관리가 켜진 회사코드 (프랑스·벨기에 법적요건)</td></tr>
+<tr><td><code>EKG</code></td><td>구매상대계정</td><td class="wrap">구매계정관리가 켜진 회사코드</td></tr>
+<tr><td><code>BSV</code></td><td>재고계정 변경</td><td class="wrap">품목범주 <b>위탁가공</b>에서만</td></tr>
+<tr><td><code>FRL</code></td><td>외부용역</td><td class="wrap">품목범주 <b>위탁가공</b>에서만</td></tr>
+<tr><td><code>FRN</code></td><td>외부용역 부대비용</td><td class="wrap">품목범주 <b>위탁가공</b>에서만</td></tr>
+<tr><td><code>GBB</code></td><td class="wrap">재고전기 상대전기</td><td class="wrap">출고·폐기·재고차이 등. <span class="key">계정그룹코드로 세분화</span>한다 → LESSON 6</td></tr>
+<tr><td><code>UMB</code></td><td class="wrap">재평가 손익</td><td class="wrap">이전기간 소급 전기로 가격변경이 일어날 때</td></tr>
+</tbody>
+</table>
+</div>
+
+<h4>값문자열 <code>WA14</code> — 왜 BSX가 두 번 나오는가</h4>
+
+<p>가치기준 재고관리 자재의 <b>무상납품(이동유형 511)</b>에 쓰이는 값문자열입니다. 세 경우로 갈립니다.</p>
+
+<div class="step"><span class="n">CASE 1</span><p><b>가격통제 V</b> — 수령을 0으로 평가하므로 <span class="bad">회계문서를 만들지 않는다.</span> 재고가 늘어나는 자재문서만 생성</p></div>
+<div class="step"><span class="n">CASE 2</span><p><b>가격통제 S</b>, 전기일자가 이전기간이고 <b>이전기간 표준가 = 당기 표준가</b> — 표준가로 재고전기(<code>BSX</code>) + 가격차이 수익계정 전기(<code>PRD</code>)</p></div>
+<div class="step"><span class="n">CASE 3</span><p><b>가격통제 S</b>, 전기일자가 이전기간인데 <b>표준가가 서로 다름</b> — 회계문서가 <span class="hl">두 장</span> 나온다. ① 이전기간용: 이전기간 표준가로 재고수령(<code>BSX</code>) + 동일 금액 가격차이(<code>PRD</code>). ② 당기용(전기일자 = 당기 첫날): 재고조정전기(<b>두 번째 <code>BSX</code></b>) + 재평가 손익(<code>UMB</code>). 이 두 문서가 같은 <code>BSX</code>를 쓰기 때문에 값문자열에 <code>BSX</code>가 두 번 들어 있다</p></div>
+
+<h3>시뮬레이션 — 설정을 고치기 전에 확인하는 법</h3>
+
+<p><b>Configure Automatic Postings</b> 활동 안에서 시뮬레이션을 호출하면, 계정결정에 영향을 주는 모든 요소와 배정된 G/L 계정이 나옵니다.</p>
+
+<ul>
+  <li>입력모드 — <b>자재번호</b> 또는 <b>평가클래스</b> 중 선택</li>
+  <li>애플리케이션영역 — <b>재고관리</b> 또는 <b>청구서검증</b></li>
+  <li>배정한 계정이 <b>계정과목표에 실제 존재하는지</b> 확인해 준다</li>
+  <li>회사코드 관련성과 무관하게 <span class="hl">해당 값문자열의 모든 트랜잭션키를 다 고려</span>한다 (<code>EIN</code>·<code>EKG</code>·<code>FRE</code> 포함)</li>
+  <li>재고관리 시뮬레이션에서는 <b>Check Screen Layout</b> 버튼으로 선택한 이동유형의 필드선택 설정과 배정 계정을 비교할 수 있다</li>
+</ul>
+
+<div class="note">
+  <div class="t">🔰 초보자 설명 — 시뮬레이션이 재고관리에서 특히 중요한 이유</div>
+  <p>청구서검증은 애플리케이션 안에서 직접 시뮬레이션을 돌릴 수 있습니다. 그런데 <span class="bad">재고관리는 그게 안 됩니다.</span> 그래서 <b>MIGO로 실제 전기를 때려 보기 전에</b> 계정결정이 맞는지 확인할 유일한 수단이 이 Customizing 안의 시뮬레이션입니다.</p>
+</div>
+
+<p>자재의 평가가격을 바꿔야 하면 <code>MR21</code>(Logistics → Materials Management → Valuation → Change in Material Price → Change Material Prices) 또는 Fiori <b>Material Price Change</b> 앱을 씁니다.</p>
+
+<div class="note warn">
+  <div class="t">이동평균가(V)에서 가격차이가 생기는 조건</div>
+  <p>이동평균가 자재는 보통 차이를 단가에 흡수하므로 <code>PRD</code>를 안 탑니다. 다만 청구서수령 시 <span class="hl">청구가격이 오더가격과 다르고, 청구·대변 수량이 더 이상 재고에 없거나 일부만 남아 있으면</span> 흡수할 재고가 없으므로 <span class="bad">가격차이계정으로 빠집니다.</span></p>
+  <p>재고가 이미 다 나간 뒤에 단가가 다른 청구서가 들어오는 경우가 전형적입니다. 시스템은 청구·대변된 수량이 여전히 재고에 있는지(재고보유량)를 확인한 뒤 갈라집니다.</p>
+</div>
+
+<div class="note ok">
+  <div class="t">📌 개인 E2E 프로젝트와의 연결점</div>
+  <p>프로젝트는 <b>이동평균가(V)</b>를 씁니다. 그래서 그림 2의 <code>PRD</code> 가지는 <span class="hl">평시에는 거의 타지 않습니다</span> — 대신 위 경고 블록의 조건, 즉 "재고가 이미 빠진 뒤 들어온 단가 다른 송장"이 유일한 발생 경로입니다. 유통기한 때문에 회전이 빠른 식품은 <b>이 상황이 오히려 자주</b> 생깁니다. <code>PRD</code> 계정을 안 걸어 두면 그때 전기가 막힙니다.</p>
+  <p>CBO <code>ZPRICE_CHECK</code>가 보는 것이 정확히 이 지점입니다. <code>EINE-NETPR</code>(정보레코드가)와 <code>MBEW-VERPR</code>(이동평균가)의 괴리는 <span class="key">아직 전기되지 않은 미래의 가격차이</span>입니다. 실제로 <code>PRD</code>가 터지기 전에 알림으로 잡자는 것이므로, 설계 원칙("회계 영향 있는 처리는 자동화하지 않고 알림까지만")과도 맞습니다.</p>
+  <p>세팅 순서로는 이렇게 됩니다 — ① 평가레벨을 <b>플랜트</b>로 확정(GATE/STOR 계정 분리 가능) → ② <code>HAWA</code> 계열 자재유형의 <b>계정범주참조</b> 확인 → ③ 그 참조에 묶인 <b>평가클래스 하나</b>만 쓰기(그림 3 아래 권고) → ④ <code>BSX</code>·<code>WRX</code>·<code>PRD</code>·<code>GBB</code> 최소 4개 키에 계정 배정 → ⑤ <b>시뮬레이션</b>으로 확인한 뒤 MIGO 테스트.</p>
+  <p>온도군(냉동·냉장·실온)을 평가클래스로 가를지 여부는 <span class="bad">지금 정해야 합니다.</span> 재고계정을 온도군별로 나누고 싶다면 평가클래스를 3개로 쪼개야 하는데, 그러면 자재 생성 때 온도군과 평가클래스가 어긋나는 사고가 생깁니다. <b>저장위치로만 가르고 평가클래스는 하나로 두는 편</b>이 단순합니다 — 온도군 구분은 이미 저장위치 6개가 하고 있습니다.</p>
+</div>
+
+</div>
+
+
+<!-- ══════════ LESSON 6 ══════════ -->
+<div class="lesson" id="l6">
+<h2><span class="no">LESSON 6</span>계정그룹코드 · 특수케이스 · 분할평가</h2>
+
+<p><span class="tag">Unit 4 후반</span><span class="tag">레슨 3개</span>Subdividing a Transaction with the Account Grouping Code · Adjusting Account Determination for Special Cases · Adjusting Settings for Split Valuation</p>
+
+<h3>계정그룹코드(AG) — 하나의 키가 너무 포괄적일 때</h3>
+
+<p>값문자열은 그 비즈니스프로세스에서 가능한 <b>모든</b> 트랜잭션키를 담습니다. 예를 들어 값문자열 <code>WA01</code>은 다양한 출고와 기타 입고에 배정되고, 그 안의 <code>GBB</code>(재고전기 상대전기)는 <span class="hl">코스트센터 출고든 샘플이든 폐기든 전부 같은 키</span>로 들어옵니다.</p>
+
+<p>그런데 전기할 계정은 달라야 합니다 — 소비계정 / 폐기비용 / 재고차이로 인한 비용·수익. 그래서 키를 한 겹 더 쪼개는 추가코드가 <span class="key">계정그룹코드(Account Grouping Code)</span>, 다른 말로 <b>일반수정(general modification)</b>입니다.</p>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>클라이언트</th><th>계정과목표</th><th>거래키</th><th>VG</th><th>AG</th><th>평가클래스</th><th>차변 G/L</th><th>대변 G/L</th></tr></thead>
+<tbody>
+<tr><td>400</td><td><code>YCOA</code></td><td><code>PRD</code></td><td>—</td><td>—</td><td>3000</td><td><code>52041000</code></td><td><code>52541000</code></td></tr>
+<tr><td>400</td><td><code>YCOA</code></td><td><code>PRD</code></td><td>—</td><td><code>PRA</code></td><td>3000</td><td><code>52045500</code></td><td><code>52545500</code></td></tr>
+<tr><td>400</td><td><code>YCOA</code></td><td><code>GBB</code></td><td><code>0001</code></td><td><code>BSA</code></td><td>3000</td><td><code>39911000</code></td><td><code>39911000</code></td></tr>
+<tr><td>400</td><td><code>YCOA</code></td><td><code>GBB</code></td><td><code>0001</code></td><td><code>VBR</code></td><td>3000</td><td><code>51100000</code></td><td><code>51100000</code></td></tr>
+</tbody>
+</table>
+</div>
+
+<p>약어 — <b>VG</b> = 평가그룹코드, <b>AG</b> = 계정그룹코드(일반계정수정코드), <b>VClass</b> = 평가클래스. 위 표가 곧 그림 2의 OBYC 한 줄입니다. 같은 <code>PRD</code>여도 AG가 <code>PRA</code>냐 공백이냐로 계정이 갈리는 것을 보면 됩니다.</p>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>항목</th><th>내용</th></tr></thead>
+<tbody>
+<tr><td>표준 활성화 범위</td><td class="wrap">표준시스템은 <code>GBB</code> 등 <b>일부 키에만</b> 계정그룹코드를 활성화해 둔다. 회사에서 다른 키(예: 가격차이)에도 규칙으로 활성화할 수 있다</td></tr>
+<tr><td>자체키 정의</td><td class="wrap">가능. 일부 키(예: <code>VBR</code>)는 SAP 표준의 일부</td></tr>
+<tr><td>배정 기준 (재고관리)</td><td class="wrap"><b>이동유형</b> + 기타 지시자(예: 특별재고지시자)</td></tr>
+<tr><td>청구서검증</td><td class="wrap"><span class="bad">계정그룹코드를 쓸 수 없다</span></td></tr>
+</tbody>
+</table>
+</div>
+
+<div class="note">
+  <div class="t">🔰 초보자 설명 — 같은 이동유형인데 계정이 달라야 할 때</div>
+  <p>표준 계정그룹코드는 추가 지시자 없이 <b>이동유형에만</b> 배정됩니다. 그런데 현실에서는 같은 "생산오더용 출고"여도 <span class="hl">자사재고에서 뺐는지 수탁재고에서 뺐는지</span>에 따라 소비계정이 달라야 합니다.</p>
+  <p>그럴 때 특별재고지시자까지 조건에 넣어 <b>서로 다른 계정그룹코드</b>를 배정합니다. 이동유형 하나로는 못 가르는 구분을 한 겹 더 주는 것입니다.</p>
+</div>
+
+<h3>특수사례 ① — 계정지정이 있는 구매문서</h3>
+
+<p>계정지정범주가 붙은 품목의 기본계정은 <code>GBB</code> + <b>계정지정범주의 계정그룹코드(계정수정)</b>로 결정됩니다. 구매 Customizing에서 계정지정범주를 추가하고 새 계정그룹코드를 붙일 수 있습니다.</p>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>상황</th><th>평가클래스를 어디서 가져오는가</th></tr></thead>
+<tbody>
+<tr><td class="wrap">자재마스터가 있는 계정지정 품목</td><td class="wrap">자재마스터 <b>회계뷰</b>의 평가클래스</td></tr>
+<tr><td class="wrap">자재마스터에 평가클래스가 없음 (예: 자재유형 <code>NLAG</code>)</td><td class="wrap"><b>공백(' ')</b> 평가클래스</td></tr>
+<tr><td class="wrap">자재마스터가 아예 없는 계정지정 품목</td><td class="wrap"><b>자재그룹</b>의 평가클래스, 없으면 <b>공백(' ')</b></td></tr>
+</tbody>
+</table>
+</div>
+
+<p>자재마스터 없는 조달에서 자재그룹에 평가클래스를 붙이는 자리는 구매 Customizing의 <b>Entry Aid for Items Without Material Master</b>입니다. 그러면 시스템은 <code>GBB</code> + 계정지정범주의 AG + <b>자재그룹의 평가클래스</b>로 계정을 찾습니다.</p>
+
+<div class="note warn">
+  <div class="t">G/L 계정 파라미터ID SAK는 표준에서 지원하지 않는다</div>
+  <p>구매문서에서 G/L 계정을 미리 채워 두고 싶어도 <span class="bad">표준으로는 안 됩니다.</span> 해당 필드에 SET/GET 파라미터 기능을 활성화하는 <b>수정(modification)</b>이 필요합니다 — 표준 오브젝트를 건드리는 일이므로 도입 전에 비용을 따져야 합니다.</p>
+  <p>대안은 <code>FS00</code>(G/L 계정마스터) 유지보수 중에 <b>계정지정오브젝트 기본값</b>(오더 또는 코스트센터)을 정의해 두는 쪽입니다.</p>
+</div>
+
+<h3>특수사례 ② — 계획된 부대비용 / 미계획 부대비용</h3>
+
+<p>계획된 부대비용은 구매문서에서 조건유형(<code>FRA1</code> · <code>FRB1</code> · <code>FRC1</code> 등)으로 미리 잡아 둡니다. 입고 시 별도 <b>청산계정 또는 충당계정</b>으로 보내고, 나중에 부대비용 청구서를 전기하면 그 계정이 청산됩니다.</p>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>단계</th><th>전기 내용</th><th>금액</th></tr></thead>
+<tbody>
+<tr><td rowspan="3">입고 (GR)</td><td class="wrap">재고계정 — <b>재화가치 + 계획 부대비용</b></td><td><code>EUR 120</code> 차변</td></tr>
+<tr><td class="wrap">GR/IR청산 — 자재가치분</td><td><code>EUR 100</code> 대변</td></tr>
+<tr><td class="wrap"><b>운송청산계정</b> — 계획 부대비용분 (상대전기가 <span class="key">분할</span>된다)</td><td><code>EUR 20</code> 대변</td></tr>
+<tr><td rowspan="3">운송 청구서</td><td class="wrap">공급업체계정 (재화와 <b>다른 공급업체</b>가 청구)</td><td><code>EUR 22</code> 대변</td></tr>
+<tr><td class="wrap">운송청산계정 청산</td><td><code>EUR 20</code> 차변</td></tr>
+<tr><td class="wrap">매입세</td><td><code>EUR 2</code> 차변</td></tr>
+</tbody>
+</table>
+</div>
+
+<div class="note warn">
+  <div class="t">부대비용 트랜잭션키는 값문자열에서 오지 않는다</div>
+  <p>여기서 헷갈리는 지점입니다. 부대비용 전기의 트랜잭션키는 <span class="bad">값문자열이 아니라 구매용 계산스키마(계정키)</span>에서 나옵니다. 그림 2의 ③ 갈래를 아무리 뒤져도 안 나옵니다.</p>
+  <p>새 조건유형에 새 계정키를 붙이려면 먼저 별도 활동에서 정의해야 합니다 — <b>Materials Management → Purchasing → Conditions → Define Price Determination Process → Define Transaction/Event Keys</b>.</p>
+</div>
+
+<p><b>미계획 부대비용</b>은 발주 시점에 모릅니다. 인코텀즈로 Carriage paid packing에 합의했는데 청구서에 포장비용이 찍혀 오는 식이고, 이 비용은 <b>청구서헤더</b>에 넣습니다. 기본 처리는 <span class="hl">청구항목들에 분배</span>이고, 특별 G/L 계정으로 보내려면 계정결정테이블에서 트랜잭션키 <code>UPF</code>에 계정을 배정합니다. 경로는 <b>MM → Logistics Invoice Verification → Incoming Invoice → Configure How Unplanned Delivery Costs Are Posted</b>. 구매의 세금결정 상세는 SAP Note 501054.</p>
+
+<h3>분할평가(Split Valuation)</h3>
+
+<figure class="figwrap">
+<svg class="dgm" viewBox="0 0 1000 420" role="img" aria-label="분할평가 구조 도해. 평가카테고리와 평가유형을 클라이언트 레벨에서 전역 정의해 평가영역에 배정한 뒤, 자재마스터 회계뷰에 평가카테고리를 넣으면 그 자재의 재고가 헤더 레코드와 평가유형별 부분재고로 갈라진다.">
+  <defs>
+    <marker id="sv1" markerWidth="9" markerHeight="9" refX="7" refY="4.5" orient="auto">
+      <polygon class="arw" points="0,0 9,4.5 0,9"/></marker>
+    <marker id="sv2" markerWidth="9" markerHeight="9" refX="7" refY="4.5" orient="auto">
+      <polygon class="arw-key" points="0,0 9,4.5 0,9"/></marker>
+  </defs>
+
+  <text class="t-s c-key" x="20" y="18">① Customizing — 평가카테고리·평가유형은 클라이언트 레벨 전역 정의 후 평가영역에 배정</text>
+
+  <rect class="b-key" x="20" y="30" width="260" height="58" rx="6"/>
+  <text class="t-h c-key" x="42" y="54">평가카테고리</text>
+  <text class="t-s" x="42" y="74">부분재고를 가르는 기준</text>
+
+  <path class="ln" d="M280 59 H302 V50 H326" marker-end="url(#sv1)"/>
+  <path class="ln" d="M280 59 H302 V108 H326" marker-end="url(#sv1)"/>
+
+  <rect class="b" x="328" y="28" width="222" height="44" rx="6"/>
+  <text class="t" x="348" y="46">평가유형 — 외부조달</text>
+  <text class="t-xs" x="348" y="63">기준의 가능한 값 하나</text>
+  <rect class="b" x="328" y="86" width="222" height="44" rx="6"/>
+  <text class="t" x="348" y="104">평가유형 — 자체생산</text>
+  <text class="t-xs" x="348" y="121">원산지 기준이면 국가명</text>
+
+  <path class="ln" d="M550 50 H574 V60 H596" marker-end="url(#sv1)"/>
+  <path class="ln" d="M550 108 H574 V60 H596" marker-end="url(#sv1)"/>
+
+  <rect class="b-ok" x="598" y="30" width="382" height="58" rx="6"/>
+  <text class="t-h c-ok" x="620" y="54">평가영역에 배정</text>
+  <text class="t-s" x="620" y="74">여기까지는 자재와 무관 · Split Valuation 지시자 활성화 필요</text>
+
+  <line class="ln-d" x1="20" y1="148" x2="980" y2="148"/>
+  <text class="t-s c-key" x="20" y="172">② 자재마스터 — 회계뷰에 평가카테고리를 넣는 순간 그 자재에만 분할평가가 켜진다</text>
+
+  <rect class="b-key" x="20" y="184" width="260" height="70" rx="6"/>
+  <text class="t-h c-key" x="42" y="208">자재번호는 하나</text>
+  <text class="t-s" x="42" y="228">회계뷰에 평가카테고리 입력</text>
+  <text class="t-s" x="42" y="246">→ 선택 가능한 평가유형 확정</text>
+
+  <path class="ln-key" d="M280 206 H304 V206 H326" marker-end="url(#sv2)"/>
+  <path class="ln-key" d="M280 230 H304 V292 H326" marker-end="url(#sv2)"/>
+
+  <rect class="b-mut" x="328" y="182" width="252" height="48" rx="6"/>
+  <text class="t-h" x="348" y="204">헤더 평가레코드</text>
+  <text class="t-s" x="348" y="222">전체 재고의 합계</text>
+
+  <rect class="b-hl" x="328" y="262" width="252" height="66" rx="6"/>
+  <text class="t-h" x="348" y="286">부분재고 — 외부조달</text>
+  <text class="t-s" x="348" y="306">자체 평가가격</text>
+  <text class="t-s" x="348" y="322">자체 재고·소비계정</text>
+
+  <path class="ln-key" d="M580 206 H604 V292 H628" marker-end="url(#sv2)"/>
+
+  <rect class="b-hl" x="630" y="262" width="252" height="66" rx="6"/>
+  <text class="t-h" x="650" y="286">부분재고 — 자체생산</text>
+  <text class="t-s" x="650" y="306">자체 평가가격</text>
+  <text class="t-s" x="650" y="322">자체 재고·소비계정</text>
+
+  <rect class="b-ghost" x="20" y="342" width="960" height="66" rx="6"/>
+  <text class="t-s c-bad" x="44" y="364">· 재고나 미결문서가 있는 자재는 분할평가를 켤 수 없다. 자재를 만들기 전에 결정한다.</text>
+  <text class="t-s c-bad" x="44" y="382">· 출고를 전기할 때마다 어느 부분재고에서 빼는지 반드시 지정해야 한다 — 이것이 가장 큰 추가 작업부담이다.</text>
+  <text class="t-s" x="44" y="400">· PO 생성 시 평가유형을 넣으면 그 유형으로만 입고 가능하고 변경 불가. 안 넣으면 입고 시점에 넣어야 한다.</text>
+</svg>
+<figcaption><span class="fno">그림 4</span>분할평가 구조. 자재번호 하나 아래 헤더 레코드와 평가유형별 부분재고가 갈린다.</figcaption>
+</figure>
+
+<p>분할평가는 <b>하나의 평가영역 안에서</b> 같은 자재의 서로 다른 재고를 다르게 평가하는 장치입니다. 재고전기와 소비전기에 서로 다른 계정을 배정할 수도 있습니다 — 외부조달이냐 자체생산이냐로 가르는 것이 전형입니다.</p>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>구분</th><th>내용</th></tr></thead>
+<tbody>
+<tr><td>장점</td><td class="wrap">특정 자재의 여러 상태(state)에 대해 <b>자재번호 하나</b>만 있으면 된다</td></tr>
+<tr><td>단점</td><td class="wrap">추가 작업부담. <span class="bad">출고를 전기할 때마다 어느 부분재고에서 빼는지 지정</span>해야 한다</td></tr>
+<tr><td>평가카테고리</td><td class="wrap">가르는 <b>기준</b>. 예 — 조달유형, 원산지</td></tr>
+<tr><td>평가유형</td><td class="wrap">그 기준의 <b>가능한 값</b>. 조달유형이면 외부조달·자체생산, 원산지면 독일·중국·미국</td></tr>
+<tr><td>정의 레벨</td><td class="wrap">클라이언트 레벨 <b>전역</b>. 평가영역과 무관하게 먼저 정의·상호배정한 뒤, 쓸 평가영역에 배정</td></tr>
+<tr><td>자재별 활성화</td><td class="wrap">전체 지시자를 active로 켜도 <span class="hl">모든 자재에 적용되는 것은 아니다.</span> 자재마스터 <b>회계뷰에 평가카테고리를 넣은 자재만</b> 분할평가가 된다</td></tr>
+</tbody>
+</table>
+</div>
+
+<div class="note warn">
+  <div class="t">재고나 미결문서가 있으면 활성화할 수 없다</div>
+  <p>분할평가는 <span class="bad">재고가 0이고 미결문서도 없는 자재</span>에만 켤 수 있습니다. 운영 중에 "이제부터 원산지별로 나눠서 보고 싶다"는 요구가 와도 기존 자재에는 적용이 안 됩니다. 도입 여부는 <b>자재를 만들기 전에</b> 결정해야 하는 항목입니다.</p>
+  <p>구매·생산 트랜잭션마다 평가카테고리별 <b>기본 평가유형</b>을 정해 둘 수 있습니다. PO 생성 시 평가유형을 넣으면 <span class="hl">그 평가유형으로만 입고를 전기할 수 있고 변경할 수 없습니다.</span> 안 넣으면 입고 시점에 넣어야 합니다.</p>
+</div>
+
+<div class="note ok">
+  <div class="t">📌 개인 E2E 프로젝트와의 연결점</div>
+  <p><b>이 프로젝트에서 분할평가는 쓰지 않는 것이 맞습니다.</b> 이유를 남겨 둡니다 — 벤더 사입 재판매 단일 모델이라 "외부조달 vs 자체생산" 같은 가를 기준 자체가 없습니다. 온도군은 이미 저장위치 6개가 가르고 있고, 유통기한 차이는 <b>배치</b>가 가릅니다. 여기에 분할평가까지 얹으면 <span class="bad">출고할 때마다 평가유형을 지정해야 하는 부담만 늘고 얻는 게 없습니다.</span></p>
+  <p>반대로 <span class="key">계정그룹코드는 반드시 씁니다.</span> CBO <code>ZGATE_INSPECT</code>가 만드는 <b>122(반품)</b>와 정상 출고를 회계에서 구분하려면, 이동유형별로 다른 AG를 붙여 <code>GBB</code>를 세분화하는 것이 정석입니다. 폐기(유통기한 경과 재고)도 마찬가지로 소비계정과 갈라야 합니다 — 식품 유통에서 폐기율은 따로 보는 숫자입니다.</p>
+</div>
+
+<div class="note warn">
+  <div class="t">확인 필요 — 실제 시스템(winerp01 / MEP)에서 확정할 것</div>
+  <p>CBO <code>ZBATCH_ZONE</code>이 쓰는 <b>311</b>은 같은 플랜트 STOR 안에서 저장위치만 바꾸는 이동입니다. 평가영역을 플랜트로 잡았다면 <span class="hl">평가영역이 바뀌지 않으므로 회계전표가 생기지 않는 것이 통상</span>이지만, 값문자열과 계정그룹코드 배정에 따라 달라질 수 있습니다.</p>
+  <p><b>OBYC 시뮬레이션(재고관리 · 이동유형 311)</b>으로 먼저 확인할 것. 회계전표가 생긴다면 그 CBO는 "자동 이동"이 아니라 <span class="bad">승인 대기</span>로 설계를 바꿔야 합니다 — 회계 영향이 있는 처리는 자동화하지 않는다는 원칙에 걸립니다.</p>
+</div>
+
+</div>
+
+
+<!-- ══════════ LESSON 7 ══════════ -->
+<div class="lesson" id="l7">
+<h2><span class="no">LESSON 7</span>구매문서 — 문서유형 · 품목범주 · 계정지정범주 · 텍스트</h2>
+
+<p><span class="tag">Unit 5 전반</span><span class="tag">레슨 5개</span>Document Types · 자동 PO 생성과 버전관리 · 화면 레이아웃(필드선택) · Account Assignment Category · Text Types와 Text Adoption</p>
+
+<h3>문서범주와 문서유형</h3>
+
+<p>모든 구매문서(RFQ · PO · 계약 · 일정계약)는 <b>헤더 + 품목</b>이라는 같은 구조를 가집니다. 구분은 내부 지시자인 <span class="key">문서범주</span>로 합니다 — <code>A</code>(RFQ) · <code>F</code>(PO) · <code>K</code>(계약) · <code>L</code>(일정계약), 그리고 구매요청은 내부 문서로서 <code>B</code>.</p>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>새 문서유형이 필요한 상황</th><th>이유</th></tr></thead>
+<tbody>
+<tr><td class="wrap">특정 오더번호 전용 할당</td><td class="wrap">위탁가공 같은 특수조달에 전용 번호범위와 해당 품목범주만 배정하고 싶을 때</td></tr>
+<tr><td class="wrap">헤더레벨 필드선택 차등화</td><td class="wrap">문서유형별로 헤더 필드선택을 다르게 가져갈 때</td></tr>
+<tr><td class="wrap">출력 레이아웃 제어</td><td class="wrap">문서유형으로 오더 출력물 레이아웃에 영향을 줄 수 있다</td></tr>
+</tbody>
+</table>
+</div>
+
+<p>문서유형은 문서범주별로 각각 정의하고, <b>허용 품목범주</b>를 배정해야 하며, <b>최소 1개의 번호범위</b>가 있어야 합니다. 구매요청을 구매문서로 전환하려면 문서유형과 품목범주를 서로 <span class="hl">연결(link)</span>해야 합니다.</p>
+
+<div class="note warn">
+  <div class="t">문서유형을 복사해도 파트너스키마 배정은 따라오지 않는다</div>
+  <p>신규 문서유형의 구매문서에서 파트너역할을 쓰려면 파트너스키마를 따로 배정해야 합니다 — <b>MM → Purchasing → Partner Determination → Partner Settings in Purchasing Documents → Assign Partner Schemas to Document Types</b>.</p>
+  <p><span class="bad">Copy로 만든 문서유형은 이 배정이 비어 있습니다.</span> "복사했는데 파트너가 안 잡힌다"의 원인 1순위입니다.</p>
+</div>
+
+<h4>문서범주별 주요 속성</h4>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>문서범주</th><th>속성</th><th>내용</th></tr></thead>
+<tbody>
+<tr><td rowspan="3">구매요청</td><td>Control</td><td class="wrap">지시자 <code>R</code> → 후속문서로 <b>기본계약</b>을 생성. 이런 유형(예: <code>RV</code>)은 MRP에도, 계정커미트먼트에도 연관되지 않는다</td></tr>
+<tr><td>Overall Release</td><td class="wrap">품목레벨이 아니라 <b>헤더레벨</b>에서 승인</td></tr>
+<tr><td class="wrap">Scenario based workflow</td><td class="wrap">승인절차 제어. <b>유연승인워크플로우</b>라고도 하며 Fiori <b>Manage Workflows for purchase requisitions</b>에서 설정 — <span class="good">별도 분류(Classification)가 필요 없다</span></td></tr>
+<tr><td rowspan="2">RFQ</td><td class="wrap">Global percentage bid</td><td class="wrap">외주용역 RFQ에서 가격을 사전 설정하고, 공급업체는 합의가격에 대한 <b>퍼센트 가산/차감</b>만 견적</td></tr>
+<tr><td class="wrap">Time-dependent conditions</td><td class="wrap">견적 조건에 유효기간과 단계별가격(Scale)을 두려면 설정</td></tr>
+<tr><td rowspan="2">PO</td><td>Control</td><td class="wrap">지시자 <code>T</code> → <b>재고이전오더</b>용 문서</td></tr>
+<tr><td class="wrap">Stock transfer: Include supplier data</td><td class="wrap">재고이전 시 공급플랜트의 공급업체마스터를 활용. 추가 설정은 <b>Purchasing → Purchase Order → Set up Stock Transport Order</b></td></tr>
+<tr><td rowspan="2">일정계약</td><td class="wrap">Release documentation</td><td class="wrap">SA 릴리스를 별도 파일에 저장. <span class="bad">이걸 켜면 납품일정 외에 SA 릴리스로도 작업해야 한다</span></td></tr>
+<tr><td class="wrap">Time-dependent conditions</td><td class="wrap">유효기간·단계별가격 유지</td></tr>
+<tr><td>계약</td><td class="wrap">ALE-distributed contract</td><td class="wrap">ALE로 계약을 전송할 때 포인터로 변경을 식별. 이후 ALE 관리기능으로 변경 평가</td></tr>
+</tbody>
+</table>
+</div>
+
+<div class="note">
+  <div class="t">🔰 초보자 설명 — 구매요청 → PO 연결은 왜 4줄이나 필요한가</div>
+  <p>PO 문서유형 <code>NX</code>에 <b>표준</b>과 <b>위탁가공</b> 품목범주를 허용하고, 문서유형 <code>NB</code>의 구매요청에서 전환한다고 합시다. 구매요청 품목범주도 둘 다 가능합니다.</p>
+  <p>연결은 <span class="hl">"요청의 품목범주 × PO의 품목범주"</span> 조합 단위로 정의합니다. 2 × 2 = <b>4줄</b>을 전부 넣어야 네 경우 모두 전환됩니다. 하나라도 빠지면 그 조합만 전환이 안 되는데, 현상만 보면 원인이 잘 안 보입니다.</p>
+</div>
+
+<h4>번호할당과 자동 PO 생성 시 문서유형</h4>
+
+<ul>
+  <li>계획실행(Planning Run)에서 생긴 구매요청은 <span class="bad">구매의 번호범위가 아니라 계획실행 전용 번호범위</span>를 쓴다 — <b>Consumption-Based Planning → Number Ranges → Define Number Ranges for Planning Run</b>. 플랜트별 종속 구성 가능</li>
+  <li>특정 문서유형에 <b>내부채번만</b> 허용하려면 외부 번호범위구간을 아예 넣지 않으면 된다</li>
+  <li>ALE 등 분산 시스템에 배포되는 계약유형은 <span class="bad">내부채번용 번호범위를 반드시 지정</span>해야 한다 — 로컬 시스템의 계약릴리스오더 번호가 중앙에서 고유하지 않기 때문</li>
+  <li>입고전표에서의 자동 PO 생성 문서유형은 <b>Purchasing → Define Default Values for Document Type</b>의 <code>MB01</code> 항목(표준 <code>NB</code>)으로 지정. <span class="hl">이 항목이 <code>MIGO</code>에도 적용된다</span></li>
+</ul>
+
+<p><code>ME59N</code>으로 구매요청을 PO로 자동전환할 때 문서유형 결정 로직은 <b>① 요청유형과 같은 이름의 PO 문서유형 → ② 허용 유형이 하나뿐이면 그것 → ③ <code>ME21</code>의 기본 문서유형 → ④ 허용된 첫 번째</b> 순입니다(SAP Note 114213).</p>
+
+<h4>버전관리(Version Management)</h4>
+
+<p>버전은 후속처리로 생긴 <b>변경문서의 모음</b>입니다. 변경이력을 확장해 문서 상태를 나타냅니다. 장점은 변경 추적, 공급업체에 보낸 데이터 확인, 특정 버전 참조 커뮤니케이션, <span class="hl">장문텍스트까지 포함한 버전 비교</span>.</p>
+
+<p>활성화 단위가 다릅니다 — <b>구매요청은 문서유형별</b>, <b>외부구매문서는 문서범주 · 문서유형 · 구매조직</b>에 따라 결정됩니다. 경로는 <b>MM → Purchasing → Version Management → Set Up Version Management for Purchase Requisitions</b> / <b>... for External Purchasing Documents</b>.</p>
+
+<h3>품목범주 — 만들 수도 지울 수도 없다</h3>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>품목범주</th><th>용도</th><th>자재번호</th><th>계정지정</th><th>GR</th><th>IR</th></tr></thead>
+<tbody>
+<tr><td>Standard</td><td class="wrap">외부 조달 자재</td><td>가능</td><td>가능</td><td class="wrap">가능(창고자재는 필수)</td><td>가능</td></tr>
+<tr><td>Limit</td><td class="wrap">가치한도가 있는 소모성자재·서비스</td><td>—</td><td><b>필수</b></td><td><span class="bad">불가</span></td><td><b>필수</b></td></tr>
+<tr><td>Consignment</td><td class="wrap">공급업체가 공급하되 아직 청구 안 된 자재. <span class="hl">인출 전까지 공급업체 소유</span>, 인출 시점에 채무 발생</td><td>—</td><td>—</td><td>—</td><td>—</td></tr>
+<tr><td>Subcontracting</td><td class="wrap">위탁가공업체에 구성품을 제공(또는 제3자가 직접 납품)하고 완성품을 받는 프로세스</td><td>가능</td><td>가능</td><td><b>필수</b></td><td>가능</td></tr>
+<tr><td>Stock transfer</td><td class="wrap">플랜트 간 자재 이전</td><td><b>필수</b></td><td>—</td><td><b>필수</b></td><td>—</td></tr>
+<tr><td>Third-party</td><td class="wrap">오더한 자재가 제3자(고객)에게 직접 납품. 청구서는 공급업체로부터 받는다</td><td>—</td><td><b>필수</b></td><td>—</td><td><b>필수</b></td></tr>
+</tbody>
+</table>
+</div>
+
+<div class="note warn">
+  <div class="t">품목범주는 생성·삭제·변경할 수 없다</div>
+  <p>Customizing에서 바꿀 수 있는 건 <span class="hl">외부 표현(문서에서 쓰는 키)과 명칭</span>뿐입니다. 새 품목범주를 만들 수 없다는 점이 문서유형과의 결정적 차이입니다.</p>
+  <p>그리고 릴리스전략에 품목범주를 쓰려면 <span class="bad">반드시 내부표현(Internal Representation)</span>을 써야 합니다 — 외부 키로 걸면 동작하지 않습니다.</p>
+</div>
+
+<h3>구매문서 필드선택키 5종</h3>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>유형</th><th>내용</th></tr></thead>
+<tbody>
+<tr><td>트랜잭션용</td><td class="wrap">트랜잭션과 고정 연결. 계약변경 <code>ME32</code>, 계약표시 <code>ME33</code>. <span class="hl">PO 단일화면(<code>ME21N</code>)에는 필드선택키가 하나뿐</span></td></tr>
+<tr><td>활동범주용</td><td class="wrap">프로그램이 내부 호출하는 4종 — <code>AKTH</code>(문서/품목 추가) · <code>AKTV</code>(변경, <code>ME21N</code>의 PO 생성 포함) · <code>AKTE</code>(PO 확장) · <code>AKTA</code>(표시)</td></tr>
+<tr><td>문서유형용</td><td class="wrap">문서유형마다 고유 키. 예 — <code>UB</code>(회사코드 내 재고이전오더)에 <code>UBF</code>가 배정돼 <b>가격·가격단위 필드를 숨긴다</b></td></tr>
+<tr><td>품목범주 × 문서범주</td><td class="wrap">앞 2자리 <code>PT</code> + 3번째 품목범주(내부) + 4번째 문서범주(<code>A</code> RFQ / <code>B</code> 요청 / <code>F</code> PO / <code>K</code> 계약 / <code>L</code> 일정계약). 예 — 위탁가공 PO품목 = <code>PT3F</code>. <span class="bad">품목필드만 제어</span></td></tr>
+<tr><td>승인상태용</td><td class="wrap">구매요청의 승인지시자별 필드선택. <b>구매요청의 승인단계에만</b> 해당</td></tr>
+</tbody>
+</table>
+</div>
+
+<p>소매 등 특수조달에는 추가 키가 있습니다 — 현물할인(Discount-in-Kind) PO 하위품목은 <code>UP2F</code>(포함보너스) · <code>UP4F</code>(제외보너스).</p>
+
+<div class="note">
+  <div class="t">🔰 초보자 설명 — 사용자파라미터 EFB</div>
+  <p><code>EFB</code>(Function Authorization for Buyers)는 사용자마스터에 <b>값과 함께</b> 배정하는 파라미터입니다. 값마다 <span class="hl">가격표시용 필드선택키</span>를 연계할 수 있어서, 구매담당자별로 PO·기본계약에서 가격을 볼 수 있는지 입력할 수 있는지를 가릅니다.</p>
+  <p>추가 필드선택키를 배정하지 않은 채 가격 권한이 거부되면 필드선택키 <code>$$$$</code>가 쓰입니다. 이 파라미터로 구매요청 단일화면용 추가 키도 배정할 수 있습니다.</p>
+</div>
+
+<p>여러 키가 동시에 걸리면 <b>Hide → Display → Required → Optional</b> 우선순위로 합쳐집니다(1이 최고). 한 키에서 필수, 다른 키에서 선택이면 <span class="hl">필수가 이깁니다.</span> 자재마스터·BP의 연결규칙과 같은 표를 씁니다.</p>
+
+<h3>계정지정범주(Account Assignment Category)</h3>
+
+<p>구매문서 품목이 <b>재무회계로 어떻게 전기될지</b>와 <b>어떤 계정지정데이터가 필요한지</b>(원가센터 · 내부오더 · WBS요소)를 통제하는 핵심 요소입니다. 예를 들어 <code>K</code>(원가센터)를 쓰는 품목은 원가센터를 입력해야 하고 시스템은 <span class="key">소모성계정</span>으로 전기합니다.</p>
+
+<p>품목범주와 계정지정범주는 서로 조합되어 <b>허용 여부</b>가 정해집니다. 표준 품목범주는 여러 계정지정범주(재고전기 · 원가센터 · 프로젝트)와 조합되지만, 특정 품목범주는 특정 계정지정범주만 허용합니다.</p>
+
+<div class="note warn">
+  <div class="t">확인 필요 — 실제 시스템(winerp01 / MEP)에서 확정할 것</div>
+  <p>원본 강의의 이 레슨은 <span class="bad">영상 중심</span>이라 구체적인 필드 설정 화면이 본문에 없습니다(계정지정범주의 속성, <code>K</code>의 상세, 품목범주 × 계정지정범주 조합은 실습에서 다룸).</p>
+  <p>따라서 <b>계정지정범주별 필수 계정지정데이터</b>와 <b>허용 조합표</b>는 실제 시스템의 <b>MM → Purchasing → Account Assignment → Maintain Account Assignment Categories</b>에서 직접 확인해 채워야 합니다.</p>
+</div>
+
+<h3>텍스트유형과 텍스트인계(Text Adoption)</h3>
+
+<ul>
+  <li>구매문서에는 <b>헤더텍스트</b>와 <b>품목텍스트</b>가 있다</li>
+  <li><span class="bad">자재마스터와 정보레코드는 신규 텍스트유형을 정의할 수 없다.</span> 정보레코드텍스트의 설명(Description)만 바꿀 수 있다</li>
+  <li>신규 텍스트유형은 <b>비즈니스파트너</b>에 대해서만 정의 가능. 구매영역 텍스트유형은 <b>구매조직에 종속</b> — <b>MM → Purchasing → Supplier Master → Define Text Types for Purchasing Organization Texts</b></li>
+  <li>정의만 해서는 못 쓴다. <span class="hl"><b>Relevant</b> 플래그가 설정된 텍스트유형만 유지보수할 수 있다</span> (중앙텍스트는 <code>OBT4</code>에서도 설정 필요)</li>
+</ul>
+
+<h4>복사순서(Copy Sequence) — 먼저 찾은 것이 이긴다</h4>
+
+<p>PO 품목텍스트의 인계 순서는 다음과 같이 정의돼 있고, <span class="key">관련 텍스트가 존재하는 첫 번째 객체에서 멈춥니다.</span></p>
+
+<div class="step"><span class="n">1</span><p>품목텍스트, 구매오더</p></div>
+<div class="step"><span class="n">2</span><p>정보레코드 PO텍스트, 계약</p></div>
+<div class="step"><span class="n">3</span><p>품목텍스트, RFQ 또는 견적서</p></div>
+<div class="step"><span class="n">4</span><p>품목텍스트, 구매요청</p></div>
+
+<div class="note warn">
+  <div class="t">구매요청에 텍스트를 넣었는데 PO에 안 넘어온다</div>
+  <p>구매요청을 참조해 PO 품목을 만들고, 그 구매요청의 소스로 <b>계약품목</b>이 들어가 있는 경우입니다. 계약품목에 정보레코드 PO텍스트가 있으면 <span class="hl">순서 2에서 먼저 잡히므로</span>, 순서 4인 <span class="bad">구매요청의 품목텍스트는 그냥 무시됩니다.</span></p>
+  <p>참고로 구매요청의 <b>헤더메모(Header Memo)</b>는 후속문서에 인계할 수 없습니다.</p>
+</div>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>고정지시자</th><th>동작</th><th>품목텍스트 메시지</th></tr></thead>
+<tbody>
+<tr><td>(공백)</td><td class="wrap">자동 인계하고 <b>즉시 고정</b></td><td class="wrap">Text adopted from...</td></tr>
+<tr><td><code>*</code></td><td class="wrap">사용자가 필요할 때 인계 (인계 방법 — 텍스트를 바꾸고 저장하거나, 선택해서 인계)</td><td class="wrap">Text can be adopted from...</td></tr>
+<tr><td><code>N</code></td><td class="wrap">인계 불가. 신규 문서에서 <span class="bad">변경도 불가</span>, 시스템이 표시만 함</td><td class="wrap">Text displayed from...</td></tr>
+</tbody>
+</table>
+</div>
+
+<p>자재마스터에서 유지 가능한 장문텍스트는 <b>구매오더텍스트 · 기본데이터텍스트 · 검사텍스트 · 내부메모</b>입니다. 검사텍스트는 <code>MIGO</code>에서 출력버전 <b>Individual Slip with inspection text</b>를 고르면 GR전표에 찍힙니다.</p>
+
+<div class="note warn">
+  <div class="t">정보레코드의 "No Mat. Txt" 지시자</div>
+  <p>정보레코드에 이 지시자가 켜져 있으면 <span class="bad">자재마스터의 PO텍스트가 구매문서로 인계되지 않습니다.</span> "자재마스터에 분명히 썼는데 발주서에 안 나온다"의 원인입니다.</p>
+  <p>또 텍스트유형 <b>가격유형</b>과 <b>지불조건</b>은 청구서검증과 연결돼 있어, PO에 이 텍스트를 넣으면 <span class="hl">그 PO의 청구서를 입력하는 담당자에게 알림이 뜹니다.</span> 설정은 <b>Logistics Invoice Verification → Incoming Invoice → Edit PO Supplement Text in Invoice Verification</b>.</p>
+</div>
+
+<div class="note ok">
+  <div class="t">📌 개인 E2E 프로젝트와의 연결점</div>
+  <p>사입 모델이므로 문서유형은 표준 <code>NB</code> 하나로 충분합니다. 새 유형을 만들 이유가 생긴다면 그건 <b>번호범위를 가르고 싶을 때</b>일 텐데(예: 냉동 벤더 발주만 따로 채번), 그 정도 이득으로 문서유형을 늘리는 건 표준 우선 원칙에 반합니다.</p>
+  <p>품목범주는 <b>Standard</b>만 씁니다 — 위탁가공(Subcontracting)은 프로젝트 범위에서 제외했고, Consignment는 식품 유통에서 현실적이긴 하지만 <span class="hl">인출 시점에 채무가 잡히는 구조라 회계 검증 부담이 큽니다.</span> 범위를 지키는 편이 낫습니다.</p>
+  <p>계정지정범주는 <b>공백(재고전기)</b>이 기본입니다. 재고로 받는 사입이므로 <code>BSX</code>/<code>WRX</code>로 흐르고, <code>GBB</code>는 나중에 출고·폐기에서만 탑니다. 단, 창고 소모품(포장재·라벨)을 별도로 사기 시작하면 그때 <code>K</code>가 필요해집니다.</p>
+  <p>텍스트 쪽에서 실제로 쓸 만한 건 <b>자재마스터 검사텍스트</b>입니다. "입고 시 유통기한과 온도 확인" 같은 지시를 넣어 두면 <code>MIGO</code>에서 GR전표에 찍히고, 그게 CBO <code>ZGATE_INSPECT</code>의 업무 절차와 짝이 맞습니다.</p>
+</div>
+
+</div>
+
+
+<!-- ══════════ LESSON 8 ══════════ -->
+<div class="lesson" id="l8">
+<h2><span class="no">LESSON 8</span>출력제어 — 메시지결정(NAST)과 S/4HANA 출력관리</h2>
+
+<p><span class="tag">Unit 5 후반</span><span class="tag">레슨 4개</span>출력처리용 텍스트 지정 · 메시지결정 개요 · 메시지결정 상세 Customizing · SAP S/4HANA Output Management</p>
+
+<h3>어느 솔루션을 쓰고 있는지부터 확인한다</h3>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>구분</th><th>NAST (클래식 메시지결정)</th><th>SAP S/4HANA Output Management</th></tr></thead>
+<tbody>
+<tr><td>on-premise 기본값</td><td><span class="good">활성 — 기본 솔루션</span></td><td>비활성</td></tr>
+<tr><td>클라우드 기본값</td><td>—</td><td><span class="good">활성</span></td></tr>
+<tr><td>활성화 단위</td><td>—</td><td class="wrap"><b>비즈니스오브젝트 유형별</b> → on-premise에서는 둘이 공존 가능</td></tr>
+<tr><td>구매 적용 범위</td><td>RFQ · PO · 계약 · 일정계약</td><td class="wrap">RFQ · 구매오더 · 구매계약</td></tr>
+<tr><td>설정 난이도</td><td>복잡하되 세밀</td><td class="wrap">간편하되 제약 있음</td></tr>
+</tbody>
+</table>
+</div>
+
+<p>전환 스위치는 <b>IMG → Cross-Application Components → Output Control → Manage Application Object Type Activation</b>입니다. ECC에서 S/4HANA로 넘어오는 경우는 <span class="hl">기존 NAST를 계속 쓰는 것이 합리적</span>이고, 신규 구현이나 신규 기능 배포에서만 선택을 고민합니다.</p>
+
+<div class="note warn">
+  <div class="t">S/4HANA Output Management로 넘어가면 잃는 것들</div>
+  <p>· 문서를 <b>저장하기 전에는</b> 인쇄미리보기를 쓸 수 없다 (미리보기는 <b>테스트카피</b>로 표시됨)<br>
+     · <span class="bad">메시지결정분석(Determination Analysis)이 없다</span> — 장애 분석 도구가 통째로 사라진다<br>
+     · 비즈니스규칙이 애플리케이션이 아니라 <b>Customizing</b>에서 정의된다<br>
+     · 메시지상세를 애플리케이션(PO 생성 중)에서 변경할 수 없다</p>
+  <p>얻는 것은 — 모든 출력물이 저장되어 이후에도 표시 가능, 사전 배포된 출력시나리오, 양식·이메일 템플릿의 표준 확장성, 핵심사용자용 중앙 모니터링 도구.</p>
+</div>
+
+<h3>메시지결정 — 조건기법이 계정결정과 같은 구조로 돈다</h3>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>용어</th><th>역할</th></tr></thead>
+<tbody>
+<tr><td>메시지스키마</td><td class="wrap">각 메시지애플리케이션에서 <b>허용되는 메시지유형</b>을 지정. RFQ·PO·계약·일정계약마다 별도 스키마가 제공된다</td></tr>
+<tr><td>메시지유형</td><td class="wrap">조건유형에 해당. 같은 종류의 메시지를 묶고, 그 메시지에 유효한 파라미터(출력프로그램·양식·파트너역할)를 담는다. 예 — PO 출력물, 독촉장</td></tr>
+<tr><td>액세스시퀀스</td><td class="wrap">유효한 조건레코드를 찾는 <b>탐색전략</b>. 조건테이블을 읽는 순서</td></tr>
+<tr><td>조건테이블</td><td class="wrap">영향요인(종속성)으로 쓸 필드들을 키필드로 담는다 = 메시지레코드를 만들 <b>필드조합</b></td></tr>
+<tr><td>조건레코드</td><td class="wrap">메시지를 <b>어떻게 · 언제 · 어디서 · 얼마나 자주</b> 출력할지. 애플리케이션 메뉴에서 생성</td></tr>
+</tbody>
+</table>
+</div>
+
+<figure class="figwrap">
+<svg class="dgm" viewBox="0 0 1000 550" role="img" aria-label="메시지결정 프로세스 도해. 구매문서 헤더에서 메시지스키마와 메시지유형을 정하고, 액세스시퀀스가 조건테이블을 순서대로 읽어 조건레코드를 처음 발견한 지점에서 멈춘 뒤 그 출력 파라미터를 문서에 복사한다.">
+  <defs>
+    <marker id="ms1" markerWidth="9" markerHeight="9" refX="7" refY="4.5" orient="auto">
+      <polygon class="arw-key" points="0,0 9,4.5 0,9"/></marker>
+    <marker id="ms2" markerWidth="9" markerHeight="9" refX="7" refY="4.5" orient="auto">
+      <polygon class="arw" points="0,0 9,4.5 0,9"/></marker>
+  </defs>
+
+  <rect class="b-key" x="20" y="20" width="960" height="52" rx="6"/>
+  <text class="t-h c-key" x="44" y="44">① 구매문서 생성 — 결정은 언제나 헤더레벨에서만 일어난다</text>
+  <text class="t-s" x="44" y="62">예 · 문서유형 NB · 공급업체 T-SUP01 · 구매조직 101C</text>
+  <path class="ln-key" d="M500 72 V86" marker-end="url(#ms1)"/>
+
+  <rect class="b" x="20" y="88" width="960" height="52" rx="6"/>
+  <text class="t-h" x="44" y="112">② 메시지스키마 결정 — 구매문서범주별</text>
+  <text class="t-s" x="44" y="130">PO 표준 스키마는 RMBEF1. 스키마가 배정 안 되면 자동 메시지결정 자체가 불가능하다.</text>
+  <path class="ln-key" d="M500 140 V154" marker-end="url(#ms1)"/>
+
+  <rect class="b" x="20" y="156" width="960" height="52" rx="6"/>
+  <text class="t-h" x="44" y="180">③ 메시지유형 결정 — 요건(Requirement) 충족 검사</text>
+  <text class="t-s" x="44" y="198">요건은 ABAP Form Routine. 예 · 요건 101 = 문서가 생성 또는 변경될 때 관련. 여기서 NEU가 남는다.</text>
+  <path class="ln-key" d="M500 208 V222" marker-end="url(#ms1)"/>
+
+  <rect class="b" x="20" y="224" width="960" height="52" rx="6"/>
+  <text class="t-h" x="44" y="248">④ 세부제어(Fine-Tuned Control)</text>
+  <text class="t-s" x="44" y="266">그 메시지유형이 이번 인쇄작업(신규 · 변경 · 독촉 · 오더확인)에도 해당되는지 확인한다.</text>
+  <path class="ln-key" d="M500 276 V290" marker-end="url(#ms1)"/>
+
+  <rect class="b-key" x="20" y="292" width="960" height="132" rx="8"/>
+  <text class="t-h c-key" x="44" y="316">⑤ 액세스시퀀스 0001 — 조건테이블을 이 순서로 읽는다</text>
+
+  <rect class="b" x="40" y="330" width="290" height="56" rx="6"/>
+  <text class="t" x="60" y="352">1  구매조직 · 공급업체</text>
+  <text class="t-xs c-bad" x="60" y="372">조건레코드 없음 → 다음</text>
+  <path class="ln" d="M330 358 H351" marker-end="url(#ms2)"/>
+
+  <rect class="b" x="353" y="330" width="290" height="56" rx="6"/>
+  <text class="t" x="373" y="352">2  문서유형 · 구매조직 · 공급업체</text>
+  <text class="t-xs c-bad" x="373" y="372">조건레코드 없음 → 다음</text>
+  <path class="ln" d="M643 358 H664" marker-end="url(#ms2)"/>
+
+  <rect class="b-ok" x="666" y="330" width="290" height="56" rx="6"/>
+  <text class="t c-ok" x="686" y="352">3  문서유형 (NB)</text>
+  <text class="t-xs c-ok" x="686" y="372">조건레코드 발견 → 여기서 멈춤</text>
+
+  <text class="t-s" x="44" y="410">조건테이블은 헤더 필드만 담을 수 있다 — 품목의 플랜트로는 출력을 가를 수 없다.</text>
+  <path class="ln-key" d="M500 424 V450" marker-end="url(#ms1)"/>
+
+  <rect class="b-ok" x="20" y="452" width="960" height="76" rx="6"/>
+  <text class="t-h c-ok" x="44" y="476">⑥ 조건레코드의 값을 PO 헤더 Messages 아래로 복사</text>
+  <text class="t-s" x="44" y="496">출력매체(인쇄 · 이메일 · 팩스 · EDI) · 프린터 · 출력시점 · 매수 · 파트너기능</text>
+  <text class="t-xs" x="44" y="516">결과가 마음에 안 들면 문서 안에서 메시지를 바꾸거나 삭제할 수 있다. 헤더 결정이므로 출력은 문서 전체 단위다.</text>
+</svg>
+<figcaption><span class="fno">그림 5</span>메시지결정(NAST) 프로세스. 액세스시퀀스가 조건레코드를 처음 찾은 지점에서 탐색이 끝난다.</figcaption>
+</figure>
+
+<div class="note warn">
+  <div class="t">구매의 메시지결정은 헤더레벨에서만 일어난다</div>
+  <p>그래서 조건테이블에는 <span class="bad">문서헤더의 필드만</span> 넣을 수 있습니다. 품목레벨 필드(예: 플랜트)로 출력을 가르는 것은 <b>직접적으로는 불가능</b>합니다.</p>
+  <p>우회는 있습니다 — 품목의 플랜트나 공급업체서브레인지에 종속되는 <b>파트너기능</b>을 가진 BP가 헤더에 올라와 있고, 그 파트너역할에 대한 메시지레코드가 있으면 적절한 파트너에게 보낼 수 있습니다.</p>
+  <p>그리고 헤더 결정이므로 <span class="hl">출력은 언제나 문서 전체 단위</span>입니다. 품목 몇 개만 따로 뽑는 건 안 됩니다.</p>
+</div>
+
+<h4>결정분석(Determination Analysis)</h4>
+
+<p><code>ME21N</code> 또는 <b>Create Purchase Order - Advanced</b> 앱에서 <b>Messages → Determin. Analysis</b>. 가능한 모든 메시지유형의 개요와 함께, 어떤 조건유형·액세스시퀀스에서 조건레코드를 찾았는지 나옵니다. 액세스시퀀스를 선택하면 <span class="hl">조건레코드가 발견된 필드값까지</span> 볼 수 있습니다. "왜 발주서가 안 나가는가"에 답하는 1차 화면입니다.</p>
+
+<h4>조건레코드와 프린터결정</h4>
+
+<ul>
+  <li>메시지레코드에 지정하는 것 — <b>파트너기능 · 출력매체 · 출력시점</b>. 기본값은 메시지유형 Customizing에서 제안된다</li>
+  <li>출력매체가 <b>Print</b>면 출력장치와 매수, <b>Send Externally</b>면 커뮤니케이션전략을 저장</li>
+  <li>프린터 결정 순서 — ① <b>메시지레코드의 프린터</b> → ② <b>메시지유형의 인쇄파라미터</b>에 따른 프린터</li>
+  <li>구매담당자별로 프린터를 배정하기 싫으면 메시지유형에 인쇄파라미터 <code>S</code>(사용자 기본값)를 줄 수 있다 (SAP Note 306385)</li>
+</ul>
+
+<div class="note warn">
+  <div class="t">유효한 프린터를 못 찾으면 메시지 자체가 생성되지 않는다</div>
+  <p>구매문서를 저장할 때 시스템이 안내합니다. 자동으로 못 찾으면 <b>메시지출력 파라미터를 수동으로</b> 넣으면 됩니다.</p>
+  <p>양식(Print Form) 결정은 <span class="hl">출력매체가 확정된 뒤에야</span> 가능합니다 — EDI 전송의 레이아웃 정보는 PO 인쇄와 완전히 다르기 때문입니다. 출력매체별 출력프로그램과 양식은 메시지유형에 배정합니다.</p>
+</div>
+
+<div class="note">
+  <div class="t">🔰 초보자 설명 — 조건레코드에 언어를 넣어도 무시된다</div>
+  <p>조건레코드에는 <b>파트너기능만</b> 넣으면 충분합니다. 실제 파트너는 구매문서의 파트너역할(LESSON 4)에서 결정됩니다.</p>
+  <p>그리고 조건레코드에 적은 언어는 <span class="bad">무시됩니다.</span> 메시지의 언어는 <span class="hl">구매문서 헤더의 언어</span>로 정해집니다 (SAP Note 89899).</p>
+</div>
+
+<h3>변경사항 출력 — 신규와 변경을 다른 매체로 보내기</h3>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>"변경메시지용 신규 메시지결정" 지시자</th><th>결과</th></tr></thead>
+<tbody>
+<tr><td>미설정</td><td class="wrap">신규와 변경에 <span class="bad">서로 다른 메시지유형을 쓸 수 없다.</span> Fine-Tuned Control에서 인쇄작업 1(신규)·2(변경) 모두에 <code>NEU</code>를 배정해야 한다. 신규출력용 파라미터를 수동으로 바꾸면 <b>변경출력에도 그 값이 쓰인다</b></td></tr>
+<tr><td>설정</td><td class="wrap">신규는 <code>NEU</code>, 변경은 <code>ZAEN</code> 식으로 <span class="good">유형을 가를 수 있다.</span> 조건레코드에서 매체·출력시점도 따로 준다 — <b>신규 PO는 인쇄(서명 필요), 변경은 이메일</b> 같은 구성이 여기서 나온다</td></tr>
+</tbody>
+</table>
+</div>
+
+<p>경로는 <b>MM → Purchasing → Messages → Output Control → Message Types → Maintain Message Types &lt;Document Category&gt;</b>.</p>
+
+<div class="note warn">
+  <div class="t">재출력(Repeat Output)에는 반복 표시가 없다</div>
+  <p>인쇄물이 분실되면 <b>Message Details</b>에서 메시지를 고르고 <b>Repeat Output</b>으로 다시 뽑습니다. 다만 <span class="bad">재출력물에는 "이것은 재발행"이라는 표시가 전혀 없습니다.</span> 공급업체가 같은 PO를 두 장 받고 중복 납품하는 사고가 여기서 나옵니다.</p>
+  <p>그리고 <span class="bad">변경메시지는 Repeat 할 수 없습니다.</span> 아직 SPOOL에 남아 있다면 <code>SP01</code>에서 다시 출력을 트리거하는 것이 유일한 방법입니다.</p>
+</div>
+
+<h3>출력에 실리는 텍스트 — 우선순위 규칙</h3>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>출력순서 / 우선순위</th><th>텍스트 출처</th><th>조건</th></tr></thead>
+<tbody>
+<tr><td>순서 1 · 우선순위 1</td><td class="wrap">PO품목(오브젝트 <code>EKPO</code>)의 자재PO텍스트</td><td class="wrap">PO품목에 텍스트가 있으면 — 품목의 첫 장문텍스트로 출력</td></tr>
+<tr><td>순서 1 · 우선순위 2</td><td class="wrap">자재마스터(오브젝트 <code>MATERIAL</code>)의 PO텍스트</td><td class="wrap">PO품목에 자재PO텍스트가 <b>없고(인계되지 않았고)</b> 자재마스터에 PO텍스트가 있을 때만</td></tr>
+</tbody>
+</table>
+</div>
+
+<p>표준에서는 <span class="hl">둘 중 하나만 출력됩니다.</span> 같은 출력순서를 여러 헤더텍스트유형에 주고 각각 장문텍스트를 넣어도, <b>첫 번째로 사용 가능한 것 하나만</b> 나옵니다. 품목텍스트도 같은 순서·우선순위 안에서 첫 번째 하나만 나옵니다.</p>
+
+<div class="note warn">
+  <div class="t">표준양식을 직접 고치지 않는다</div>
+  <p>양식은 SAPscript · SMARTFORMS · PDF Forms로 만듭니다. <span class="bad">표준양식을 직접 변경하지 말고</span> 별도 양식을 새로 만들어 Customizing에서 배정해야 합니다 — 업그레이드 때 덮어써집니다.</p>
+</div>
+
+<p>구매영역 메시지결정 FAQ는 SAP Note 457497, 메일 발송 관련은 Note 191470입니다.</p>
+
+<div class="note ok">
+  <div class="t">📌 개인 E2E 프로젝트와의 연결점</div>
+  <p>on-premise 학습 시스템이므로 <b>NAST가 기본</b>입니다. 실제로 필요한 건 딱 하나 — <span class="hl">발주서를 PDF로 뽑는 조건레코드 1건</span>. 메시지유형 <code>NEU</code>, 액세스시퀀스가 문서유형(<code>NB</code>) 테이블까지 내려가서 잡히게 <code>MN04</code>로 만들면 끝입니다.</p>
+  <p>여기서 중요한 건 <b>결정분석</b>입니다. 프로젝트의 3번째 목표인 <b>웹페이지 → RFC 호출</b>을 만들 때, "발주 생성까지는 됐는데 출력이 안 나간다" 같은 상황이 반드시 옵니다. 그때 <code>ME21N</code> → Messages → Determin. Analysis가 원인을 5분 안에 알려 줍니다.</p>
+  <p>그리고 <span class="key">메시지결정의 조건기법 구조가 그림 2의 계정결정과 발상이 같습니다</span> — 스키마 → 유형 → 액세스시퀀스 → 조건테이블 → 레코드. SD 쪽 Pricing(S46200)의 Condition Technique과도 같은 뼈대입니다. 하나를 익히면 셋이 같이 풀립니다.</p>
+</div>
+
+</div>
+
+
+<!-- ══════════ LESSON 9 ══════════ -->
+<div class="lesson" id="l9">
+<h2><span class="no">LESSON 9</span>재고관리 — 전표 번호할당 · 이동유형 · 결품검사</h2>
+
+<p><span class="tag">Unit 6</span><span class="tag">레슨 3개</span>자재전표·회계전표 설정 · 입출고 설정과 이동유형 · 결품검사와 메시지 출력결정</p>
+
+<h3>입출고 한 번에 전표 두 장</h3>
+
+<p>재화이동 하나가 <b>자재전표</b>(자재이동 기록)와 <b>회계전표</b>(회사코드 내 가치변동 기록)를 만듭니다. 둘은 <span class="key">각각 고유한 번호범위와 별도 번호할당</span>을 갖습니다.</p>
+
+<p>자재전표의 번호할당은 <b>트랜잭션/이벤트유형</b>으로 갈립니다. 이 키는 시스템이 내부적으로 배정하고 <span class="bad">변경할 수 없습니다.</span> 자재전표목록에서 이 키로 검색할 수 있습니다.</p>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>유형</th><th>의미</th><th>유형</th><th>의미</th></tr></thead>
+<tbody>
+<tr><td><code>WE</code></td><td class="wrap">구매오더에 대한 입고 (GR)</td><td><code>IB</code></td><td class="wrap">실사재고전표</td></tr>
+<tr><td><code>WA</code></td><td class="wrap">출고 · 대체전기 · 기타 입출고</td><td><code>ID</code></td><td class="wrap">참조 없이 카운트 입력 + 차이 전기</td></tr>
+<tr><td><code>WF</code></td><td class="wrap">생산오더에 대한 입고</td><td><code>IN</code></td><td class="wrap">재고 재카운트전표</td></tr>
+<tr><td><code>WL</code></td><td class="wrap">납품전표에 대한 출고</td><td><code>IZ</code></td><td class="wrap">참조 없이 카운트만 입력</td></tr>
+<tr><td><code>WI</code></td><td class="wrap">재고조정전기용 자재전표</td><td><code>SI</code></td><td class="wrap">실사재고 샘플링절차</td></tr>
+<tr><td><code>WO</code></td><td class="wrap">위탁가공오더 후속조정</td><td><code>WV</code></td><td class="wrap">WM 차이전기용 실사재고전표</td></tr>
+<tr><td><code>WH</code></td><td class="wrap">취급단위용 입출고</td><td><code>WW</code></td><td class="wrap">활성성분자재 후속조정</td></tr>
+<tr><td><code>WQ</code></td><td class="wrap">사용결정용 입출고</td><td><code>WZ</code></td><td class="wrap"><b>배치상태의 변경</b></td></tr>
+<tr><td><code>WR</code></td><td class="wrap">완성확인용 입출고</td><td><code>WS</code></td><td class="wrap">운영일정헤더용 입출고</td></tr>
+</tbody>
+</table>
+</div>
+
+<div class="note warn">
+  <div class="t">번호범위 설계에서 반드시 지킬 것</div>
+  <p>· 트랜잭션유형의 <b>개별 그룹마다</b> 별도 번호범위를 배정한다<br>
+     · 자재전표는 <span class="bad">내부채번만</span> 쓴다<br>
+     · 번호범위는 <b>회계연도에 종속</b>된다 — 매년 새로 만들기 싫으면 <span class="hl">회계연도 <code>9999</code>용 구간</span>을 만든다</p>
+  <p>회계전표도 같습니다 — 연도 필드에 <code>9999</code>를 넣으면 연도 무관 채번이 됩니다. 입출고의 회계전표는 <span class="bad">내부채번만 가능</span>합니다(청구서는 외부채번 허용).</p>
+  <p><b>예약</b>은 구간을 하나만 배정하고, 그 구간이 그 클라이언트의 모든 예약·플랜트에 유효하며, 내부채번만 됩니다.</p>
+</div>
+
+<h4>회계전표의 FI 문서유형</h4>
+
+<p>표준이 재고관리용으로 미리 정의해 둔 문서유형은 <code>WA</code>(출고·대체전기·기타 입고)와 <code>WE</code>(구매오더·생산오더 참조 입고)입니다. 문서유형이 통제하는 것은 세 가지 — <b>전기 가능한 계정유형</b>, <b>총액(Gross)/순액(Net) 전기 여부</b>, <b>권한그룹</b>으로 접근 제한.</p>
+
+<div class="note warn">
+  <div class="t">문서유형을 바꾸려면 계정유형 허용 범위를 먼저 본다</div>
+  <p>Customizing에서 문서유형을 바꿀 수는 있지만, <span class="bad">설정한 문서유형이 그 트랜잭션에 필요한 계정유형을 허용해야</span> 합니다. 입출고 전기는 <b>자산계정 · 자재계정 · 총계정원장계정</b>의 값을 업데이트할 수 있어야 합니다.</p>
+</div>
+
+<p>입출고 입력이나 배송을 통한 납품 입력 시 <b>GR 전표번호 / 출고 전표번호</b>의 할당방식도 정의할 수 있습니다. 이탈리아 등 일부 국가에서는 자재가 플랜트를 벗어나 공공도로로 운송될 때 <span class="hl">법률상 이 전표번호가 요구됩니다.</span></p>
+
+<h3>MIGO 필드선택 — 두 군데로 나뉘어 있다</h3>
+
+<div class="note warn">
+  <div class="t">S/4HANA에서 MB* 트랜잭션은 더 이상 지원되지 않는다</div>
+  <p>입출고는 <code>MIGO</code>로 합니다(SAP Note 2210569). <code>MB01</code>·<code>MB1A</code> 같은 트랜잭션에 익숙하다면 여기서 다시 배워야 합니다.</p>
+</div>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>Customizing 활동</th><th>다루는 것</th><th>적용 범위</th></tr></thead>
+<tbody>
+<tr><td class="wrap">Field Selection for MIGO</td><td class="wrap">헤더 <code>GOHEAD-...</code> · 품목 <code>GOITEM-...</code> · 문서검색 <code>GOSEARCH-...</code> · 버튼 <code>OK...</code></td><td class="wrap"><span class="bad">모든 이동유형과 모든 트랜잭션에 일괄 적용</span></td></tr>
+<tr><td class="wrap">Field Selection per Movement Type</td><td class="wrap">이동유형별로 선택입력/필수입력인 필드. <b>입출고사유</b>처럼 앞 활동에 없는 필드가 여기 있다</td><td class="wrap">이동유형 단위</td></tr>
+</tbody>
+</table>
+</div>
+
+<ul>
+  <li>필수입력 속성은 <span class="hl"><code>GOHEAD-...</code>과 <code>GOITEM-...</code> 이름의 필드에 대해서만</span> 평가된다</li>
+  <li><b>강조표시(Highlighted) 지시자는 지원하지 않는다</b> — 필수필드는 설명이 파란색으로 표시될 뿐</li>
+  <li>이동유형별 활동에서는 <b>항목을 삭제하면 필드가 숨겨지고</b>, 다른 필드(예: 입고전표 매수)를 추가로 표시할 수도 있다</li>
+  <li>특정 입출고에 사유를 넣으려면 그 이동유형의 <b>Reason for Movement</b> 필드에 입력값을 유지해야 한다</li>
+</ul>
+
+<p>대표적인 활용은 ERS(평가수령정산)로 작업할 때 <b>납품서(Delivery Note)</b>와 <b>선하증권(Bill of Lading)</b>을 필수입력으로 올리는 것입니다.</p>
+
+<h3>이동유형 설정 — 참조 복사와 반대이동유형</h3>
+
+<p>이동유형은 입출고 전기의 <span class="key">핵심 제어파라미터</span>입니다. 신규 생성은 반드시 <b>표준 이동유형 하나를 참조</b>해서 하고, 시스템이 참조한 유형의 제어지시자를 제안합니다. 활동은 <b>Change, Copy Movement Types</b>이고, 호출 시 지정하는 작업영역(Work Area)에는 <span class="bad">이번에 만들거나 유지할 이동유형이 전부 들어 있어야</span> 합니다.</p>
+
+<div class="note warn">
+  <div class="t">반대이동유형(Reversal)을 같이 만들지 않으면 취소가 안 된다</div>
+  <p>신규 이동유형을 설계할 때 <b>대응하는 반대이동유형의 생성·배정</b>을 반드시 같이 고려해야 합니다. 특히 <span class="hl">FI에서 별도 계정으로 데이터를 업데이트하는 경우</span> — 정방향만 계정을 갈라 두고 역방향을 방치하면, 취소 전표가 엉뚱한 계정으로 갑니다.</p>
+</div>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>설정 그룹 (뷰)</th><th>종속 레벨</th><th>내용</th></tr></thead>
+<tbody>
+<tr><td class="wrap">입력/업데이트제어 · 단문텍스트</td><td>이동유형</td><td class="wrap">전표인쇄·배치지시자 확인, <b>최소유효기간 검사</b> / SLoc자동·소모·통계·실사재고 / 이동유형 설명</td></tr>
+<tr><td class="wrap">허용 트랜잭션</td><td>이동유형</td><td class="wrap">이동유형을 언제 쓸 수 있는지 (다른 <code>KZBEW</code>에도 불구하고 제안할지)</td></tr>
+<tr><td class="wrap">도움말텍스트</td><td class="wrap">이동유형 · 특수재고지시자 · 트랜잭션 · 언어</td><td class="wrap">개별 이동을 설명하는 확장텍스트</td></tr>
+<tr><td class="wrap">필드선택 / 배치검색</td><td class="wrap">이동유형 · 특수재고지시자</td><td class="wrap">필드선택제어, <span class="key">배치검색스키마(배치결정용)</span></td></tr>
+<tr><td class="wrap">업데이트제어 · WMS 이동유형</td><td class="wrap">이동유형 + 가치/수량·특수재고·이동·입고·소모 지시자</td><td class="wrap">가용성검사·결품처리 / LIFO·FIFO · WMS · QM · <b>가치스트링과 수량스트링</b></td></tr>
+<tr><td class="wrap">계정그룹코드</td><td class="wrap">이동유형 + 특수재고·가치/수량·이동·소모 지시자</td><td class="wrap">계정그룹코드, "계정지정 확인" 지시자</td></tr>
+<tr><td class="wrap">반대/후속이동유형</td><td class="wrap">이동유형 · 기능코드</td><td class="wrap">반대이동유형, "전기유형" 지시자</td></tr>
+<tr><td class="wrap">입출고사유</td><td class="wrap">이동유형 · 사유키</td><td class="wrap">사유 설명</td></tr>
+<tr><td class="wrap">QM검사처리 비활성화</td><td class="wrap">이동유형 + 특수재고·이동·입고·소모 지시자</td><td class="wrap">QM검사처리를 끌 이동유형</td></tr>
+<tr><td class="wrap">통계그룹 LIS</td><td class="wrap">이동유형 + 특수재고·이동 지시자</td><td class="wrap">LIS 업데이트제어</td></tr>
+</tbody>
+</table>
+</div>
+
+<div class="note">
+  <div class="t">🔰 초보자 설명 — 가치스트링과 수량스트링</div>
+  <p>업데이트제어 상세화면에 둘이 나란히 있습니다. 역할이 완전히 다릅니다.</p>
+  <p>· <b>가치스트링(Value String)</b> = LESSON 5의 <span class="key">값문자열</span>. 이 이동유형의 회계전표에서 <span class="hl">G/L 계정 결정을 제어</span>한다<br>
+     · <b>수량스트링(Quantity String)</b> = <span class="hl">자재마스터 레코드 필드와 기타 필드의 업데이트를 제어</span>한다</p>
+  <p>즉 "돈이 어느 계정으로 가는가"는 가치스트링이, "재고 숫자가 어느 필드에 반영되는가"는 수량스트링이 정합니다. 신규 이동유형을 만들 때 이 두 칸이 참조 원본과 같은지 확인하는 것이 첫 점검입니다.</p>
+</div>
+
+<h3>플랜트파라미터 — 한 화면에 모아 둔 것들</h3>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>영역</th><th>설정 항목</th></tr></thead>
+<tbody>
+<tr><td>입출고</td><td class="wrap">자재의 <b>저장위치데이터 자동 생성</b> · "납품완료" 지시자 제안 · <b>입고 시 결품검사 활성화</b> · 배치사용처목록 활성화 · <span class="key">최소유효기간 검사</span></td></tr>
+<tr><td>마이너스재고</td><td class="wrap">재고유형별 허용. <span class="bad">플랜트 · 평가영역 · 저장위치 세 곳 모두에서 허용되고 자재마스터에도 지시자가 있어야</span> 쓸 수 있다</td></tr>
+<tr><td>실사재고</td><td class="wrap">재고유형 기본값 · 대체측정단위 제안 · <b>백그라운드 배치결정</b> · 카운트결과 변경 시 변경문서 생성 · 장부재고 조정 · 재고차이사유 기본값</td></tr>
+<tr><td>예약</td><td class="wrap">"이동허용" 지시자 제안 · 그 지시자 설정을 위한 일수 · 예약품목 보관기간</td></tr>
+</tbody>
+</table>
+</div>
+
+<p>파라미터가 종속항목을 요구하면 <span class="bad">해당 Customizing 활동에서 따로 유지해야</span> 합니다 — 이 화면에서 전부 끝나지 않습니다.</p>
+
+<h3>결품검사(Missing Part Check)</h3>
+
+<p>가용성검사와 비슷한 방식으로, 재고관리의 각 트랜잭션에 배정된 <b>검사규칙(Checking Rule)</b>으로 검사합니다. 검사규칙과 자재마스터의 <b>검사그룹(Checking Group)</b>이 <span class="hl">어떤 재고·입고예정·소요량을 포함할지</span>를 정합니다. 입고전기용 <b>검사기간(Checking Horizon)</b>은 미래 며칠까지 볼지를 정하고, 그 기간 안이면 재고관리에서 MRP컨트롤러에게 내부메일이 나갑니다.</p>
+
+<div class="note warn">
+  <div class="t">검사규칙은 MIGO가 아니라 MIGO_GR에 넣어야 한다</div>
+  <p><code>MIGO</code>로 입고를 전기하면 백그라운드에서 <code>MIGO_GR</code>이 돕니다. 그래서 입고용 검사규칙은 <span class="bad"><code>MIGO_GR</code>에 대해</span> 입력해야 합니다. <code>MIGO</code>에 넣고 "왜 안 도느냐"고 하는 것이 전형적인 실수입니다.</p>
+  <p>더 세분화하려면 <b>이동유형별로(다른 지시자에 따라) 서로 다른 검사규칙</b>을 배정할 수 있습니다.</p>
+</div>
+
+<div class="note warn">
+  <div class="t">MIGO는 결품 경고메시지를 자동으로 띄우지 않는다</div>
+  <p><span class="bad">Check 기능을 직접 호출해야만</span> 경고메시지를 볼 수 있습니다. 창고담당자가 그냥 저장하면 결품 상황을 모른 채 지나갑니다. 이 경고는 특정 사용자에 대해 켜고 끌 수도 있습니다.</p>
+</div>
+
+<p>메일 발송 대상은 ① 자재마스터에 지정된 <b>담당 MRP컨트롤러</b>(메일사용자가 배정돼 있어야 함) → ② 없으면 플랜트의 <b>중앙결품처리담당자</b> → ③ 둘 다 메일사용자가 없으면 <span class="bad">시스템은 내부메시지를 보낼 수 없습니다.</span></p>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>결품메시지 유형</th><th>내용</th></tr></thead>
+<tbody>
+<tr><td>Non-summarized</td><td class="wrap">결품자재마다 <b>최대 5개의 MRP요소</b>를 담은 내부메시지 1건</td></tr>
+<tr><td>Summarized</td><td class="wrap">자재전표·플랜트별로 결품자재 <b>목록</b>만 담은 내부메시지 1건. <span class="bad">MRP요소 정보는 없다</span></td></tr>
+</tbody>
+</table>
+</div>
+
+<p>결품메시지(메시지유형 <code>MLFH</code>)의 일반텍스트는 재고관리 Customizing의 <b>출력결정</b>에서 유지합니다. 시스템메시지 자체(예: "구매오더품목이 납품완료로 표시됨")는 <b>경고 / 오류 / 메시지없음</b> 중에서 고를 수 있습니다.</p>
+
+<h3>입출고전표(GR/GI Slip) 출력</h3>
+
+<p>재고관리도 <b>조건기법</b>으로 출력합니다 — 프로시저 → 출력유형 → 액세스시퀀스 → 조건테이블. 구매와 다른 점이 하나 있습니다.</p>
+
+<div class="note warn">
+  <div class="t">재고관리의 조건레코드는 애플리케이션 메뉴가 아니라 Customizing에 있다</div>
+  <p>구매는 <code>MN04</code>처럼 애플리케이션 메뉴에서 메시지레코드를 만들지만, <span class="hl">재고관리는 Customizing에서 유지</span>합니다. 찾는 위치 자체가 다릅니다.</p>
+</div>
+
+<ul>
+  <li><b>프린터설정</b> — 논리적 프린터명으로 식별. 바코드 지원·다중출력 지원 여부 지정. <b>MM → Inventory Management and Physical Inventory → Print Control → General Settings</b>, 프린터 배정은 출력결정 설정 안에서</li>
+  <li><b>인쇄지시자(품목출력지시자)</b> — GR·출고전표를 인쇄하려면 <span class="bad">이동유형에 인쇄지시자를 배정</span>해야 한다. 이 지시자가 자재전표품목의 인쇄 가능여부와 쓸 메시지유형을 통제한다</li>
+  <li>예 — 공급업체 반품용으로 자체 품목출력지시자를 만들어 반품 이동유형에 배정하면, 메시지결정에서 <span class="hl">간접적으로 다른 양식</span>을 쓸 수 있다</li>
+</ul>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>프린터결정 방식</th><th>내용</th></tr></thead>
+<tbody>
+<tr><td class="wrap">출력유형 / 플랜트 / 저장위치</td><td class="wrap">조합별로 프린터 지정. <span class="hl">저장위치 = 공백 항목</span>은 저장위치 없는 입출고(예: 이동유형 <code>103</code>)나 계정지정 PO품목 입고에 필요. 출력유형 없는 항목은 같은 플랜트·저장위치의 모든 출력유형에 유효</td></tr>
+<tr><td class="wrap">+ 사용자그룹</td><td class="wrap">사용자그룹은 사용자파라미터 <code>ND9</code>로 사용자마스터에 넣어야 한다</td></tr>
+<tr><td class="wrap">출력유형 / 사용자</td><td class="wrap">애플리케이션 <code>ME</code>(재고관리)에 대해</td></tr>
+<tr><td class="wrap">사용자기본값 · User Exit</td><td class="wrap">—</td></tr>
+</tbody>
+</table>
+</div>
+
+<p>출력매체별로 각 출력유형에 인쇄프로그램과 <b>최소 1개의 양식</b>을 배정합니다. 표준양식을 쓰거나 SAPscript · Adobe Forms(PDF) · SMARTFORMS로 직접 설계합니다.</p>
+
+<p><b>라벨인쇄</b>는 별도 설정입니다 — <b>MM → Inventory Management and Physical Inventory → Print Control → Set Label Printout</b>. 라벨텍스트를 유지해야 하고, <b>라벨유형·라벨양식 필드는 자재마스터 <code>Plant Data / Storage 1</code> 뷰</b>에 있습니다. 재고관리 메시지결정 FAQ는 SAP Note 522591.</p>
+
+<p>재고관리도 S/4HANA 출력관리로 전환 가능합니다 — 애플리케이션오브젝트유형은 <code>GOODS_MOVEMENT</code>, 스위치는 LESSON 8과 같은 <b>Manage Application Object Type Activation</b>입니다.</p>
+
+<div class="note ok">
+  <div class="t">📌 개인 E2E 프로젝트와의 연결점</div>
+  <p>이 LESSON이 프로젝트 CBO 3종과 가장 직접적으로 붙습니다.</p>
+  <p><b>① 최소유효기간 검사</b> — 플랜트파라미터의 입출고 영역과 이동유형 입력제어 양쪽에 있습니다. 이걸 켜야 입고 시 <code>MCHA-VFDAT</code>가 검사 대상이 되고, 유통기한이 지났거나 남은 기간이 부족한 물건이 GATE에서 걸립니다. <span class="hl">CBO <code>ZBATCH_ZONE</code>이 나중에 잡아내는 것보다, 애초에 표준 검사로 막는 편이 낫습니다</span> — 표준 우선 원칙 그대로입니다.</p>
+  <p><b>② 배치검색스키마</b> — 이동유형 설정의 "필드선택/배치검색" 뷰에 있습니다. SD의 FEFO 배치결정이 여기에 얹힙니다. 출고 이동유형에 스키마가 안 걸려 있으면 FEFO가 동작하지 않습니다.</p>
+  <p><b>③ 계정그룹코드 뷰</b> — 같은 이동유형 설정 안에 있습니다. LESSON 6에서 얘기한 "122 반품과 정상 출고를 회계에서 가르기"를 실제로 입력하는 자리가 바로 이 뷰입니다.</p>
+  <p><b>④ 반대이동유형</b> — CBO <code>ZGATE_INSPECT</code>가 <code>122</code>를 자동으로 친다면, 그 CBO가 실패했거나 오판했을 때 되돌릴 수단이 있어야 합니다. <code>122</code>의 반대이동유형(<code>123</code>)이 정상 배정돼 있는지 확인하고, CBO 테이블의 상태필드(W/P/H)에 <b>취소 상태</b>를 하나 더 둘지 검토할 가치가 있습니다.</p>
+  <p>전표 번호범위는 <b>회계연도 <code>9999</code></b>로 잡아 두는 편이 낫습니다. 렌탈 서버 만료일까지가 프로젝트 기간인데, 연도 넘어가는 채번 사고로 시간을 쓸 여유가 없습니다.</p>
+</div>
+
+</div>
+
+
+<!-- ══════════ LESSON 10 ══════════ -->
+<div class="lesson" id="l10">
+<h2><span class="no">LESSON 10</span>IMG와 Customizing 프로젝트 · BC Set · 비즈니스함수</h2>
+
+<p><span class="tag">Unit 7</span><span class="tag">레슨 1개</span>Additional Information: Implementation Guide and Customizing Projects</p>
+
+<h3>IMG로 할 수 있는 다섯 가지</h3>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>기능</th><th>내용</th></tr></thead>
+<tbody>
+<tr><td class="wrap">프로젝트 관리·처리·분석</td><td class="wrap">구현(Implementation) 또는 확장(Enhancement) 프로젝트 단위로</td></tr>
+<tr><td class="wrap">신속·안전·경제적 구성</td><td class="wrap">애플리케이션 컴포넌트 계층구조를 반영한 구조로 안내</td></tr>
+<tr><td class="wrap">표준기능 맞춤화</td><td class="wrap">회사의 구체적 요구사항에 맞춰 조정</td></tr>
+<tr><td class="wrap">구현단계 문서화·모니터링</td><td class="wrap">프로젝트관리 도구로</td></tr>
+<tr><td class="wrap">Customizing 설정 자동전송</td><td class="wrap"><span class="key">QA 시스템 → 운영 시스템</span>으로 설정과 구성정보를 자동 전송. 모든 시스템의 설정 일관성을 보장하고 <b>여러 번 유지하는 부담</b>을 없앤다</td></tr>
+</tbody>
+</table>
+</div>
+
+<h3>프로젝트와 프로젝트뷰</h3>
+
+<p>Customizing 프로젝트는 국가와 애플리케이션 컴포넌트를 고르거나, IMG에서 노드·개별 기능을 수동 선택해 만듭니다. 프로젝트 안에서는 활동 호출 + <b>프로젝트 문서(메모)</b>와 <b>상태정보</b> 편집이 됩니다.</p>
+
+<div class="note">
+  <div class="t">🔰 초보자 설명 — 프로젝트뷰가 왜 유용한가</div>
+  <p>IMG 전체는 너무 큽니다. <span class="hl">프로젝트뷰</span>는 특정 업무영역에 필요한 활동만 모은 별도 구조입니다.</p>
+  <p>예를 들어 "구매문서와 구매요청의 <b>승인절차</b> 구성"에 필요한 활동만 담은 뷰를 만들어 두면, 다음에 같은 작업을 할 때 IMG 트리를 헤맬 필요가 없습니다. LESSON 2의 <code>EC02</code>(플랜트 복사)에서 IMG 아이콘으로 만들 수 있는 것도 이 <b>플랜트별 설정 활동만 모은 프로젝트뷰</b>입니다.</p>
+</div>
+
+<h3>활동마다 붙어 있는 속성</h3>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>속성</th><th>내용</th></tr></thead>
+<tbody>
+<tr><td>활동상태</td><td class="wrap">상태 · 키워드 · 담당자</td></tr>
+<tr><td>필요성 (Necessity)</td><td class="wrap">그 활동이 필수인지 — 메뉴의 <b>Additional Information</b>으로 확인</td></tr>
+<tr><td>중요도</td><td class="wrap">Critical / Noncritical 분류</td></tr>
+<tr><td>ASAP 로드맵 배정</td><td class="wrap">Accelerated SAP 로드맵에 배정</td></tr>
+<tr><td>국가 · 애플리케이션 컴포넌트</td><td class="wrap">배정</td></tr>
+<tr><td><b>BAdI 정보</b></td><td class="wrap"><span class="key">SAP가 고객별 기능확장을 허용하는 위치</span>를 알려 준다 — 표준 수정 대신 확장 지점을 찾는 출발점</td></tr>
+<tr><td>기존 BC Set</td><td class="wrap">그 활동에 대해 존재하는 비즈니스구성세트</td></tr>
+<tr><td>기술데이터</td><td class="wrap"><span class="bad">클라이언트 종속성 · 언어 종속성 · 전송유형(Transport Type)</span></td></tr>
+</tbody>
+</table>
+</div>
+
+<div class="note warn">
+  <div class="t">기술데이터의 "클라이언트 종속성"을 먼저 본다</div>
+  <p>LESSON 1의 공장달력처럼 <span class="bad">클라이언트독립적인 설정은 한 클라이언트에서 고치면 전체에 반영</span>됩니다. 활동 속성의 기술데이터에 그 정보가 들어 있습니다.</p>
+  <p>전송유형도 여기서 확인합니다. 자동 기록되지 않는 활동을 손대고 트랜스포트가 안 잡혀 <span class="hl">운영기에 설정이 안 넘어가는 사고</span>가 여기서 나옵니다.</p>
+</div>
+
+<h3>BC Set과 비즈니스함수</h3>
+
+<p><b>비즈니스구성세트(BC-CUS)</b>는 Customizing 설정들을 묶어 구현을 가속·단순화하는 장치입니다. 이점은 다섯 가지 — 글로벌 롤아웃 효율화, 산업별 시스템 생성·유지 용이, <span class="hl">비즈니스 레벨에서의 Customizing</span>, 변경관리의 속도와 안전성, 업그레이드 단순화.</p>
+
+<p>일부 기능은 <b>비즈니스함수(Business Function)</b>로만 켤 수 있습니다 — 자재관리의 선지급(Down Payment) 처리, LESSON 4의 <code>LOG_MM_CI_3</code>(자재 간소화 생성)가 그 예입니다. 각 비즈니스함수에는 <span class="key">문서와 테스트케이스가 통합</span>돼 있고, 활성화는 <code>SFW5</code>(Activate Business Functions)입니다.</p>
+
+<div class="note warn">
+  <div class="t">ECC에서 쓰던 비즈니스함수가 S/4HANA에 없을 수 있다</div>
+  <p>ECC 6.0에서는 확장패키지로 제공됐지만, 일부는 S/4HANA에서 <span class="bad">더 이상 사용할 수 없고 <code>SFW5</code>에서 Obsolete로 표시</span>됩니다.</p>
+  <p>S/4HANA의 신규 비즈니스함수는 <b>주요 릴리스(보통 연 1회)</b> 또는 <b>기능팩(보통 연 2회)</b>으로 나옵니다. 신규 기능과 변경사항은 SAP Help Portal에서 확인합니다.</p>
+</div>
+
+<div class="note ok">
+  <div class="t">📌 개인 E2E 프로젝트와의 연결점</div>
+  <p>개인 프로젝트라 QA·운영 시스템이 없으므로 트랜스포트 자체는 의미가 적습니다. 그래도 <b>프로젝트뷰</b>는 값이 있습니다 — <span class="hl">이 코스에서 세팅한 활동들을 한 뷰에 모아 두면 그 자체가 재현 가능한 세팅 목록</span>이 되고, 포트폴리오 문서의 "설계 / 검증" 항목에 T-Code + 입력값을 그대로 옮겨 적을 수 있습니다.</p>
+  <p>그리고 <b>BAdI 정보</b> 속성은 CBO 3종을 만들 때 꼭 봐야 합니다. <code>ZBATCH_ZONE</code>·<code>ZGATE_INSPECT</code>를 별도 배치 프로그램으로 돌릴지, 아니면 표준 흐름의 BAdI에 얹을지가 여기서 갈립니다. <span class="key">표준 오브젝트를 고치지 않는다</span>는 원칙을 지킬 수 있는 위치를 IMG가 직접 알려 줍니다.</p>
+</div>
+
+</div>
+
+
+<!-- ══════════ APPENDIX ══════════ -->
+<div class="lesson" id="lx">
+<h2><span class="no">APPENDIX</span>정리 · 반드시 기억할 것</h2>
+
+<h3>한 장 요약</h3>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>질문</th><th>답</th></tr></thead>
+<tbody>
+<tr><td>구매조직은 어디에 배정하나</td><td class="wrap">회사코드는 <b>선택</b>(하면 1개만), 플랜트는 <b>필수</b>(N : M)</td></tr>
+<tr><td>구매그룹은 어디에 배정하나</td><td class="wrap">어디에도 안 한다. 클라이언트 레벨. 자재마스터 구매 뷰에서 자재에 붙인다</td></tr>
+<tr><td>평가영역은 무엇인가</td><td class="wrap">회사코드 또는 플랜트. <span class="bad">자재 생성 전에 확정</span>. 플랜트로 잡으면 평가영역 키 = 플랜트 키</td></tr>
+<tr><td>계정결정의 세 갈래</td><td class="wrap">① 조직레벨 → 계정과목표 · 평가그룹코드 / ② 자재 → 계정범주참조 · 평가클래스 / ③ 트랜잭션 → 값문자열 · 트랜잭션키 · 계정그룹코드</td></tr>
+<tr><td>OBYC 한 줄의 키</td><td class="wrap">계정과목표 + 트랜잭션키 + VG + AG + 평가클래스 → 차변/대변 G/L</td></tr>
+<tr><td>값문자열을 고칠 수 있나</td><td class="wrap"><b>없다.</b> 값문자열 배정도 그 안의 키도 SAP 고정. 고칠 건 키에 붙는 G/L 계정뿐</td></tr>
+<tr><td>계정범주참조의 역할</td><td class="wrap">자재유형 ↔ 평가클래스의 <b>연결고리</b>. 참조 하나에 평가클래스 하나가 오류가 가장 적다</td></tr>
+<tr><td>자재유형을 바꿀 수 있는 조건</td><td class="wrap">두 유형이 <b>같은 계정범주참조</b>이거나, 재고·구매오더·예약이 <b>전혀 없거나</b></td></tr>
+<tr><td>이동평균가(V)인데 PRD가 뜨는 때</td><td class="wrap">청구가격이 오더가격과 다른데 <span class="hl">그 수량이 이미 재고에 없거나 일부만 남았을 때</span></td></tr>
+<tr><td>GBB를 왜 세분화하나</td><td class="wrap">출고·폐기·재고차이가 전부 같은 키로 들어오기 때문. <b>계정그룹코드(일반수정)</b>로 가른다</td></tr>
+<tr><td>청구서검증에 계정그룹코드를 쓸 수 있나</td><td class="wrap"><span class="bad">쓸 수 없다.</span> 재고관리 트랜잭션에만</td></tr>
+<tr><td>부대비용 트랜잭션키는 어디서 오나</td><td class="wrap">값문자열이 아니라 <b>구매용 계산스키마(계정키)</b></td></tr>
+<tr><td>분할평가를 켤 수 있는 자재</td><td class="wrap"><span class="bad">재고와 미결문서가 전혀 없는</span> 자재만</td></tr>
+<tr><td>품목범주를 새로 만들 수 있나</td><td class="wrap"><b>없다.</b> 외부 표현(키)과 명칭만 바꿀 수 있다</td></tr>
+<tr><td>문서유형을 복사하면 따라오지 않는 것</td><td class="wrap"><b>파트너스키마 배정</b></td></tr>
+<tr><td>구매 메시지결정은 어느 레벨</td><td class="wrap"><b>헤더레벨만.</b> 조건테이블에 품목 필드(플랜트)를 못 넣고, 출력도 문서 전체 단위</td></tr>
+<tr><td>on-premise의 기본 출력 솔루션</td><td class="wrap"><b>NAST.</b> S/4HANA Output Management는 비활성이 기본, 오브젝트 유형별 공존 가능</td></tr>
+<tr><td>입고 검사규칙은 어느 트랜잭션에</td><td class="wrap"><code>MIGO</code>가 아니라 <b><code>MIGO_GR</code></b></td></tr>
+<tr><td>가치스트링 vs 수량스트링</td><td class="wrap">가치 = G/L 계정 결정 / 수량 = 자재마스터 필드 업데이트</td></tr>
+<tr><td>연도 무관 번호범위</td><td class="wrap">Year 필드에 <code>9999</code></td></tr>
+</tbody>
+</table>
+</div>
+
+<h3>주요 T-Code · 경로</h3>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>구분</th><th>T-Code / 경로</th><th>용도</th></tr></thead>
+<tbody>
+<tr><td>계정결정</td><td class="wrap"><b>Configure Automatic Postings</b> (OBYC)</td><td class="wrap">트랜잭션키별 G/L 배정 + <b>시뮬레이션</b></td></tr>
+<tr><td>평가가격 변경</td><td><code>MR21</code></td><td class="wrap">Material Price Change 앱과 동일</td></tr>
+<tr><td>기간마감</td><td><code>MMPV</code></td><td class="wrap"><span class="bad">취소 불가</span> (SAP Note 487381)</td></tr>
+<tr><td>플랜트 복사·검사</td><td><code>EC02</code></td><td class="wrap">Extras → Associated tables</td></tr>
+<tr><td>번호범위 오브젝트</td><td><code>SNRO</code> / <code>MATERIALNR</code></td><td class="wrap">자재마스터 채번 사양</td></tr>
+<tr><td>BP 유지</td><td><code>BP</code></td><td class="wrap">Maintain Business Partner 앱</td></tr>
+<tr><td>공급업체 계정그룹(클래식)</td><td><code>OBD3</code></td><td class="wrap">화면레이아웃 포함</td></tr>
+<tr><td>PO 메시지 조건레코드</td><td><code>MN04</code></td><td class="wrap">구매 메시지결정</td></tr>
+<tr><td>청구요청업체별 조건</td><td><code>MEKJ</code></td><td class="wrap">End 지시자 이슈 확인용</td></tr>
+<tr><td>PO 생성 · 결정분석</td><td><code>ME21N</code></td><td class="wrap">Messages → Determin. Analysis</td></tr>
+<tr><td>구매요청 → PO 자동전환</td><td><code>ME59N</code></td><td class="wrap">문서유형 결정 로직 4단계</td></tr>
+<tr><td>입출고</td><td><code>MIGO</code></td><td class="wrap"><code>MB*</code>는 지원 종료 (Note 2210569)</td></tr>
+<tr><td>스풀 재출력</td><td><code>SP01</code></td><td class="wrap">변경메시지는 Repeat 불가 시 여기서</td></tr>
+<tr><td>계획달력</td><td><code>MD25</code></td><td class="wrap">공장달력과 독립</td></tr>
+<tr><td>비즈니스함수 활성화</td><td><code>SFW5</code></td><td class="wrap">Obsolete 여부 확인</td></tr>
+<tr><td>중앙텍스트 Relevant</td><td><code>OBT4</code></td><td class="wrap">텍스트유형 활성화</td></tr>
+</tbody>
+</table>
+</div>
+
+<div class="note warn">
+  <div class="t">반드시 지킬 것</div>
+  <p>· <b>자재를 만들기 전에</b> 확정할 것 — 평가레벨(회사코드/플랜트) · 사전순형식 · 분할평가 도입 여부. 셋 다 나중에 못 되돌린다.<br>
+     · <b>값문자열을 고쳐서</b> 계정결정을 해결하려 들지 않는다. SAP 고정이다. 고칠 곳은 트랜잭션키에 붙는 G/L 계정뿐이다.<br>
+     · <b>필드를 필수로 올리기 전에</b> 기존 자재를 확인한다. 기존 데이터가 비어 있으면 그 자재들은 저장이 막힌다.<br>
+     · <b>프로그램이 요구하는 필드(기본측정단위 등)를 Hide 하지 않는다.</b><br>
+     · <b>표준양식을 직접 고치지 않는다.</b> 복사해서 배정한다. 표준 이동유형도 마찬가지 — 참조해서 새로 만든다.<br>
+     · <b>신규 이동유형에는 반대이동유형을 같이 만든다.</b> 특히 FI 계정을 갈랐다면 필수다.<br>
+     · <b>공장달력은 클라이언트독립적이다.</b> 개발기에서 가볍게 손대면 다른 클라이언트가 같이 바뀐다.<br>
+     · <b>재출력물에는 재발행 표시가 없다.</b> 중복 발주 사고의 원인이므로 운영 절차로 보완한다.<br>
+     · <b>MIGO_GR</b>에 검사규칙을 넣는다. <code>MIGO</code>가 아니다.</p>
+</div>
+
+<h3>이 노트에서 확인 필요로 남긴 것</h3>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>항목</th><th>확인 방법</th></tr></thead>
+<tbody>
+<tr><td class="wrap">이동유형 <code>311</code>(정상 → 임박 SLoc)이 회계전표를 만드는지</td><td class="wrap">OBYC 시뮬레이션 — 애플리케이션영역 <b>재고관리</b>, 이동유형 <code>311</code>. 회계전표가 생긴다면 <code>ZBATCH_ZONE</code>을 자동 이동에서 <b>승인 대기</b>로 바꿔야 한다</td></tr>
+<tr><td class="wrap">계정지정범주별 필수 계정지정데이터와 품목범주 조합표</td><td class="wrap">원본 강의가 영상 중심이라 본문에 없다. <b>MM → Purchasing → Account Assignment → Maintain Account Assignment Categories</b>에서 직접 확인</td></tr>
+<tr><td class="wrap">평가레벨을 회사코드로 둘지 플랜트로 둘지</td><td class="wrap">GATE · STOR의 재고계정을 분리할 필요가 있는지로 결정. 결정 즉시 문서에 기록하고 자재 생성 전에 반영</td></tr>
+</tbody>
+</table>
+</div>
+
+<h3>참고</h3>
+
+<ul>
+  <li>이 노트는 <b>개인 학습용</b>이다. SAP Learning Hub 코스 <b>Cross-Functional Customizing in SAP S/4HANA Materials Management (S4550)</b> 7 Unit 31 레슨을 정리한 것이고, 회사 업무 산출물이 아니다</li>
+  <li>원본: 노션 <b>SAP Learning Hub</b> → Implementing SAP S/4HANA Cloud Private Edition, Sourcing and Procurement → 6-1 ~ 6-10</li>
+  <li>이어지는 축 — 자동계정결정은 <b>SD의 수익계정결정</b>과, 메시지결정은 <b>SD Output Control(S46055)</b> · <b>Pricing의 Condition Technique(S46200)</b>과 같은 뼈대다</li>
+  <li>개인 E2E 프로젝트 문서 — <b>MM 설계서 v2</b>(CBO 3종 · 저장위치 6개 · 이동평균가) 및 <b>IMG 재설계 설계서 v1</b></li>
+</ul>
+
+</div>
+
+</div>
+<script src="../../assets/hub.js" defer></script>
+</body>
+</html>

@@ -1,0 +1,1065 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>TADM10 사용자·권한과 통신 기술 — PFCG · UME · RFC · IDoc</title>
+<meta name="description" content="SAP Learning Hub의 Technical Implementation and Operation I 노트. AS ABAP 사용자마스터·역할(PFCG)·권한 오브젝트와 SU53/STAUTHTRACE, AS Java UME 권한개념, RFC·BAPI·ALE/IDoc 통신 기술.">
+<link rel="icon" href="../../assets/favicon.svg">
+<link rel="stylesheet" href="../../assets/notes-paper.css">
+<style>
+/* ── 이 노트 전용: 도해(SVG) 스타일 ─────────────────────────── */
+.dgm{display:block; width:100%; height:auto;}
+.dgm text{font-family:"Malgun Gothic","맑은 고딕","Apple SD Gothic Neo",sans-serif; fill:#1e1e1e;}
+.dgm .t-h{font-size:15px; font-weight:700;}
+.dgm .t{font-size:13px;}
+.dgm .t-s{font-size:11.5px; fill:#555;}
+.dgm .t-xs{font-size:10.5px; fill:#6B7280;}
+.dgm .m{font-family:"D2Coding","Consolas",monospace; font-size:12px;}
+.dgm .m-s{font-family:"D2Coding","Consolas",monospace; font-size:10.5px;}
+.dgm .c-key{fill:#4338CA;} .dgm .c-bad{fill:#B91C1C;} .dgm .c-ok{fill:#047857;}
+.dgm .b{fill:#FFFFFF; stroke:#C7CBD6; stroke-width:1.2;}
+.dgm .b-key{fill:#EEF0FB; stroke:#4338CA; stroke-width:1.4;}
+.dgm .b-bad{fill:#FEF2F2; stroke:#B91C1C; stroke-width:1.3;}
+.dgm .b-ok{fill:#ECFDF5; stroke:#047857; stroke-width:1.3;}
+.dgm .b-mut{fill:#F3F4F6; stroke:#D1D5DB; stroke-width:1.1;}
+.dgm .b-hl{fill:#FEF08A; stroke:#CA8A04; stroke-width:1.2;}
+.dgm .b-ghost{fill:none; stroke:#9AA3B2; stroke-width:1.1; stroke-dasharray:5 4;}
+.dgm .ln{stroke:#7C8697; stroke-width:1.4; fill:none;}
+.dgm .ln-key{stroke:#4338CA; stroke-width:1.8; fill:none;}
+.dgm .ln-bad{stroke:#B91C1C; stroke-width:1.6; fill:none;}
+.dgm .ln-ok{stroke:#047857; stroke-width:1.6; fill:none;}
+.dgm .ln-d{stroke:#9AA3B2; stroke-width:1.2; stroke-dasharray:4 4; fill:none;}
+.dgm .arw{fill:#7C8697;} .dgm .arw-key{fill:#4338CA;}
+.dgm .arw-bad{fill:#B91C1C;} .dgm .arw-ok{fill:#047857;}
+.figwrap{background:#FAFAFE; border:1px solid var(--rule); border-radius:6px;
+  padding:18px 16px 10px; margin:22px 0;}
+.figwrap figcaption{margin-top:12px; padding-top:10px; border-top:1px solid var(--rule);}
+</style>
+</head>
+<body>
+<div class="crumb"><a href="../../index.html">← 자료실 홈</a> · <a href="../../journey.html?j=tadm10">BASIS 저니</a> · TADM10 사용자·권한·통신</div>
+<div class="sheet">
+
+<div class="doc-head">
+  <div class="kicker">LEARNING HUB · TADM10</div>
+  <h1>사용자·권한과 통신 기술 — PFCG · UME · RFC · IDoc</h1>
+  <div class="sub">
+    Learning Journey <b>Technical Implementation and Operation I of SAP S/4HANA and SAP Business Suite</b> · Unit 6 ~ 8 · 11 레슨<br>
+    출처: 노션 <b>SAP Learning Hub</b> 노트 1-4 · 1-5 · 1-6 변환
+  </div>
+</div>
+
+<div class="lead">
+  <p><b>결론부터.</b> SAP의 권한은 <span class="hl">"무엇을 금지하는가"가 아니라 "무엇을 허용하는가"</span>로만 정의됩니다. 명시적으로 허용되지 않은 모든 것은 자동으로 금지입니다 — 그래서 권한 문의의 답은 언제나 "무엇이 빠졌는가"이고, 그것을 알려주는 도구가 <code>SU53</code>과 <code>STAUTHTRACE</code>입니다.</p>
+  <p>통신 기술도 같은 구조입니다. 시스템끼리 붙는 통로는 <b>RFC Destination</b> 하나로 수렴하고, 그 위에 BAPI가 얹히고 다시 그 위에 ALE·IDoc이 얹힙니다. 이 노트는 <b>운영에서 손대는 순서</b>(권한 요청 → 조사 → PFCG → User Comparison)와 <b>인터페이스를 설계할 때 고르는 순서</b>(무엇을 보장할 것인가 → RFC 유형 선택)를 중심으로 정리했습니다.</p>
+</div>
+
+<div class="toc">
+  <h4>목차</h4>
+  <ol>
+    <li><a href="#l1">AS ABAP 사용자·권한 — SU01 · PFCG · SU53</a></li>
+    <li><a href="#l2">AS Java 사용자·권한 — UME 구조와 Principle</a></li>
+    <li><a href="#l3">통신·연동 기술 — RFC · BAPI · ALE/IDoc</a></li>
+    <li><a href="#lx">정리 · 반드시 기억할 것</a></li>
+  </ol>
+</div>
+
+
+<!-- ══════════ LESSON 1 ══════════ -->
+<div class="lesson" id="l1">
+<h2><span class="no">LESSON 1</span>AS ABAP 사용자·권한 — SU01 · PFCG · SU53</h2>
+
+<p><span class="tag">Unit 6</span><span class="tag">레슨 4개</span>사용자 마스터레코드 · 역할과 권한 프로파일(PFCG) · 비밀번호·로그온 파라미터 · 사용자정보시스템(SUIM)</p>
+
+<h3>언제 이걸 알아야 하는가</h3>
+
+<p>운영에서 제일 자주 들어오는 문의는 이겁니다. <b>"ME23N 권한 좀 열어주세요"</b> 또는 <b>"그 프로그램 돌리니까 권한이 없다고 나옵니다."</b></p>
+
+<p>여기서 <span class="bad">바로 PFCG를 열면 안 됩니다.</span> 트랜잭션 코드를 역할 메뉴에 넣는다고 권한이 생기는 게 아니기 때문입니다. 실제로 막힌 것은 트랜잭션이 아니라 그 안에서 체크되는 <span class="key">권한 오브젝트의 특정 필드값</span>(예: 회사코드, 플랜트, 구매조직)인 경우가 대부분입니다.</p>
+
+<p>그래서 순서는 언제나 <b>① 무엇이 막혔는지 확인 → ② <code>SU53</code>/<code>STAUTHTRACE</code>로 빠진 오브젝트·값 특정 → ③ <code>SUIM</code>으로 기존 역할 검색 → ④ <code>PFCG</code> 수정·Generate → ⑤ User Comparison</b>입니다. 이 다섯 단계를 건너뛰면 "열어줬는데 여전히 안 된다"가 반복됩니다.</p>
+
+<h3>사용자 마스터레코드 (SU01)</h3>
+
+<p>SAP에서 "사용자"는 사용자ID·비밀번호 등으로 구성된 <b>사용자 마스터레코드</b>를 말합니다. OS·DB·SAP 각 레벨은 권한 개념이 따로이며, <span class="bad">SAP 사용자/비밀번호가 OS나 DB 로그온을 보장하지 않습니다.</span> 사용자·권한 데이터는 <span class="key">클라이언트 종속적</span>입니다 — 100번에서 만든 사용자는 200번에 없습니다.</p>
+
+<p>생성 시 최소 필수 입력은 <b>Address 탭의 Last name</b>과 <b>Logon Data 탭의 초기 비밀번호(2회)</b> 둘뿐입니다.</p>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>탭</th><th>내용</th></tr></thead>
+<tbody>
+<tr><td>Documentation</td><td class="wrap">사용자 설명·상세 문서. 기술/기능 담당자 기입 가능</td></tr>
+<tr><td>Address</td><td class="wrap">주소 데이터</td></tr>
+<tr><td>Logon Data</td><td class="wrap">비밀번호·유효기간·<b>사용자 유형</b>·보안정책·권한체크용 사용자그룹</td></tr>
+<tr><td>DBMS</td><td class="wrap">DBMS 사용자·권한 관리 (SAP HANA DB 기반 시스템만)</td></tr>
+<tr><td>SNC</td><td class="wrap">외부 보안 제품 연동 관리</td></tr>
+<tr><td>Defaults</td><td class="wrap">기본 프린터, 로그온 언어 등</td></tr>
+<tr><td>Parameters</td><td class="wrap">표준 필드의 사용자별 기본값 (파라미터 ID)</td></tr>
+<tr><td>Roles and Profiles</td><td class="wrap">할당된 역할·프로파일. <span class="hl">권한은 보통 역할을 통해 부여</span>하고, 역할 생성 시 권한 프로파일이 자동 생성된다</td></tr>
+<tr><td>Groups</td><td class="wrap">대량 관리(<code>SU10</code>)용 그룹핑. <b>권한 체크에는 쓰이지 않는다</b></td></tr>
+<tr><td>Personalization</td><td class="wrap">일부 트랜잭션의 개인화 오브젝트</td></tr>
+<tr><td>License Data</td><td class="wrap">계약상 사용자 유형 (시스템 측정 시 평가)</td></tr>
+</tbody>
+</table>
+</div>
+
+<div class="note">
+  <div class="t">🔰 초보자 설명 — 사용자그룹이 두 개 있다?</div>
+  <p>이름이 비슷해서 헷갈리는 지점입니다. <b>Logon Data 탭의 "User Group for Authorization Check"</b>는 권한 오브젝트 <code>S_USER_GRP</code>로 <b>"누가 이 사용자를 관리할 수 있는가"</b>를 통제합니다(공란이면 아무 관리자나 관리 가능). 반면 <b>Groups 탭의 그룹</b>은 <code>SU10</code> 대량 변경용 묶음일 뿐 권한 체크에 쓰이지 않습니다. 그룹 생성은 <code>SUGR</code>.</p>
+</div>
+
+<h3>사용자 유형 — 왜 이 계정으로는 로그온이 안 되는가</h3>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>유형</th><th>설명</th></tr></thead>
+<tbody>
+<tr><td>Dialog</td><td class="wrap">1인이 쓰는 일반 대화형 사용자. 만료/초기 비밀번호 체크, 본인이 비밀번호 변경 가능. 다중 로그온은 체크·로깅됨</td></tr>
+<tr><td><span class="key">System</span></td><td class="wrap">시스템 내 무대화(dialog-free) 통신·백그라운드용 — ALE, Workflow, TMS, CUA 등 <b>RFC 통신 계정이 여기</b>. <span class="bad">대화형 로그온 불가</span>, 비밀번호 유효기간 규정 미적용, 관리자만 비밀번호 변경</td></tr>
+<tr><td>Communications Data</td><td class="wrap">시스템 간 무대화 통신용. 대화형 로그온 불가, <b>비밀번호 유효기간 규정은 적용됨</b></td></tr>
+<tr><td>Service</td><td class="wrap">익명의 다수가 쓰는 대화형 사용자. 만료/초기 비밀번호 체크 없음, 다중 로그온 허용. <span class="bad">제한된 권한만 부여할 것</span></td></tr>
+<tr><td>Reference</td><td class="wrap">개인에 종속되지 않는 일반 사용자. <b>로그온 불가</b> — 대화형 사용자에게 추가 권한을 얹는 용도로만 (Roles 탭에서 지정)</td></tr>
+</tbody>
+</table>
+</div>
+
+<div class="note warn">
+  <div class="t">인터페이스 계정이 만료돼서 야간 배치가 죽는 전형적인 사고</div>
+  <p>RFC 통신용 계정을 <b>Communications Data</b>로 만들면 비밀번호 유효기간 규정이 <span class="bad">적용됩니다</span>. 어느 날 갑자기 비밀번호가 만료되고 인터페이스가 전부 끊깁니다. 시스템 간 통신 계정은 <b>System</b> 유형이어야 유효기간 규정에서 빠집니다.</p>
+</div>
+
+<div class="note">
+  <div class="t">📖 참고 — S/4HANA의 비즈니스 사용자</div>
+  <p>S/4HANA에서는 비즈니스 파트너와 1:1 연결된 <b>"비즈니스 사용자"</b> 개념이 도입되어 중복 관리를 줄입니다. 비즈니스 파트너가 할당되지 않은 사용자는 "User with Classic Address"로 표시됩니다. <b>S/4HANA 1909</b>부터 <code>SU01</code>에서 비즈니스 사용자와 기술 사용자(Technical User, 주소 탭 없음)를 구분합니다. 관련 <b>SAP Note 2570961</b>.</p>
+</div>
+
+<h3>권한 개념 — 포지티브(Positive) 모델</h3>
+
+<p>AS ABAP에서 데이터·액션 접근은 SAP가 제공하는 <b>권한 오브젝트(Authorization Object)</b>로 보호되고, 오브젝트는 Object Class로 묶입니다. 하나의 권한 오브젝트는 <span class="key">최대 10개의 권한 필드</span>를 가지며, 여러 조건을 AND로 연결한 복합 체크가 가능합니다.</p>
+
+<p>예: <code>S_USER_GRP</code>(사용자 마스터 관리)는 필드 <code>ACTVT</code>(Activity)와 <code>CLASS</code>(User Group)를 가집니다. 같은 오브젝트에서 서로 다른 "권한(Authorization)"을 여럿 만들 수 있습니다 — 권한 A는 그룹 <code>SUPER</code>의 생성/변경/조회 허용, 권한 B는 <code>A-SUPEQ</code>로 시작하는 그룹의 조회만 허용, 하는 식입니다.</p>
+
+<div class="note warn">
+  <div class="t">"금지" 권한은 존재하지 않는다</div>
+  <p>모든 권한은 <b>허용</b>만 있습니다. <span class="hl">명시적으로 허용되지 않은 모든 것은 금지</span>입니다. 그래서 "이 사람한테서 이 권한을 빼달라"는 요청은 '금지 권한 추가'가 아니라 <b>해당 값을 포함한 역할을 회수하거나 필드값 범위를 좁히는</b> 작업이 됩니다.</p>
+</div>
+
+<h3>런타임 — user buffer와 AUTHORITY-CHECK</h3>
+
+<p>로그온 시 그 사용자의 권한이 애플리케이션 서버 메인메모리의 <b>user buffer(user context)</b>에 적재됩니다. 내용은 <code>SU56</code>으로 확인합니다. 신규 권한을 할당해도 <span class="bad">재로그온해야 반영될 수 있는 이유</span>가 이것입니다(<b>SAP Note 452904</b>).</p>
+
+<p>코드 안에서는 <code>AUTHORITY-CHECK</code> 명령이 런타임 체크를 수행하고, 리턴코드 <code>0</code>이면 통과입니다.</p>
+
+<pre><code>AUTHORITY-CHECK OBJECT 'M_MSEG_WWE'
+         ID 'ACTVT' FIELD '01'
+         ID 'WERKS' FIELD lv_werks.
+IF sy-subrc &lt;&gt; 0.
+  MESSAGE e001(zmm) WITH lv_werks.   " 조용히 넘기지 않는다
+ENDIF.</code></pre>
+
+<figure class="figwrap">
+<svg class="dgm" viewBox="0 0 1000 470" role="img" aria-label="AS ABAP 권한 구조 도해. 사용자 마스터레코드에 역할이 할당되고 역할이 생성한 권한 프로파일이 User Comparison을 거쳐 사용자에게 반영되며, 런타임에는 user buffer를 근거로 AUTHORITY-CHECK가 수행되고 실패하면 SU53에서 빠진 오브젝트와 값을 확인한다.">
+  <defs>
+    <marker id="aa" markerWidth="9" markerHeight="9" refX="7" refY="4.5" orient="auto">
+      <polygon class="arw-key" points="0,0 9,4.5 0,9"/></marker>
+    <marker id="ab" markerWidth="9" markerHeight="9" refX="7" refY="4.5" orient="auto">
+      <polygon class="arw" points="0,0 9,4.5 0,9"/></marker>
+    <marker id="ac" markerWidth="9" markerHeight="9" refX="8" refY="4.5" orient="auto">
+      <polygon class="arw-bad" points="0,0 9,4.5 0,9"/></marker>
+    <marker id="ad" markerWidth="9" markerHeight="9" refX="8" refY="4.5" orient="auto">
+      <polygon class="arw-ok" points="0,0 9,4.5 0,9"/></marker>
+  </defs>
+
+  <text class="t-s c-key" x="20" y="20">설계 시점 — 권한을 만들어 붙이는 경로</text>
+
+  <rect class="b-key" x="20" y="30" width="176" height="68" rx="6"/>
+  <text class="t-h c-key" x="38" y="56">사용자 마스터</text>
+  <text class="m-s" x="38" y="76">SU01</text>
+  <text class="t-s" x="38" y="92">클라이언트 종속</text>
+
+  <path class="ln-key" d="M196 64 H212" marker-end="url(#aa)"/>
+
+  <rect class="b-key" x="216" y="30" width="176" height="68" rx="6"/>
+  <text class="t-h c-key" x="234" y="56">역할 (Role)</text>
+  <text class="m-s" x="234" y="76">PFCG</text>
+  <text class="t-s" x="234" y="92">메뉴 + 권한</text>
+
+  <path class="ln-key" d="M392 64 H408" marker-end="url(#aa)"/>
+
+  <rect class="b-hl" x="412" y="30" width="176" height="68" rx="6"/>
+  <text class="t-h" x="430" y="56">권한 프로파일</text>
+  <text class="t-s" x="430" y="76">Generate 로 생성</text>
+  <text class="t-s" x="430" y="92">생성 후 개명 불가</text>
+
+  <path class="ln" d="M588 64 H604" marker-end="url(#ab)"/>
+
+  <rect class="b" x="608" y="30" width="176" height="68" rx="6"/>
+  <text class="t-h" x="626" y="56">권한 오브젝트</text>
+  <text class="t-s" x="626" y="76">Object Class 로 묶임</text>
+  <text class="t-s" x="626" y="92">최대 10개 필드</text>
+
+  <path class="ln" d="M784 64 H800" marker-end="url(#ab)"/>
+
+  <rect class="b" x="804" y="30" width="176" height="68" rx="6"/>
+  <text class="t-h" x="822" y="56">필드 · 값</text>
+  <text class="m-s" x="822" y="76">ACTVT / WERKS</text>
+  <text class="t-s" x="822" y="92">조직수준으로 일괄</text>
+
+  <path class="ln-key" d="M500 98 V126 H108 V102" marker-end="url(#aa)"/>
+  <text class="t-s c-bad" x="128" y="122">User Comparison — PFCG User 탭 또는 PFUD 대량비교. 이걸 안 하면 역할을 할당해도 권한이 붙지 않는다.</text>
+  <text class="t-xs" x="128" y="140">정기 실행은 백그라운드 잡 PFCG_TIME_DEPENDENCY (기본 매일 1회 전체 비교)</text>
+
+  <line class="ln-d" x1="20" y1="164" x2="980" y2="164"/>
+  <text class="t-s c-key" x="20" y="190">런타임 — 로그온 이후 실제로 체크되는 경로</text>
+
+  <rect class="b" x="20" y="204" width="210" height="68" rx="6"/>
+  <text class="t-h" x="38" y="230">로그온</text>
+  <text class="t-s" x="38" y="250">권한이 user buffer 에 적재</text>
+  <text class="m-s" x="38" y="266">SU56 으로 확인</text>
+
+  <path class="ln" d="M230 238 H246" marker-end="url(#ab)"/>
+
+  <rect class="b" x="250" y="204" width="190" height="68" rx="6"/>
+  <text class="t-h" x="268" y="230">애플리케이션 호출</text>
+  <text class="t-s" x="268" y="250">트랜잭션 · Fiori 앱</text>
+  <text class="t-s" x="268" y="266">호출마다 체크된다</text>
+
+  <path class="ln" d="M440 238 H456" marker-end="url(#ab)"/>
+
+  <rect class="b-key" x="460" y="204" width="240" height="68" rx="6"/>
+  <text class="m c-key" x="478" y="230">AUTHORITY-CHECK</text>
+  <text class="t-s" x="478" y="250">허용된 것만 통과 (포지티브)</text>
+  <text class="m-s" x="478" y="266">sy-subrc = 0 이면 통과</text>
+
+  <path class="ln-ok" d="M580 272 V294 H430 V314" marker-end="url(#ad)"/>
+  <path class="ln-bad" d="M580 272 V294 H700 V314" marker-end="url(#ac)"/>
+
+  <rect class="b-ok" x="320" y="316" width="220" height="62" rx="6"/>
+  <text class="t-h c-ok" x="338" y="342">통과</text>
+  <text class="t-s" x="338" y="362">애플리케이션 실행</text>
+
+  <rect class="b-bad" x="590" y="316" width="220" height="62" rx="6"/>
+  <text class="t-h c-bad" x="608" y="342">거부</text>
+  <text class="t-s" x="608" y="362">권한 없음 메시지</text>
+
+  <path class="ln-bad" d="M810 347 H826" marker-end="url(#ac)"/>
+
+  <rect class="b-hl" x="830" y="316" width="150" height="62" rx="6"/>
+  <text class="t-h" x="846" y="342">SU53</text>
+  <text class="t-s" x="846" y="362">빠진 오브젝트·값</text>
+
+  <rect class="b-ghost" x="20" y="394" width="960" height="60" rx="6"/>
+  <text class="t-s" x="42" y="416">한 건이면 <tspan class="m-s">SU53</tspan> — 사용자가 오류를 재현한 <tspan class="c-bad">직후</tspan>에 실행해야 마지막 실패 체크가 남아 있다. 최종 사용자 본인도 실행 가능하다(단 S_USER_AUT 필요).</text>
+  <text class="t-s" x="42" y="438">여러 건이 한꺼번에 빠졌으면 <tspan class="m-s">STAUTHTRACE</tspan> 로 트레이스 후 일괄 파악. 단, 트레이스는 <tspan class="c-bad">동일 인스턴스에서만</tspan> 동작한다.</text>
+</svg>
+<figcaption><span class="fno">그림 1</span>AS ABAP 권한 구조와 런타임 체크 경로. 설계 경로(위)와 런타임 경로(아래)를 잇는 고리가 User Comparison과 user buffer다.</figcaption>
+</figure>
+
+<h3>역할 관리 (PFCG) — 신호등과 Generate</h3>
+
+<p><code>PFCG</code>(구 Profile Generator)에서 관련 트랜잭션을 역할로 묶으면, <span class="hl">선택된 트랜잭션에서 체크되는 권한 오브젝트에 필요한 필드값이 자동 제안</span>됩니다. 하나의 역할은 여러 사용자에게 할당되므로 <b>역할을 고치면 그 역할을 가진 전원에게 영향</b>이 갑니다. 사용자 메뉴는 할당된 역할들의 메뉴 합집합입니다.</p>
+
+<p><b>메뉴 탭</b>에는 트랜잭션·Web Dynpro·SAP Fiori 오브젝트(카탈로그/그룹, S/4HANA 2020부터 Space도)를 넣을 수 있고, 리포트·웹주소·파일 링크도 삽입 가능합니다(파일은 URL 대신 저장 경로).</p>
+
+<p><b>권한 탭</b>의 신호등이 실질적인 작업 지점입니다.</p>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>신호등</th><th>의미</th><th>해야 할 일</th></tr></thead>
+<tbody>
+<tr><td><span class="good">녹색</span></td><td class="wrap">시스템이 제안한 기본값이 있다</td><td class="wrap">검토만 — 그대로 둬도 생성된다</td></tr>
+<tr><td>노란색</td><td class="wrap">기본값이 없어 수동 유지보수가 필요하다</td><td class="wrap">필드값을 직접 채운다</td></tr>
+<tr><td><span class="bad">빨간색</span></td><td class="wrap">조직수준(Organizational Level)이 유지되지 않았다</td><td class="wrap">회사코드·플랜트 등 조직값을 지정</td></tr>
+</tbody>
+</table>
+</div>
+
+<p>자주 등장하는 필드는 <b>조직수준</b>으로 묶여 한 번에 유지보수됩니다(예: 회사코드). 모든 권한을 정리한 뒤 <b>Generate</b>를 눌러야 권한 프로파일이 생성되고, <span class="bad">생성 후에는 프로파일 이름을 바꿀 수 없습니다.</span></p>
+
+<div class="note">
+  <div class="t">📖 참고 — 프로파일 네임 레인지</div>
+  <p>프로파일명의 <b>2번째 문자에 언더스코어(<code>_</code>)</b>는 쓸 수 없습니다. 고객 네임 레인지 규칙 — <b>SAP Note 16466</b>.</p>
+</div>
+
+<h3>User Comparison — 여기서 빠뜨려서 다시 문의가 온다</h3>
+
+<p>역할↔사용자 할당은 <code>PFCG</code>의 User 탭 또는 <code>SU01</code>에서 합니다(할당 시작일 = 오늘, 종료일 = <code>12/31/9999</code>가 기본, 변경 가능). 사용자는 여러 역할에 연결될 수 있습니다.</p>
+
+<div class="note warn">
+  <div class="t">역할 할당 ≠ 권한 부여</div>
+  <p>역할을 할당하는 것만으로는 <span class="bad">권한이 사용자 마스터레코드에 붙지 않습니다.</span> 프로파일이 사용자 마스터에 반영되는 과정이 <b>User Comparison</b>입니다.</p>
+  <p>· 개별 역할: <code>PFCG</code> → User 탭 → <b>User comparison</b><br>
+     · 대량: <code>PFUD</code> → Utilities → <b>Mass comparison</b><br>
+     · 정기 자동: <code>PFCG</code>에서 백그라운드 잡 <code>PFCG_TIME_DEPENDENCY</code> 스케줄 (기본 매일 1회 전체 비교)</p>
+  <p>여기까지 하고도 안 되면 <b>재로그온</b>입니다 — user buffer가 갱신되지 않은 상태입니다.</p>
+</div>
+
+<figure class="figwrap">
+<svg class="dgm" viewBox="0 0 1000 320" role="img" aria-label="권한 요청이 들어왔을 때의 처리 순서 도해. 무엇이 막혔는지 확인, SU53 또는 STAUTHTRACE로 빠진 오브젝트 특정, SUIM으로 기존 역할 검색, PFCG 수정과 Generate, User Comparison과 재로그온 순으로 진행한다.">
+  <defs>
+    <marker id="ba" markerWidth="9" markerHeight="9" refX="7" refY="4.5" orient="auto">
+      <polygon class="arw-key" points="0,0 9,4.5 0,9"/></marker>
+  </defs>
+
+  <rect class="b" x="20" y="34" width="300" height="76" rx="6"/>
+  <text class="t-h c-key" x="40" y="60">① 무엇이 막혔는가</text>
+  <text class="t-s" x="40" y="82">트랜잭션 코드 · Fiori 앱 ID 확보</text>
+  <text class="t-s" x="40" y="100">메시지 클래스 + 번호까지 받는다</text>
+
+  <path class="ln-key" d="M320 72 H346" marker-end="url(#ba)"/>
+
+  <rect class="b-key" x="350" y="34" width="300" height="76" rx="6"/>
+  <text class="t-h c-key" x="370" y="60">② SU53 · STAUTHTRACE</text>
+  <text class="t-s" x="370" y="82">빠진 권한 오브젝트와 필드값 확인</text>
+  <text class="t-s" x="370" y="100">추측으로 권한을 열지 않는다</text>
+
+  <path class="ln-key" d="M650 72 H676" marker-end="url(#ba)"/>
+
+  <rect class="b" x="680" y="34" width="300" height="76" rx="6"/>
+  <text class="t-h c-key" x="700" y="60">③ SUIM 으로 역할 검색</text>
+  <text class="t-s" x="700" y="82">그 오브젝트를 이미 가진 역할이 있나</text>
+  <text class="t-s" x="700" y="100">있으면 할당, 없으면 PFCG 로</text>
+
+  <path class="ln-key" d="M830 110 V142 H500 V168" marker-end="url(#ba)"/>
+
+  <rect class="b-hl" x="350" y="170" width="300" height="76" rx="6"/>
+  <text class="t-h" x="370" y="196">④ PFCG → Generate</text>
+  <text class="t-s" x="370" y="218">권한 탭 신호등 정리 후 프로파일 생성</text>
+  <text class="t-s" x="370" y="236">빨간불 = 조직수준 미지정</text>
+
+  <path class="ln-key" d="M650 208 H676" marker-end="url(#ba)"/>
+
+  <rect class="b-ok" x="680" y="170" width="300" height="76" rx="6"/>
+  <text class="t-h c-ok" x="700" y="196">⑤ User Comparison → 재로그온</text>
+  <text class="t-s" x="700" y="218">PFUD 대량비교 · user buffer 갱신</text>
+  <text class="t-s" x="700" y="236">SU56 으로 반영 여부 확인</text>
+
+  <rect class="b-ghost" x="20" y="262" width="960" height="46" rx="6"/>
+  <text class="t-s" x="42" y="284">새 역할을 만들기 전에 <tspan class="c-key">기존 역할을 먼저 찾는다</tspan> — 역할 수가 늘수록 직무분리(SoD) 점검과 감사 대응 비용이 같이 늘어난다.</text>
+  <text class="t-s" x="42" y="302">SAP_ALL 을 붙여서 해결하지 않는다. 그 순간 원인은 영원히 모르게 되고, 회수 시점도 아무도 기억하지 못한다.</text>
+</svg>
+<figcaption><span class="fno">그림 2</span>권한 요청 처리 순서. ②를 건너뛰면 ④를 몇 번이고 반복하게 된다.</figcaption>
+</figure>
+
+<h3>비밀번호·로그온 프로파일 파라미터</h3>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>파라미터</th><th>설명</th></tr></thead>
+<tbody>
+<tr><td><code>login/min_password_lng</code></td><td class="wrap">최소 비밀번호 길이</td></tr>
+<tr><td><code>login/min_password_digits</code> 외</td><td class="wrap"><code>_letters</code> · <code>_lowercase</code> · <code>_uppercase</code> · <code>_specials</code> — 최소 숫자/문자(대소문자)/특수문자 개수</td></tr>
+<tr><td><code>login/password_expiration_time</code></td><td class="wrap">비밀번호 변경 필요 일수 (<code>0</code>이면 변경 불필요)</td></tr>
+<tr><td><code>login/password_history_size</code></td><td class="wrap">재사용 금지 이력 수 (1~100, 권장 기본값 5 — 더 이상 필수는 아님)</td></tr>
+<tr><td><code>login/password_max_idle_initial</code></td><td class="wrap">초기 비밀번호 미사용 시 최대 유효기간</td></tr>
+<tr><td><code>login/password_max_idle_productive</code></td><td class="wrap">운영 비밀번호 미사용 시 최대 유효기간</td></tr>
+<tr><td><code>login/min_password_diff</code></td><td class="wrap">변경 시 이전 비밀번호와 달라야 하는 문자 수 (신규 생성/리셋 시에는 미적용)</td></tr>
+<tr><td><code>login/fails_to_session_end</code></td><td class="wrap">SAP GUI가 종료되는 로그온 실패 횟수</td></tr>
+<tr><td><code>login/fails_to_user_lock</code></td><td class="wrap">사용자가 잠기는 실패 횟수 (성공 시 카운터 리셋)</td></tr>
+<tr><td><code>login/failed_user_auto_unlock</code></td><td class="wrap"><code>1</code>이면 서버시간 자정에 자동 잠금해제. <b>AS ABAP 7.0부터 기본 비활성</b></td></tr>
+<tr><td><code>login/disable_multi_gui_login</code></td><td class="wrap"><code>1</code>이면 동일 클라이언트 중복 로그온 제한. 예외는 <code>login/multi_login_users</code>에 쉼표 구분 지정</td></tr>
+</tbody>
+</table>
+</div>
+
+<p>공통 규칙: 비밀번호는 <code>?</code> 또는 <code>!</code>로 시작할 수 없고 <code>pass</code>를 쓸 수 없습니다. 추가 금지어는 테이블 <code>USR40</code>에 정의합니다.</p>
+
+<h3>보안 정책 (SECPOL) — 파라미터보다 세밀하게</h3>
+
+<p>프로파일 파라미터는 <b>시스템 전체</b>에 걸립니다. 사용자·클라이언트별로 다른 로그온/비밀번호 정책을 주고 싶으면 <code>SECPOL</code>로 <b>보안 정책</b>을 만듭니다.</p>
+
+<div class="step"><span class="n">STEP 1</span><p><code>SECPOL</code> → New Entries로 정책 생성</p></div>
+<div class="step"><span class="n">STEP 2</span><p>Attributes 노드에서 속성값 지정 — <span class="hl">공란인 속성은 표준 프로파일 파라미터 동작을 따른다</span></p></div>
+<div class="step"><span class="n">STEP 3</span><p><code>SU01</code>(또는 <code>SU10</code>) Logon Data 탭에서 사용자에게 정책 할당</p></div>
+
+<div class="note">
+  <div class="t">📖 참고 — SECPOL은 커스터마이징이다</div>
+  <p>보안 정책 생성은 커스터마이징 작업이므로 <b>커스터마이징 전송요청</b>이 필요하고, 클라이언트 종속적이며 전송(transport) 가능합니다. 개발기에서 만들고 운영으로 넘기는 경로를 타야 한다는 뜻입니다.</p>
+</div>
+
+<h3>유지보수 중 로그온 차단</h3>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th><code>login/server_logon_restriction</code></th><th>동작</th></tr></thead>
+<tbody>
+<tr><td>0</td><td class="wrap">제한 없음</td></tr>
+<tr><td>1</td><td class="wrap"><code>SERVER_LOGON_PRIVILEGE=1</code> 속성의 보안정책 보유자만 로그온 가능</td></tr>
+<tr><td>2</td><td class="wrap"><b>어떤 사용자도 로그온 불가</b></td></tr>
+<tr><td>3</td><td class="wrap">외부 로그온은 <code>SERVER_LOGON_PRIVILEGE=1</code> 보유자만 가능</td></tr>
+<tr><td>4</td><td class="wrap">외부 로그온 전면 불가</td></tr>
+</tbody>
+</table>
+</div>
+
+<p><code>RZ11</code>에서 동적 변경(재시작 불필요), 영구 저장은 <code>RZ10</code>입니다. 누구에게 <code>SERVER_LOGON_PRIVILEGE</code> 정책이 할당됐는지는 <code>SUIM</code> → Where-Used List → Security Policies → In Users로 확인합니다.</p>
+
+<p>대안으로 <code>SMAINTENANCE</code>에서 <b>유지보수 기간(Maintenance Period)</b>을 정의하면 <code>TENANT_RUNLEVEL_PRIVILEGE=1</code> 보유자만 로그온 가능하고 관리용 배치 작업만 실행됩니다. 비활성 사용자 일괄 잠금은 리포트 <code>RSUSR_LOCK_USERS</code>(온라인/백그라운드, 로컬 잠금만 설정).</p>
+
+<h3>표준 사용자</h3>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>사용자</th><th>설명</th></tr></thead>
+<tbody>
+<tr><td><code>SAP*</code></td><td class="wrap"><span class="bad">시스템 코드에 정의된 유일한 사용자 — 마스터레코드 없이도 존재</span>. 기본 비밀번호 <code>PASS</code>, 무제한 접근권한. 설치 시 클라이언트 <code>000</code>(및 <code>001</code>)에 마스터레코드가 자동 생성되고 그 시점에 특수속성이 비활성화된다. <code>login/no_automatic_user_sapstar</code>를 0보다 크게 두면 특수속성 완전 비활성화</td></tr>
+<tr><td><code>DDIC</code></td><td class="wrap">ABAP Dictionary·소프트웨어 로지스틱스 담당. <code>000</code>(및 <code>001</code>)에 자동 생성. <b>업그레이드 설치 중 유일하게 로그온 가능한 사용자</b></td></tr>
+<tr><td><code>EarlyWatch</code></td><td class="wrap">클라이언트 <code>066</code>에 제공(비밀번호 <code>SUPPORT</code>). 삭제 금지, 비밀번호는 변경 권장. 클라이언트 066 자체는 더 이상 사용되지 않아 삭제 가능 — <b>SAP Note 1749142</b></td></tr>
+</tbody>
+</table>
+</div>
+
+<div class="note warn">
+  <div class="t">Caution</div>
+  <p>무단 접근 방지를 위해 표준 사용자들은 클라이언트 <code>000</code>/<code>001</code>의 <b>SUPER</b> 사용자그룹에 배정할 것을 권장합니다. 비상용 <code>SAP*</code> 사용자와 <code>SAP_ALL</code> 프로파일에 대한 의존을 없애는 방법은 <b>SAP Note 76829</b>(Emergency role for user administration).</p>
+</div>
+
+<h3>SUIM · SU53 · STAUTHTRACE</h3>
+
+<p><b>User Information System(<code>SUIM</code>)</b>은 사용자·역할·프로파일·권한 정보를 평가하는 리포트 묶음입니다(<code>SU01</code>의 Information → Information System에서도 접근). 잠긴 사용자 목록, 최종 로그온 일시, 권한 프로파일 변경 이력, <span class="key">특정 트랜잭션을 포함하는 역할</span>, 중요(critical) 권한 보유자 등을 뽑습니다.</p>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>도구</th><th>쓰는 순간</th><th>주의</th></tr></thead>
+<tbody>
+<tr><td><code>SU53</code></td><td class="wrap"><b>한 건</b>의 권한 오류. 실패한 체크의 오브젝트와 값을 표시</td><td class="wrap">오류 재현 <b>직후</b>에 봐야 한다. 최종 사용자 본인도 실행 가능(<code>S_USER_AUT</code> 필요)</td></tr>
+<tr><td><code>STAUTHTRACE</code></td><td class="wrap"><b>여러 건</b>이 한꺼번에 빠졌을 때. 본인/타 세션의 권한 체크를 기록해 일괄 파악 (<code>ST01</code>의 권한체크 트레이스와 동일 계열)</td><td class="wrap"><span class="bad">기본적으로 동일 인스턴스(애플리케이션 서버)에서만 동작</span></td></tr>
+<tr><td><code>SUIM</code></td><td class="wrap">누가 무엇을 가졌는지 <b>사후 점검</b>. 정기 리뷰의 근거</td><td class="wrap">"중요 권한" 목록을 미리 정의해 두지 않으면 리뷰 자체가 성립하지 않는다</td></tr>
+</tbody>
+</table>
+</div>
+
+<div class="note">
+  <div class="t">📖 참고 SAP Notes</div>
+  <p><b>2467</b>(비밀번호 규칙과 로그온 실패 방지) · <b>862989</b>(NW 2004s 신규 비밀번호 규칙) · <b>1631929</b>(트레이스 평가로 메뉴·권한 유지보수) · <b>452904</b>(신규 권한 반영과 재로그온)</p>
+</div>
+
+<div class="note ok">
+  <div class="t">📌 개인 E2E 프로젝트와의 연결점 — CBO의 AUTHORITY-CHECK 설계</div>
+  <p>CBO 3종(<code>ZBATCH_ZONE</code> · <code>ZPRICE_CHECK</code> · <code>ZGATE_INSPECT</code>)은 전부 재고·금액을 건드리므로 <b>권한 체크 없이 돌면 운영 이관이 막힙니다.</b> 설계 시 최소 이 셋을 잡아둡니다.</p>
+  <p>· <b>조직수준으로 회사코드 <code>CL04</code>와 플랜트 <code>GATE</code>/<code>STOR</code></b>를 필드값에 태운다 — 그림 1의 오른쪽 끝 "필드·값"이 이 자리입니다. 프로그램 안에 <code>'CL04'</code>를 하드코딩하지 않고 셀렉션 화면 + <code>AUTHORITY-CHECK</code>로 받습니다.<br>
+     · <b>이동유형별로 나눈다</b> — <code>ZBATCH_ZONE</code>의 311(정상→임박 이관)과 <code>ZGATE_INSPECT</code>의 122(반품)는 회계 영향 크기가 다르므로, 같은 오브젝트라도 <code>ACTVT</code>/이동유형 필드값을 분리합니다.<br>
+     · <b>실행 권한(<code>S_TCODE</code>)과 데이터 권한을 분리한다</b> — 프로그램을 돌릴 수 있는 것과 특정 플랜트 재고를 움직일 수 있는 것은 별개입니다.</p>
+  <p>그리고 배치잡으로 돌릴 계정은 반드시 <b>System 유형</b>이어야 합니다. Communications Data로 만들면 비밀번호 유효기간에 걸려 어느 날 야간 잡이 통째로 실패합니다.</p>
+</div>
+
+</div>
+
+
+<!-- ══════════ LESSON 2 ══════════ -->
+<div class="lesson" id="l2">
+<h2><span class="no">LESSON 2</span>AS Java 사용자·권한 — UME 구조와 Principle</h2>
+
+<p><span class="tag">Unit 7</span><span class="tag">레슨 4개</span>UME 구조·데이터소스 · Principle(User·Group·Role) · 권한개념(JEE Security Role·UME Role) · 디폴트/응급 사용자</p>
+
+<p>ABAP 쪽을 알고 나면 Java 쪽은 <b>이름만 다르고 뼈대는 같습니다.</b> 아래 대응표 하나가 이 LESSON의 8할입니다.</p>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>AS ABAP</th><th>AS Java (UME)</th><th>비고</th></tr></thead>
+<tbody>
+<tr><td>사용자 마스터레코드</td><td class="wrap">User + User Account</td><td class="wrap">Java는 일반 속성(User)과 로그온 속성(Account)을 분리</td></tr>
+<tr><td>사용자그룹</td><td class="wrap">Group</td><td class="wrap">Java Group은 <b>계층구조</b>를 가진다</td></tr>
+<tr><td>역할 (PFCG Role)</td><td class="wrap">UME Role</td><td class="wrap">ABAP 데이터소스 연동 시 <span class="hl">PFCG 롤이 UME에서는 그룹으로 보인다</span></td></tr>
+<tr><td>권한 오브젝트</td><td class="wrap">Permission → Action</td><td class="wrap">Permission은 코딩에서 정의, 사용자 직접 할당 불가</td></tr>
+<tr><td><code>SU01</code></td><td class="wrap">Identity Management (<code>/useradmin</code>)</td><td class="wrap">Web Dynpro Java 앱. NWA에서도 접근</td></tr>
+<tr><td>프로파일 파라미터</td><td class="wrap">UME 파라미터 (<code>ume.*</code>)</td><td class="wrap">NWA → <code>/nwa/identity</code></td></tr>
+</tbody>
+</table>
+</div>
+
+<h3>UME 구조와 데이터소스</h3>
+
+<p>AS Java는 사용자·그룹 저장을 서비스 프로바이더("user store")로 추상화합니다: <b>DBMS provider</b>(시스템DB) · <b>UDDI provider</b>(외부 서비스) · <span class="key">UME provider</span>(통합 User Management Engine). UME provider는 설치 시 항상 구성되며, <b>사용자·권한 개념을 유연하게 구축하는 유일한 방법</b>입니다.</p>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>UME 계층</th><th>역할</th></tr></thead>
+<tbody>
+<tr><td>UME Core Layer</td><td class="wrap">API와 데이터소스 사이의 Persistence Manager — <b>애플리케이션이 저장 위치를 몰라도 되게</b> 만든다</td></tr>
+<tr><td>UME API Layer</td><td class="wrap">개발자·고객·파트너용 프로그래밍 인터페이스</td></tr>
+<tr><td>UME Services</td><td class="wrap">로그온·SSO, 사용자마스터 기반 프로비저닝, 권한 개념 제공</td></tr>
+<tr><td>UME UI</td><td class="wrap">브라우저 UI(UME Administration Console) · Identity Management</td></tr>
+</tbody>
+</table>
+</div>
+
+<p>지원 데이터소스는 <b>시스템DB · 디렉터리서비스(LDAP) · ABAP 기반 SAP 시스템</b>(SAP Web AS 6.20부터)입니다.</p>
+
+<div class="note warn">
+  <div class="t">LDAP과 AS ABAP을 동시에 데이터소스로 쓸 수 없다</div>
+  <p>· <b>LDAP</b>: 비밀번호를 LDAP에서 관리하고 싶을 때(Windows 통합인증 재사용 등), 비SAP 시스템과 LDAP을 공유할 때<br>
+     · <b>AS ABAP</b>: Java 애플리케이션이 ABAP의 서비스·사용자데이터에 접근해야 할 때. CUA 랜드스케이프에서는 중앙시스템(읽기/쓰기) 또는 자식시스템(<b>읽기전용 권장</b>) 중 선택</p>
+  <p>데이터소스 <b>변경</b>은 불일치를 유발해 제한적으로만 지원됩니다(<b>SAP Note 718383</b>). 시스템DB → LDAP/ABAP 전환은 가능(동일 고유속성의 사용자/그룹이 없어야 함), <span class="bad">ABAP 데이터소스는 변경 불가</span>, 디렉터리서비스는 고유ID가 유지되면 구조변경 가능.</p>
+</div>
+
+<p>데이터 파티셔닝은 <b>속성 기반</b>(전역속성은 LDAP, 앱 특화 속성은 DB) · <b>사용자 기반</b>(자가등록/내부사용자 구분) · <b>타입 기반</b>(사용자/그룹/역할/계정별) 셋으로 나뉩니다. SAP가 사전구성 조합을 제공하므로 <span class="key">특별한 이유가 없으면 그대로 씁니다.</span></p>
+
+<h3>ABAP 데이터소스 연동 — 이 대목이 시험에도 운영에도 걸린다</h3>
+
+<p>ABAP 클라이언트를 데이터소스(<code>dataSourceConfiguration_abap.xml</code>)로 쓰면 이렇게 보입니다.</p>
+
+<ul>
+  <li>ABAP 사용자가 <b>ABAP 비밀번호로 AS Java에 로그온</b> 가능</li>
+  <li><span class="hl">ABAP 롤이 동일한 이름의 UME 그룹으로 표시</span></li>
+  <li>ABAP 사용자 → ABAP(복합)롤 할당이 UME에서는 사용자 → 그룹 할당으로 나타남</li>
+</ul>
+
+<p>여기서 설계 의도가 드러납니다. ABAP+Java 컴포넌트를 모두 가진 애플리케이션(예: SAP PI)에서 <b>권한 관리를 한 곳으로 모으기 위한 것</b>입니다. PFCG 롤이 UME에서 그룹으로 보이므로, <span class="key">그 그룹(=PFCG 롤)에 UME 롤을 할당해 두면 사용자가 ABAP에서 PFCG 롤을 받는 순간 Java 권한도 자동으로 따라옵니다.</span></p>
+
+<p>연동은 <b>Java Connector(JCo)</b>로 이뤄지고, ABAP 통신 사용자(보통 이름에 <code>SAPJSF</code> 포함)의 ABAP 권한이 UME가 ABAP 사용자마스터를 <b>읽기만</b> 할지 <b>쓰기까지</b> 할지를 결정합니다.</p>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>ABAP 롤</th><th>UME에 주는 권한</th></tr></thead>
+<tbody>
+<tr><td><code>SAP_BC_JSF_COMMUNICATION_RO</code></td><td class="wrap">AS ABAP 사용자데이터 <b>읽기</b></td></tr>
+<tr><td><code>SAP_BC_JSF_COMMUNICATION</code></td><td class="wrap">AS ABAP 사용자데이터 <b>쓰기</b></td></tr>
+</tbody>
+</table>
+</div>
+
+<div class="note warn">
+  <div class="t">순서를 틀리면 설치가 막힌다</div>
+  <p>AS ABAP를 데이터소스로 쓸 계획이면, <span class="bad">AS Java 설치 전에</span> 통신사용자(권장명 <code>SAPJSF_&lt;SID&gt;</code>)가 AS ABAP에 이미 존재하고 초기 비밀번호까지 설정돼 있어야 합니다.</p>
+  <p>Release 7.10부터는 ABAP 사용자그룹이 UME에서 <b>Companies</b>로 표시되며(<code>SU01</code>의 User Group for Authorization Check와 매핑), 위임된 사용자관리(Delegated User Administration)에 쓰입니다.</p>
+</div>
+
+<h3>Principle — User · User Account · Group · Role</h3>
+
+<p>UME에서 User · User Account · Group · Role을 통칭해 <b>Principle</b>이라 부릅니다. 사용자가 실제로 보유하는 역할은 세 경로의 합입니다.</p>
+
+<div class="step"><span class="n">1</span><p>사용자에게 <b>직접</b> 할당된 역할</p></div>
+<div class="step"><span class="n">2</span><p>사용자가 속한 <b>그룹</b>에 할당된 역할</p></div>
+<div class="step"><span class="n">3</span><p>그 그룹의 <b>상위 그룹</b>에 할당된 역할 (계층 상속)</p></div>
+
+<div class="note">
+  <div class="t">🔰 초보자 설명 — "역할이 안 보인다"의 대부분은 검색 옵션이다</div>
+  <p>Identity Management에서 간접 할당된 Principle을 보려면 검색 시 <b>"Search Recursively"</b>를 체크해야 합니다. 체크하지 않으면 직접 할당분만 나와서 "권한이 없는 것처럼" 보입니다.</p>
+</div>
+
+<h3>보안정책 프로파일과 ABAP 사용자유형 매핑</h3>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>보안정책 프로파일</th><th>AS Java 로그온</th><th>강제 비밀번호 변경</th><th>매핑되는 ABAP 사용자유형</th></tr></thead>
+<tbody>
+<tr><td>Default</td><td>가능</td><td>예</td><td class="wrap">Dialog</td></tr>
+<tr><td>Technical users</td><td>가능</td><td>아니오</td><td class="wrap">System</td></tr>
+<tr><td>Internal service user</td><td>불가</td><td>—</td><td class="wrap">— (내부 처리용, 표시·수정 불가)</td></tr>
+<tr><td>Unknown</td><td class="wrap">ABAP 유형에 따름</td><td class="wrap">ABAP 유형에 따름</td><td class="wrap">Communication · Service · Reference</td></tr>
+<tr><td>Custom Profile</td><td>가능</td><td>예</td><td class="wrap">— (자체 비밀번호 규칙 정의)</td></tr>
+</tbody>
+</table>
+</div>
+
+<p><b>Technical User</b> 프로파일은 하드코딩되어 직접 수정할 수 없지만 <b>Default를 바꾸면 연동되어 바뀝니다</b> — Default를 손댈 때 통신 계정까지 영향을 받는다는 뜻입니다.</p>
+
+<h3>주요 UME 파라미터</h3>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>파라미터</th><th>설명</th></tr></thead>
+<tbody>
+<tr><td><code>ume.persistence.data_source_configuration</code></td><td class="wrap">UME 구성파일명 — <b>현재 활성 데이터소스를 식별</b>하는 값</td></tr>
+<tr><td><code>ume.logon.security_policy.auto_unlock_time</code></td><td class="wrap">잠긴 사용자 자동 잠금해제 시간(분, <code>0</code>이면 미해제)</td></tr>
+<tr><td><code>ume.logon.security_policy.lock_after_invalid_attempts</code></td><td class="wrap">잠금까지의 실패 횟수. <span class="hl">ABAP+Java 복합시스템에서는 자동으로 0</span></td></tr>
+<tr><td><code>ume.logon.security_policy.password_expire_days</code></td><td class="wrap">비밀번호 만료 일수</td></tr>
+<tr><td><code>ume.logon.security_policy.password_max_length</code> / <code>min_length</code></td><td class="wrap">비밀번호 최대/최소 길이</td></tr>
+<tr><td><code>ume.logon.security_policy.useridmaxlength</code> / <code>minlength</code></td><td class="wrap">사용자ID 최대/최소 길이</td></tr>
+<tr><td><code>ume.admin.search_maxhits</code> / <code>_warninglevel</code></td><td class="wrap">Administration Console 검색 최대건수(기본 1000) / 경고기준(기본 200)</td></tr>
+<tr><td><code>ume.logon.branding_image</code></td><td class="wrap">로그온 화면 이미지 경로</td></tr>
+</tbody>
+</table>
+</div>
+
+<p>구성 도구 접근 경로는 셋입니다: <b>NWA</b> <code>&lt;프로토콜&gt;://&lt;호스트&gt;:&lt;포트&gt;/nwa/identity</code> · <b>Enterprise Portal</b> <code>/irj</code> → System Administration → System Configuration → UME Configuration · <b>Identity Management 단독</b> <code>/useradmin</code>.</p>
+
+<div class="note warn">
+  <div class="t">AS Java가 UME 설정 때문에 안 올라올 때</div>
+  <p>UME 구성 불일치로 AS Java가 시작되지 않으면 <b>Config Tool</b>의 Configuration Editor 모드로 들어갑니다.<br>
+  <code>cluster_config → system → custom_global → cfg → services → com.sap.security.core.ume.service → Propertysheet properties</code></p>
+  <p>그래서 <b>설정 변경 전에</b> Identity Management → Support → <b>Download Configuration ZIP File</b>로 현재 구성을 백업해 두는 것이 권장됩니다(재임포트용이 아니라 <span class="key">기록·추적용</span>입니다 — 이걸로 롤백되지는 않습니다).</p>
+</div>
+
+<h3>권한 개념 — JEE Security Role vs UME Permission</h3>
+
+<p>AS Java의 권한 체크는 세 갈래이고, <b>어느 방식을 쓸지는 개발자가 결정</b>합니다.</p>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>체크 유형</th><th>설명</th></tr></thead>
+<tbody>
+<tr><td>애플리케이션 접근 보호</td><td class="wrap">요청 사용자에게 필요한 <b>JEE Security Role</b>이 있는지 체크 (없으면 거부)</td></tr>
+<tr><td>개별 활동 보호</td><td class="wrap">특정 활동(예: Delete) 요청 시 필요한 JEE Security Role 또는 <b>UME Action</b> 보유 여부 체크</td></tr>
+<tr><td>오브젝트 사용 보호</td><td class="wrap"><b>ACL</b>(Access Control List)로 폴더·문서 등 오브젝트 단위 보호</td></tr>
+</tbody>
+</table>
+</div>
+
+<p>체크 방식은 <b>선언적(Declarative)</b>과 <b>프로그래밍적(Programmatic)</b>으로 나뉩니다. 선언적은 Java 컨테이너가 개발자 코딩 없이 강제하며(어노테이션 또는 배포서술자에 정의) JEE Security Role에 주로 씁니다. <span class="key">UME Permission은 항상 프로그래밍적으로 체크</span>됩니다 — ABAP의 <code>AUTHORITY-CHECK</code>와 성격이 같습니다.</p>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>개념</th><th>설명</th></tr></thead>
+<tbody>
+<tr><td>Permission</td><td class="wrap">Java 코딩에서 정의되는 가장 세밀한 권한. <span class="bad">사용자에게 직접 할당할 수 없다</span></td></tr>
+<tr><td>Action</td><td class="wrap">Permission의 집합. 개발자가 <code>actions.xml</code>에 정의하고, Identity Management에 표시됨</td></tr>
+<tr><td>UME Role</td><td class="wrap">하나 이상 애플리케이션의 Action을 묶은 것. <b>관리자가 사용자/그룹에 할당하는 단위</b></td></tr>
+</tbody>
+</table>
+</div>
+
+<p>즉 <b>개발자는 세밀한 Permission을 정의하되 소수의 Action으로 복잡성을 숨기고, 관리자는 Action을 UME Role로 조합</b>합니다. JEE Security Role도 UME Role에 <b>Action으로 포함</b>시킬 수 있습니다(Identity Management에는 하위호환 때문에 <code>J2EE</code> 타입 Action으로 표시됩니다).</p>
+
+<div class="note warn">
+  <div class="t">직무분리(SoD) — 조합하면 안 되는 Action</div>
+  <p><code>Manage_Role_Assignments_SoD</code>(자신 외 모든 사용자에게 역할 할당 가능)와 <code>Manage_Roles_SoD</code>(자신에게 할당된 역할 외 모든 역할 생성/관리 가능)는 <span class="bad"><code>Manage_Users</code> · <code>Manage_Groups</code> · <code>Manage_Roles</code> · <code>Manage_all_Companies</code>와 함께 조합하지 않습니다.</span> 조합하는 순간 "스스로에게 권한을 주는" 경로가 열립니다.</p>
+</div>
+
+<h3>기본 사용자·그룹과 비상사용자</h3>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>용도</th><th>DB</th><th>LDAP</th><th>ABAP (Add-In)</th><th>ABAP (Remote)</th></tr></thead>
+<tbody>
+<tr><td>관리자</td><td><code>Administrator</code></td><td><code>Administrator</code></td><td><code>J2EE_ADMIN</code></td><td><code>J2EE_ADM_&lt;SID&gt;</code></td></tr>
+<tr><td>게스트</td><td><code>Guest</code></td><td><code>Guest</code></td><td><code>J2EE_GUEST</code></td><td><code>J2EE_GST_&lt;SID&gt;</code></td></tr>
+<tr><td>통신사용자</td><td><code>SAP&lt;SID&gt;DB</code></td><td class="wrap">자유 정의</td><td><code>SAPJSF</code></td><td><code>SAPJSF_&lt;SID&gt;</code></td></tr>
+</tbody>
+</table>
+</div>
+
+<p>기본 그룹은 <code>Administrators</code>/<code>SAP_J2EE_ADMIN</code> · <code>Guests</code>/<code>SAP_J2EE_GUEST</code> · <code>Everyone</code> · <code>Authenticated Users</code> · <code>Anonymous Users</code>입니다. 뒤의 셋은 UME 내장 Groups Adapter가 관리하는 특수 그룹이고, 관계는 한 줄로 정리됩니다.</p>
+
+<div class="note">
+  <div class="t">🔰 초보자 설명 — Everyone의 무게</div>
+  <p><b>Authenticated Users + Anonymous Users = Everyone</b>입니다. 그리고 <code>Everyone</code>에는 <span class="bad">앞으로 생성될 사용자까지 포함</span>됩니다. 여기에 권한을 붙이면 전사에 붙는 것이고, 나중에 만든 계정에도 자동으로 붙습니다. 기본 역할 <code>Everyone</code>이 이 그룹에 할당되어 모든 사용자에게 기본 최종사용자 권한을 줍니다.</p>
+</div>
+
+<p>기본 역할은 <b>Administrator</b>(광범위한 Java 권한, <code>Administrators</code> 그룹에 연결)와 <b>Everyone</b>(기본 최종사용자 권한) 둘입니다. 관리자 계정은 무제한 접근권한이므로 <span class="key">소수에게만, 강한 비밀번호로</span>. 게스트는 익명 접근용이라 보통 잠겨 있고 <b>삭제하지 않습니다.</b></p>
+
+<h4>비상 사용자 (Emergency User, <code>SAP*</code>)</h4>
+
+<p>사용자관리가 잘못 구성되어 <b>아무도 로그온할 수 없거나 모든 관리자 계정이 잠긴 경우</b>에만 켭니다. 모든 애플리케이션·구성도구에 로그온 가능한 완전관리자이며, 보안상 <span class="hl">기본 비밀번호가 없어 활성화 시 직접 설정</span>합니다.</p>
+
+<div class="step"><span class="n">STEP 1</span><p>Java 클러스터 <b>중지</b></p></div>
+<div class="step"><span class="n">STEP 2</span><p>Config Tool의 Configuration Editor 모드 → <code>cluster_config → system → custom_global → cfg → services → com.sap.security.core.ume.service → Propertysheet properties</code></p></div>
+<div class="step"><span class="n">STEP 3</span><p><code>ume.superadmin.activated=true</code>, <code>ume.superadmin.password=&lt;비밀번호&gt;</code> 설정</p></div>
+<div class="step"><span class="n">STEP 4</span><p>클러스터 시작 → <code>SAP*</code>로 로그온. <span class="bad">활성화되어 있는 동안 다른 모든 사용자는 비활성화된다</span></p></div>
+<div class="step"><span class="n">STEP 5</span><p>문제 해결(예: 관리자 계정 잠금해제) 후 <code>ume.superadmin.activated=false</code>로 되돌리고 재시작</p></div>
+
+<div class="note">
+  <div class="t">📖 참고 — ABAP 데이터소스면 비상사용자의 비중이 낮다</div>
+  <p>UME가 ABAP 데이터소스로 정상 동작 중인 시스템에서는 <b>ABAP 쪽에서 언제든 Java 관리권한을 가진 사용자를 만들 수 있으므로</b> 비상사용자를 켤 일이 거의 없습니다.</p>
+</div>
+
+<div class="note warn">
+  <div class="t">확인 필요 — 시스템 구성에 따라 갈리는 지점</div>
+  <p>Dual-Stack(ABAP+Java 한 시스템)은 <b>SAP NetWeaver 7.5부터 미지원</b>입니다. 이 LESSON의 ABAP 데이터소스 연동·Add-In 계정명은 랜드스케이프 구성에 따라 그대로 적용되지 않을 수 있습니다. <b>실제 시스템(winerp01 / MEP)에서 AS Java 스택 존재 여부와 활성 데이터소스(<code>ume.persistence.data_source_configuration</code>)를 먼저 확인할 것.</b></p>
+</div>
+
+</div>
+
+
+<!-- ══════════ LESSON 3 ══════════ -->
+<div class="lesson" id="l3">
+<h2><span class="no">LESSON 3</span>통신·연동 기술 — RFC · BAPI · ALE/IDoc</h2>
+
+<p><span class="tag">Unit 8</span><span class="tag">레슨 3개</span>RFC와 BAPI · 시스템 간 비즈니스 프로세스(ALE·IDoc) · AS Java의 타 시스템 연결</p>
+
+<h3>언제 이걸 알아야 하는가</h3>
+
+<p>인터페이스 쪽 문의는 문장이 거의 정해져 있습니다. <b>"어제 데이터가 안 넘어왔습니다"</b> 또는 <b>"같은 전표가 두 번 들어왔습니다."</b></p>
+
+<p>이 둘은 <span class="key">서로 다른 문제가 아니라 같은 질문의 앞뒷면</span>입니다 — "이 인터페이스는 무엇을 보장하기로 하고 만들었는가"입니다. 동기 호출은 실패하면 그 자리에서 끝이고 아무도 재시도하지 않습니다. 트랜잭셔널 RFC는 정확히 한 번을 보장하지만 순서는 보장하지 않습니다. 큐 RFC라야 순서까지 갑니다.</p>
+
+<p>그래서 인터페이스를 만들 때 코드보다 먼저 정하는 것은 <b>① 호출자가 결과를 기다려야 하는가 ② 중복 실행이 회계에 영향을 주는가 ③ 선후관계가 있는가</b> 세 가지이고, 그 답이 RFC 유형을 결정합니다. 이 결정을 문서에 안 남기면 나중에 "왜 이렇게 만들었냐"에 아무도 답을 못 합니다.</p>
+
+<h3>RFC — 모든 SAP 상위 인터페이스의 바닥</h3>
+
+<p>SAP 인터페이스는 SAP 고유 인터페이스와 개방형 인터페이스로 나뉘고, TCP/IP·CPI-C 같은 기술적 연결부터 BAPI·IDoc 같은 비즈니스 오브젝트 특화 인터페이스까지 층이 있습니다. 그런데 <span class="hl">비즈니스 오브젝트/프로세스에 접근하는 SAP 고유 상위 인터페이스는 전부 RFC 기술 위에 서 있습니다.</span></p>
+
+<p><b>RFC(Remote Function Call)</b>는 CPI-C·TCP/IP 기반의 SAP 인터페이스 프로토콜로, 원격(또는 동일) 시스템의 사전정의된 함수를 호출·실행하고 통신·파라미터전달·오류처리를 관리합니다. 짚어둘 점 둘.</p>
+
+<ul>
+  <li>RFC는 <b>인터페이스를 기술하는 말이지 프로그래밍 언어가 아닙니다.</b> 비SAP 시스템의 함수도 호출할 수 있습니다</li>
+  <li><span class="key">양방향(bidirectional)</span>입니다 — 외부 프로그램이 SAP의 함수를 RFC로 호출하는 것도 성립합니다</li>
+</ul>
+
+<p>함수모듈은 <b>Function Builder(<code>SE37</code>)</b>에서 만들고 import/export 파라미터를 정의합니다. 호출 문법은 다음과 같습니다.</p>
+
+<pre><code>CALL FUNCTION 'Z_GET_STOCK'
+  DESTINATION lv_dest          " SM59 에 정의된 RFC Destination
+  EXPORTING   iv_matnr = lv_matnr
+              iv_werks = 'STOR'
+  IMPORTING   ev_labst = lv_labst
+  EXCEPTIONS  communication_failure = 1  MESSAGE lv_msg
+              system_failure        = 2  MESSAGE lv_msg.</code></pre>
+
+<div class="note warn">
+  <div class="t">EXCEPTIONS 를 빼면 조용히 죽는다</div>
+  <p><code>communication_failure</code> · <code>system_failure</code>를 받지 않으면 상대 시스템이 내려가 있어도 <span class="bad">프로그램은 아무 말 없이 다음 줄로 넘어갑니다.</span> "어제 데이터가 안 넘어왔습니다"의 절반은 여기서 나옵니다. RFC 호출은 반드시 예외를 받고 로그를 남깁니다.</p>
+</div>
+
+<h3>RFC Destination (SM59) — 시스템이 아니라 클라이언트를 가리킨다</h3>
+
+<p>RFC 호출에는 두 시스템 간 기술적 연결인 <b>RFC Destination</b>이 필요합니다(<code>SM59</code>, 메뉴 Tools → Administration → Administration → Network → RFC Destinations).</p>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>성질</th><th>내용</th></tr></thead>
+<tbody>
+<tr><td>가리키는 대상</td><td class="wrap"><span class="hl">SAP 시스템 전체가 아니라 특정 <b>클라이언트</b></span>. 그래서 100번용과 200번용 Destination이 따로 필요하다</td></tr>
+<tr><td>접근 범위</td><td class="wrap">소스 시스템의 <b>모든 클라이언트</b>에서 접근 가능 (권한이 있으면)</td></tr>
+<tr><td>복수 정의</td><td class="wrap">동일 대상에 여러 Destination 가능 — <b>각기 다른 로그온 사용자</b>를 지정할 수 있다</td></tr>
+<tr><td>양방향</td><td class="wrap">양방향 RFC가 필요하면 <b>대상 시스템에도 동등한 두 번째 Destination</b>이 있어야 한다</td></tr>
+<tr><td>자격증명</td><td class="wrap">미리 지정하지 않으면 런타임에 로그온 데이터 입력을 요구한다</td></tr>
+</tbody>
+</table>
+</div>
+
+<div class="note">
+  <div class="t">📖 참고 — Trusted RFC</div>
+  <p>신뢰관계(Trusted RFC)가 설정된 SAP 시스템 간에는 <b>호출측 사용자가 양쪽에 정의되어 있으면 비밀번호 없이</b> 호출됩니다. 편리한 만큼 <span class="bad">신뢰관계 + 강한 권한 조합은 침투 경로</span>가 되므로, 신뢰 대상 시스템과 <code>S_RFCACL</code> 값을 좁게 잡아야 합니다.</p>
+</div>
+
+<h3>RFC 유형 — 무엇을 보장할 것인가로 고른다</h3>
+
+<figure class="figwrap">
+<svg class="dgm" viewBox="0 0 1000 366" role="img" aria-label="RFC 유형 비교 도해. 동기 sRFC는 호출자가 대기하고 보장이 없으며, 비동기 aRFC는 대기하지 않고 병렬처리에 쓰이고, 트랜잭셔널 tRFC는 정확히 한 번 실행을 보장하지만 순서는 보장하지 않으며, 큐 qRFC는 순서까지 보장한다.">
+  <defs>
+    <marker id="ca" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto">
+      <polygon class="arw-key" points="0,0 8,4 0,8"/></marker>
+  </defs>
+
+  <rect class="b-mut" x="20" y="24" width="225" height="46" rx="6"/>
+  <text class="t-h" x="40" y="52">sRFC · 동기</text>
+  <rect class="b" x="20" y="74" width="225" height="196" rx="6"/>
+  <text class="t-s" x="38" y="102">호출자</text>
+  <text class="t" x="38" y="122">응답까지 대기</text>
+  <text class="t-s" x="38" y="150">보장</text>
+  <text class="t c-bad" x="38" y="170">없음 — 실패는 즉시</text>
+  <text class="t-s" x="38" y="198">순서</text>
+  <text class="t" x="38" y="218">해당 없음</text>
+  <text class="t-s" x="38" y="246">모니터</text>
+  <text class="m-s" x="38" y="264">없음 (호출자가 처리)</text>
+
+  <rect class="b-mut" x="265" y="24" width="225" height="46" rx="6"/>
+  <text class="t-h" x="285" y="52">aRFC · 비동기</text>
+  <rect class="b" x="265" y="74" width="225" height="196" rx="6"/>
+  <text class="t-s" x="283" y="102">호출자</text>
+  <text class="t" x="283" y="122">대기하지 않음</text>
+  <text class="t-s" x="283" y="150">보장</text>
+  <text class="t c-bad" x="283" y="170">없음</text>
+  <text class="t-s" x="283" y="198">순서</text>
+  <text class="t" x="283" y="218">해당 없음</text>
+  <text class="t-s" x="283" y="246">모니터</text>
+  <text class="m-s" x="283" y="264">결과는 콜백으로 수신</text>
+
+  <rect class="b-key" x="510" y="24" width="225" height="46" rx="6"/>
+  <text class="t-h c-key" x="530" y="52">tRFC · 트랜잭셔널</text>
+  <rect class="b" x="510" y="74" width="225" height="196" rx="6"/>
+  <text class="t-s" x="528" y="102">호출자</text>
+  <text class="t" x="528" y="122">대기하지 않음</text>
+  <text class="t-s" x="528" y="150">보장</text>
+  <text class="t c-ok" x="528" y="170">정확히 1회 실행</text>
+  <text class="t-s" x="528" y="198">순서</text>
+  <text class="t c-bad" x="528" y="218">보장하지 않음</text>
+  <text class="t-s" x="528" y="246">모니터</text>
+  <text class="m-s" x="528" y="264">SM58</text>
+
+  <rect class="b-hl" x="755" y="24" width="225" height="46" rx="6"/>
+  <text class="t-h" x="775" y="52">qRFC · 큐</text>
+  <rect class="b" x="755" y="74" width="225" height="196" rx="6"/>
+  <text class="t-s" x="773" y="102">호출자</text>
+  <text class="t" x="773" y="122">대기하지 않음</text>
+  <text class="t-s" x="773" y="150">보장</text>
+  <text class="t c-ok" x="773" y="170">정확히 1회 실행</text>
+  <text class="t-s" x="773" y="198">순서</text>
+  <text class="t c-ok" x="773" y="218">큐 순서대로</text>
+  <text class="t-s" x="773" y="246">모니터</text>
+  <text class="m-s" x="773" y="264">SMQ1 / SMQ2</text>
+
+  <path class="ln-key" d="M735 172 H751" marker-end="url(#ca)"/>
+  <text class="t-xs c-key" x="248" y="290">보장이 늘어날수록 관리 대상(큐·재처리)도 같이 늘어난다</text>
+
+  <rect class="b-ghost" x="20" y="300" width="960" height="54" rx="6"/>
+  <text class="t-s" x="42" y="322">공통 — 연결 대상은 <tspan class="m-s">SM59</tspan> 의 RFC Destination 이 정하고, 그 Destination 은 시스템이 아니라 <tspan class="c-key">클라이언트</tspan> 를 가리킨다.</text>
+  <text class="t-s" x="42" y="342">고르는 순서: 결과를 기다려야 하는가 → 중복 실행이 회계에 영향을 주는가 → 선후관계가 있는가.</text>
+</svg>
+<figcaption><span class="fno">그림 3</span>RFC 유형 비교. "무엇을 보장하는가"가 유형을 고르는 기준이고, 보장이 커질수록 운영에서 봐야 할 모니터가 늘어난다.</figcaption>
+</figure>
+
+<div class="note warn">
+  <div class="t">확인 필요 — 그림 3은 강의 본문 밖의 보충이다</div>
+  <p>노션 원본(Unit 8 Lesson 1)은 RFC를 <b>하나의 기술</b>로만 설명하고 sRFC/aRFC/tRFC/qRFC 구분은 다루지 않습니다. 그림 3은 인터페이스 설계를 위해 보충한 내용이며, <b>실제 시스템(winerp01 / MEP)에서 <code>SM58</code> · <code>SMQ1</code> · <code>SMQ2</code> 화면과 bgRFC(<code>SBGRFCMON</code>) 사용 여부를 확인해 확정할 것.</b> 릴리스에 따라 tRFC/qRFC가 bgRFC로 대체되어 있을 수 있습니다.</p>
+</div>
+
+<h3>BOR과 BAPI</h3>
+
+<p><b>BAPI(Business Application Programming Interface)</b>는 SAP 비즈니스 프로세스·데이터에 대한 내/외부 <b>표준 접근 인터페이스</b>입니다. <b>Business Object Repository(BOR)</b>에 SAP 비즈니스 오브젝트의 <span class="key">메서드</span>로 정의되어 객체지향적 관점을 제공합니다.</p>
+
+<p>핵심은 <span class="hl">기술 레벨이 아니라 비즈니스 레벨에서 통합한다</span>는 점입니다. 그래서 연결 안정성(릴리스가 올라가도 인터페이스가 유지됨)과 통신기술 독립성을 얻습니다.</p>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>확인 경로</th><th>내용</th></tr></thead>
+<tbody>
+<tr><td><code>SE37</code></td><td class="wrap">BAPI도 <b>다른 함수모듈과 동일하게</b> RFC-지원 함수모듈로 생성·테스트한다</td></tr>
+<tr><td><code>SWO1</code></td><td class="wrap">Business Object Builder → Business Object Repository → BAPI</td></tr>
+<tr><td><code>BAPI</code></td><td class="wrap">BAPI Explorer — 비즈니스 오브젝트별 BAPI 목록</td></tr>
+</tbody>
+</table>
+</div>
+
+<p>활용처: ALE 등을 통한 시스템 경계 간 비즈니스 프로세스 연결 · SAP Business Suite 내 솔루션 통합 · 인터넷 연결 · 시스템 경계를 넘는 SAP Business Workflow · 서드파티/레거시 연동.</p>
+
+<h3>ALE — "누가 무엇을 언제 누구와 어떤 방식으로 교환하는가"</h3>
+
+<p>시스템 간 비즈니스 프로세스가 필요한 상황은 대체로 이렇습니다: HR이 별도 시스템인데 회계가 급여 데이터를 필요로 하는 경우, 두 기업이 협업해 공동 주문을 발주하는 경우(<b>회사 경계까지 넘음</b>), 은행이 회사로 계좌 명세를 전자 전송하는 경우.</p>
+
+<p><b>ALE(Application Link Enabling)</b>를 구현할 때 명확히 해야 할 것은 여섯입니다.</p>
+
+<div class="step"><span class="n">1</span><p>비즈니스 프로세스와 <b>관련 오브젝트</b> 식별</p></div>
+<div class="step"><span class="n">2</span><p>전송할 <b>정보</b> 식별</p></div>
+<div class="step"><span class="n">3</span><p>전송 데이터 <b>포맷</b> 지정 — IDoc 또는 합의된 XML</p></div>
+<div class="step"><span class="n">4</span><p>전송 <b>기술</b> 선택 — RFC · HTTP · HTTPS</p></div>
+<div class="step"><span class="n">5</span><p>전송 <b>유형</b> 결정 — 동기(생성 시점 전송 후 응답 대기) / 비동기(원하는 간격)</p></div>
+<div class="step"><span class="n">6</span><p>데이터 전송 <b>대상</b> 지정</p></div>
+
+<p>통합 시스템에서는 로지스틱스 애플리케이션이 회계 인터페이스를 호출해 데이터를 넘깁니다. 분산 시스템(중앙 회계 + 여러 분산 로지스틱스)에서도 원리는 같되, <span class="key">상세 전기(Posting)는 원격이 아니라 로컬에서 수행</span>됩니다.</p>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>항목</th><th>ALE 구현 예시 (로지스틱스 → 중앙 회계)</th></tr></thead>
+<tbody>
+<tr><td>전송 정보</td><td class="wrap">로컬 SAP Logistics 시스템의 <b>청구 데이터</b> → 중앙 SAP ECC 재무회계 시스템</td></tr>
+<tr><td>데이터 포맷</td><td class="wrap">IDoc 포맷</td></tr>
+<tr><td>전송 기술</td><td class="wrap">RFC</td></tr>
+<tr><td>전송 유형</td><td class="wrap"><b>비동기, 15분 주기</b></td></tr>
+<tr><td>목적</td><td class="wrap">중앙 회계시스템에서의 청구데이터 처리 지원</td></tr>
+</tbody>
+</table>
+</div>
+
+<div class="note">
+  <div class="t">📖 참고 — 라인아이템을 다 넘기지 않는다</div>
+  <p>대부분의 FI 계정은 <b>개별 라인아이템 전송보다 트랜잭션 데이터의 주기적 전송</b>이 데이터량을 최소화하는 데 유리합니다. 인터페이스 설계에서 "전건 실시간"이 항상 정답이 아니라는 뜻입니다.</p>
+</div>
+
+<p>데이터는 보통 비즈니스 오브젝트와 그 BAPI로 식별합니다(예: <code>StandardMaterial</code> 오브젝트의 Availability · Create · Edit 메서드). <b>IDoc 포맷</b>은 중간문서(Intermediate Document) 구조를 기술하며 EDI/EDIFACT 표준에 기반하고, 데이터 유형별로 다양한 <b>IDoc Type</b>이 존재합니다.</p>
+
+<p>ALE로 연결 가능한 SAP 시스템의 제약은 적습니다 — <span class="hl">RFC/HTTP를 지원하고 포맷(IDoc/XML)을 해석할 수만 있으면 서로 다른 릴리스의 시스템도 연결</span>됩니다.</p>
+
+<figure class="figwrap">
+<svg class="dgm" viewBox="0 0 1000 400" role="img" aria-label="ALE와 IDoc의 흐름 도해. 발신 애플리케이션이 ALE 레이어를 거쳐 IDoc을 생성하고 포트를 통해 전송하면 수신 시스템이 파트너 프로파일에 따라 전기 함수모듈을 호출해 애플리케이션 문서를 만들며, 각 단계는 상태 코드로 추적된다.">
+  <defs>
+    <marker id="da" markerWidth="9" markerHeight="9" refX="7" refY="4.5" orient="auto">
+      <polygon class="arw-key" points="0,0 9,4.5 0,9"/></marker>
+    <marker id="db" markerWidth="9" markerHeight="9" refX="7" refY="4.5" orient="auto">
+      <polygon class="arw-ok" points="0,0 9,4.5 0,9"/></marker>
+  </defs>
+
+  <text class="t-s c-key" x="20" y="22">아웃바운드 (발신)</text>
+
+  <rect class="b" x="20" y="32" width="180" height="66" rx="6"/>
+  <text class="t-h" x="38" y="58">발신 애플리케이션</text>
+  <text class="t-s" x="38" y="78">청구 · 출하 · 마스터</text>
+
+  <path class="ln-key" d="M200 65 H216" marker-end="url(#da)"/>
+
+  <rect class="b-key" x="220" y="32" width="200" height="66" rx="6"/>
+  <text class="t-h c-key" x="238" y="58">ALE 레이어</text>
+  <text class="m-s" x="238" y="78">BD64 분배모델</text>
+  <text class="m-s" x="238" y="93">WE20 파트너프로파일</text>
+
+  <path class="ln-key" d="M420 65 H436" marker-end="url(#da)"/>
+
+  <rect class="b-hl" x="440" y="32" width="200" height="66" rx="6"/>
+  <text class="t-h" x="458" y="58">IDoc 생성</text>
+  <text class="m-s" x="458" y="78">EDIDC · EDID4 · EDIDS</text>
+  <text class="t-s" x="458" y="93">제어 · 데이터 · 상태</text>
+
+  <path class="ln-key" d="M640 65 H656" marker-end="url(#da)"/>
+
+  <rect class="b" x="660" y="32" width="150" height="66" rx="6"/>
+  <text class="t-h" x="678" y="58">포트</text>
+  <text class="m-s" x="678" y="78">WE21</text>
+  <text class="t-s" x="678" y="93">tRFC · 파일 · XML</text>
+
+  <path class="ln-key" d="M810 65 H826" marker-end="url(#da)"/>
+
+  <rect class="b" x="830" y="32" width="150" height="66" rx="6"/>
+  <text class="t-h" x="848" y="58">전송</text>
+  <text class="m-s" x="848" y="78">SM59 Destination</text>
+  <text class="t-s" x="848" y="93">수신 시스템으로</text>
+
+  <path class="ln-ok" d="M905 98 V146" marker-end="url(#db)"/>
+  <text class="t-s c-ok" x="20" y="136">인바운드 (수신)</text>
+
+  <rect class="b" x="830" y="148" width="150" height="66" rx="6"/>
+  <text class="t-h" x="848" y="174">IDoc 수신</text>
+  <text class="t-s" x="848" y="194">DB에 저장</text>
+  <text class="m-s" x="848" y="209">상태 50</text>
+
+  <path class="ln-ok" d="M830 181 H814" marker-end="url(#db)"/>
+
+  <rect class="b" x="610" y="148" width="190" height="66" rx="6"/>
+  <text class="t-h" x="628" y="174">인바운드 파트너</text>
+  <text class="m-s" x="628" y="194">WE20 프로세스코드</text>
+  <text class="t-s" x="628" y="209">어느 FM 을 부를지 결정</text>
+
+  <path class="ln-ok" d="M610 181 H594" marker-end="url(#db)"/>
+
+  <rect class="b-key" x="380" y="148" width="200" height="66" rx="6"/>
+  <text class="t-h c-key" x="398" y="174">전기 함수모듈</text>
+  <text class="t-s" x="398" y="194">내부적으로 BAPI 호출</text>
+  <text class="t-s" x="398" y="209">직접 INSERT 하지 않는다</text>
+
+  <path class="ln-ok" d="M380 181 H364" marker-end="url(#db)"/>
+
+  <rect class="b-ok" x="150" y="148" width="200" height="66" rx="6"/>
+  <text class="t-h c-ok" x="168" y="174">애플리케이션 문서</text>
+  <text class="t-s" x="168" y="194">전표 · 오더 · 마스터</text>
+  <text class="m-s" x="168" y="209">상태 53</text>
+
+  <line class="ln-d" x1="20" y1="248" x2="980" y2="248"/>
+  <text class="t-s c-key" x="20" y="274">상태 코드로 추적한다 — 조회 WE02 / WE05, 재처리 BD87, tRFC 큐 SM58</text>
+
+  <rect class="b-mut" x="20" y="286" width="470" height="90" rx="6"/>
+  <text class="t" x="40" y="312">아웃바운드</text>
+  <text class="m-s" x="40" y="334">01 생성 → 30 ALE 처리 → 03 포트 전달 → 12 전송 OK</text>
+  <text class="t-s c-bad" x="40" y="358">02 · 26 · 29 = 오류 (구문 · 포트 · 파트너프로파일)</text>
+
+  <rect class="b-mut" x="510" y="286" width="470" height="90" rx="6"/>
+  <text class="t" x="530" y="312">인바운드</text>
+  <text class="m-s" x="530" y="334">50 수신 → 64 전기 대기 → 53 전기 성공</text>
+  <text class="t-s c-bad" x="530" y="358">51 = 애플리케이션 오류 · 56 = 파트너프로파일 없음</text>
+</svg>
+<figcaption><span class="fno">그림 4</span>ALE/IDoc 흐름. "안 넘어왔다"의 답은 언제나 IDoc이 어느 상태에서 멈춰 있는가에 있다.</figcaption>
+</figure>
+
+<div class="note warn">
+  <div class="t">확인 필요 — 그림 4의 T-Code와 상태 코드도 강의 밖 보충이다</div>
+  <p>노션 원본(Unit 8 Lesson 2)은 ALE·IDoc을 <b>개념 수준</b>으로만 다루며 <code>WE20</code> · <code>WE21</code> · <code>BD64</code> · <code>BD87</code> · <code>WE02</code>/<code>WE05</code>와 상태 코드 번호는 언급하지 않습니다. 인터페이스 설계서를 쓰기 위해 보충한 것이며, <b>실제 시스템(winerp01 / MEP)에서 상태 코드 텍스트(<code>TEDS1</code>)와 쓰이는 포트 유형을 확인해 확정할 것.</b></p>
+</div>
+
+<h3>AS Java의 타 시스템 연결 — Destination Service · JCo RFC Provider</h3>
+
+<p>AS Java가 EIS(Enterprise Information System — 다른 AS Java나 AS ABAP)에 붙는 방식은 두 갈래입니다: 애플리케이션이 직접 아웃바운드 연결을 열거나, <b>Destination Service</b> 같은 서비스가 연결을 수립하거나(서비스는 다른 서비스의 연결을 재사용할 수도 있습니다).</p>
+
+<h4>아웃바운드 — Destination Service</h4>
+
+<p><b>Destination Service</b>는 EIS로의 HTTP·RFC 연결을 모두 관리합니다. AS ABAP 대상은 보통 <b>RFC 타입</b>, AS Java 대상은 보통 <b>HTTP 타입</b>입니다. 생성·관리 위치는 NWA → Configuration → Infrastructure → <b>Destinations</b>.</p>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>타입</th><th>지정하는 것</th></tr></thead>
+<tbody>
+<tr><td>HTTP</td><td class="wrap">URL로 EIS·서비스 결정. 대상이 AS ABAP이면 <b>SID·언어·클라이언트</b>를 Destination 데이터에 지정. 인증방식은 user/password · X.509 인증서 · assertion ticket · logon ticket · user mapping</td></tr>
+<tr><td>RFC</td><td class="wrap">Target Host · System Number · SID · <b>게이트웨이 데이터</b>. Gateway Host는 보통 대상서버와 동일, Gateway Service는 <code>33&lt;인스턴스번호&gt;</code> 또는 <code>sapgw&lt;인스턴스번호&gt;</code></td></tr>
+</tbody>
+</table>
+</div>
+
+<p>RFC 연결은 <span class="key">항상 게이트웨이를 통과</span>합니다(대부분 AS ABAP 인스턴스의 게이트웨이). AS Java 7.10부터는 AS Java Central Services Instance의 RFC 게이트웨이도 쓸 수 있습니다.</p>
+
+<div class="note warn">
+  <div class="t">Hint — 인증방식</div>
+  <p>보안 지침상 <b>user/password보다 assertion ticket 등 다른 인증방식을 우선 검토</b>합니다. RFC 트레이스를 켜면 인스턴스 OS 레벨 서버디렉터리에 <code>jrfc&lt;서버프로세스PID&gt;_&lt;Nr&gt;.trc</code>와 개발자트레이스 <code>dev_jrfc.trc</code>가 생성됩니다.</p>
+</div>
+
+<h4>인바운드 — JCo RFC Provider</h4>
+
+<p>반대 방향, 즉 <b>AS ABAP → AS Java</b> 인바운드 RFC를 처리하는 서비스가 <b>JCo RFC Provider</b>입니다. 통신을 시작(Initiator)하는 쪽은 AS ABAP이고, AS Java가 데이터를 받으려면 <span class="hl">사전에 게이트웨이와의 연결이 수립되어 있어야</span> 합니다. 관리 위치는 NWA → Configuration → Infrastructure → <b>JCo RFC Provider</b>이며, 연결은 <b>Program ID</b> 아래 등록됩니다.</p>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>설정 위치</th><th>해야 할 일</th></tr></thead>
+<tbody>
+<tr><td>AS ABAP (<code>SM59</code>)</td><td class="wrap">연결타입 <span class="key">"T"</span>의 RFC Destination 생성 → <b>Registered Server Program</b>으로 JCo RFC Provider의 Program ID 지정. 관례상 <b>Destination명 = Program ID</b></td></tr>
+<tr><td>AS Java (서버 구성)</td><td class="wrap">게이트웨이 데이터와 병렬연결 수(<b>Server Count</b>) 지정. <b>Local JCo Servers</b> 활성 시 서버프로세스 하나가 Server Count만큼 연결, 비활성 시 <span class="bad">각 서버프로세스가 각각 Server Count만큼</span> 연결</td></tr>
+<tr><td>AS Java (Repository Configuration)</td><td class="wrap">"Use RFC Destination" 미체크면 이 탭에서 ABAP 시스템 데이터 직접 유지, 체크하면 Destination Service의 Destination 참조 (이 경우에도 게이트웨이에는 Program ID가 등록됨)</td></tr>
+</tbody>
+</table>
+</div>
+
+<div class="note warn">
+  <div class="t">양쪽 게이트웨이 데이터가 어긋나면 연결이 안 붙는다</div>
+  <p>동일한 게이트웨이 데이터가 <b>JCo RFC Provider(AS Java 측)</b>와 <b>RFC Destination(AS ABAP 측)</b> 양쪽에 <span class="hl">일치하게</span> 유지되어야 합니다. "등록은 했는데 호출이 안 간다"의 대부분이 이 불일치입니다.</p>
+</div>
+
+<div class="note ok">
+  <div class="t">📌 개인 E2E 프로젝트와의 연결점 — 목표 3번 "웹페이지 → RFC로 SAP 호출"</div>
+  <p>이 LESSON이 목표 3번의 설계 근거 전부입니다. 정해야 할 것을 순서대로 적으면 이렇게 됩니다.</p>
+  <p>· <b>방향</b> — 웹페이지가 SAP를 부르는 <b>인바운드</b>입니다. 즉 외부 프로그램 → SAP 방향이고, RFC가 양방향이라는 성질을 쓰는 자리입니다. 반대로 SAP가 웹을 부를 일이 생기면 그때는 <code>SM59</code>의 별도 Destination이 필요합니다.<br>
+     · <b>RFC 유형</b> — 화면에서 재고·유통기한을 <b>조회</b>하는 용도라면 결과를 기다려야 하므로 <span class="key">sRFC(동기)</span>가 맞습니다. 반면 <b>전표를 만드는</b> 호출이라면 중복 실행이 곧 회계 영향이므로 동기 호출에 그대로 태우지 않고 tRFC 계열(정확히 1회)이나 <b>승인 대기 큐</b>를 한 단계 둡니다 — 프로젝트 원칙인 "회계 영향 처리는 자동화하지 않는다"가 여기서 그대로 적용됩니다.<br>
+     · <b>함수모듈</b> — <code>SE37</code>에서 <b>Remote-Enabled Module</b>로 만들고, 내부에서 전표는 직접 INSERT 하지 않고 <b>BAPI</b>를 호출합니다(그림 4의 "전기 함수모듈"과 같은 구조). 성공 시 <code>BAPI_TRANSACTION_COMMIT</code>까지 명시적으로 부릅니다.<br>
+     · <b>계정</b> — 웹이 쓰는 SAP 계정은 <b>System 유형</b>으로, 권한은 그 FM에 필요한 오브젝트만. 플랜트는 <code>GATE</code>/<code>STOR</code>로 한정합니다. <span class="bad">Dialog 계정을 웹에 심지 않습니다.</span><br>
+     · <b>Destination이 클라이언트를 가리킨다는 점</b> — 개발 클라이언트로 붙여두고 운영 이관 시 못 바꾸는 사고가 흔합니다. 클라이언트·Destination명을 코드에 하드코딩하지 않고 커스터마이징 테이블이나 변수로 뺍니다.</p>
+  <p>ALE/IDoc은 이 프로젝트 범위에는 넣지 않습니다(벤더·고객이 전부 가상이라 실제 파트너 연동이 없음). 다만 <b>AL11 파일 기반 대량 처리 인터페이스</b>(목표 2번)를 설계할 때 그림 4의 <span class="key">상태 코드로 추적하는 구조</span>는 그대로 빌려옵니다 — CBO 테이블의 상태필드 <code>W</code>(대기) / <code>P</code>(처리완료) / <code>H</code>(보류)가 IDoc 상태 코드와 정확히 같은 발상입니다.</p>
+</div>
+
+</div>
+
+
+<!-- ══════════ APPENDIX ══════════ -->
+<div class="lesson" id="lx">
+<h2><span class="no">APPENDIX</span>정리 · 반드시 기억할 것</h2>
+
+<h3>한 장 요약</h3>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>질문</th><th>답</th></tr></thead>
+<tbody>
+<tr><td>권한 모델의 성격</td><td class="wrap"><b>포지티브</b> — 허용만 존재한다. 명시적으로 허용되지 않은 모든 것은 금지</td></tr>
+<tr><td>사용자·권한 데이터의 범위</td><td class="wrap"><b>클라이언트 종속</b>. 100번 사용자가 200번에 자동으로 있지 않다</td></tr>
+<tr><td>권한 오류 한 건을 조사할 때</td><td class="wrap"><code>SU53</code> — 재현 <b>직후</b>에 실행</td></tr>
+<tr><td>여러 권한이 한꺼번에 빠졌을 때</td><td class="wrap"><code>STAUTHTRACE</code> — 단, <b>동일 인스턴스</b>에서만 동작</td></tr>
+<tr><td>역할을 할당했는데 권한이 없다</td><td class="wrap"><b>User Comparison</b>(PFCG User 탭 / <code>PFUD</code>)을 안 했거나 <b>재로그온</b>을 안 했다</td></tr>
+<tr><td>PFCG 권한 탭 빨간불</td><td class="wrap"><b>조직수준</b>(회사코드·플랜트 등)이 유지되지 않았다</td></tr>
+<tr><td>RFC 통신 계정의 사용자 유형</td><td class="wrap"><b>System</b>. Communications Data는 비밀번호 유효기간에 걸린다</td></tr>
+<tr><td>RFC Destination이 가리키는 단위</td><td class="wrap">시스템이 아니라 <b>클라이언트</b></td></tr>
+<tr><td>정확히 1회 실행이 필요할 때</td><td class="wrap">tRFC(<code>SM58</code>). <b>순서까지</b> 필요하면 qRFC(<code>SMQ1</code>/<code>SMQ2</code>)</td></tr>
+<tr><td>IDoc이 안 넘어왔다</td><td class="wrap">상태 코드부터 본다 — <code>WE02</code>/<code>WE05</code>로 조회, <code>BD87</code>로 재처리</td></tr>
+<tr><td>ABAP 데이터소스 UME에서 PFCG 롤은</td><td class="wrap"><b>UME 그룹</b>으로 보인다 (그 그룹에 UME Role을 붙이면 연동된다)</td></tr>
+<tr><td>UME의 Everyone 그룹</td><td class="wrap">Authenticated + Anonymous. <b>앞으로 생성될 사용자까지 포함</b>한다</td></tr>
+</tbody>
+</table>
+</div>
+
+<div class="note warn">
+  <div class="t">반드시 지킬 것</div>
+  <p>· 권한 요청에 <b><code>SAP_ALL</code>을 붙여 해결하지 않는다.</b> 원인을 영원히 모르게 되고, 회수 시점도 아무도 기억하지 못한다.<br>
+     · <code>SU53</code>·<code>STAUTHTRACE</code> 없이 <b>추측으로 권한을 열지 않는다.</b> 트랜잭션 코드만 넣어놓고 "열어줬다"고 답하면 다시 문의가 온다.<br>
+     · 새 역할을 만들기 전에 <code>SUIM</code>으로 <b>기존 역할을 먼저 찾는다.</b> 역할 수가 늘수록 SoD 점검과 감사 비용이 같이 늘어난다.<br>
+     · 인터페이스용 계정은 <b>System 유형</b>으로 만든다. 만료로 야간 배치가 통째로 죽는 사고를 미리 막는 유일한 방법이다.<br>
+     · RFC 호출에 <b><code>EXCEPTIONS</code>를 반드시 받고 로그를 남긴다.</b> 실패해도 조용히 넘어가는 인터페이스가 가장 고치기 어렵다.<br>
+     · Destination명·클라이언트·회사코드를 <b>프로그램에 하드코딩하지 않는다.</b> 그 순간 운영 이관이 막힌다.<br>
+     · UME 설정을 바꾸기 전에 <b>Download Configuration ZIP</b>을 받아둔다. 롤백용은 아니지만 무엇을 바꿨는지 대조할 유일한 근거다.</p>
+</div>
+
+<div class="note">
+  <div class="t">🔰 초보자 설명 — 이 노트를 한 줄로 요약하면</div>
+  <p>권한은 <b>"사용자 → 역할 → 프로파일 → 오브젝트 → 필드값"</b>으로 내려가고, 통신은 <b>"Destination → RFC → BAPI → IDoc"</b>으로 올라갑니다. 문제가 생겼을 때 이 두 사슬 중 <b>어느 고리에서 끊겼는지</b>를 먼저 정하면, 그다음에 볼 T-Code는 자동으로 정해집니다.</p>
+</div>
+
+<h3>참고</h3>
+
+<ul>
+  <li>원본: 노션 <b>SAP Learning Hub</b> → Technical Implementation and Operation I of SAP S/4HANA and SAP Business Suite → <b>1-4</b>(Unit 6, 레슨 4개) · <b>1-5</b>(Unit 7, 레슨 4개) · <b>1-6</b>(Unit 8, 레슨 3개)</li>
+  <li>강의 밖 보충: <b>그림 3</b>(RFC 유형 비교)과 <b>그림 4</b>의 T-Code·상태 코드. 인터페이스 설계용으로 더한 것이며 실제 시스템에서 확정이 필요하다</li>
+  <li>언급된 SAP Notes: <b>16466</b>(프로파일 네임 레인지) · <b>76829</b>(응급 사용자관리 역할) · <b>452904</b>(권한 반영과 재로그온) · <b>1749142</b>(클라이언트 066) · <b>2570961</b>(S/4HANA 비즈니스 사용자) · <b>718383</b>(UME 데이터소스 변경) · <b>2467</b> · <b>862989</b> · <b>1631929</b></li>
+  <li>이 노트가 닿는 개인 프로젝트 산출물: <b>인터페이스 설계서</b>(RFC FM 정의 · AL11 레이아웃 · 병렬처리 구조) · <b>CBO 3종의 <code>AUTHORITY-CHECK</code> 설계</b></li>
+</ul>
+
+</div>
+
+</div>
+<script src="../../assets/hub.js" defer></script>
+</body>
+</html>

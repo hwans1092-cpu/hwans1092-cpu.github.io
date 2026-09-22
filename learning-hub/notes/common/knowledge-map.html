@@ -1,0 +1,1361 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>SAP S/4HANA 통합 지식맵 — 자료실 전체 지도</title>
+<meta name="description" content="Learning Hub 7개 학습영역 130여 개 노트를 L0 UX · L1 플랫폼 · L2 애플리케이션 · L3 데이터 + 횡단 관심사의 5계층으로 재분류한 지식 지도. 각 절에서 상세 노트로 내려간다.">
+<link rel="icon" href="../../assets/favicon.svg">
+<link rel="stylesheet" href="../../assets/notes-paper.css">
+<style>
+/* ── 이 노트 전용: 도해(SVG) 스타일 ─────────────────────────── */
+.dgm{display:block; width:100%; height:auto;}
+.dgm text{font-family:"Malgun Gothic","맑은 고딕","Apple SD Gothic Neo",sans-serif; fill:#1e1e1e;}
+.dgm .t-h{font-size:15px; font-weight:700;}
+.dgm .t{font-size:13px;}
+.dgm .t-s{font-size:11.5px; fill:#555;}
+.dgm .t-xs{font-size:10.5px; fill:#6B7280;}
+.dgm .m{font-family:"D2Coding","Consolas",monospace; font-size:12px;}
+.dgm .m-s{font-family:"D2Coding","Consolas",monospace; font-size:10.5px;}
+.dgm .c-key{fill:#4338CA;} .dgm .c-bad{fill:#B91C1C;} .dgm .c-ok{fill:#047857;}
+.dgm .b{fill:#FFFFFF; stroke:#C7CBD6; stroke-width:1.2;}
+.dgm .b-key{fill:#EEF0FB; stroke:#4338CA; stroke-width:1.4;}
+.dgm .b-bad{fill:#FEF2F2; stroke:#B91C1C; stroke-width:1.3;}
+.dgm .b-ok{fill:#ECFDF5; stroke:#047857; stroke-width:1.3;}
+.dgm .b-mut{fill:#F3F4F6; stroke:#D1D5DB; stroke-width:1.1;}
+.dgm .b-hl{fill:#FEF08A; stroke:#CA8A04; stroke-width:1.2;}
+.dgm .b-ghost{fill:none; stroke:#9AA3B2; stroke-width:1.1; stroke-dasharray:5 4;}
+.dgm .ln{stroke:#7C8697; stroke-width:1.4; fill:none;}
+.dgm .ln-key{stroke:#4338CA; stroke-width:1.8; fill:none;}
+.dgm .ln-bad{stroke:#B91C1C; stroke-width:1.6; fill:none;}
+.dgm .ln-ok{stroke:#047857; stroke-width:1.6; fill:none;}
+.dgm .ln-d{stroke:#9AA3B2; stroke-width:1.2; stroke-dasharray:4 4; fill:none;}
+.dgm .arw{fill:#7C8697;} .dgm .arw-key{fill:#4338CA;}
+.dgm .arw-bad{fill:#B91C1C;} .dgm .arw-ok{fill:#047857;}
+.figwrap{background:#FAFAFE; border:1px solid var(--rule); border-radius:6px;
+  padding:18px 16px 10px; margin:22px 0;}
+.figwrap figcaption{margin-top:12px; padding-top:10px; border-top:1px solid var(--rule);}
+</style>
+</head>
+<body>
+<div class="crumb"><a href="../../index.html">← 자료실 홈</a> · 단독 문서 · SAP S/4HANA 통합 지식맵</div>
+<div class="sheet">
+
+<div class="doc-head">
+  <div class="kicker">LEARNING HUB · 단독 문서 · 전체 지도</div>
+  <h1>SAP S/4HANA 통합 지식맵 — 자료실 전체 정리 · 분류 · 심화</h1>
+  <div class="sub">
+    Learning Journey 소속이 아닌 <b>자료실 전체를 가로지르는 지도 문서</b><br>
+    출처: 노션 <b>SAP Learning Hub</b> → 🗺️ SAP S/4HANA 통합 지식맵 (0 ~ 10절 + 출처) 변환<br>
+    작성 기준일 <b>2026-09-02</b> · 기준 릴리스 <b>SAP S/4HANA 2025 (ABAP Platform 2025)</b>
+  </div>
+</div>
+
+<div class="lead">
+  <p><b>결론부터.</b> 이 자료실의 노트는 SAP가 나눠 준 <span class="key">Learning Journey 단위</span>로 쌓여 있습니다. 그 순서는 배우기에는 좋지만, 시스템을 이해하기에는 좋지 않습니다 — 같은 조건기법이 SD 가격결정과 MM 계정결정과 출력결정에 흩어져 있고, 같은 조직구조가 SD·MM·FI 세 곳에서 따로 설명되기 때문입니다.</p>
+  <p>그래서 이 문서는 7개 학습영역(IEE2E · SD · MM · PP · FI · TADM10 · FI E2E 가이드)을 <span class="hl">L0 사용자경험 → L1 기술플랫폼 → L2 애플리케이션 → L3 데이터 + 횡단 관심사</span>의 5계층으로 다시 배치합니다. 각 절 끝에는 원본 노트 링크가 달려 있어, 지도에서 바로 상세 페이지로 내려갈 수 있습니다.</p>
+</div>
+
+<div class="note">
+  <div class="t">🧭 읽는 법 — 목적별 최단 경로</div>
+  <p><b>SD 개발자 관점</b>이라면 LESSON 6(SD) → LESSON 8(모듈 통합) → LESSON 9(데이터모델) → LESSON 11의 테이블 맵 순서가 가장 빠릅니다.<br>
+     <b>Basis·기술 배경</b>을 채우려면 LESSON 3 → LESSON 4.<br>
+     <b>프로젝트 방법론</b>은 LESSON 2 → LESSON 10.</p>
+</div>
+
+<div class="toc">
+  <h4>목차</h4>
+  <ol>
+    <li><a href="#l1">분류 체계 — 7개 영역을 5개 계층으로</a></li>
+    <li><a href="#l2">SAP 전략과 제품 포트폴리오 (횡단 · 최상위 맥락)</a></li>
+    <li><a href="#l3">L0 — 사용자 경험 계층</a></li>
+    <li><a href="#l4">L1 — 기술 플랫폼 (ABAP Platform · Web Dispatcher)</a></li>
+    <li><a href="#l5">L2 공통 기반 — 조직구조 · 마스터데이터 · 조건기법</a></li>
+    <li><a href="#l6">L2 모듈 — SD · MM</a></li>
+    <li><a href="#l7">L2 모듈 — PP · FI/CO</a></li>
+    <li><a href="#l8">L2 — 모듈 통합 (Integration Points)</a></li>
+    <li><a href="#l9">L3 — 데이터 계층 (HANA · 단순화 데이터모델)</a></li>
+    <li><a href="#l10">횡단 — 방법론 · 전환경로 · 랜드스케이프 · 확장 · 통합</a></li>
+    <li><a href="#l11">심화 — 2025 릴리스 · Clean Core A~D · 테이블 맵</a></li>
+    <li><a href="#l12">원본 인덱스와 출처</a></li>
+  </ol>
+</div>
+
+
+<!-- ══════════ LESSON 1 ══════════ -->
+<div class="lesson" id="l1">
+<h2><span class="no">LESSON 1</span>분류 체계 — 7개 영역을 5개 계층으로</h2>
+
+<p><span class="tag">원문 0절</span><span class="tag">이 문서의 좌표계</span>아키텍처 다이어그램 · 학습영역 재배치표</p>
+
+<h3>언제 이걸 알아야 하는가</h3>
+
+<p><b>"이거 어디서 봤더라"</b> — 노트가 130개를 넘어가면 이게 가장 자주 하는 말이 됩니다. Learning Journey 이름으로는 기억나지 않습니다. "가격결정은 SD인데, 그 조건기법이 MM 계정결정에도 쓰이고, 출력결정에도 쓰인다"를 기억하는 편이 훨씬 빠릅니다.</p>
+
+<p>이 계층 분류가 그 색인 역할을 합니다. <span class="key">"지금 보고 있는 문제가 어느 계층의 문제인가"</span>를 먼저 정하면 찾을 노트가 서너 개로 줄어듭니다.</p>
+
+<figure class="figwrap">
+<svg class="dgm" viewBox="0 0 1000 470" role="img" aria-label="5계층 재분류 지도. 위에서부터 L0 사용자경험, L1 기술플랫폼, L2 애플리케이션, L3 데이터 계층이 쌓이고, 전략·방법론·확장성·통합 같은 횡단 관심사가 네 계층 전체를 세로로 관통한다.">
+  <defs>
+    <marker id="ka1" markerWidth="9" markerHeight="9" refX="7" refY="4.5" orient="auto">
+      <polygon class="arw-key" points="0,0 9,4.5 0,9"/></marker>
+  </defs>
+
+  <rect class="b-key" x="20" y="18" width="700" height="72" rx="6"/>
+  <text class="t-h c-key" x="42" y="44">L0 · 사용자 경험</text>
+  <text class="t" x="42" y="66">Fiori Launchpad · SAP GUI · Build Work Zone · SSO</text>
+  <text class="t-xs" x="42" y="82">원본: TADM10 U3·U9·U17-20, S4C03 U8</text>
+  <rect class="b-hl" x="600" y="30" width="104" height="24" rx="4"/>
+  <text class="t-s" x="616" y="47">LESSON 3</text>
+
+  <rect class="b-key" x="20" y="98" width="700" height="86" rx="6"/>
+  <text class="t-h c-key" x="42" y="124">L1 · 기술 플랫폼</text>
+  <text class="t" x="42" y="146">AS ABAP 커널 · ICM/ICF · Gateway · 권한 · 트랜스포트</text>
+  <text class="t" x="42" y="164">모니터링 · 시작/중지 · 프로파일</text>
+  <text class="t-xs" x="42" y="178">원본: TADM10 U4-8 · U10-16 · U21</text>
+  <rect class="b-hl" x="600" y="110" width="104" height="24" rx="4"/>
+  <text class="t-s" x="616" y="127">LESSON 4</text>
+
+  <rect class="b-ok" x="20" y="192" width="700" height="112" rx="6"/>
+  <text class="t-h c-ok" x="42" y="218">L2 · 애플리케이션</text>
+  <text class="t" x="42" y="240">SD · MM · PP · FI/CO 모듈</text>
+  <text class="t" x="42" y="260">조직구조 · 마스터데이터 · 조건기법 · 모듈 통합</text>
+  <text class="t-xs" x="42" y="278">원본: IEE2E, SD/MM/PP/FI Journey, FI E2E 가이드</text>
+  <text class="t-xs c-bad" x="42" y="296">이 자료실 노트의 대부분이 여기에 속한다</text>
+  <rect class="b-hl" x="560" y="204" width="144" height="24" rx="4"/>
+  <text class="t-s" x="576" y="221">LESSON 5 · 6 · 7 · 8</text>
+
+  <rect class="b-key" x="20" y="312" width="700" height="80" rx="6"/>
+  <text class="t-h c-key" x="42" y="338">L3 · 데이터</text>
+  <text class="t" x="42" y="360">SAP HANA · Universal Journal · MATDOC · 데이터모델 단순화</text>
+  <text class="t-xs" x="42" y="380">원본: TADM10 U2, S4F12 U1, 공식 Simplification List</text>
+  <rect class="b-hl" x="600" y="324" width="104" height="24" rx="4"/>
+  <text class="t-s" x="616" y="341">LESSON 9</text>
+
+  <rect class="b-bad" x="740" y="18" width="240" height="374" rx="6"/>
+  <text class="t-h c-bad" x="762" y="46">횡단 관심사</text>
+  <text class="t" x="762" y="74">전략 · 방법론</text>
+  <text class="t" x="762" y="96">전환경로</text>
+  <text class="t" x="762" y="118">랜드스케이프</text>
+  <text class="t" x="762" y="140">확장성 (Clean Core)</text>
+  <text class="t" x="762" y="162">통합 · 마이그레이션</text>
+  <text class="t" x="762" y="184">테스트</text>
+  <text class="t-xs" x="762" y="214">원본: S4C03, SL_RISE419,</text>
+  <text class="t-xs" x="762" y="230">TADM10 U1 · U11</text>
+  <text class="t-s c-bad" x="762" y="262">네 계층 전체를</text>
+  <text class="t-s c-bad" x="762" y="280">세로로 관통한다</text>
+  <rect class="b-hl" x="762" y="300" width="196" height="24" rx="4"/>
+  <text class="t-s" x="778" y="317">LESSON 2 · 10 · 11</text>
+
+  <path class="ln-key" d="M370 90 V96" marker-end="url(#ka1)"/>
+  <path class="ln-key" d="M370 184 V190" marker-end="url(#ka1)"/>
+  <path class="ln-key" d="M370 304 V310" marker-end="url(#ka1)"/>
+
+  <rect class="b-ghost" x="20" y="404" width="960" height="54" rx="6"/>
+  <text class="t-s" x="42" y="428">아래로 갈수록 "무엇이 저장되는가", 위로 갈수록 "사람이 무엇을 보는가". 문제가 생겼을 때 어느 층의 문제인지를 먼저 정하면</text>
+  <text class="t-s" x="42" y="448">찾아볼 노트가 서너 개로 줄어든다 — 이 지도의 실질적 용도가 그것이다.</text>
+</svg>
+<figcaption><span class="fno">그림 1</span>5계층 재분류 지도. 학습 순서(Journey)가 아니라 시스템 구조 순서로 노트를 다시 배치한 것.</figcaption>
+</figure>
+
+<h3>재배치표</h3>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>계층</th><th>다루는 것</th><th>원본 학습 영역</th><th>이 문서</th></tr></thead>
+<tbody>
+<tr><td><b>L0 사용자 경험</b></td><td class="wrap">Fiori Launchpad · SAP GUI · Work Zone · SSO</td><td class="wrap">TADM10 U3·U9·U17-20, S4C03 U8</td><td>LESSON 3</td></tr>
+<tr><td><b>L1 기술 플랫폼</b></td><td class="wrap">AS ABAP 커널 · ICM/ICF · Gateway · 권한 · 트랜스포트 · 모니터링</td><td class="wrap">TADM10 U4-8·U10-16·U21</td><td>LESSON 4</td></tr>
+<tr><td><b>L2 애플리케이션</b></td><td class="wrap">SD · MM · PP · FI/CO 모듈, 조직구조, 마스터데이터, 모듈 통합</td><td class="wrap">IEE2E, SD/MM/PP/FI Journey, FI E2E 가이드</td><td>LESSON 5 · 6 · 7 · 8</td></tr>
+<tr><td><b>L3 데이터</b></td><td class="wrap">HANA · Universal Journal · MATDOC · 데이터모델 단순화</td><td class="wrap">TADM10 U2, S4F12 U1, 공식 Simplification List</td><td>LESSON 9</td></tr>
+<tr><td><b>횡단 관심사</b></td><td class="wrap">전략 · 방법론 · 전환경로 · 랜드스케이프 · 확장성 · 통합 · 마이그레이션 · 테스트</td><td class="wrap">S4C03, SL_RISE419, TADM10 U1·U11</td><td>LESSON 2 · 10</td></tr>
+<tr><td><b>심화(공식 자료)</b></td><td class="wrap">S/4HANA 2025 · Clean Core Level A~D · 유지보수 로드맵 · 개발자용 테이블 맵</td><td class="wrap">— (신규 보강)</td><td>LESSON 11</td></tr>
+</tbody>
+</table>
+</div>
+
+<div class="note warn">
+  <div class="t">원문에 있던 첨부 다이어그램은 옮기지 않았다</div>
+  <p>노션 원문 0절에는 <code>sap-s4hana-architecture-knowledge-map.html</code> 임베드가 붙어 있습니다. 노션 첨부는 <b>서명 URL이라 만료</b>되므로 이 노트로 옮기지 않았고, 대신 그림 1로 같은 내용을 다시 그렸습니다. 원본 임베드가 필요하면 노션에서 직접 열 것.</p>
+</div>
+
+</div>
+
+
+<!-- ══════════ LESSON 2 ══════════ -->
+<div class="lesson" id="l2">
+<h2><span class="no">LESSON 2</span>SAP 전략과 제품 포트폴리오 (횡단 · 최상위 맥락)</h2>
+
+<p><span class="tag">원문 1절</span><span class="tag">Intelligent Enterprise · BTP · 배포 변형 · 4대 E2E 프로세스</span></p>
+
+<h3>언제 이걸 알아야 하는가</h3>
+
+<p><b>"우리가 쓰는 게 Private Edition인가요 On-Premise인가요"</b> — 이 질문의 답에 따라 릴리스 주기 · 업그레이드 의무 · 쓸 수 있는 확장 방식이 전부 달라집니다. 코드 한 줄 쓰기 전에 알아야 하는 전제입니다.</p>
+
+<h3>Intelligent Enterprise와 BTP</h3>
+
+<p>계층 구조는 아래에서 위로 이렇게 쌓입니다.</p>
+
+<div class="step"><span class="n">아래</span><p><b>SAP BTP</b> — App Dev &amp; Automation · Data &amp; Analytics · Integration, AI/Platform Foundation</p></div>
+<div class="step"><span class="n">↑</span><p><b>Cloud ERP + Business Data Cloud</b></p></div>
+<div class="step"><span class="n">↑</span><p><b>5대 도메인</b> — Financial · Spend · Supply Chain · HCM · CX</p></div>
+<div class="step"><span class="n">↑</span><p>산업특화 · 생태계</p></div>
+<div class="step"><span class="n">위</span><p><b>4대 E2E 프로세스</b>(Recruit to Retire · Source to Pay · Design to Operate · Lead to Cash)를 Joule 에이전트가 오케스트레이션</p></div>
+
+<p><b>BTP 3축</b>: SAP Build(코드/로우코드/생성형 AI) · Business Data Cloud(Datasphere+SAC+BW 통합 SaaS)/HANA Cloud/MDM · Integration Suite(3,400+ 사전구축 통합).<br>
+<b>탐색 진입점</b>: SAP Discovery Center(미션 · 참조 아키텍처) · SAP Business Accelerator Hub(API · 이벤트 · 통합 패키지).</p>
+
+<h3>제품 계보와 배포 변형</h3>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>구분</th><th>내용</th></tr></thead>
+<tbody>
+<tr><td>SAP Business Suite(구)</td><td class="wrap">SAP ERP(ECC) · CRM · SRM · SCM · PLM — AS ABAP/AS Java 기반, 임의 DB</td></tr>
+<tr><td>SAP S/4HANA</td><td class="wrap">2015년 출시, <b>SAP HANA 전용</b>(Linux), Fiori UX. 후속: BW/4HANA</td></tr>
+<tr><td>Public Edition</td><td class="wrap">SAP 운영, 반기 릴리스, 기능범위 작지만 확대 중, GROW with SAP의 핵심</td></tr>
+<tr><td><span class="key">Private Edition</span></td><td class="wrap">온프레미스 코드라인을 SAP 프라이빗 클라우드(HEC)에 호스팅. <b>2년 주기 릴리스 / 릴리스당 7년 유지보수 / 첫 2년 FPS 반기 제공</b>. 최소 7년에 1회 업그레이드 필수, 연 1회 SAP에 업그레이드 요청 권리</td></tr>
+<tr><td>On-Premise</td><td class="wrap">동일 릴리스 주기, 업그레이드 시점·실행은 고객 관리</td></tr>
+<tr><td>RISE with SAP</td><td class="wrap">Cloud ERP + BPI(Signavio) + BTP 크레딧 + Business Network + 서비스/툴을 하나의 계약으로. 구현 방법론 = <b>RISE with SAP Methodology</b>(SAP Activate + Clean Core Q-Gate)</td></tr>
+<tr><td>GROW with SAP</td><td class="wrap">중견기업용 Public Edition + BTP(SAP Build) + 활성화 서비스 + 커뮤니티</td></tr>
+</tbody>
+</table>
+</div>
+
+<h3>4대 E2E 프로세스와 모듈 매핑</h3>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>E2E 프로세스</th><th>단계</th><th>S/4HANA 모듈</th><th>보완 클라우드</th></tr></thead>
+<tbody>
+<tr><td>Lead to Cash</td><td class="wrap">Contact→Lead→Opportunity→Quote→<b>Order→Fulfill(pick·pack·ship)→Invoice to Cash</b></td><td class="wrap">SD → FI-AR</td><td class="wrap">Emarsys · Sales Cloud · CPQ · Commerce</td></tr>
+<tr><td>Source to Pay</td><td class="wrap">Source→Contract→Request→Receive→Invoice→Pay</td><td class="wrap">MM → FI-AP</td><td class="wrap">Ariba · Fieldglass</td></tr>
+<tr><td>Design to Operate</td><td class="wrap">Plan→Procure→Manufacture→Deliver→Operate</td><td class="wrap">PP · MM · EWM · PM</td><td class="wrap">IBP · Digital Manufacturing</td></tr>
+<tr><td>Recruit to Retire</td><td class="wrap">Hire→Onboard→Work→Pay→Retire / Travel to Reimburse</td><td class="wrap">HCM(HXM) → FI</td><td class="wrap">SuccessFactors · Concur</td></tr>
+<tr><td>Record to Report</td><td class="wrap">거래 기록 → 결산 → 보고</td><td class="wrap">FI/CO — <b>모든 프로세스가 여기로 수렴</b></td><td class="wrap">SAC · Group Reporting</td></tr>
+</tbody>
+</table>
+</div>
+
+<div class="note">
+  <div class="t">📖 원본 노트</div>
+  <p><a href="../iee2e/iee2e-01-e2e-processes.html">IEE2E U1 — End-to-End 프로세스와 통합 과제</a> · <a href="../iee2e/iee2e-02-business-suite.html">IEE2E U2 — SAP Business Suite 개관</a> · <a href="../iee2e/iee2e-03-central-objects.html">IEE2E U3 — 핵심 개념과 오브젝트</a> · <a href="../sd/s4c03-implementing-pce.html">S4C03 Implementing SAP S/4HANA Cloud Private Edition</a></p>
+</div>
+
+<div class="note ok">
+  <div class="t">📌 개인 E2E 프로젝트와의 연결점</div>
+  <p>프로젝트는 <b>벤더 사입 → 재판매 트레이딩</b> 모델이므로 4대 프로세스 중 <span class="key">Source to Pay</span>(MM → FI-AP)와 <span class="key">Lead to Cash</span>(SD → FI-AR) 두 개만 탑니다. Design to Operate는 <b>생산·외주가공이 없어</b> 해당하지 않고, Recruit to Retire도 범위 밖입니다.</p>
+  <p>Record to Report는 그 두 흐름이 수렴하는 자리이므로 <a href="fi-e2e-guide.html">FI End-to-End 프로세스 가이드</a>가 실질적인 종착점 문서가 됩니다.</p>
+</div>
+
+</div>
+
+
+<!-- ══════════ LESSON 3 ══════════ -->
+<div class="lesson" id="l3">
+<h2><span class="no">LESSON 3</span>L0 — 사용자 경험 계층</h2>
+
+<p><span class="tag">원문 2절</span><span class="tag">진입점 4종 · 앱 유형 · 인증/SSO</span></p>
+
+<h3>언제 이걸 알아야 하는가</h3>
+
+<p><b>"타일이 안 보입니다"</b>가 권한 문제인지, 카탈로그 배정 문제인지, Target Mapping 문제인지를 가르는 것이 이 절의 내용입니다. FLP의 콘텐츠 모델을 모르면 <code>PFCG</code>만 붙들고 시간을 씁니다.</p>
+
+<h3>진입점 4종</h3>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>진입점</th><th>핵심</th><th>비고</th></tr></thead>
+<tbody>
+<tr><td><b>Fiori Launchpad</b></td><td class="wrap">역할 기반 단일 진입점. 콘텐츠 모델 <span class="key">BR(Business Role) → SP(Space) → PG(Page) → BC(Business Catalog) → TC(Technical Catalog)</span>. 타일은 Intent(Semantic Object + Action) → Target Mapping으로 앱 호출</td><td class="wrap">Configuration → Customizing → Personalization 3계층. 관리도구: <code>PFCG</code> · <code>FLPD</code> · <code>FLPCM</code> · <code>FLPAM</code> · Manage Launchpad Spaces/Pages</td></tr>
+<tr><td><b>SAP GUI</b></td><td class="wrap">for Windows(DIAG) · for Java · for HTML(ITS, <code>/sap/bc/gui/sap/its/webgui</code>) · SAP Business Client(HTML 버전은 ABAP Platform 2023 FPS02부터 Deprecated)</td><td class="wrap">AS ABAP 전용. AS Java는 브라우저만</td></tr>
+<tr><td><b>Build Work Zone</b></td><td class="wrap">standard edition — BTP 상 중앙 진입점(구 Launchpad service). Content Federation(CDM)으로 다중 시스템 콘텐츠 통합</td><td class="wrap">FES 2023 = 마지막 Hub/독립형 FES → 이후 <b>Embedded 전용</b></td></tr>
+<tr><td>모바일 · 외부</td><td class="wrap">OData 소비 앱, SAP Mobile Services, Enterprise Search(ESH on HANA), In-App Help(SAP Companion/Enable Now)</td><td class="wrap"></td></tr>
+</tbody>
+</table>
+</div>
+
+<h3>앱 유형과 아키텍처 함의</h3>
+
+<ul>
+  <li><b>Transactional</b>(SAPUI5+OData, SAP Gateway 경유) · <b>Analytical</b>(CDS/HANA, Embedded Analytics·KPI) · <b>Fact Sheet/Object Page</b>(Enterprise Search 모델 필요)</li>
+  <li>S/4HANA에서는 모든 앱 유형이 <span class="hl">단일 아키텍처</span>(FES=BES, Embedded Gateway)로 수렴 — Business Suite와 달리 허브 라우팅이 불필요</li>
+  <li><b>Space·Page 모범사례</b>: 비즈니스 롤 1개 = Space 1개, Space당 Page 1~5개, Page당 섹션 2~5개, 타일 25개 이하</li>
+</ul>
+
+<h3>인증 · SSO</h3>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>메커니즘</th><th>적합 시나리오</th><th>제약</th></tr></thead>
+<tbody>
+<tr><td>X.509 클라이언트 인증서</td><td class="wrap">PKI 보유, 인터넷 노출, GUI+HTTP 공통</td><td class="wrap">Web Dispatcher가 <code>SSL_CLIENT_CERT</code> 헤더로 포워딩, <code>icm/trusted_reverse_proxy_&lt;n&gt;</code> 신뢰 설정</td></tr>
+<tr><td>Kerberos / SPNEGO</td><td class="wrap">사내 AD 환경, Windows 로그온 재사용</td><td class="wrap">발급 시스템(AD) 접근 필요 → 외부는 VPN</td></tr>
+<tr><td>SAML 2.0</td><td class="wrap">페더레이션 · 다중 도메인 · 클라우드(IAS)</td><td class="wrap">IdP 외부 접근 가능해야</td></tr>
+<tr><td>SAP Logon Ticket</td><td class="wrap">포털 등 기존 발급 시스템 있을 때</td><td class="wrap">동일 DNS 도메인, 사용자명 동일</td></tr>
+</tbody>
+</table>
+</div>
+
+<p>초기 인증은 FES에서 하고, 이후 BES 호출은 <span class="key">Trusted RFC</span>로 추가 인증 없이 전달됩니다.</p>
+
+<div class="note">
+  <div class="t">📖 원본 노트</div>
+  <p><a href="../tadm10/tadm10-03-fiori-monitoring.html">TADM10 U9-11 Fiori 기초와 시스템 모니터링</a> · <a href="../tadm10/tadm10-06-fiori-landscape.html">TADM10 U17-21 Fiori 랜드스케이프와 앱 구현</a> · <a href="../tadm10/tadm10-02-authorization.html">TADM10 사용자·권한과 통신 기술</a> · <a href="../sd/s4c03-implementing-pce.html">S4C03 Implementing PCE</a></p>
+</div>
+
+</div>
+
+
+<!-- ══════════ LESSON 4 ══════════ -->
+<div class="lesson" id="l4">
+<h2><span class="no">LESSON 4</span>L1 — 기술 플랫폼 (ABAP Platform · Web Dispatcher)</h2>
+
+<p><span class="tag">원문 3절</span><span class="tag">요청 경로 · 커널 · HTTP 스택 · 권한 · 트랜스포트 · 모니터링</span></p>
+
+<h3>언제 이걸 알아야 하는가</h3>
+
+<p><b>"덤프가 났는데 어디부터 봐야 합니까"</b> — <code>ST22</code>를 열기 전에 요청이 어느 지점까지 도달했는지를 먼저 알아야 합니다. Web Dispatcher에서 막힌 것과 Work Process 안에서 터진 것은 완전히 다른 문제입니다.</p>
+
+<h3>요청이 처리되는 길 (Request Path)</h3>
+
+<figure class="figwrap">
+<svg class="dgm" viewBox="0 0 1000 400" role="img" aria-label="요청 처리 경로 도해. 브라우저 요청은 Web Dispatcher와 ICM을 거쳐 메모리 파이프로 ABAP Dispatcher에 전달되고 Work Process에서 ICF 핸들러와 Gateway를 지나 CDS와 HANA에 닿으며, SAP GUI는 Message Server를 통해 외부 RFC는 RFC Gateway를 통해 같은 Dispatcher로 합류한다.">
+  <defs>
+    <marker id="kb1" markerWidth="9" markerHeight="9" refX="7" refY="4.5" orient="auto">
+      <polygon class="arw-key" points="0,0 9,4.5 0,9"/></marker>
+    <marker id="kb2" markerWidth="9" markerHeight="9" refX="7" refY="4.5" orient="auto">
+      <polygon class="arw" points="0,0 9,4.5 0,9"/></marker>
+  </defs>
+
+  <rect class="b" x="20" y="26" width="150" height="48" rx="5"/>
+  <text class="t-h" x="38" y="48">브라우저</text>
+  <text class="t-s" x="38" y="66">HTTP / HTTPS</text>
+  <path class="ln-key" d="M170 50 H202" marker-end="url(#kb1)"/>
+
+  <rect class="b-key" x="206" y="16" width="190" height="68" rx="5"/>
+  <text class="t-h c-key" x="224" y="38">SAP Web Dispatcher</text>
+  <text class="t-s" x="224" y="56">SSL 종단 · 인증서 포워딩</text>
+  <text class="t-s" x="224" y="72">Logon Group 부하분산</text>
+  <path class="ln-key" d="M396 50 H428" marker-end="url(#kb1)"/>
+
+  <rect class="b-key" x="432" y="26" width="150" height="48" rx="5"/>
+  <text class="t-h c-key" x="450" y="48">ICM</text>
+  <text class="t-s" x="450" y="66">HTTP/S · SMTP 수신</text>
+  <path class="ln-key" d="M582 50 H614" marker-end="url(#kb1)"/>
+
+  <rect class="b-mut" x="618" y="26" width="132" height="48" rx="5"/>
+  <text class="t" x="636" y="48">메모리</text>
+  <text class="t" x="636" y="66">파이프</text>
+  <path class="ln-key" d="M750 50 H782" marker-end="url(#kb1)"/>
+
+  <rect class="b-key" x="786" y="16" width="194" height="68" rx="5"/>
+  <text class="t-h c-key" x="804" y="38">ABAP Dispatcher</text>
+  <text class="t-s" x="804" y="56">FIFO 큐</text>
+  <text class="t-s" x="804" y="72">Work Process 선택</text>
+
+  <rect class="b" x="20" y="104" width="230" height="48" rx="5"/>
+  <text class="t-h" x="38" y="126">SAP GUI (DIAG)</text>
+  <path class="ln" d="M250 128 H288" marker-end="url(#kb2)"/>
+  <rect class="b-mut" x="292" y="104" width="190" height="48" rx="5"/>
+  <text class="t" x="310" y="126">Message Server</text>
+  <text class="t-s" x="310" y="144">로그온 부하분산</text>
+
+  <rect class="b" x="20" y="162" width="230" height="48" rx="5"/>
+  <text class="t-h" x="38" y="184">외부 시스템 (RFC/CPIC)</text>
+  <path class="ln" d="M250 186 H288" marker-end="url(#kb2)"/>
+  <rect class="b-mut" x="292" y="162" width="190" height="48" rx="5"/>
+  <text class="t" x="310" y="190">RFC Gateway</text>
+
+  <path class="ln" d="M482 128 H700 V96" marker-end="url(#kb2)"/>
+  <path class="ln" d="M482 186 H660 V96" marker-end="url(#kb2)"/>
+  <text class="t-xs" x="520" y="120">같은 Dispatcher로 합류</text>
+
+  <path class="ln-key" d="M883 84 V222" marker-end="url(#kb1)"/>
+
+  <rect class="b-key" x="520" y="224" width="460" height="76" rx="5"/>
+  <text class="t-h c-key" x="540" y="248">Work Process</text>
+  <text class="t-s" x="540" y="268">task handler → ICF controller (HTTP_DISPATCH_REQUEST)</text>
+  <text class="t-s" x="540" y="286">→ CL_HTTP_SERVER → IF_HTTP_EXTENSION~HANDLE_REQUEST</text>
+
+  <path class="ln-key" d="M750 300 V326" marker-end="url(#kb1)"/>
+  <rect class="b-key" x="520" y="328" width="460" height="54" rx="5"/>
+  <text class="t-h c-key" x="540" y="350">SAP Gateway (SAP_GWFND)</text>
+  <text class="t-s" x="540" y="370">OData V2 <tspan class="m-s">/sap/opu/odata</tspan>  ·  V4 service group</text>
+
+  <path class="ln-key" d="M520 355 H440" marker-end="url(#kb1)"/>
+  <rect class="b-ok" x="240" y="328" width="196" height="54" rx="5"/>
+  <text class="t-h c-ok" x="258" y="350">ABAP · CDS · RAP</text>
+  <text class="t-s" x="258" y="370">애플리케이션 로직</text>
+
+  <path class="ln-key" d="M240 355 H164" marker-end="url(#kb1)"/>
+  <rect class="b-ok" x="20" y="328" width="140" height="54" rx="5"/>
+  <text class="t-h c-ok" x="38" y="350">SAP HANA</text>
+  <text class="t-s" x="38" y="370">ABAP SQL → DBI</text>
+
+  <rect class="b-ghost" x="20" y="224" width="482" height="76" rx="5"/>
+  <text class="t-s" x="42" y="248">막힌 지점을 계층으로 좁히는 법</text>
+  <text class="t-s" x="42" y="268">Web Dispatcher 단 — 접속 자체가 안 됨  ·  ICF 단 — 서비스 비활성(SICF)</text>
+  <text class="t-s" x="42" y="288">WP 단 — ST22 덤프  ·  Gateway 단 — /IWFND/ERROR_LOG</text>
+</svg>
+<figcaption><span class="fno">그림 2</span>요청이 처리되는 길. 브라우저 · SAP GUI · 외부 RFC 세 경로가 결국 같은 Dispatcher로 합류한다.</figcaption>
+</figure>
+
+<h3>커널 구성요소</h3>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>구성요소</th><th>역할</th><th>관리 트랜잭션</th></tr></thead>
+<tbody>
+<tr><td>Dispatcher + Work Process</td><td class="wrap">DIA(대화) · UPD/UP2(V1/V2 업데이트) · BTC(백그라운드) · SPO(스풀). 사용자 컨텍스트 롤인/롤아웃, 인스턴스별 버퍼(Shared Memory)</td><td class="wrap"><code>SM50</code> · <code>SM66</code> · <code>SM51</code> · <code>SM04</code>/<code>AL08</code></td></tr>
+<tr><td>ASCS(Central Services)</td><td class="wrap">Message Server(디스패처 간 통신, 로그온 LB, Web Dispatcher 정보) + Enqueue Server(락 테이블). 7.51+ 필수, ERS로 이중화</td><td class="wrap"><code>SMMS</code> · <code>SM12</code>/<code>SMENQ</code></td></tr>
+<tr><td>ICM / RFC Gateway</td><td class="wrap">웹 프로토콜 / RFC·CPIC 통신 (디스패처당 1개)</td><td class="wrap"><code>SMICM</code> · <code>SMGW</code></td></tr>
+<tr><td>업데이트 처리</td><td class="wrap"><code>CALL FUNCTION … IN UPDATE TASK</code> → VB* 테이블 → <code>COMMIT WORK</code> → UPD WP 반영. V1(시간 critical) / V2(통계) / 수집 실행(<code>RSM13005</code>)</td><td class="wrap"><code>SM13</code></td></tr>
+<tr><td>락 관리</td><td class="wrap"><span class="key">SAP LUW ≠ DB LUW</span> → Enqueue. 모드: E(write) · S(read) · X(enhanced) · O(optimistic)</td><td class="wrap"><code>SM12</code>(≤7.52) / <code>SMENQ</code>(≥7.53)</td></tr>
+<tr><td>파일시스템</td><td class="wrap"><code>/usr/sap/&lt;SID&gt;/D&lt;nn&gt;</code>(PAS/AAS) · <code>ASCS&lt;nn&gt;</code> · 프로파일 · sapstartsrv · sapcpe</td><td class="wrap">SAP MC · SAPControl · SAP MMC</td></tr>
+</tbody>
+</table>
+</div>
+
+<div class="note">
+  <div class="t">🔰 ABAP 개발자 관점 한 줄</div>
+  <p>화면 한 번 왕복 = <b>Dialog Step 1개 = DB LUW 1개</b>입니다. 그래서 여러 화면에 걸친 업무 단위(SAP LUW)의 원자성은 <span class="key">Enqueue 락 + Update Task + COMMIT WORK</span> 조합이 지켜 줍니다. <code>ST22</code> 덤프 · <code>SM13</code> 업데이트 오류 · <code>SM12</code> 잔류 락은 이 구조를 알면 원인이 보입니다.</p>
+</div>
+
+<h3>HTTP 스택 — ICF · ITS · Gateway</h3>
+
+<ul>
+  <li><b>ICF(<code>SICF</code>)</b>: URL ↔ HTTP 핸들러(ABAP 클래스) 연결. 설치 직후 <span class="bad">모든 서비스 비활성</span> → 필요한 것만 활성화(보안). 속성 상속, 내부/외부 별칭, Logon Procedure(Standard → 대체 → 서비스 데이터), ICF Recorder(<code>SICFRECORDER</code>), 대량 처리 리포트 <code>RS_ICF_SERV_MASS_PROCESSING</code></li>
+  <li><b>SAP ITS(WEBGUI)</b>: 커널 내장, <code>itsp/enable=1</code>, <code>/sap/bc/gui/sap/its/webgui</code> + APC 서비스 활성화. 제약: OLE · Office 통합 보기전용 · 특수 컨트롤 불가(<code>SE93</code>에서 GUI 지원 확인)</li>
+  <li><b>SAP Gateway(SAP_GWFND)</b>: OData = "웹을 위한 ODBC", REST. V2(AS ABAP 7.00+) · V4(7.50+), <b>V3 미지원</b>. 배포: <span class="key">Embedded(S/4HANA 권장)</span> / Hub(BES 개발) / Hub(FES 개발). 기본 구성 4단계(RFC dest → 활성화 → System Alias → <code>/sap/opu</code> ICF). 도구: <code>/IWFND/MAINT_SERVICE</code> · <code>/IWBEP/V4_ADMIN</code> · <code>/IWFND/GW_CLIENT</code> · <code>/IWFND/ERROR_LOG</code> · <code>SEGW</code>. Soft State(<code>/IWFND/SOFTSTATE</code>)는 세션 유지 캐싱, 타임아웃 짧게</li>
+  <li><b>Unified Rendering / SAPUI5 패치</b>: UR Lightspeed(Web Dynpro ABAP · WEBGUI), <code>WDG_MAINTAIN_UR_MIMES</code>, TCI Note(<code>SNOTE</code>) · <code>/UI5/UI5_UPLOAD_PATCH_TO_MIME</code>, 버전 확인 <code>/sap/bc/ui5/index</code></li>
+  <li><b>SAP Web Dispatcher</b>: 리버스 프록시 · 부하분산 · SSL 종단. 7.93 권장(2024-12 기준). Web Service 패러다임(WSDL · SOAP · UDDI, Inside-Out) · SMTP(SAPconnect/<code>SCOT</code>, <code>icm/server_port_&lt;n&gt;</code>=SMTP)</li>
+</ul>
+
+<h3>사용자 · 권한</h3>
+
+<ul>
+  <li><b>AS ABAP</b>: 사용자 마스터(<code>SU01</code>/<code>SU10</code>, 클라이언트 종속) · 역할(<code>PFCG</code>) → 권한 프로파일 → 권한 객체/필드 · <code>SUIM</code> 정보 시스템 · 로그온 파라미터(<code>login/*</code>) · Fiori는 PFCG 메뉴에 Catalog/Space/Group 삽입</li>
+  <li><b>AS Java</b>: UME(User/Group/Role, 데이터소스 ABAP/LDAP/DB) · JEE Security Role · <code>Administrator</code>/<code>SAP*</code> 응급 사용자</li>
+  <li><b>클라우드</b>: SAP Cloud Identity Services(IAS 인증 + IPS 프로비저닝), Business Role → Business Catalog 구조, IT Contact 권한(SAP for Me)</li>
+</ul>
+
+<h3>소프트웨어 로지스틱과 개발 환경</h3>
+
+<ul>
+  <li>데이터 구조: <b>클라이언트 종속</b>(사용자 · 마스터/트랜잭션 · Customizing) vs <b>클라이언트 독립</b>(크로스 클라이언트 Customizing · Repository). <span class="bad">Repository는 모든 클라이언트 공유</span> → 운영에서 직접 개발 금지</li>
+  <li>3-System Landscape DEV → QAS → PRD, <code>SE09</code>/<code>SE10</code> Workbench/Customizing Request(<code>&lt;SID&gt;K9nnnnn</code>), Export(DIR_TRANS) → <code>STMS</code> Import. 역할: 프로젝트 리더 · 개발자 · 테스터 · 전송관리자(<b>개발자 ≠ 테스터</b>)</li>
+  <li>도구: ABAP Workbench(<code>SE80</code>/<code>SE38</code>/<code>SE11</code>/<code>SE24</code>) · <b>ADT for Eclipse</b>(온라인 개발, Classic/Cloud Project) · ABAP Dictionary(2단계 도메인 개념, 락 오브젝트, 검색도움말) · <span class="key">CDS</span>(code-to-data, 메타모델을 DB 위에) · ABAP SQL vs Native SQL(<code>EXEC SQL</code>) · Modification–Enhancement–Customer Development</li>
+</ul>
+
+<h3>시작 · 중지 · 구성 · 모니터링</h3>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>영역</th><th>핵심</th></tr></thead>
+<tbody>
+<tr><td>시작/중지</td><td class="wrap">sapstartsrv → DB → ASCS → PAS → AAS(우선순위 Priority). SAP MC · SAPControl(<code>StartSystem</code>/<code>StopSystem</code>, <code>-systempki</code>) · 로그 <code>dev_*</code>/STDERR · Support Log Assistant · AS Java <code>priorityLEVEL</code>/<code>dev_jstart</code></td></tr>
+<tr><td>프로파일</td><td class="wrap">DEFAULT/인스턴스 프로파일, <code>RZ10</code>(영구) · <code>RZ11</code>(문서·동적) · <code>RSPFPAR</code> · 오퍼레이션 모드 <code>RZ04</code>/<code>SM63</code>(Reserved/Dynamic WP) · <code>STC01</code>/<code>STC02</code> Task List · AS Java Config Tool/NWA(JVM Young · Tenured · Metaspace)</td></tr>
+<tr><td>모니터링</td><td class="wrap">CCMS · <code>RZ20</code> Alert Monitor · <code>SM21</code>(syslog) · <code>ST22</code>(덤프) · <code>ST01</code>(시스템 트레이스) · <code>ST05</code>(SQL 트레이스) · <code>ST11</code>(개발자 트레이스) · <code>ST02</code>/<code>ST06</code>/<code>DBACOCKPIT</code> · Guided Answers · Solution Manager MAI · Cloud ALM Operations</td></tr>
+</tbody>
+</table>
+</div>
+
+<div class="note">
+  <div class="t">📖 원본 노트</div>
+  <p><a href="../tadm10/tadm10-01-foundation.html">TADM10 SAP 시스템 기초 — 아키텍처 · 커널</a> · <a href="../tadm10/tadm10-02-authorization.html">TADM10 사용자·권한과 통신 기술</a> · <a href="../tadm10/tadm10-04-start-stop.html">TADM10 U12-15 시작·중지와 시스템 구성</a> · <a href="../tadm10/tadm10-05-http.html">TADM10 U16 HTTP 기반 통신 · ICM · ICF · Gateway</a> · <a href="../tadm10/tadm10-06-fiori-landscape.html">TADM10 U17-21 Fiori 랜드스케이프</a></p>
+</div>
+
+<div class="note ok">
+  <div class="t">📌 개인 E2E 프로젝트와의 연결점</div>
+  <p>프로젝트 목표 중 <b>"병렬처리 + AL11 기반 대량 처리 프로그램"</b>과 <b>"웹페이지 → RFC 통신"</b>이 정확히 이 계층의 이야기입니다.</p>
+  <p>· 병렬처리는 <b>Work Process 종류와 개수</b>(<code>SM50</code>·<code>RZ04</code>)에 직접 묶입니다 — aRFC로 뿌린 작업이 DIA WP를 전부 잡아먹지 않게 상한을 두어야 합니다<br>
+     · 대량 처리의 커밋 단위와 롤백 범위는 위의 <b>SAP LUW ≠ DB LUW</b> 구조가 전제입니다<br>
+     · 외부 웹페이지에서 들어오는 RFC는 그림 2의 <b>RFC Gateway</b> 경로를 탑니다 — <code>SMGW</code> 보안 설정(reginfo/secinfo)이 걸리는 자리</p>
+</div>
+
+</div>
+
+
+<!-- ══════════ LESSON 5 ══════════ -->
+<div class="lesson" id="l5">
+<h2><span class="no">LESSON 5</span>L2 공통 기반 — 조직구조 · 마스터데이터 · 조건기법</h2>
+
+<p><span class="tag">원문 4절</span><span class="tag">모듈보다 먼저 알아야 하는 것</span>엔터프라이즈 구조 · 마스터데이터 · Condition Technique</p>
+
+<h3>언제 이걸 알아야 하는가</h3>
+
+<p><b>"오더는 잡히는데 납품이 안 나갑니다"</b>가 배송 플랜트 배정 문제이고, <b>"구매오더가 이 플랜트로 안 떨어집니다"</b>가 구매조직–플랜트 할당 문제입니다. 둘 다 모듈 문제가 아니라 <span class="key">조직구조 할당</span> 문제입니다 — 모듈별 노트를 아무리 읽어도 이 지도가 없으면 안 보입니다.</p>
+
+<h3>엔터프라이즈 구조 — 모듈별 조직단위와 할당 관계</h3>
+
+<figure class="figwrap">
+<svg class="dgm" viewBox="0 0 1000 440" role="img" aria-label="엔터프라이즈 조직구조 할당 관계도. Client 아래 회사코드가 있고 회사코드에서 플랜트·판매조직·구매조직이 갈라지며 플랜트는 저장위치와 출하지점으로, 판매조직은 유통경로와 부문을 거쳐 Sales Area로 이어지고, 구매조직은 플랜트에 반드시 할당되어야 한다.">
+  <defs>
+    <marker id="kc1" markerWidth="9" markerHeight="9" refX="7" refY="4.5" orient="auto">
+      <polygon class="arw-key" points="0,0 9,4.5 0,9"/></marker>
+    <marker id="kc2" markerWidth="9" markerHeight="9" refX="7" refY="4.5" orient="auto">
+      <polygon class="arw" points="0,0 9,4.5 0,9"/></marker>
+  </defs>
+
+  <rect class="b-mut" x="400" y="16" width="200" height="42" rx="5"/>
+  <text class="t-h" x="424" y="42">Client (그룹)</text>
+
+  <path class="ln-key" d="M500 58 V82" marker-end="url(#kc1)"/>
+  <rect class="b-key" x="380" y="84" width="240" height="46" rx="5"/>
+  <text class="t-h c-key" x="404" y="106">Company Code</text>
+  <text class="t-s" x="404" y="122">법인 · FI의 중심</text>
+
+  <path class="ln-key" d="M420 130 V158 H180 V186" marker-end="url(#kc1)"/>
+  <path class="ln-key" d="M500 130 V186" marker-end="url(#kc1)"/>
+  <path class="ln-key" d="M580 130 V158 H820 V186" marker-end="url(#kc1)"/>
+
+  <rect class="b-ok" x="60" y="188" width="240" height="46" rx="5"/>
+  <text class="t-h c-ok" x="84" y="210">Plant</text>
+  <text class="t-s" x="84" y="226">로지스틱스 중심 · 재고가 붙는다</text>
+
+  <rect class="b-ok" x="380" y="188" width="240" height="46" rx="5"/>
+  <text class="t-h c-ok" x="404" y="210">Sales Organization</text>
+
+  <rect class="b-ok" x="700" y="188" width="240" height="46" rx="5"/>
+  <text class="t-h c-ok" x="724" y="210">Purchasing Organization</text>
+  <text class="t-s" x="724" y="226">회사코드 할당은 선택</text>
+
+  <path class="ln" d="M120 234 V262" marker-end="url(#kc2)"/>
+  <rect class="b" x="20" y="264" width="180" height="42" rx="5"/>
+  <text class="t" x="40" y="290">Storage Location</text>
+
+  <path class="ln" d="M250 234 V262" marker-end="url(#kc2)"/>
+  <rect class="b" x="212" y="264" width="150" height="42" rx="5"/>
+  <text class="t" x="230" y="290">Shipping Point</text>
+
+  <path class="ln" d="M110 306 V332" marker-end="url(#kc2)"/>
+  <rect class="b-mut" x="20" y="334" width="342" height="42" rx="5"/>
+  <text class="t" x="40" y="360">EWM: Warehouse No. → Storage Type → Section → Bin</text>
+
+  <path class="ln" d="M440 234 V262" marker-end="url(#kc2)"/>
+  <rect class="b" x="380" y="264" width="240" height="38" rx="5"/>
+  <text class="t" x="400" y="288">Distribution Channel</text>
+  <path class="ln" d="M440 302 V326" marker-end="url(#kc2)"/>
+  <rect class="b" x="380" y="328" width="240" height="38" rx="5"/>
+  <text class="t" x="400" y="352">Division</text>
+
+  <path class="ln-key" d="M620 285 H660 V348" marker-end="url(#kc1)"/>
+  <path class="ln-key" d="M620 347 H660" marker-end="url(#kc1)"/>
+  <rect class="b-hl" x="664" y="326" width="276" height="42" rx="5"/>
+  <text class="t-h" x="686" y="352">Sales Area = SO + DC + DV</text>
+
+  <path class="ln-bad" d="M820 234 V262 H340 V196" marker-end="url(#kc1)"/>
+  <text class="t-s c-bad" x="600" y="254">구매조직 → 플랜트 할당은 항상 필수</text>
+
+  <path class="ln-d" d="M300 211 H376"/>
+  <text class="t-xs" x="306" y="205">배송플랜트 할당</text>
+
+  <rect class="b-ghost" x="20" y="386" width="960" height="46" rx="6"/>
+  <text class="t-s" x="42" y="408">Plant는 정확히 하나의 Company Code에 속한다. 배송 플랜트가 영업조직과 다른 Company Code면 <tspan class="c-bad">Cross-Company Sales</tspan>.</text>
+  <text class="t-s" x="42" y="426">Valuation Level은 Plant(PP·원가계산 사용 시 필수) 또는 Company Code. 구조 정의는 일상 업무가 아니라 Customizing(SPRO)의 일부다.</text>
+</svg>
+<figcaption><span class="fno">그림 3</span>엔터프라이즈 조직구조 할당 관계. 정의(define) 다음에 할당(assign)이 와야 문서가 E2E로 흐른다.</figcaption>
+</figure>
+
+<ul>
+  <li>구조 정의는 일상 업무가 아니라 <b>Customizing(IMG, <code>SPRO</code>)</b>의 일부. <span class="hl">정의 → 할당(assignment) 순서</span>가 지켜져야 문서가 E2E로 흐른다</li>
+  <li>Plant는 정확히 하나의 Company Code에 속한다. 배송 플랜트가 영업조직과 다른 Company Code에 있으면 <b>Cross-Company Sales</b></li>
+  <li>구매조직 유형: 플랜트특정 / 플랜트횡단 / 회사코드횡단(회사코드 미할당). <span class="bad">구매조직–플랜트 할당은 항상 필수</span></li>
+  <li>Valuation Level: Plant(PP/원가계산 사용 시 필수) 또는 Company Code. Controlling Area 통합 조건 = 동일 Operating COA + 동일 Fiscal Year Variant</li>
+  <li>CO 축: Controlling Area → Operating Concern(CO-PA). Segment(IFRS 8)는 Profit Center에서 파생</li>
+</ul>
+
+<h3>마스터데이터 — "명사", 트랜잭션/문서 — "동사"</h3>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>마스터</th><th>구조</th><th>핵심 포인트</th></tr></thead>
+<tbody>
+<tr><td><b>Business Partner (BP)</b></td><td class="wrap">Category(Person/Org/Group, <b>불변</b>) · Grouping(번호범위) · Role(FI Customer/Vendor, SD Customer, MM Supplier…)</td><td class="wrap">S/4HANA에서 <b>필수</b>. <span class="key">CVI(Customer-Vendor Integration)</span>: BP Grouping ↔ Account Group/번호범위 매핑, 필수필드 일치. 고객 = General + Company Code Seg + Sales Area Seg / 공급업체 = General + CC Seg + Purch.Org Seg</td></tr>
+<tr><td><b>자재 / 제품 마스터</b></td><td class="wrap">Client 레벨(자재유형 · 기본단위 · 사업부) → Plant 레벨(MRP 1~4 · 평가 · 조달) → Storage Location 레벨 → Sales Org/Dist.Ch. 뷰</td><td class="wrap">자재유형(FERT/ROH/HALB/HAWA/UNBW/NLAG) → <b>평가클래스 → 계정결정</b>. 화면구성(Screen Sequence) · 필드선택은 MM Customizing</td></tr>
+<tr><td>G/L 계정</td><td class="wrap">COA Segment(전 회사코드 공통) + Company Code Segment</td><td class="wrap">Account Group · Field Status · 조정계정 · Open Item Mgmt. Account Type: BS · P&amp;L · Cash · Primary/Secondary Cost(CO 연동)</td></tr>
+<tr><td>조건 레코드</td><td class="wrap">Condition Table 키 조합별 값</td><td class="wrap">가격 · 출력 · 계정결정 <b>모두 같은 구조</b>. 대량유지보수 · Manage Prices 앱</td></tr>
+<tr><td>제조 마스터</td><td class="wrap">BOM(<code>STKO</code>/<code>STPO</code>) · 작업장(<code>CRHD</code>) · 라우팅/레시피(<code>PLKO</code>/<code>PLPO</code>) · 생산버전 · PRT</td><td class="wrap">PP/DS로는 CIF로 Product/Resource/PDS 매핑</td></tr>
+</tbody>
+</table>
+</div>
+
+<h3>Condition Technique — SAP의 범용 "검색 전략"</h3>
+
+<p>가격결정(Pricing)에서 배우지만 <span class="hl">출력결정(Output/NAST) · 수익계정결정(VKOA) · MM 가격(Calculation Schema) · 세금 · 리베이트</span>에 동일 구조가 재사용됩니다. 이 자료실에서 가장 자주 되돌아오게 되는 개념입니다.</p>
+
+<figure class="figwrap">
+<svg class="dgm" viewBox="0 0 1000 340" role="img" aria-label="조건기법 4단 구조 도해. 절차가 조건유형을 담고 조건유형마다 액세스시퀀스가 붙으며 액세스시퀀스는 구체적인 것부터 일반적인 것 순으로 조건테이블을 조회해 첫 적중 조건레코드의 값을 문서에 복사한다. 같은 구조가 가격·출력·계정결정·세금·리베이트에 재사용된다.">
+  <defs>
+    <marker id="kd1" markerWidth="9" markerHeight="9" refX="7" refY="4.5" orient="auto">
+      <polygon class="arw-key" points="0,0 9,4.5 0,9"/></marker>
+  </defs>
+
+  <rect class="b-key" x="20" y="24" width="220" height="80" rx="6"/>
+  <text class="t-h c-key" x="40" y="48">① Procedure</text>
+  <text class="t-s" x="40" y="68">판매영역 + 문서 Pricing Proc</text>
+  <text class="t-s" x="40" y="84">+ 고객 Pricing Proc 로 결정</text>
+  <path class="ln-key" d="M240 64 H272" marker-end="url(#kd1)"/>
+
+  <rect class="b-key" x="276" y="24" width="220" height="80" rx="6"/>
+  <text class="t-h c-key" x="296" y="48">② Condition Type</text>
+  <text class="m-s" x="296" y="68">PR00 · K007 · MWST</text>
+  <text class="t-s" x="296" y="86">Requirement · Formula · Subtotal</text>
+  <path class="ln-key" d="M496 64 H528" marker-end="url(#kd1)"/>
+
+  <rect class="b-key" x="532" y="24" width="220" height="80" rx="6"/>
+  <text class="t-h c-key" x="552" y="48">③ Access Sequence</text>
+  <text class="t-s" x="552" y="68">구체적 → 일반 순으로</text>
+  <text class="t-s" x="552" y="86">조건테이블을 나열</text>
+  <path class="ln-key" d="M752 64 H784" marker-end="url(#kd1)"/>
+
+  <rect class="b-ok" x="788" y="24" width="192" height="80" rx="6"/>
+  <text class="t-h c-ok" x="808" y="48">④ Condition Table</text>
+  <text class="t-s" x="808" y="68">키 조합</text>
+  <text class="t-s" x="808" y="86">→ Condition Record</text>
+
+  <path class="ln-key" d="M884 104 V132" marker-end="url(#kd1)"/>
+  <rect class="b-hl" x="600" y="134" width="380" height="52" rx="6"/>
+  <text class="t-h" x="622" y="158">첫 적중 레코드의 값을 문서에 복사</text>
+  <text class="t-s" x="622" y="176">그리고 다음 조건유형으로 넘어가 ②부터 반복</text>
+
+  <rect class="b-ghost" x="20" y="134" width="560" height="52" rx="6"/>
+  <text class="t-s" x="42" y="158">헤더 조건은 자동결정 대상이 아니다 — 수동 입력 후 AltCBV 루틴으로 아이템에 배분.</text>
+  <text class="t-s" x="42" y="176">재가격결정은 Pricing Type(기본 B)과 Copying Control이 통제한다.</text>
+
+  <rect class="b-bad" x="20" y="206" width="960" height="118" rx="6"/>
+  <text class="t-h c-bad" x="42" y="232">같은 4단 구조가 재사용되는 곳</text>
+
+  <rect class="b" x="42" y="244" width="176" height="62" rx="5"/>
+  <text class="t-h" x="60" y="266">SD 가격결정</text>
+  <text class="t-s" x="60" y="286">Pricing Procedure</text>
+  <text class="m-s" x="60" y="300">S46200</text>
+
+  <rect class="b" x="230" y="244" width="176" height="62" rx="5"/>
+  <text class="t-h" x="248" y="266">SD 계정결정</text>
+  <text class="t-s" x="248" y="286">VKOA — 계정키 ERL·ERS</text>
+  <text class="m-s" x="248" y="300">S46150</text>
+
+  <rect class="b" x="418" y="244" width="176" height="62" rx="5"/>
+  <text class="t-h" x="436" y="266">출력결정</text>
+  <text class="t-s" x="436" y="286">클래식 NAST</text>
+  <text class="m-s" x="436" y="300">S46055</text>
+
+  <rect class="b" x="606" y="244" width="176" height="62" rx="5"/>
+  <text class="t-h" x="624" y="266">MM 가격</text>
+  <text class="t-s" x="624" y="286">Calculation Schema</text>
+  <text class="m-s" x="624" y="300">S4520</text>
+
+  <rect class="b" x="794" y="244" width="176" height="62" rx="5"/>
+  <text class="t-h" x="812" y="266">텍스트 결정</text>
+  <text class="t-s" x="812" y="286">Access Sequence 동일</text>
+  <text class="m-s" x="812" y="300">S46056</text>
+</svg>
+<figcaption><span class="fno">그림 4</span>조건기법 4단 구조와 재사용처. 한 번 이해하면 다섯 군데에서 같은 그림이 보인다.</figcaption>
+</figure>
+
+<ul>
+  <li>그룹조건 · 조건배제(Exclusion) · 누진가격 · 고객계층 · 통계조건 · Condition Contract Management(리베이트 정산)</li>
+  <li>출력관리: S/4HANA 신규 Output Control = <span class="key">BRF+ Decision Table</span> 기반(채널 PRINT/EMAIL/EDI/IDOC, Adobe Forms) · 클래식 NAST(조건기법)도 병행 가능</li>
+</ul>
+
+<div class="note">
+  <div class="t">📖 원본 노트</div>
+  <p>조직단위는 <a href="../sd/s46000-sales-essentials.html">S46000 Sales Essentials</a>(SD 축) · <a href="../mm/s4550-cross-functional.html">S4550 Cross-Functional Customizing</a>(MM 축) · <a href="../fi/s4f12-core-settings.html">S4F12 Core Settings</a>(FI 축)에 각각 나뉘어 있습니다.<br>
+     조건기법 본체는 <a href="../sd/s46200-pricing.html">S46200 Pricing</a>, 재사용 사례는 <a href="../sd/s46150-billing.html">S46150 Billing(VKOA)</a> · <a href="../sd/s46055-output-control.html">S46055 Output Control</a> · <a href="../sd/s46056-text-control.html">S46056 Text Control</a> · <a href="../mm/s4520-purchasing.html">S4520 Purchasing</a>.</p>
+</div>
+
+<div class="note ok">
+  <div class="t">📌 개인 E2E 프로젝트와의 연결점</div>
+  <p>프로젝트 구조를 그림 3 위에 얹으면 이렇게 됩니다 — 회사코드 <b>CL04</b> 아래 플랜트 두 개(<b>GATE</b> 입고게이트 · <b>STOR</b> 보관), STOR 아래 저장위치 6개(냉동 <code>1100</code>/<code>1900</code> · 냉장 <code>2100</code>/<code>2900</code> · 실온 <code>3100</code>/<code>3900</code>).</p>
+  <p>여기서 구조적으로 주의할 지점이 둘입니다. ① <b>구매조직은 GATE와 STOR 양쪽에 모두 할당</b>되어야 합니다(구매조직–플랜트 할당은 필수). ② GATE에서 STOR로 넘기는 <code>301</code>은 <span class="key">플랜트 간 이동</span>이므로, 저장위치 간 이동인 <code>311</code>(ZBATCH_ZONE이 쓰는 것)과는 성격이 다릅니다 — 두 이동유형을 같은 층위로 묶어 설계하면 안 됩니다.</p>
+</div>
+
+</div>
+
+
+<!-- ══════════ LESSON 6 ══════════ -->
+<div class="lesson" id="l6">
+<h2><span class="no">LESSON 6</span>L2 모듈 — SD · MM</h2>
+
+<p><span class="tag">원문 5-1 · 5-2절</span><span class="tag">SD 12 Course · MM 6 Course</span>프로세스 · 문서 · Customizing 지도</p>
+
+<h3>언제 이걸 알아야 하는가</h3>
+
+<p>코스 이름은 기억나지 않아도 <b>"이 설정이 어느 코스에 있었나"</b>는 자주 필요합니다. 이 절의 두 표가 <span class="key">설정 대상 → 코스</span> 역색인입니다.</p>
+
+<h3>SD — Sales (Order-to-Cash)</h3>
+
+<h4>프로세스와 문서</h4>
+
+<div class="step"><span class="n">사전판매</span><p>Inquiry / Quotation</p></div>
+<div class="step"><span class="n">수주</span><p><b>Sales Order (OR)</b> — Header · Item · Schedule Line. 여기서 <b>ATP 가용성확인</b>(누적 ATP · BOP)이 돈다</p></div>
+<div class="step"><span class="n">출하</span><p><b>Outbound Delivery (LF)</b> — 피킹 · 패킹 · EWM Warehouse Task</p></div>
+<div class="step"><span class="n">출고</span><p><b>PGI (MvT 601)</b> → 자재문서 + FI 전표(COGS / 재고)</p></div>
+<div class="step"><span class="n">청구</span><p><b>Billing (F2)</b> — 인보이스 · 청구계획 · 분할/통합 → <b>FI 전표(RV)</b>: 고객 차변 / 매출(VKOA) · VAT</p></div>
+<div class="step"><span class="n">입금</span><p>입금 · 반제(<code>F-28</code>). 클레임 경로는 Credit/Debit Memo · Invoice Correction · Returns가 Billing으로 되돌아온다</p></div>
+
+<h4>핵심 Customizing 지도</h4>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>Course</th><th>설정 대상</th><th>기억할 통제 포인트</th></tr></thead>
+<tbody>
+<tr><td><a href="../sd/s46050-fundamental-customizing.html">S46050</a> Fundamental Customizing</td><td class="wrap">Sales Area · Sales Document Type · Item Category(결정: DocType+ItemCatGroup+Usage+상위ItemCat) · Schedule Line Category(결정: ItemCat+MRP Type) · Copying Control(요건 · 데이터전달 루틴) · Partner Determination · Multi-address</td><td class="wrap">문서 데이터의 4가지 출처: 마스터 · 기존 문서 · Customizing · 하드코딩</td></tr>
+<tr><td><a href="../sd/s46001-availability-check.html">S46001</a> Availability Check</td><td class="wrap">Checking Group + Checking Rule → 범위(재고 · 입고 · 출고요소) · 누적 ATP · Backorder Processing(BOP)</td><td class="wrap">aATP(Advanced ATP)는 1610+ 내장</td></tr>
+<tr><td><a href="../sd/s46051-outline-agreements.html">S46051</a> Outline Agreements</td><td class="wrap">Scheduling Agreement · Quantity/Value Contract · Release Order · 파트너 권한</td><td class="wrap"></td></tr>
+<tr><td><a href="../sd/s46052-incompletion.html">S46052</a> Incompletion</td><td class="wrap">Incompletion Procedure(상태 그룹, 후속 기능 차단)</td><td class="wrap"></td></tr>
+<tr><td><a href="../sd/s46055-output-control.html">S46055</a> Output Control</td><td class="wrap">Output Type · BRF+ Decision Table(Output Parameter Determination) · 채널 · 폼 템플릿</td><td class="wrap">클래식 NAST와 병행</td></tr>
+<tr><td><a href="../sd/s46056-text-control.html">S46056</a> Text Control</td><td class="wrap">Text Type · Text Determination Procedure · Access Sequence(자동 전달 · 소스 분석)</td><td class="wrap"></td></tr>
+<tr><td><a href="../sd/s46100-delivery-processing.html">S46100</a> Delivery Processing</td><td class="wrap">Delivery Type · Item Category · Copying Control · Shipping Point/Route/적재플랜트 결정 · 배송/운송 스케줄링 · Outbound Delivery Monitor · EWM 피킹/출고 · Inbound Delivery</td><td class="wrap">납품문서 = "무엇을 보낼지", Shipment/Freight Order = "어떻게 운송할지"</td></tr>
+<tr><td><a href="../sd/s46150-billing.html">S46150</a> Billing</td><td class="wrap">Billing Type · 데이터플로/Copying Control · 클레임(크레딧/데빗/교정) · 인보이스 통합/분할 · 청구계획(정기/마일스톤) · 선급금 · <b>Account Determination(VKOA)</b> · SD-FI 인터페이스(RV, Posting Block, 참조번호 A~F, Negative Posting)</td><td class="wrap"><span class="bad">계정결정 오류 시 회계전표 미생성 — "전부 아니면 전무"</span></td></tr>
+<tr><td><a href="../sd/s46200-pricing.html">S46200</a> Pricing</td><td class="wrap">Condition Technique 전체 · 조건테이블/액세스시퀀스 생성 · 필드/요건/공식 확장 · 대량유지보수 · 가격리스트 · 그룹조건 · 배제 · 누적 · 특수조건(수동 · 누진 · 계층) · 세금 · Condition Contract Management</td><td class="wrap">가격 데이터모델: <code>KONV</code> → <span class="key">PRCD_ELEMENTS</span></td></tr>
+</tbody>
+</table>
+</div>
+
+<p>Course 1은 <a href="../sd/s46000-sales-essentials.html">S46000 Sales Essentials</a>(조직단위와 O2C 전체 지도), Course 11·12에 해당하는 <a href="../sd/s4c03-implementing-pce.html">S4C03</a>·<a href="../sd/rise-methodology.html">SL_RISE419</a>는 LESSON 10에서 다룹니다.</p>
+
+<h3>MM — Sourcing &amp; Procurement (Source-to-Pay)</h3>
+
+<p>프로세스 전체를 얕게 훑은 개관은 <a href="../iee2e/iee2e-06-source-to-pay.html">IEE2E Source-to-Pay — 조달 E2E 프로세스</a>에 있습니다.</p>
+
+<h4>프로세스와 문서</h4>
+
+<div class="step"><span class="n">소요결정</span><p>PR(<code>ME51N</code>) 또는 MRP 자동 생성</p></div>
+<div class="step"><span class="n">소싱</span><p>Info Record · Contract · Scheduling Agreement · Source List · Quota · RFQ</p></div>
+<div class="step"><span class="n">발주</span><p><b>Purchase Order</b>(<code>ME21N</code>) — Release Procedure / Flexible Workflow</p></div>
+<div class="step"><span class="n">입고</span><p><b>Goods Receipt</b>(<code>MIGO</code>, MvT 101) → <code>MATDOC</code> + FI 전표(BSX/WRX/PRD). 동시에 재고관리 축(이전기표 · 예약 · 특별재고 K/O/P · 실사 · Cycle Count)이 열린다</p></div>
+<div class="step"><span class="n">송장</span><p><b>Invoice Verification</b>(<code>MIRO</code>) — 3-way match · 차이 차단 · ERS</p></div>
+<div class="step"><span class="n">지급</span><p>FI-AP 공급업체 미결항목 → Payment Run(<code>F110</code>)</p></div>
+
+<h4>핵심 Customizing 지도</h4>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>Course</th><th>설정 대상</th><th>기억할 통제 포인트</th></tr></thead>
+<tbody>
+<tr><td><a href="../mm/s4500-business-processes.html">S4500</a> Business Processes</td><td class="wrap">외부구매 전체흐름 · 특수구매(STO · 위탁가공 · 공급업체 위탁) · 조직구조 · 마스터(BP · 자재 · Info Record · 재고평가) · 재고/소모성 구매 · 셀프서비스 · MRP · ERS · 구매분석</td><td class="wrap">Item Category가 구매 프로세스 유형을 통제</td></tr>
+<tr><td><a href="../mm/s4520-purchasing.html">S4520</a> Purchasing</td><td class="wrap">Partner Function · 가격결정(Condition/Calculation Schema) · 계약/일정계약 · <b>소스결정 우선순위</b>(Quota &gt; Source List &gt; SA/Contract &gt; Automatic Sourcing Info Record) · 승인절차(Release Strategy) · 인보이싱플랜 · Blanket PO · 위탁가공 · 문서유형 · 필드선택키 · EVO/EFB · 공급업체평가</td><td class="wrap"></td></tr>
+<tr><td><a href="../mm/s45250-cbp-forecasting.html">S45250</a> CBP/Forecast</td><td class="wrap">소비기반계획(재주문점/예측) · 로트사이징 · 스케줄링 · <b>MRP Live(<code>MD01N</code>)</b> vs Classic MRP(<code>MD01</code>/<code>MD02</code>/<code>MD03</code>, NEUPL/NETCH, 계획모드 1/2/3) · MRP Area · 예측</td><td class="wrap">MRP Live: 외부조달은 항상 PR/일정라인(계획오더 X), MRP 리스트 미생성 → <code>MD04</code></td></tr>
+<tr><td><a href="../mm/s4510-inventory.html">S4510</a> Inventory Mgmt</td><td class="wrap">입고 종류 · 취소 · 반품 · 공차 · 이전기표 · 재고이전 · Stock in Transit · 예약 · 가용성체크 · 출고 · 재고결정 · 마이너스재고 · 특별조달 · 비평가/분할평가 · 실사 · Cycle Count · 샘플링 · 번호할당 · 이동유형 · MIGO 필드선택</td><td class="wrap"><span class="key">Movement Type이 수량/가치 업데이트 · 계정결정 · 필드선택을 통제</span></td></tr>
+<tr><td><a href="../mm/s4515-invoice-verification.html">S4515</a> Invoice Verification</td><td class="wrap">GR 기반 검증 · 파킹/승인 워크플로우 · 세금 · 현금할인 · 외화 · 계정지정 · 차이 차단 · 감액 · 차단해제 · 후속차변/대변 · 부대비용 · 대변메모 · 백그라운드 · ERS · 위탁결제 · 인보이싱플랜 · <b>GR/IR 계정관리(<code>MR11</code>)</b> · 선지급 · 보증금유보</td><td class="wrap"></td></tr>
+<tr><td><a href="../mm/s4550-cross-functional.html">S4550</a> Cross-Functional</td><td class="wrap">국가 · 통화 · UoM · 공장달력 · 조직단위 정의/할당 · 자재유형 · 필드선택 · 화면구성 · BP 파트너역할/스키마 · <b>자동계정결정(<code>OBYC</code>: 거래키 · 평가클래스 · 계정범주참조 · 계정그룹코드 · 시뮬레이션)</b> · 분할평가 · 구매문서유형/품목범주/계정지정범주 · 텍스트/메시지결정(NAST)/출력관리 · 문서번호 · 이동유형 · IMG/BC Set/Business Function</td><td class="wrap">OBYC 매핑 저장소 = 테이블 <code>T030</code></td></tr>
+</tbody>
+</table>
+</div>
+
+<div class="note ok">
+  <div class="t">📌 개인 E2E 프로젝트와의 연결점</div>
+  <p>프로젝트에서 실제로 손대야 하는 코스는 <b>S4550</b>(조직단위·자재유형·OBYC) → <b>S4500</b>(P2P 뼈대) → <b>S4510</b>(이동유형·배치·실사) → <b>S4515</b>(GR/IR) 순서이고, SD는 <b>S46000</b> → <b>S46050</b> → <b>S46100</b> → <b>S46150</b>입니다. <b>S45250</b>(MRP)은 사입 트레이딩 모델이라 <span class="bad">범위 밖</span>으로 둘 수 있습니다.</p>
+  <p>배치관리 + 유통기한(<code>MCHA-VFDAT</code>)과 SD의 FEFO 배치결정은 S4510(배치)과 S46050/S46100(배치결정 시점) 양쪽에 걸쳐 있습니다 — 한 코스만 보고 설정하면 오더 시점 결정인지 납품 시점 결정인지가 어긋납니다.</p>
+</div>
+
+</div>
+
+
+<!-- ══════════ LESSON 7 ══════════ -->
+<div class="lesson" id="l7">
+<h2><span class="no">LESSON 7</span>L2 모듈 — PP · FI/CO</h2>
+
+<p><span class="tag">원문 5-3 · 5-4절</span><span class="tag">PP 9 Course · FI 4 Course + E2E 가이드</span></p>
+
+<h3>언제 이걸 알아야 하는가</h3>
+
+<p>PP는 <b>"계획오더가 왜 생산오더로 안 넘어가나"</b>, FI는 <b>"이 숫자가 어느 원장의 값인가"</b>가 출발점입니다. 둘 다 흐름도를 먼저 보고 코스를 찾는 편이 빠릅니다.</p>
+
+<h3>PP — Manufacturing (Plan-to-Produce)</h3>
+
+<h4>계획 → 실행 흐름</h4>
+
+<div class="step"><span class="n">예측</span><p>예측 / SAP IBP → <b>수요관리</b>(PIR · 계획전략 10/20/40/50/70)</p></div>
+<div class="step"><span class="n">소요전개</span><p><b>MRP Live / Classic MRP / pMRP / DDR</b> — 순소요 → 로트사이징 → 조달유형 → 스케줄링</p></div>
+<div class="step"><span class="n">계획오더</span><p>Planned Order 생성. critical 자재는 <b>embedded PP/DS</b>(유한계획 · 휴리스틱 · 페깅 · DS Optimizer · Alert Monitor)로 분기</p></div>
+<div class="step"><span class="n">능력</span><p>능력계획 CRP — 평가 · 평준화(테이블/보드)</p></div>
+<div class="step"><span class="n">실행</span><p><b>생산오더 / 공정오더</b> — 생성 → 릴리스 → 자재스테이징 · 출고(261, 백플러시, Pull List, 칸반) → 확인(수율 · 스크랩 · 재작업) → 입고(101). 반복생산은 기간 · 수량 지향으로 별도 경로</p></div>
+<div class="step"><span class="n">원가</span><p>CO: 계획/실적 원가 · WIP · 차이 → 오더 정산</p></div>
+
+<h4>Course 지도</h4>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>Course</th><th>핵심</th></tr></thead>
+<tbody>
+<tr><td><a href="../pp/s42000-manufacturing-basics.html">S42000</a> · <a href="../pp/s42010-pp-processes.html">S42010</a> 기초/생산계획</td><td class="wrap">공급망계획 3단계(예측 · 수요관리 · MRP) · 소비기반 vs 확정적 계획 · 생산유형(이산 · 프로세스 · 반복) · 생산오더 구조(헤더 · 작업 · 구성품) · MRP-Live 계획실행 · 결과평가</td></tr>
+<tr><td><a href="../pp/s42020-discrete-shopfloor.html">S42020</a> · <a href="../pp/s42025-process-shopfloor.html">S42025</a> 이산/프로세스 SFC</td><td class="wrap">이산: 자재 · BOM · 작업장 · 라우팅 · 생산버전 → 생산오더 라이프사이클 / 프로세스: 마스터레시피 · 자원 · 배치관리 → 공정오더(PI 시트). 실행 4단계: <b>릴리스 · 출고 · 확인 · 입고</b></td></tr>
+<tr><td><a href="../pp/s42100-basic-data.html">S42100</a> 기초데이터</td><td class="wrap">자재(분류 · 문서 · 제품마스터) · BOM(유효성 · 항목카테고리 · 팬텀 · 공동/부산물 · 대체 · 복수/변형 BOM · ECM) · 작업장 · 능력(풀링 · 참조) · 라우팅(자재배정 · 하위오퍼레이션 · PRT · 병렬/대체 시퀀스 · 참조세트 · 리드타임 · 시간요소/단축 · EWB) · 부록: 자재/플랜트/저장위치/MRP Area Customizing · 트리거포인트 · 스크랩</td></tr>
+<tr><td><a href="../pp/s42220-production-planning.html">S42220</a> · <a href="../pp/s42240-ppds.html">S42240</a> 생산계획/PP-DS</td><td class="wrap">계획전략 · pMRP · MRP Live · DDR · PP/DS 다단계 · PP/DS 마스터(CIF Integration Model, Product/Resource/PDS, 모델 000/버전 000) · Product View · 안전재고 · 로트사이징 · 휴리스틱 · 확산범위 · 페깅 · 상세스케줄링(SBC · DS Optimizer · PPO) · PP/DS–MRP Live 연동</td></tr>
+<tr><td><a href="../pp/s42300-capacity-planning.html">S42300</a> · <a href="../pp/s4260-production-orders.html">S4260</a> 능력계획/생산오더</td><td class="wrap">능력평가 · 평준화(테이블 · 스케줄링 테이블 · 보드) · 생산오더 통합 · 구조 · 생성(계획오더 전환/대체) · 마스터 선택 · 스케줄링 · 자재가용성체크 · 릴리스(개별/집합) · 생산스케줄링 프로파일 · 시스템/사용자 상태 · 샵플로어 서류 · 재고출고/확인/입고</td></tr>
+</tbody>
+</table>
+</div>
+
+<div class="note warn">
+  <div class="t">개인 E2E 프로젝트 범위 밖</div>
+  <p>프로젝트는 <b>생산 · 외주가공이 없는</b> 사입 트레이딩 모델이므로 PP 전체가 범위 밖입니다. 이 절은 자료실 전체 지도로서 남겨 두는 것이고, 프로젝트 문서에서 PP 개념을 끌어오지 않습니다.</p>
+</div>
+
+<h3>FI/CO — Finance (Record-to-Report)</h3>
+
+<h4>구조 — 모든 것이 Universal Journal로 수렴</h4>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>들어오는 축</th><th>내용</th></tr></thead>
+<tbody>
+<tr><td>Leading Ledger <code>0L</code></td><td class="wrap">IFRS 등 주 회계기준</td></tr>
+<tr><td>Non-Leading Ledger</td><td class="wrap">Local GAAP — 병행회계</td></tr>
+<tr><td>Extension Ledger</td><td class="wrap">경영관리 뷰</td></tr>
+<tr><td>FI-AR / FI-AP</td><td class="wrap">고객 / 공급업체 — <b>조정계정</b>을 통해</td></tr>
+<tr><td>FI-AA</td><td class="wrap">자산 — 감가상각영역 ↔ 원장 매핑</td></tr>
+<tr><td>CO</td><td class="wrap">Cost Center · Profit Center → Segment · Internal Order · CO-PA</td></tr>
+</tbody>
+</table>
+</div>
+
+<p>이 전부가 <span class="key">Universal Journal <code>ACDOCA</code></span>의 단일 라인아이템으로 들어가고, 거기서 결산(잔액이월 · 외화평가 · 가치조정 · GR/IR · Accruals · Document Splitting · Closing Cockpit · ICR)을 거쳐 <b>재무제표(FSV) · Embedded Analytics · SAC</b>로 나갑니다.</p>
+
+<h4>Course 지도</h4>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>Course</th><th>핵심 설정</th><th>기억할 포인트</th></tr></thead>
+<tbody>
+<tr><td><a href="../fi/s4f12-core-settings.html">S4F12</a> Core Settings</td><td class="wrap">Company Code(복사) · Controlling Area 할당 · Ledger(Leading/Non-Leading/Extension, <b>Ledger Approach 권장</b>) · Variant 원칙 · 회계연도 변형(16기간) · 통화키/환율유형/통화유형(00 · 10 · 20 · 30…, UJ 최대 8개 추가) · G/L 계정(COA 2세그먼트 · Account Group · Field Status · 조정계정 · OIM) · Profit Center/Segment(SAP Note 1035140) · BP/CVI · 전표구조 · 전기기간 · 전기키 · 문서분할 · 지급조건 · 세금 · 미결항목 반제</td><td class="wrap">Universal Journal 기반 조직요소 설계 가이드 — 1 Client, 법인=1 CC, 공통 Controlling Area, Profit Center ≤ 5,000</td></tr>
+<tr><td><a href="../fi/s4f13-additional.html">S4F13</a> Additional Settings</td><td class="wrap">자동지급 <code>F110</code>(하우스뱅크 · SEPA · 은행선택 · 지급매체) · 독촉 <code>F150</code>(절차 · 레벨 · 비용) · Correspondence · Special G/L(선급금 · 환어음 · 기타, 전기키 09/19/29/39) · 파킹 vs 홀드 · 워크플로우 승인 · Validation/Substitution(Rule · Set) · 데이터 아카이빙</td><td class="wrap"></td></tr>
+<tr><td><a href="../fi/s4f15-financial-closing.html">S4F15</a> Financial Closing</td><td class="wrap">월결산/연결산 순서 · 재무제표버전 · Global Hierarchies · 자산결산 · 감가실행 · 실사 · GR/IR · 재고평가 · 잔액확인 · 외화평가 · 가치조정 · 재분류 · COSA · Accruals Mgmt · Ledger Group 전기 · 잔액이월 · 전기기간 · Balance Audit Trail · Document Splitting · Financial Closing Cockpit · Intercompany Reconciliation(IXMR)</td><td class="wrap"><span class="bad">Document Splitting은 Client 단위 결정 → 초기 설계</span></td></tr>
+<tr><td><a href="../fi/s4f17-asset-accounting.html">S4F17</a> Asset Accounting</td><td class="wrap">COA/감가상각표 할당 · 감가상각영역 ↔ 원장(병행회계) · 자산클래스(계정결정 · 번호범위 · 레이아웃) · 취득(통합/비통합) · 처분 · 이체 · AuC 정산 · 비계획감가 · 감가상각 키/계산 · 연도변경 · 투자지원 · 리포팅(CDS · Asset Balances · 시뮬레이션 · 자산이력시트) · 레거시 이관(수동/BAPI/AS100/Migration Cockpit)</td><td class="wrap"></td></tr>
+<tr><td><a href="fi-e2e-guide.html">FI E2E 가이드</a>(자작)</td><td class="wrap">차변/대변 · 전표구조 · 자동계정결정 총정리(조정계정 · OBYC · VKOA · Special G/L) · 반제(수동/자동 <code>F.13</code> · 부분/잔액 · 환차이 · Tolerance) · 역분개(Normal vs Negative Posting · 사유코드 · <code>FBRA</code>) · P2P/O2C/월결산 흐름 · 트랜잭션/테이블 총정리 · 설계 체크리스트</td><td class="wrap">회의용 설계 질문 리스트 포함</td></tr>
+</tbody>
+</table>
+</div>
+
+<p>FI/CO의 개념 입문은 <a href="../iee2e/iee2e-04-fico.html">IEE2E FI/CO 개관 — G/L · 매입채무 · 매출채권 · 자산 · 간접비</a>가 가장 부담이 적은 출발점입니다.</p>
+
+</div>
+
+
+<!-- ══════════ LESSON 8 ══════════ -->
+<div class="lesson" id="l8">
+<h2><span class="no">LESSON 8</span>L2 — 모듈 통합 (Integration Points)</h2>
+
+<p><span class="tag">원문 6절</span><span class="tag">이 문서의 핵심 절</span>실물 흐름과 회계 흐름의 시차 · 계정결정 3층 · 그 밖의 접점</p>
+
+<h3>언제 이걸 알아야 하는가</h3>
+
+<p><b>"MM에서 입고했는데 FI에 안 넘어옵니다"</b>, <b>"SD 청구는 났는데 매출이 안 잡힙니다"</b> — 유지보수에서 가장 흔한 문의가 전부 <span class="key">모듈 경계</span>에서 납니다. 모듈 하나만 아는 사람은 이 문의에서 항상 상대 모듈 탓을 하게 됩니다.</p>
+
+<h3>모듈이 만나는 지점 — 한 장</h3>
+
+<figure class="figwrap">
+<svg class="dgm" viewBox="0 0 1000 480" role="img" aria-label="모듈 간 관계도. MM과 SD는 재고와 ATP와 배치로 만나고 MM과 PP는 MRP 결과와 예약으로 만나며 MM SD PP 세 모듈의 실물 이동이 모두 계정결정을 거쳐 FI의 Universal Journal로 수렴한다. 그 아래 BASIS 계층이 락 업데이트 트랜스포트 권한으로 네 모듈 전체를 떠받친다.">
+  <defs>
+    <marker id="ke1" markerWidth="9" markerHeight="9" refX="7" refY="4.5" orient="auto">
+      <polygon class="arw-key" points="0,0 9,4.5 0,9"/></marker>
+    <marker id="ke2" markerWidth="9" markerHeight="9" refX="7" refY="4.5" orient="auto">
+      <polygon class="arw" points="0,0 9,4.5 0,9"/></marker>
+    <marker id="ke3" markerWidth="9" markerHeight="9" refX="7" refY="4.5" orient="auto">
+      <polygon class="arw-ok" points="0,0 9,4.5 0,9"/></marker>
+  </defs>
+
+  <rect class="b-key" x="30" y="22" width="250" height="88" rx="6"/>
+  <text class="t-h c-key" x="52" y="48">MM — Source to Pay</text>
+  <text class="t-s" x="52" y="70">PR → PO → GR(101) → IR</text>
+  <text class="t-s" x="52" y="88">재고관리 · 이동유형 · 배치</text>
+  <text class="m-s" x="52" y="104">EKKO · EKPO · MATDOC</text>
+
+  <rect class="b-key" x="720" y="22" width="250" height="88" rx="6"/>
+  <text class="t-h c-key" x="742" y="48">SD — Lead to Cash</text>
+  <text class="t-s" x="742" y="70">오더 → 납품 → PGI(601) → 청구</text>
+  <text class="t-s" x="742" y="88">ATP · 배치결정 · 가격</text>
+  <text class="m-s" x="742" y="104">VBAK · LIKP · VBRK</text>
+
+  <rect class="b-key" x="375" y="22" width="250" height="88" rx="6"/>
+  <text class="t-h c-key" x="397" y="48">PP — Plan to Produce</text>
+  <text class="t-s" x="397" y="70">MRP → 계획오더 → 생산오더</text>
+  <text class="t-s" x="397" y="88">출고(261) → 확인 → 입고(101)</text>
+  <text class="m-s" x="397" y="104">AFKO · AFPO · RESB</text>
+
+  <path class="ln" d="M280 56 H371" marker-end="url(#ke2)"/>
+  <path class="ln" d="M371 76 H284" marker-end="url(#ke2)"/>
+  <text class="t-xs" x="292" y="50">MRP → PR / 일정라인</text>
+  <text class="t-xs" x="292" y="94">예약 · 위탁가공 BOM</text>
+
+  <path class="ln" d="M625 56 H716" marker-end="url(#ke2)"/>
+  <path class="ln" d="M716 76 H629" marker-end="url(#ke2)"/>
+  <text class="t-xs" x="636" y="50">생산 입고 → 판매 가용</text>
+  <text class="t-xs" x="636" y="94">수요 → 계획</text>
+
+  <path class="ln-bad" d="M155 110 V140 H845 V110" marker-end="url(#ke1)"/>
+  <rect class="b-bad" x="330" y="124" width="340" height="34" rx="5"/>
+  <text class="t" x="352" y="146">MM ↔ SD: 재고 → ATP · 배송플랜트 · STO · 배치/유효기간</text>
+
+  <path class="ln-ok" d="M155 158 V212" marker-end="url(#ke3)"/>
+  <path class="ln-ok" d="M500 110 V212" marker-end="url(#ke3)"/>
+  <path class="ln-ok" d="M845 158 V212" marker-end="url(#ke3)"/>
+
+  <rect class="b-hl" x="30" y="214" width="940" height="56" rx="6"/>
+  <text class="t-h" x="52" y="240">계정결정 — 실물 사건을 G/L 계정으로 옮기는 관문</text>
+  <text class="t-s" x="52" y="260">MM: OBYC 거래키 × 평가클래스 (T030)  ·  SD: VKOA 조건기법  ·  FI: 조정계정 · Special G/L  ·  VAT: Define Tax Accounts</text>
+
+  <path class="ln-ok" d="M500 270 V306" marker-end="url(#ke3)"/>
+
+  <rect class="b-ok" x="30" y="308" width="940" height="76" rx="6"/>
+  <text class="t-h c-ok" x="52" y="334">FI / CO — Record to Report</text>
+  <text class="t" x="52" y="356">Universal Journal <tspan class="m-s">ACDOCA</tspan> 단일 라인아이템 — FI 문서 = CO 문서</text>
+  <text class="t-s" x="52" y="374">GR/IR 청산계정(P2P) · 진행중 재고(O2C) · 오더(PP)가 실물과 청구 사이의 시차를 각각 담당한다</text>
+
+  <rect class="b-mut" x="30" y="396" width="940" height="70" rx="6"/>
+  <text class="t-h" x="52" y="422">BASIS / ABAP Platform — 네 모듈 전체를 떠받치는 층</text>
+  <text class="t-s" x="52" y="442">Enqueue 락 · Update Task · COMMIT WORK(업무 단위의 원자성)  ·  트랜스포트(DEV→QAS→PRD)  ·  권한(PFCG)  ·  Gateway/OData</text>
+  <text class="t-s c-bad" x="52" y="460">CBO가 여러 모듈의 문서를 건드릴 때 락 경합과 커밋 단위가 문제되는 자리가 바로 여기다.</text>
+</svg>
+<figcaption><span class="fno">그림 5</span>모듈 간 관계도. 세 모듈의 실물 이동이 계정결정이라는 하나의 관문을 통해 FI로 수렴하고, 그 전체를 BASIS 계층이 떠받친다.</figcaption>
+</figure>
+
+<h3>실물 흐름과 회계 흐름의 시차를 잇는 구조</h3>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>단계</th><th>P2P (MM → FI)</th><th>O2C (SD → FI)</th><th>Plan-to-Produce (PP ↔ CO/MM)</th></tr></thead>
+<tbody>
+<tr><td>① 주문</td><td class="wrap">PO 생성 — <b>FI 전기 없음</b></td><td class="wrap">판매오더 — <b>FI 전기 없음</b> (ATP · 신용 체크)</td><td class="wrap">계획오더 → 생산오더 (계획원가 산정)</td></tr>
+<tr><td>② 실물</td><td class="wrap">GR(101): <b>재고(BSX) 차변 / GR·IR(WRX) 대변</b>, 차이 PRD</td><td class="wrap">PGI(601): <b>COGS 차변 / 재고 대변</b></td><td class="wrap">자재출고(261): 소비 차변 / 재고 대변 → 오더 실적원가</td></tr>
+<tr><td>③ 청구</td><td class="wrap">IR(<code>MIRO</code>): GR·IR 차변 / 공급업체(조정계정) 대변 / 매입세</td><td class="wrap">Billing(F2 → RV): 고객(조정계정) 차변 / 매출(VKOA) 대변 / VAT</td><td class="wrap">확인: 활동원가 배부 · 입고(101): 재고 차변 / 오더 대변</td></tr>
+<tr><td>④ 정산</td><td class="wrap"><code>F110</code> 지급 → 공급업체 미결 반제 → 은행청산 반제</td><td class="wrap"><code>F-28</code> 입금 → 고객 미결 반제(참조번호 · Assignment)</td><td class="wrap">오더 정산: WIP · 차이 → CO-PA/FI</td></tr>
+<tr><td>연결 계정</td><td class="wrap"><b>GR/IR 청산계정(OIM)</b> — <code>MR11</code>로 정리</td><td class="wrap">(청구 전) 진행중 재고 · Posting Block</td><td class="wrap">오더(CO 객체)가 임시 원가 집합소</td></tr>
+</tbody>
+</table>
+</div>
+
+<h3>계정결정 3층 구조</h3>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>층위</th><th>모듈</th><th>메커니즘</th><th>Customizing</th></tr></thead>
+<tbody>
+<tr><td>하위원장 → G/L</td><td>FI</td><td class="wrap">고객/공급업체 마스터 Company Code 세그먼트의 <b>조정계정</b>(직접 전기 불가)</td><td class="wrap"><code>FS00</code> · BP</td></tr>
+<tr><td>재고 · 구매 거래 → G/L</td><td>MM</td><td class="wrap"><b>거래키</b>(<code>BSX</code>·<code>WRX</code>·<code>PRD</code>·<code>KDM</code>·<code>GBB</code>·<code>EIN</code>/<code>EKG</code>·<code>BSV</code>/<code>FRL</code>/<code>FRN</code>) × 계정과목표 × 평가그룹코드 × 평가클래스 × 계정그룹코드(GBB 세분화)</td><td class="wrap"><code>OBYC</code> (<code>T030</code>) · 시뮬레이션</td></tr>
+<tr><td>판매 · 청구 → G/L</td><td>SD</td><td class="wrap">Condition Technique 재사용: 판매조직 · 고객계정그룹 · 자재계정그룹 · 계정키(ERL · ERS · ERF · MWS)</td><td class="wrap"><code>VKOA</code> · <span class="bad">VAT는 FI Tax Accounts</span></td></tr>
+<tr><td>특수 거래</td><td>FI</td><td class="wrap"><b>Special G/L Indicator</b>(선급금 A/F, 환어음 등) → 대체 조정계정</td><td class="wrap"><code>OBXR</code>/<code>OBXY</code></td></tr>
+</tbody>
+</table>
+</div>
+
+<p>이 3층 구조의 상세 설명과 3-Way Match 금액 예시는 <a href="fi-e2e-guide.html#l2">FI E2E 가이드 LESSON 2</a>에 있습니다.</p>
+
+<h3>그 밖의 통합 포인트</h3>
+
+<ul>
+  <li><b>MM ↔ SD</b>: 재고 → ATP · 배송 플랜트/출하지점 · STO(재고이송오더, 납품문서 기반) · EWM Warehouse Task · <span class="key">배치/유효기간</span></li>
+  <li><b>MM ↔ PP</b>: MRP 결과 → PR/일정라인(외부) vs 계획오더(내부) · 소스결정 · 위탁가공 BOM · 예약(Reservation)</li>
+  <li><b>FI ↔ CO</b>: Universal Journal 단일 라인아이템(<b>FI 문서 = CO 문서</b>) · Primary/Secondary Cost Element = G/L 계정 · Profit Center → Segment 파생 · CO에는 Leading Ledger 값만 표준 전기</li>
+  <li><b>문서 흐름 추적</b>: SD <code>VBFA</code> · MM 구매오더 이력(<code>EKBE</code>) · 자재문서 ↔ 회계문서(<code>MATDOC-BELNR</code> / <code>ACDOCA-AWKEY</code>)</li>
+</ul>
+
+<div class="note">
+  <div class="t">📖 원본 노트</div>
+  <p>계정결정 3층의 원문은 <a href="fi-e2e-guide.html">FI E2E 가이드</a> 2~5장. 모듈 쪽 상세는 <a href="../mm/s4550-cross-functional.html">S4550(OBYC)</a> · <a href="../sd/s46150-billing.html">S46150(VKOA · SD-FI 인터페이스)</a> · <a href="../mm/s4515-invoice-verification.html">S4515(GR/IR)</a> · <a href="../mm/s4510-inventory.html">S4510(이동유형)</a>.</p>
+</div>
+
+<div class="note ok">
+  <div class="t">📌 개인 E2E 프로젝트와의 연결점</div>
+  <p>프로젝트의 CBO 3종이 전부 <b>그림 5의 경계선 위에</b> 서 있습니다.</p>
+  <p>· <b>ZBATCH_ZONE</b>(잔여 유통기한 30% 미달 → 정상 SLoc에서 임박 SLoc으로 <code>311</code>) — MM 재고 축 내부. 저장위치 간 이동이라 계정결정을 건드리지 않는다는 점이 이 CBO를 자동화해도 되는 근거입니다<br>
+     · <b>ZPRICE_CHECK</b>(<code>EINE-NETPR</code> vs <code>MBEW-VERPR</code>) — MM ↔ FI 경계. 금액에 닿으므로 <span class="bad">알림까지만</span><br>
+     · <b>ZGATE_INSPECT</b>(GR 101 vs STOR이관 301 차이 → 송장 미발생 건 <code>122</code> 반품) — MM ↔ FI 경계이면서 GR/IR 미결 구조에 직접 의존. 재고와 금액을 모두 움직이므로 승인 대기(상태 W/P/H)를 거칩니다</p>
+  <p>그리고 세 CBO 모두 그림 5 맨 아래 BASIS 층의 제약을 받습니다 — 여러 자재문서를 순회하며 갱신하므로 <b>ENQUEUE 락과 커밋 단위</b>를 설계해야 하고, 전표는 직접 INSERT가 아니라 BAPI로 만듭니다.</p>
+</div>
+
+</div>
+
+
+<!-- ══════════ LESSON 9 ══════════ -->
+<div class="lesson" id="l9">
+<h2><span class="no">LESSON 9</span>L3 — 데이터 계층 (HANA · 단순화 데이터모델)</h2>
+
+<p><span class="tag">원문 7절</span><span class="tag">ABAP 개발자에게 가장 직접적인 절</span>Column Store · Simplification List</p>
+
+<h3>언제 이걸 알아야 하는가</h3>
+
+<p><b>"ECC에서 쓰던 SELECT가 S/4HANA에서 이상하게 느립니다"</b> 또는 <b>"이 테이블에 UPDATE가 안 먹습니다"</b> — 원인은 대개 하나입니다. <span class="bad">이름은 살아 있지만 실체가 뷰</span>인 오브젝트를 테이블처럼 다룬 것입니다.</p>
+
+<h3>SAP HANA 저장 구조</h3>
+
+<ul>
+  <li>인메모리 · <span class="key">Column Store</span>(OLAP — 필요한 컬럼만 로드 · 인덱스 불필요 · 병렬) vs <b>Row Store</b>(OLTP — 레코드 단위 갱신). 하나의 테이블은 둘 중 하나 → S/4HANA는 HTAP(OLTP+OLAP 단일 플랫폼)</li>
+  <li>HANA 전용 → DB 독립성 불필요 → <span class="key">Code-to-Data</span>(CDS · AMDP · HANA 프로시저). S/4HANA 2023+ = HANA 2.0 필수(SAP Note 3307222), Linux 필수</li>
+</ul>
+
+<h3>데이터모델 단순화 — 공식 Simplification List 기준</h3>
+
+<figure class="figwrap">
+<svg class="dgm" viewBox="0 0 1000 400" role="img" aria-label="데이터모델 단순화 도해. ECC에서 여러 개로 나뉘어 있던 재무 인덱스·총계 테이블과 재고 집계 테이블이 S/4HANA에서는 ACDOCA와 MATDOC 단일 테이블로 통합되고, 기존 테이블 이름은 호환성 뷰나 CDS 재계산 뷰로만 남아 읽기는 되지만 쓰기는 금지된다.">
+  <defs>
+    <marker id="kf1" markerWidth="9" markerHeight="9" refX="7" refY="4.5" orient="auto">
+      <polygon class="arw-key" points="0,0 9,4.5 0,9"/></marker>
+  </defs>
+
+  <text class="t-h" x="20" y="24">ECC</text>
+  <text class="t-h c-ok" x="700" y="24">S/4HANA</text>
+
+  <rect class="b-mut" x="20" y="36" width="300" height="86" rx="6"/>
+  <text class="t" x="40" y="58">재무 — 문서 + 인덱스 + 총계</text>
+  <text class="m-s" x="40" y="78">BKPF · BSEG</text>
+  <text class="m-s" x="40" y="94">BSIS/BSAS · BSID/BSAD · BSIK/BSAK</text>
+  <text class="m-s" x="40" y="110">GLT0 · COEP/COSP · ANEP</text>
+
+  <path class="ln-key" d="M320 79 H620" marker-end="url(#kf1)"/>
+  <rect class="b-ok" x="624" y="42" width="356" height="74" rx="6"/>
+  <text class="t-h c-ok" x="646" y="66">ACDOCA — Universal Journal</text>
+  <text class="t-s" x="646" y="86">단일 라인아이템. 인덱스·총계 테이블은</text>
+  <text class="t-s" x="646" y="104">Compatibility View(CDS 리다이렉트)로 읽기만 유지</text>
+
+  <rect class="b-mut" x="20" y="134" width="300" height="76" rx="6"/>
+  <text class="t" x="40" y="156">재고관리(MM-IM)</text>
+  <text class="m-s" x="40" y="176">MKPF · MSEG</text>
+  <text class="m-s" x="40" y="192">MARD · MARC · MCHB · MSKA · MSLB</text>
+
+  <path class="ln-key" d="M320 172 H620" marker-end="url(#kf1)"/>
+  <rect class="b-ok" x="624" y="134" width="356" height="76" rx="6"/>
+  <text class="t-h c-ok" x="646" y="158">MATDOC (+ MATDOC_EXTRACT)</text>
+  <text class="t-s" x="646" y="178">INSERT-only 단일 테이블. 집계 테이블은 CDS 뷰로</text>
+  <text class="t-s" x="646" y="196">실시간 재계산 — 마스터 필드만 보관</text>
+
+  <rect class="b-mut" x="20" y="222" width="300" height="76" rx="6"/>
+  <text class="t" x="40" y="244">SD 상태 · 가격 · 문서흐름</text>
+  <text class="m-s" x="40" y="264">VBUK · VBUP (상태)</text>
+  <text class="m-s" x="40" y="280">KONV (조건) · VBFA (문서흐름)</text>
+
+  <path class="ln-key" d="M320 260 H620" marker-end="url(#kf1)"/>
+  <rect class="b-ok" x="624" y="222" width="356" height="76" rx="6"/>
+  <text class="t-s" x="646" y="246">상태 필드 → VBAK/VBAP/LIKP/LIPS/VBRK로 통합</text>
+  <text class="t-h c-ok" x="646" y="268">KONV → PRCD_ELEMENTS</text>
+  <text class="t-s" x="646" y="288">VBFA 간소화(다단계 직접 참조)</text>
+
+  <rect class="b-bad" x="20" y="316" width="960" height="70" rx="6"/>
+  <text class="t-h c-bad" x="42" y="342">규칙 하나</text>
+  <text class="t" x="42" y="364">"이름은 살아 있지만 실체는 뷰"인 것들(VBUK · MARD 집계 필드 · BSIS …)에는 절대 INSERT/UPDATE 하지 않는다.</text>
+  <text class="t" x="42" y="380">조회도 가급적 릴리스된 CDS(<tspan class="m-s">I_*</tspan>)로 한다 — 이것이 Clean Core Level A/B의 실무적 출발점이다.</text>
+</svg>
+<figcaption><span class="fno">그림 6</span>데이터모델 단순화. 여러 테이블이 하나로 합쳐지고, 옛 이름은 읽기 전용 뷰로만 남는다.</figcaption>
+</figure>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>영역</th><th>ECC</th><th>S/4HANA</th><th>개발자 영향</th></tr></thead>
+<tbody>
+<tr><td>재무</td><td class="wrap"><code>BKPF</code>/<code>BSEG</code> + 인덱스(<code>BSIS</code>/<code>BSAS</code>/<code>BSID</code>/<code>BSAD</code>/<code>BSIK</code>/<code>BSAK</code>) + 총계(<code>GLT0</code>) + <code>COEP</code>/<code>COSP</code> + <code>ANEP</code>…</td><td class="wrap"><b><code>ACDOCA</code></b> 단일 라인아이템. 인덱스/총계 테이블은 <span class="key">Compatibility View</span>(CDS 리다이렉트)로 읽기 유지</td><td class="wrap">SELECT는 계속 동작하나 <span class="bad">쓰기 금지 · 성능 주의</span>. 신규 개발은 <code>ACDOCA</code>/<code>I_JournalEntryItem</code> 등 CDS 사용</td></tr>
+<tr><td>재고관리(MM-IM)</td><td class="wrap"><code>MKPF</code>/<code>MSEG</code> + 집계(<code>MARD</code>·<code>MARC</code>·<code>MCHB</code>·<code>MSKA</code>·<code>MSLB</code>…)</td><td class="wrap"><b><code>MATDOC</code></b> 단일 INSERT-only 테이블 + <code>MATDOC_EXTRACT</code>(<code>MMPV</code> 압축). 집계 테이블은 CDS 뷰(<code>NSDM_V_MARD</code> 등)로 <b>실시간 재계산</b>, 마스터 필드만 보관</td><td class="wrap"><code>MARD-LABST</code> 같은 재고수량 SELECT는 뷰 스택을 통해 집계 → 대량 조회 시 CDS/<code>I_MaterialStock</code> 권장, 락 경합 감소</td></tr>
+<tr><td>SD</td><td class="wrap"><code>VBUK</code>/<code>VBUP</code> 상태 테이블 · <code>KONV</code> 조건 · <code>VBFA</code> 문서흐름</td><td class="wrap">상태 필드 → <code>VBAK</code>/<code>VBAP</code>/<code>LIKP</code>/<code>LIPS</code>/<code>VBRK</code> 헤더·아이템에 통합 · <b><code>PRCD_ELEMENTS</code></b>(KONV 대체) · <code>VBFA</code> 간소화(다단계 직접 참조)</td><td class="wrap"><code>VBUK</code>/<code>VBUP</code>는 뷰로만 존재, KONV 접근은 <code>PRCD_ELEMENTS</code>/<code>I_SalesDocumentItemPricingElement</code></td></tr>
+<tr><td>마스터</td><td class="wrap"><code>KNA1</code>/<code>LFA1</code> 직접 생성</td><td class="wrap"><b>Business Partner 필수</b>(CVI). <code>KNA1</code>/<code>LFA1</code>은 유지되나 BP를 통해 생성 · 자재번호 40자(MATNR 확장)</td><td class="wrap">고객/공급업체 생성 BAPI → BP API(<code>CL_MD_BP_MAINTAIN</code> 등)</td></tr>
+<tr><td>가격/출력</td><td class="wrap"><code>NAST</code> 조건기법</td><td class="wrap">신규 Output Control(BRF+, Adobe Forms) 병행</td><td class="wrap">출력 커스터마이징 <b>두 체계</b>를 다 이해해야 한다</td></tr>
+<tr><td>확장</td><td class="wrap">Append / Modification</td><td class="wrap">Key-User Custom Fields(확장 인클루드 자동), Released API · BAdI</td><td class="wrap">Tier/Level 모델 참조 — LESSON 11</td></tr>
+</tbody>
+</table>
+</div>
+
+<div class="note">
+  <div class="t">📖 원본 노트 · 공식 출처</div>
+  <p>테이블 총정리는 <a href="fi-e2e-guide.html#l6">FI E2E 가이드 LESSON 6</a>. HANA 저장 구조는 <a href="../tadm10/tadm10-01-foundation.html">TADM10 SAP 시스템 기초</a>, Universal Journal의 FI 측 설계는 <a href="../fi/s4f12-core-settings.html">S4F12</a>.<br>
+     공식: <a href="https://help.sap.com/doc/c34b5ef72430484cb4d8895d5edd12af/2023/en-US/SIMPL_OP2023.pdf">Simplification List for SAP S/4HANA 2023 (SAP Help Portal, PDF)</a> · <a href="https://community.sap.com/t5/enterprise-resource-planning-blog-posts-by-sap/sap-s-4hana-inventory-management-tables-new-simplified-data-model-nsdm/ba-p/13497469">MM-IM New Simplified Data Model (SAP 공식 블로그)</a></p>
+</div>
+
+<div class="note ok">
+  <div class="t">📌 개인 E2E 프로젝트와의 연결점</div>
+  <p>CBO 세 본이 전부 이 절의 제약을 정면으로 받습니다.</p>
+  <p>· <b>ZBATCH_ZONE</b>은 배치별 재고를 봐야 하는데, <code>MCHB</code>는 S/4HANA에서 집계 뷰입니다 — 전건 SELECT하면 뷰 스택을 통해 <code>MATDOC</code>을 재계산하므로 느려집니다. 유통기한 조건(<code>MCHA-VFDAT</code>)으로 먼저 좁힌 뒤 재고를 조회하는 순서여야 합니다<br>
+     · <b>ZPRICE_CHECK</b>가 보는 <code>MBEW-VERPR</code>와 <code>EINE-NETPR</code>는 둘 다 마스터성 데이터라 비교적 안전하지만, 자재 × 플랜트 전건 조인은 여전히 피해야 합니다<br>
+     · <b>ZGATE_INSPECT</b>는 이동유형 <code>101</code>/<code>301</code> 자재문서를 봐야 하는데, <code>MKPF</code>/<code>MSEG</code>가 아니라 <code>MATDOC</code>(또는 <code>I_MaterialDocumentItem</code>)이 실체입니다</p>
+</div>
+
+<div class="note warn">
+  <div class="t">확인 필요</div>
+  <p>어느 테이블이 실테이블이고 어느 것이 Compatibility View인지는 <b>릴리스마다 다릅니다</b>. 개발 전에 실제 시스템(winerp01 / MEP)에서 <code>SE11</code>로 오브젝트 유형을 확인할 것 — 이 문서의 표는 공식 Simplification List 기준 요약이지 해당 시스템의 실측값이 아닙니다.</p>
+</div>
+
+</div>
+
+
+<!-- ══════════ LESSON 10 ══════════ -->
+<div class="lesson" id="l10">
+<h2><span class="no">LESSON 10</span>횡단 — 방법론 · 전환경로 · 랜드스케이프 · 확장 · 통합</h2>
+
+<p><span class="tag">원문 8절</span><span class="tag">S4C03 · SL_RISE419</span>SAP Activate · 전환 4경로 · Clean Core · 통합/마이그레이션/테스트</p>
+
+<h3>언제 이걸 알아야 하는가</h3>
+
+<p><b>"이 요구사항을 표준으로 할 수 있나, 개발해야 하나"</b>를 판단하는 기준이 이 절에 있습니다. Fit-to-Standard 워크숍과 Clean Core 등급이 그 판단의 언어입니다.</p>
+
+<h3>SAP Activate와 RISE with SAP Methodology</h3>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>단계</th><th>핵심 활동</th><th>산출물 / 도구</th></tr></thead>
+<tbody>
+<tr><td>Discover</td><td class="wrap">비즈니스 케이스 · Digital Discovery Assessment · IT Contact 지정</td><td class="wrap">SAP for Me · RISE Adoption Framework</td></tr>
+<tr><td>Prepare</td><td class="wrap">팀 구성(LoB 전문가 · PM · Lead Config/Conversion Expert) · 시스템 프로비저닝 · Cloud ALM 프로젝트 설정</td><td class="wrap">Embedded Launch Onboarding Expert · clean core success plan 로드맵</td></tr>
+<tr><td>Explore</td><td class="wrap"><b>Fit-to-Standard 워크숍</b>(샌드박스에서 표준 프로세스 검증) · 디자인 워크숍 · 요구사항 문서화</td><td class="wrap">Signavio Process Navigator · Cloud ALM Requirements 앱 · <span class="key">Clean Core Q-Gate</span></td></tr>
+<tr><td>Realize</td><td class="wrap">Customizing(IMG/SSCUI) · 확장 · 통합 · 데이터 마이그레이션 · 테스트(구현 · UAT) · 출력관리</td><td class="wrap">Migration Cockpit · CIAS · Cloud ALM Test Mgmt · ATO</td></tr>
+<tr><td>Deploy</td><td class="wrap">회귀 테스트 · 컷오버 · 변화관리 · 교육</td><td class="wrap">Tricentis · Clean Core Runbook</td></tr>
+<tr><td>Run</td><td class="wrap">운영 · 모니터링 · 연 1회 업그레이드 권리(Private Edition)</td><td class="wrap">Cloud ALM Operations · Upgrade 로드맵</td></tr>
+</tbody>
+</table>
+</div>
+
+<h3>전환 경로 (Transition Paths)</h3>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>경로</th><th>기술</th><th>적합</th><th>주의</th></tr></thead>
+<tbody>
+<tr><td>New Implementation (Greenfield)</td><td class="wrap">신규 설치 → Best Practices 활성화 → Migration Cockpit</td><td class="wrap">프로세스 재설계, Clean Core로 시작</td><td class="wrap">마감된 트랜잭션 데이터 이전 불가</td></tr>
+<tr><td>System Conversion (Brownfield)</td><td class="wrap"><b>SUM + DMO</b>(DB 마이그레이션 · 업데이트 · 데이터 변환 통합) · Readiness Check · Custom Code Migration 앱 · <code>SPDD</code>/<code>SPAU</code>/<code>SPAU_ENH</code> · ATC quick fix</td><td class="wrap">투자 보존, 빠른 전환</td><td class="wrap">최신 릴리스 필요, Tier 3 코드 현대화</td></tr>
+<tr><td>Selective Data Transition</td><td class="wrap">Shell Conversion / Mix &amp; Match · Business Transformation Center</td><td class="wrap">다중 ERP 통합, 이력 선택 이전</td><td class="wrap">서드파티 툴은 SAP 인증 밖</td></tr>
+<tr><td>Lift &amp; Shift</td><td class="wrap">SWPM 백업/복원 · DMO with System Move</td><td class="wrap">데이터센터 이전</td><td class="wrap"></td></tr>
+</tbody>
+</table>
+</div>
+
+<p>통계(약 1만 건 3년): 시스템 컨버전 48% · 신규 구현 50% · SDT 2%.</p>
+
+<h3>랜드스케이프 · 계정 · 릴리스</h3>
+
+<ul>
+  <li>Sandbox(CAL, 2~3시간 배포) → <b>DEV</b>(클라이언트 <code>080</code> 개발 = Workbench Request / <code>100</code> Customizing = Customizing Request · Key User 확장) → <b>QAS</b> → <b>PRD</b></li>
+  <li>SAP for Me(Systems &amp; Provisioning · Users &amp; Contacts) · SAP Cloud Identity Services(자동 프로비저닝) · SAP Cloud ALM(Implementation · Operations · Service · Business Transformation Center) · BTP(RISE 인에이블링 패키지: Build Apps · Process Automation · Work Zone + 약 90개 서비스)</li>
+  <li>릴리스: 2023년부터 <b>2년 주기 기본 릴리스, 메인스트림 유지보수 7년</b>, 첫 2년 FPS(신기능) 반기 → 이후 SPS(수정만). What's New Viewer · Road Map Explorer · Customer Influence</li>
+</ul>
+
+<h3>확장성 — Clean Core</h3>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>범주</th><th>도구</th><th>누가</th><th>어디서</th></tr></thead>
+<tbody>
+<tr><td><b>Key-User In-App</b></td><td class="wrap">Custom Fields · Custom Logic(BAdI) · Custom Business Objects · Custom Tiles/Catalog Extensions · Adapt UI · Form/Email Templates · Extensibility Inventory · <b>ATO</b>(Configure Software Packages → Register Extensions for Transport → <code>SE09</code> 릴리스)</td><td class="wrap">LoB 구성전문가</td><td class="wrap">DEV Customizing 클라이언트(100)</td></tr>
+<tr><td><b>Developer In-App (ABAP Cloud)</b></td><td class="wrap">ADT "ABAP for Cloud Development" 언어버전 · Released API/BAdI/CDS(<code>I_*</code>)만 사용 · RAP · ATC Cloud 검사</td><td class="wrap">ABAP 개발자</td><td class="wrap">DEV 개발 클라이언트(080)</td></tr>
+<tr><td><b>Side-by-Side (BTP)</b></td><td class="wrap">SAP Build(Apps · Process Automation · Work Zone, 로우/노코드) · SAP Business Application Studio(CAP, Java/JS/Python) · Event Mesh</td><td class="wrap">BTP 개발자</td><td class="wrap">SAP BTP</td></tr>
+<tr><td>클래식(비권장)</td><td class="wrap">임의 SAP 객체 수정 · Modification</td><td class="wrap"></td><td class="wrap">Tier 3 → 현대화 대상</td></tr>
+</tbody>
+</table>
+</div>
+
+<p>노트 기준 3-Tier: <b>Tier 1</b> 클라우드 준비 · 업그레이드 안정(Key-User · ABAP Cloud) / <b>Tier 2</b> 미릴리스 객체를 래퍼로 감쌈 / <b>Tier 3</b> 클래식 ABAP. 이 3-Tier가 2025년에 Level A~D 모델로 바뀐 내용은 LESSON 11에 있습니다.</p>
+
+<h3>통합 · 마이그레이션 · 테스트</h3>
+
+<ul>
+  <li><b>ISA-M</b>(Integration Solution Advisory Methodology) → Integration Assessment · CIO Guide · Business Accelerator Hub. 4원칙: Out-of-the-box · Open · Holistic · AI 기반</li>
+  <li><b>SAP Integration Suite</b>: Cloud Integration(A2A/B2B/B2G) · API Management · Event Mesh · Open Connectors · Integration Advisor · Trading Partner Mgmt · Connectivity Service(Cloud Connector 터널). 온프레미스 클래식: <span class="key">RFC/BAPI · ALE/IDoc · Web Service · CIF(PP/DS)</span></li>
+  <li><b>CIAS</b>(Cloud Integration Automation Service): 자동/반자동/수동 태스크로 통합 설정 가이드</li>
+  <li><b>Migration Cockpit</b>(Migrate Your Data 앱): 로컬 스테이징(XML/CSV) · 원격 HANA 스키마 · SAP ERP 직접(RFC) · Migration Object Modeler · Data Migration Status 앱 · 대상 앱 권한 필요</li>
+  <li><b>테스트</b>: 구현 테스트(Signavio 테스트스크립트) → UAT(<b>Deploy 전 필수</b>) → 회귀 · Cloud ALM Test Management · Tricentis 자동화</li>
+</ul>
+
+<div class="note">
+  <div class="t">📖 원본 노트</div>
+  <p><a href="../sd/s4c03-implementing-pce.html">S4C03 Implementing SAP S/4HANA Cloud Private Edition — 전환 · 권한 · 확장 · 연동</a> · <a href="../sd/rise-methodology.html">SL_RISE419 RISE with SAP Methodology — Clean Core와 표준화 프레임워크</a></p>
+</div>
+
+<div class="note ok">
+  <div class="t">📌 개인 E2E 프로젝트와의 연결점</div>
+  <p>프로젝트 개발 원칙이 이 절의 Fit-to-Standard와 같은 말입니다 — <b>"표준 우선. IMG로 되는 건 IMG로. CBO는 표준으로 안 되는 지점만"</b>. 그래서 각 CBO 설계서가 "표준의 한계 → CBO가 메우는 것" 순서로 쓰여 있는 것이고, 그 구조 자체가 Fit-to-Standard 판정 기록입니다.</p>
+  <p>확장 등급으로 보면 프로젝트의 CBO 3종은 <b>클래식 ABAP(Z 프로그램 + Z 테이블)</b>이므로 Tier 3 / Level C~D에 해당합니다. 학습 목적으로 일부러 클래식으로 만드는 것이므로 문제는 아니지만, 포트폴리오에서는 <span class="hl">"왜 ABAP Cloud가 아니라 클래식으로 했는가"</span>를 한 줄 적어 두는 편이 면접에서 유리합니다.</p>
+</div>
+
+</div>
+
+
+<!-- ══════════ LESSON 11 ══════════ -->
+<div class="lesson" id="l11">
+<h2><span class="no">LESSON 11</span>심화 — 2025 릴리스 · Clean Core A~D · 테이블 맵</h2>
+
+<p><span class="tag">원문 9절</span><span class="tag">노트에 없던 공식 자료 보강</span>노트는 대부분 2023 기준 — 여기서 덮어쓴다</p>
+
+<h3>언제 이걸 알아야 하는가</h3>
+
+<p>자료실의 노트는 대부분 <b>S/4HANA 2023</b> 기준으로 작성되어 있습니다. 릴리스 · Clean Core 등급 · 유지보수 일정은 그 사이에 바뀌었으므로, 이 절의 내용이 노트보다 우선합니다.</p>
+
+<h3>SAP S/4HANA 2025 · ABAP Platform 2025</h3>
+
+<ul>
+  <li><b>출시</b>: SAP S/4HANA Cloud Private Edition / SAP S/4HANA 2025 — <span class="key">2025-10-08</span> 고객 릴리스. ABAP Platform 2025 = <code>SAP_BASIS 816</code>. 1610~2023 모든 릴리스에서 2025로 <b>직접 업그레이드 가능</b></li>
+  <li><b>ABAP 언어</b>: 내부 테이블 그룹핑 · 필터 · <code>CORRESPONDING()</code> 확장, 확률분포/난수 시스템 클래스 추가</li>
+  <li><b>ABAP Cloud / RAP</b>: OData 서비스 생성기 확대, collaborative draft, cross-BO 시나리오, 트리 뷰, Fiori 앱용 event-driven side effects</li>
+  <li><b>ADT</b>: 리팩터링 · 테스트 · 디버깅 강화(메모리 소비 분석, 테이블 비교)</li>
+  <li><b>AI</b>: Joule for Developers — 코드 완성 · 설명 · 단위테스트 생성 · ECC→S/4HANA 마이그레이션 지원이 ABAP 개발환경의 핵심 구성요소로 편입</li>
+  <li><b>Clean Core</b>: 3-Tier → <span class="key">4-Level(A·B·C·D)</span> 프레임워크로 진화</li>
+  <li>노트와의 관계: TADM10 U17의 "FES 2023 = 마지막 Hub/독립형 FES, 이후 Embedded 전용" 방향은 2025에서도 유지. Business Suite 시스템에는 FES 2023이 마지막 지원 FES</li>
+</ul>
+
+<h3>Clean Core 확장성 Level A~D (2025-08 SAP 발표)</h3>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>Level</th><th>정의</th><th>기술</th><th>노트의 Tier 모델과 대응</th></tr></thead>
+<tbody>
+<tr><td><b>A — Extend with SAP Build / ABAP Cloud</b></td><td class="wrap">공개 · 릴리스된 안정 인터페이스만 사용, 공식 안정성 계약 보유. <span class="hl">가장 권장</span></td><td class="wrap">BTP side-by-side(SAP Build · CAP) 또는 on-stack ABAP Cloud(RAP · Released API · BAdI) · Key-User 확장</td><td class="wrap">Tier 1</td></tr>
+<tr><td><b>B — Leverage Classic APIs</b></td><td class="wrap">A 조건 충족 + 문서화된 <b>클래식 API/기술</b>(BAPI · 클래식 BAdI · 문서화된 Exit 등) 추가 사용. 대체로 업그레이드 안정</td><td class="wrap">ABAP Cloud + 래퍼 없이 허용된 클래식 API</td><td class="wrap">Tier 2와 유사(래퍼 대신 허용 목록 개념)</td></tr>
+<tr><td><b>C — Accesses Internal Objects</b></td><td class="wrap">SAP 내부 객체 접근, 레거시 시나리오용 부분 준수. SAP가 내부 객체 changelog 제공 예정</td><td class="wrap">표준 ABAP, 미릴리스 객체 읽기 등</td><td class="wrap">Tier 2/3 경계</td></tr>
+<tr><td><b>D — Not Recommended</b></td><td class="wrap">명시적 비권장 기법: <span class="bad">표준 테이블 직접 쓰기, 무단 Modification</span>. 업그레이드 위험 · 기술부채 최대</td><td class="wrap">Modification · 직접 UPDATE</td><td class="wrap">Tier 3</td></tr>
+</tbody>
+</table>
+</div>
+
+<ul>
+  <li>실무 판정 도구: <b>ATC</b> Cloud 준비도 검사(ABAP Test Cockpit, <code>ABAP for Cloud Development</code> 문법) · Custom Code Migration 앱 · SAP Readiness Check · Cloud ALM Clean Core 리포트/Runbook</li>
+  <li>개발자 행동 지침: 신규 개발은 <b>Level A 기본</b> → 불가 시 B(허용 클래식 API) → C는 <b>사유 문서화 + changelog 모니터링</b> → D는 금지</li>
+</ul>
+
+<h3>유지보수 로드맵</h3>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>제품</th><th>일정</th></tr></thead>
+<tbody>
+<tr><td>SAP Business Suite 7 / ECC 6.0</td><td class="wrap">메인스트림 유지보수 <span class="bad">2027-12-31 종료</span> → 확장 유지보수 <b>2028~2030년 말</b>(유지보수 기준 +2% 프리미엄) → 이후 Customer-Specific Maintenance</td></tr>
+<tr><td>SAP S/4HANA</td><td class="wrap"><b>2040년까지 항상 최소 1개 릴리스가 유지보수 중</b>임을 약속. 2023부터 2년 주기 릴리스 · 릴리스당 7년 메인스트림</td></tr>
+<tr><td>S/4HANA Cloud Private Edition</td><td class="wrap">온프레미스와 동일 주기. 최소 7년에 1회 업그레이드 필수, RISE 계약상 연 1회 업그레이드 요청 권리</td></tr>
+<tr><td>SAP Fiori FES</td><td class="wrap">FES 2023 = 마지막 독립형/Hub. Business Suite용 FES 유지보수는 Business Suite와 함께 종료</td></tr>
+</tbody>
+</table>
+</div>
+
+<h3>ABAP 개발자용 모듈별 핵심 테이블 · CDS 맵</h3>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>모듈</th><th>헤더 / 아이템 / 기타</th><th>S/4HANA 변화</th><th>대표 CDS(릴리스 뷰)</th></tr></thead>
+<tbody>
+<tr><td>SD 판매</td><td class="wrap"><code>VBAK</code> / <code>VBAP</code> / <code>VBEP</code>(스케줄라인) · <code>VBKD</code>(비즈니스데이터) · <code>VBPA</code>(파트너) · <code>VBFA</code>(문서흐름)</td><td class="wrap">VBUK/VBUP 상태 → VBAK/VBAP 필드, KONV → <code>PRCD_ELEMENTS</code></td><td class="wrap"><code>I_SalesDocument</code> · <code>I_SalesDocumentItem</code> · <code>I_SalesDocumentItemPricingElement</code></td></tr>
+<tr><td>SD 납품 · 청구</td><td class="wrap"><code>LIKP</code> / <code>LIPS</code> · <code>VBRK</code> / <code>VBRP</code> · <code>NAST</code>(출력)</td><td class="wrap">납품/청구 상태 필드 통합</td><td class="wrap"><code>I_OutboundDelivery(Item)</code> · <code>I_BillingDocument(Item)</code></td></tr>
+<tr><td>MM 구매</td><td class="wrap"><code>EKKO</code> / <code>EKPO</code> / <code>EKET</code>(일정) / <code>EKBE</code>(이력) / <code>EKKN</code>(계정지정) · <code>EINA</code>/<code>EINE</code>(Info Record) · <code>EBAN</code>(PR)</td><td class="wrap">공급업체 = BP(<code>LFA1</code> 유지)</td><td class="wrap"><code>I_PurchaseOrder(Item)</code> · <code>I_PurchaseRequisition(Item)</code></td></tr>
+<tr><td>MM 재고</td><td class="wrap"><b><code>MATDOC</code></b>(자재문서) · <code>MARA</code>/<code>MARC</code>/<code>MARD</code>/<code>MBEW</code>/<code>MCHB</code>(마스터+집계 뷰) · <code>RBKP</code>/<code>RSEG</code>(송장)</td><td class="wrap">MKPF/MSEG → <code>MATDOC</code>, 집계 테이블은 CDS 재계산</td><td class="wrap"><code>I_MaterialDocumentItem</code> · <code>I_MaterialStock</code> · <code>I_SupplierInvoice</code></td></tr>
+<tr><td>PP</td><td class="wrap"><code>AFKO</code>/<code>AFPO</code>(오더 헤더/아이템) · <code>AFVC</code>/<code>AFVV</code>(오퍼레이션) · <code>AFFL</code> · <code>RESB</code>(예약/구성품) · <code>PLAF</code>(계획오더) · <code>PBIM</code>/<code>PBED</code>(PIR) · <code>STKO</code>/<code>STPO</code>/<code>MAST</code>(BOM) · <code>PLKO</code>/<code>PLPO</code>/<code>MAPL</code>(라우팅) · <code>CRHD</code>/<code>KAKO</code>(작업장/능력) · <code>MKAL</code>(생산버전)</td><td class="wrap">MRP Live(HANA 프로시저), PP/DS 내장(<code>/SAPAPO/</code> 테이블)</td><td class="wrap"><code>I_ManufacturingOrder(Item/Operation)</code> · <code>I_BillOfMaterial</code></td></tr>
+<tr><td>FI/CO</td><td class="wrap"><code>BKPF</code> / <b><code>ACDOCA</code></b> (<code>BSEG</code> 유지) · <code>SKA1</code>/<code>SKB1</code>/<code>SKAT</code> · <code>KNA1</code>/<code>KNB1</code> · <code>LFA1</code>/<code>LFB1</code> · <code>BUT000</code>(BP) · <code>T030</code>(OBYC) · <code>ANLA</code>/<code>ANLC</code>(자산) · <code>CSKS</code>(코스트센터) · <code>CEPC</code>(프로핏센터)</td><td class="wrap"><code>BSIS</code>/<code>BSAS</code> · <code>BSID</code>/<code>BSAD</code> · <code>BSIK</code>/<code>BSAK</code> · <code>GLT0</code> · <code>COEP</code> 등 → Compatibility View</td><td class="wrap"><code>I_JournalEntry(Item)</code> · <code>I_GLAccountLineItem</code> · <code>I_OperationalAcctgDocItem</code> · <code>I_BusinessPartner</code></td></tr>
+</tbody>
+</table>
+</div>
+
+<h3>자격증 · 다음 학습과의 연결</h3>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>이 문서의 LESSON</th><th>대응 SAP 인증(대표)</th><th>추가 권장 코스</th></tr></thead>
+<tbody>
+<tr><td>6(SD) · 5(조건기법) · 8(통합)</td><td class="wrap">C_TS462 — Sales, S/4HANA Cloud Private Edition</td><td class="wrap">—</td></tr>
+<tr><td>6(MM)</td><td class="wrap">C_TS452 — Sourcing and Procurement</td><td class="wrap">—</td></tr>
+<tr><td>7(PP)</td><td class="wrap">C_TS422 — Production Planning and Manufacturing</td><td class="wrap">—</td></tr>
+<tr><td>7(FI)</td><td class="wrap">C_TS4FI — Financial Accounting</td><td class="wrap">—</td></tr>
+<tr><td>3 · 4(플랫폼)</td><td class="wrap">C_TADM — System Administration</td><td class="wrap">ADM325(Software Logistics) · S4D400/S4D430(ABAP · CDS) · S4DEV</td></tr>
+<tr><td>10(방법론) · 11(Clean Core)</td><td class="wrap">C_ABAPD — Back-End Developer, ABAP Cloud · SAP Activate 인증</td><td class="wrap">Practicing Clean Core Extensibility · Discovering SAP BTP</td></tr>
+</tbody>
+</table>
+</div>
+
+<div class="note warn">
+  <div class="t">확인 필요 — 이 절은 작성 기준일에 묶여 있다</div>
+  <p>릴리스 일정 · Clean Core 등급 정의 · 유지보수 종료일은 <b>2026-09-02 기준</b> 공식 발표를 옮긴 것입니다. 실제 판단이 필요할 때는 문서 하단 출처 링크에서 현재 값을 다시 확인할 것.</p>
+</div>
+
+</div>
+
+
+<!-- ══════════ LESSON 12 ══════════ -->
+<div class="lesson" id="l12">
+<h2><span class="no">LESSON 12</span>원본 인덱스와 출처</h2>
+
+<p><span class="tag">원문 10절 + 출처</span><span class="tag">노션 원본과 이 자료실의 대응표</span></p>
+
+<h3>언제 이걸 알아야 하는가</h3>
+
+<p>이 지도가 가리키는 <b>실제 내용은 각 노트 안에</b> 있습니다. 이 표는 "어느 영역이 몇 개 코스로 되어 있고, 이 문서의 어느 LESSON에 흡수되었는가"의 대응표입니다.</p>
+
+<h3>영역별 구성과 이 문서에서의 위치</h3>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>영역</th><th>구성</th><th>이 문서</th><th>자료실 노트</th></tr></thead>
+<tbody>
+<tr><td>E2E 개관</td><td class="wrap">1~3장 + FI/CO 4-1~4-6 + HXM 05 + 구매 06 (11 페이지)</td><td class="wrap">LESSON 2 · 5 · 8</td><td class="wrap"><a href="../iee2e/iee2e-01-e2e-processes.html">U1 E2E 프로세스</a> · <a href="../iee2e/iee2e-02-business-suite.html">U2 Business Suite</a> · <a href="../iee2e/iee2e-03-central-objects.html">U3 핵심 오브젝트</a> · <a href="../iee2e/iee2e-04-fico.html">FI/CO 개관</a> · <a href="../iee2e/iee2e-05-recruit-to-retire.html">Recruit-to-Retire</a> · <a href="../iee2e/iee2e-06-source-to-pay.html">Source-to-Pay</a></td></tr>
+<tr><td>SD</td><td class="wrap">12 Course · 44 페이지 (1-1 ~ 12-8)</td><td class="wrap">LESSON 6 · 10</td><td class="wrap">노트 12건 — <a href="../sd/s46000-sales-essentials.html">S46000</a> ~ <a href="../sd/s46200-pricing.html">S46200</a>, <a href="../sd/s4c03-implementing-pce.html">S4C03</a>, <a href="../sd/rise-methodology.html">SL_RISE419</a></td></tr>
+<tr><td>FI</td><td class="wrap">4 Course · 24 페이지 (1-1 ~ 4-6). Course 5·6은 SD 링크 재사용</td><td class="wrap">LESSON 7</td><td class="wrap"><a href="../fi/s4f12-core-settings.html">S4F12</a> · <a href="../fi/s4f13-additional.html">S4F13</a> · <a href="../fi/s4f15-financial-closing.html">S4F15</a> · <a href="../fi/s4f17-asset-accounting.html">S4F17</a></td></tr>
+<tr><td>MM</td><td class="wrap">6 Course · 41 페이지 (1-1 ~ 6-10)</td><td class="wrap">LESSON 6</td><td class="wrap"><a href="../mm/s4500-business-processes.html">S4500</a> · <a href="../mm/s4510-inventory.html">S4510</a> · <a href="../mm/s4515-invoice-verification.html">S4515</a> · <a href="../mm/s4520-purchasing.html">S4520</a> · <a href="../mm/s45250-cbp-forecasting.html">S45250</a> · <a href="../mm/s4550-cross-functional.html">S4550</a></td></tr>
+<tr><td>PP</td><td class="wrap">9 Course · 24 페이지 (3-1 ~ 11-3)</td><td class="wrap">LESSON 7</td><td class="wrap">노트 9건 — <a href="../pp/s42000-manufacturing-basics.html">S42000</a> ~ <a href="../pp/s4260-production-orders.html">S4260</a></td></tr>
+<tr><td>Basis / 기술</td><td class="wrap">TADM10 21 Unit · 25 페이지 (1-1 ~ 9-1)</td><td class="wrap">LESSON 3 · 4 · 9</td><td class="wrap"><a href="../tadm10/tadm10-01-foundation.html">기초</a> · <a href="../tadm10/tadm10-02-authorization.html">권한·통신</a> · <a href="../tadm10/tadm10-03-fiori-monitoring.html">U9-11</a> · <a href="../tadm10/tadm10-04-start-stop.html">U12-15</a> · <a href="../tadm10/tadm10-05-http.html">U16</a> · <a href="../tadm10/tadm10-06-fiori-landscape.html">U17-21</a></td></tr>
+<tr><td>FI E2E 가이드</td><td class="wrap">6 페이지 (기초 · 계정결정 · 반제 · 역분개 · E2E · 테이블/체크리스트)</td><td class="wrap">LESSON 8 · 9 · 11</td><td class="wrap"><a href="fi-e2e-guide.html">FI End-to-End 프로세스 가이드</a></td></tr>
+</tbody>
+</table>
+</div>
+
+<p><b>학습 현황</b>: 7개 영역 모두 노트 정리 완료. 이 문서는 그 위에 얹는 "지도"이므로, 새 Course가 추가되면 해당 LESSON의 표에 한 줄만 보태고 원본 링크를 걸면 됩니다.</p>
+
+<h3>출처 (공식 자료)</h3>
+
+<ul>
+  <li><a href="https://community.sap.com/t5/enterprise-resource-planning-blog-posts-by-sap/abap-platform-in-sap-s-4hana-cloud-private-edition-and-sap-s-4hana-2025/ba-p/14289979">ABAP Platform in SAP S/4HANA Cloud Private Edition and SAP S/4HANA 2025 — SAP 공식 블로그</a> — 2025-10-08 출시, SAP_BASIS 816, ABAP/RAP/ADT/Joule 혁신, 직접 업그레이드 경로</li>
+  <li><a href="https://news.sap.com/2025/08/extend-sap-s4hana-cloud-right-way-clean-clear/">How to Extend SAP S/4HANA Cloud the Right Way (Clean Core Level A–D) — SAP News Center</a> — 4-Level 확장성 모델 정의</li>
+  <li><a href="https://support.sap.com/en/release-upgrade-maintenance/maintenance-information/maintenance-strategy/s4hana-business-suite7.html">Innovation Commitment for SAP S/4HANA until 2040 / Business Suite 7 Maintenance — SAP Support Portal</a> — ECC 2027/2030, S/4HANA 2040</li>
+  <li><a href="https://community.sap.com/t5/enterprise-resource-planning-blog-posts-by-sap/sap-s-4hana-inventory-management-tables-new-simplified-data-model-nsdm/ba-p/13497469">SAP S/4HANA Inventory Management: New Simplified Data Model (NSDM) — SAP 공식 블로그</a> — MATDOC · MATDOC_EXTRACT · Compatibility View</li>
+  <li><a href="https://help.sap.com/doc/c34b5ef72430484cb4d8895d5edd12af/2023/en-US/SIMPL_OP2023.pdf">Simplification List for SAP S/4HANA 2023 — SAP Help Portal (PDF)</a> — 데이터모델 · 기능 단순화 항목 원문</li>
+  <li><a href="https://community.sap.com/t5/technology-blog-posts-by-sap/abap-extensibility-guide-clean-core-for-sap-s-4hana-cloud-august-2025/ba-p/14175399">ABAP Extensibility Guide – Clean Core for SAP S/4HANA Cloud (2025-08 Update) — SAP 공식 블로그</a></li>
+  <li><a href="https://learning.sap.com/courses/practicing-clean-core-extensibility-for-sap-s-4hana-cloud/explaining-extensibility-model-best-practices_e290f382-800e-40ef-a203-85a13115f487">Exploring Clean Core Extensibility Best Practices — SAP Learning</a></li>
+  <li>그 밖에 본문 각 절의 SAP Note 번호(예: 1035140, 1914010, 2590653, 3307222, 3336823)는 원본 노트에서 인용된 SAP 공식 노트</li>
+</ul>
+
+</div>
+
+
+<!-- ══════════ APPENDIX ══════════ -->
+<div class="lesson" id="lx">
+<h2><span class="no">APPENDIX</span>정리 · 반드시 기억할 것</h2>
+
+<h3>한 장 요약</h3>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>질문</th><th>답</th></tr></thead>
+<tbody>
+<tr><td>이 자료실의 계층 구조</td><td class="wrap">L0 사용자경험 · L1 기술플랫폼 · L2 애플리케이션 · L3 데이터 + 네 층을 관통하는 횡단 관심사</td></tr>
+<tr><td>4대 E2E 프로세스</td><td class="wrap">Lead to Cash(SD→AR) · Source to Pay(MM→AP) · Design to Operate(PP·MM·EWM·PM) · Recruit to Retire(HCM→FI). 전부 Record to Report로 수렴</td></tr>
+<tr><td>Private Edition 릴리스 주기</td><td class="wrap">2년 주기 · 릴리스당 7년 유지보수 · 최소 7년에 1회 업그레이드 필수</td></tr>
+<tr><td>FLP 콘텐츠 모델</td><td class="wrap">Business Role → Space → Page → Business Catalog → Technical Catalog</td></tr>
+<tr><td>Dialog Step과 LUW</td><td class="wrap">화면 왕복 1회 = Dialog Step 1개 = <b>DB LUW 1개</b>. SAP LUW의 원자성은 Enqueue + Update Task + COMMIT WORK</td></tr>
+<tr><td>ICF 서비스의 초기 상태</td><td class="wrap"><b>전부 비활성</b>. 필요한 것만 켠다</td></tr>
+<tr><td>조건기법이 재사용되는 곳</td><td class="wrap">SD 가격결정 · SD 계정결정(VKOA) · 출력결정(NAST) · MM 가격 · 텍스트 결정 · 세금 · 리베이트</td></tr>
+<tr><td>구매조직–플랜트 할당</td><td class="wrap"><b>항상 필수</b>. 회사코드 할당은 선택</td></tr>
+<tr><td>계정결정 3층</td><td class="wrap">FI 조정계정 / MM OBYC(T030) / SD VKOA. VAT는 이 셋 밖에 있다</td></tr>
+<tr><td>실물과 청구의 시차를 잇는 계정</td><td class="wrap">P2P는 GR/IR 청산계정, O2C는 진행중 재고, PP는 오더(CO 객체)</td></tr>
+<tr><td>S/4HANA 데이터모델의 한 줄</td><td class="wrap">여러 테이블이 <code>ACDOCA</code>·<code>MATDOC</code>으로 통합. 옛 이름은 <b>읽기 전용 뷰</b>로만 남는다</td></tr>
+<tr><td>Clean Core 등급</td><td class="wrap">A(릴리스 인터페이스만) → B(문서화된 클래식 API) → C(내부 객체 접근) → D(금지: 표준 테이블 직접 쓰기 · Modification)</td></tr>
+<tr><td>ECC 유지보수 종료</td><td class="wrap">메인스트림 2027-12-31, 확장 유지보수 2030년 말까지</td></tr>
+</tbody>
+</table>
+</div>
+
+<div class="note warn">
+  <div class="t">반드시 지킬 것</div>
+  <p>· <b>이름이 살아 있는 테이블에 함부로 쓰지 않는다.</b> <code>VBUK</code>·<code>BSIS</code>·<code>MARD</code> 집계 필드는 실체가 뷰다. 쓰기 전에 <code>SE11</code>로 확인한다.<br>
+     · 조직구조는 <b>정의 다음에 할당</b>이다. 정의만 해 두고 문서가 안 흐른다고 하는 경우의 대부분이 할당 누락이다.<br>
+     · 조건기법은 한 번 제대로 이해하고 다섯 군데에 재사용한다. 모듈마다 새로 배우면 시간이 다섯 배 든다.<br>
+     · 이 문서는 <b>지도이지 원본이 아니다.</b> 실제 설정값과 화면은 각 노트에서 확인한다.<br>
+     · 릴리스에 묶인 서술(LESSON 11)은 유효기간이 있다. 판단이 필요한 순간에는 출처 링크로 현재 값을 다시 본다.</p>
+</div>
+
+<h3>참고</h3>
+
+<ul>
+  <li>원본: 노션 <b>SAP Learning Hub</b> → 🗺️ SAP S/4HANA 통합 지식맵 (직접 작성, 0~10절 + 출처). 작성 기준일 2026-09-02</li>
+  <li>이 자료실의 다른 단독 문서: <a href="fi-e2e-guide.html">FI End-to-End 프로세스 가이드</a></li>
+  <li>저니별 입구: <a href="../sd/s46000-sales-essentials.html">SD S46000</a> · <a href="../mm/s4500-business-processes.html">MM S4500</a> · <a href="../fi/s4f12-core-settings.html">FI S4F12</a> · <a href="../pp/s42000-manufacturing-basics.html">PP S42000</a> · <a href="../tadm10/tadm10-01-foundation.html">TADM10 기초</a> · <a href="../iee2e/iee2e-01-e2e-processes.html">IEE2E U1</a></li>
+  <li>원문 0절에 있던 아키텍처 HTML 임베드는 노션 서명 URL이라 이 노트로 옮기지 않았다 — 그림 1이 그 대체물</li>
+</ul>
+
+</div>
+
+</div>
+<script src="../../assets/hub.js" defer></script>
+</body>
+</html>

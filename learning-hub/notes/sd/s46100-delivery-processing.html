@@ -1,0 +1,1041 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>S46100 Configuring Delivery Processing — 납품유형 · 출하 자동결정 · EWM 연계</title>
+<meta name="description" content="SAP Learning Hub의 Configuring Delivery Processing in SAP S/4HANA Sales(S46100) 노트. 납품문서 구조와 배송 조직단위, Delivery Type·Item Category·Copying Control 3단 결정, 선적항·루트 자동결정, 배송/운송 스케줄링 역산, 납품대기목록과 Outbound Delivery Monitor, Embedded EWM 피킹·재고출고·입고납품, 납품 특수기능.">
+<link rel="icon" href="../../assets/favicon.svg">
+<link rel="stylesheet" href="../../assets/notes-paper.css">
+<style>
+/* ── 이 노트 전용: 도해(SVG) 스타일 ─────────────────────────── */
+.dgm{display:block; width:100%; height:auto;}
+.dgm text{font-family:"Malgun Gothic","맑은 고딕","Apple SD Gothic Neo",sans-serif; fill:#1e1e1e;}
+.dgm .t-h{font-size:15px; font-weight:700;}
+.dgm .t{font-size:13px;}
+.dgm .t-s{font-size:11.5px; fill:#555;}
+.dgm .t-xs{font-size:10.5px; fill:#6B7280;}
+.dgm .m{font-family:"D2Coding","Consolas",monospace; font-size:12px;}
+.dgm .m-s{font-family:"D2Coding","Consolas",monospace; font-size:10.5px;}
+.dgm .c-key{fill:#4338CA;} .dgm .c-bad{fill:#B91C1C;} .dgm .c-ok{fill:#047857;}
+.dgm .b{fill:#FFFFFF; stroke:#C7CBD6; stroke-width:1.2;}
+.dgm .b-key{fill:#EEF0FB; stroke:#4338CA; stroke-width:1.4;}
+.dgm .b-bad{fill:#FEF2F2; stroke:#B91C1C; stroke-width:1.3;}
+.dgm .b-ok{fill:#ECFDF5; stroke:#047857; stroke-width:1.3;}
+.dgm .b-mut{fill:#F3F4F6; stroke:#D1D5DB; stroke-width:1.1;}
+.dgm .b-hl{fill:#FEF08A; stroke:#CA8A04; stroke-width:1.2;}
+.dgm .b-ghost{fill:none; stroke:#9AA3B2; stroke-width:1.1; stroke-dasharray:5 4;}
+.dgm .ln{stroke:#7C8697; stroke-width:1.4; fill:none;}
+.dgm .ln-key{stroke:#4338CA; stroke-width:1.8; fill:none;}
+.dgm .ln-bad{stroke:#B91C1C; stroke-width:1.6; fill:none;}
+.dgm .ln-ok{stroke:#047857; stroke-width:1.6; fill:none;}
+.dgm .ln-d{stroke:#9AA3B2; stroke-width:1.2; stroke-dasharray:4 4; fill:none;}
+.dgm .arw{fill:#7C8697;} .dgm .arw-key{fill:#4338CA;}
+.dgm .arw-bad{fill:#B91C1C;} .dgm .arw-ok{fill:#047857;}
+.figwrap{background:#FAFAFE; border:1px solid var(--rule); border-radius:6px;
+  padding:18px 16px 10px; margin:22px 0;}
+.figwrap figcaption{margin-top:12px; padding-top:10px; border-top:1px solid var(--rule);}
+</style>
+</head>
+<body>
+<div class="crumb"><a href="../../index.html">← 자료실 홈</a> · <a href="../../journey.html?j=sd">SD 저니</a> · S46100 Delivery Processing</div>
+<div class="sheet">
+
+<div class="doc-head">
+  <div class="kicker">LEARNING HUB · S46100</div>
+  <h1>납품 처리 구성 — 납품유형 · 출하 자동결정 · EWM 연계</h1>
+  <div class="sub">
+    Learning Journey <b>Implementing Sales in SAP S/4HANA Cloud Private Edition</b> · Course 8 / S46100 · 5 Unit · 9 레슨 · Intermediate · 11h 58m<br>
+    출처: 노션 <b>SAP Learning Hub</b> 노트 8-1 ~ 8-6 변환
+  </div>
+</div>
+
+<div class="lead">
+  <p><b>결론부터.</b> 납품은 "오더를 복사한 문서"가 아닙니다. 오더가 <b>무엇을 팔지</b>를 확정한 문서라면, 납품은 <span class="hl">어느 문(선적항)에서 · 어떤 경로(루트)로 · 언제(스케줄링) 내보낼지</span>를 확정하는 별도 문서입니다. 그래서 납품에서 걸리는 장애의 대부분은 오더가 아니라 <span class="key">출하 필드 자동결정 테이블</span>과 <span class="key">Copying Control</span>에 원인이 있습니다.</p>
+  <p>이 코스는 납품문서의 골격(헤더 + 아이템)과 조직단위를 세운 다음 → 문서를 통제하는 3단(Delivery Type · Item Category · Copying Control)을 깔고 → 선적항·루트가 어떤 키로 자동결정되는지, 요청납기일에서 자재가용일이 어떻게 역산되는지를 다룹니다. 마지막 Unit은 Embedded EWM과의 경계 — <b>LE 출하납품과 EWM 출하납품이 왜 문서적으로 분리되는지</b>입니다.</p>
+</div>
+
+<div class="toc">
+  <h4>목차</h4>
+  <ol>
+    <li><a href="#l1">납품문서의 구조와 배송 조직단위</a></li>
+    <li><a href="#l2">납품 3단 결정 — Delivery Type · Item Category · Copying Control</a></li>
+    <li><a href="#l3">출하 필드 자동결정과 스케줄링 역산</a></li>
+    <li><a href="#l4">출하납품 처리 — 납품대기목록 · 출력 · Monitor</a></li>
+    <li><a href="#l5">Embedded EWM 피킹과 재고출고</a></li>
+    <li><a href="#l6">EWM 입고납품과 납품 특수기능</a></li>
+  </ol>
+</div>
+
+
+<!-- ══════════ LESSON 1 ══════════ -->
+<div class="lesson" id="l1">
+<h2><span class="no">LESSON 1</span>납품문서의 구조와 배송 조직단위</h2>
+
+<p><span class="tag">Unit 1-2</span><span class="tag">레슨 2개</span>Explaining the Concept and Structure of a Delivery Document · Maintaining the Organizational Units for Delivery Processing</p>
+
+<h3>언제 이걸 알아야 하는가</h3>
+
+<p>납품 쪽에서 가장 많이 받는 문의는 <b>"오더는 만들어졌는데 납품이 안 잡힙니다"</b>입니다. 자재도 있고 수량도 있는데 납품대기목록에 안 올라옵니다. 원인은 대부분 <span class="key">조직단위 배정</span>입니다 — 그 플랜트에 쓸 수 있는 선적항 조합이 Customizing에 없거나, 저장위치가 창고번호에 붙지 않아 피킹 경로가 끊긴 것입니다.</p>
+
+<p>그래서 이 코스는 문서 얘기를 하기 전에 <b>Plant · Storage Location · Shipping Point · Loading Point</b>가 각각 무엇을 통제하는지부터 세웁니다. 이 좌표가 틀리면 뒤의 Customizing을 아무리 고쳐도 납품은 안 나옵니다.</p>
+
+<h3>납품문서란 무엇인가</h3>
+
+<p>판매·유통 프로세스에서 <b>피킹 · 포장 · 문서 출력</b> 같은 출하 활동이 필요해지는 시점에 그 활동을 관리하는 문서가 납품문서입니다. 서로 다른 비즈니스 프로세스는 서로 다른 <span class="key">납품유형(Delivery Type)</span>으로 모델링합니다.</p>
+
+<p>예를 들어 플랜트 간 재고이전이라면 — 주문플랜트가 공급플랜트에 구매오더를 내고, 공급플랜트가 그 구매오더를 참조해 납품문서를 만듭니다. 이 납품문서가 피킹 · 출력물 발행 · 재고출고 게시의 기반이 됩니다.</p>
+
+<p>입고 쪽도 같습니다. 구매오더 전체 · 구매오더 아이템의 부분수량 · 여러 구매오더의 조합에 대해 <b>입고납품문서(Inbound Delivery)</b>를 생성할 수 있고, 이 문서가 포장 · 입고배치 · warehouse order 생성 · 입고 게시의 기반이 됩니다.</p>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>구분</th><th>무엇을 다루는가</th></tr></thead>
+<tbody>
+<tr><td>납품문서 (Delivery)</td><td class="wrap"><b>무엇을 보낼지</b> — 자재 · 수량 · 배치 · 출하지점 · 루트. 피킹 · 포장 · PGI의 기준 문서</td></tr>
+<tr><td>수송문서 (Shipment)<br>TM Freight Order</td><td class="wrap"><b>어떻게 운송할지</b> — 차량 배정 · 운송업체 · 적재 계획. 납품문서와는 <span class="bad">별개 문서</span></td></tr>
+</tbody>
+</table>
+</div>
+
+<h4>헤더와 아이템</h4>
+
+<p>납품문서는 <b>헤더 1건 + 아이템 N건</b> 구조입니다. 헤더에는 문서 전체에 적용되는 정보(Ship-to Party · Shipping Point · Route)가, 아이템에는 실제 납품할 자재 정보가 들어갑니다. 개요화면(Overview Screen)에서는 주요 헤더·아이템 데이터가 탭 단위로 묶여 표시됩니다 — 헤더 레벨에 처리 · 피킹 · 적재 · 수송 · 무역/관세 · 텍스트 · 파트너 · 출력 · 패키지모니터링 · 조건 탭이, 아이템 레벨에도 유사한 탭들이 있습니다.</p>
+
+<div class="note">
+  <div class="t">🔰 초보자 설명 — 납품문서를 한 줄로</div>
+  <p>판매오더가 "무엇을 판다"는 <b>계약서</b>라면, 납품문서는 "이제 실제로 창고에서 꺼내서 보낸다"는 <b>실행 단계의 문서</b>입니다. 피킹 · 포장 · 자재출고(PGI)가 모두 이 문서를 기준으로 진행됩니다.</p>
+</div>
+
+<h3>재고관리 축 — Plant와 Storage Location</h3>
+
+<p>재고관리 구조는 <code>Client</code> → <code>Company Code</code> → <span class="key">Plant</span> → <span class="key">Storage Location</span> 순으로 모델링합니다.</p>
+
+<ul>
+  <li><b>Plant</b> — 재고관리의 중심 단위. 생산설비 · 유통센터 같은 물리적 위치를 나타내며 생산 · 구매 · 유지보수 · 자재계획이 이 레벨에서 관리된다. <span class="bad">하나의 Plant는 단 하나의 Company Code에만 배정된다</span></li>
+  <li><b>Storage Location</b> — Plant 하위. 재고 수량이 실제로 관리되는 레벨. 한 Plant 아래 여러 개를 배정</li>
+</ul>
+
+<h3>출하 축 — Shipping Point와 Loading Point</h3>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>조직단위</th><th>정의와 배정 규칙</th></tr></thead>
+<tbody>
+<tr><td><span class="key">Shipping Point</span><br>(선적항)</td><td class="wrap">출하납품 · 재고출고를 처리·모니터링하는 <b>독립된 조직단위</b>. <span class="hl">각 출하납품문서는 정확히 하나의 Shipping Point가 관리</span>하며, 책임 Shipping Point는 <b>판매오더 아이템 레벨</b>에서 결정된다</td></tr>
+<tr><td>Shipping Point : Plant</td><td class="wrap"><b>N : N.</b> 하나의 Shipping Point가 여러 Plant의 출하를 처리할 수 있으나 <span class="bad">Plant들이 인접해 있을 때만 실용적</span>이다. 반대로 한 Plant에 적재장비·처리시간·운송수단이 다른 여러 Shipping Point를 둘 수도 있다. 허용 조합은 Customizing에서 정의</td></tr>
+<tr><td>Loading Point<br>(적재지점)</td><td class="wrap">배송을 더 세분화하는 단위. Customizing에서 정의하고 <b>납품문서 헤더에 수동 배정</b>한다. Shipping Point 1개에 Loading Point 여러 개 (<span class="bad">역방향은 1:1</span>)</td></tr>
+<tr><td>Goods Receiving Point<br>(입고지점)</td><td class="wrap">Shipping Point를 입고지점으로도 설정할 수 있다 — 같은 조직단위를 입고납품에도 쓴다</td></tr>
+</tbody>
+</table>
+</div>
+
+<h3>EWM 축 — Warehouse Number 이하</h3>
+
+<p>Embedded EWM을 쓰면 위 두 축 아래로 창고 내부 구조가 한 겹 더 들어옵니다.</p>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>단위</th><th>설명</th></tr></thead>
+<tbody>
+<tr><td>Warehouse Number<br>(창고번호)</td><td class="wrap">Customizing에서 무게·부피·시간 단위 등 조직적·물리적 속성을 갖는다. <b>같은 지리적 권역의 창고단지 단위로 1개씩</b> 부여하는 것이 권장. 재고 소유자 식별을 위해 <code>SCU</code>(Supply Chain Unit)에 배정된다</td></tr>
+<tr><td>Storage Type<br>(저장유형)</td><td class="wrap">창고의 물리적/논리적 하위구분 — 창고기술 · 제품특성 · 공간요건 · 조직형태/기능으로 구분. <b>4자리 코드</b>로 정의하고 역할(Storage Type Role)을 갖는다</td></tr>
+<tr><td>Storage Section<br>(저장구역)</td><td class="wrap">Storage Type의 하위구분. 유사한 속성의 저장빈을 묶는다 (중량물 · 대형물 · 위험물 · 회전이 빠른/느린 자재)</td></tr>
+<tr><td>Storage Bin<br>(저장빈)</td><td class="wrap">창고 내 <b>가장 작은 주소 단위</b></td></tr>
+<tr><td>Activity Area</td><td class="wrap">Storage Type과 <span class="bad">무관하게</span> 저장빈을 논리적으로 그룹화한 것. 피킹 · 입고배치 · 실사재고조사 등 <b>활동별</b>로 정의</td></tr>
+<tr><td><span class="key">Quant</span></td><td class="wrap">재고가 배치된 저장빈의 수량 — "이 빈에 이 자재가 이만큼"을 나타내는 재고 레코드</td></tr>
+</tbody>
+</table>
+</div>
+
+<div class="note">
+  <div class="t">🔰 초보자 설명 — 네 단위를 한 줄로</div>
+  <p>Plant는 "공장/물류센터", Storage Location은 그 안의 "창고 구역", Shipping Point는 "출하를 담당하는 문", Warehouse Number는 EWM이 관리하는 "창고 전체"입니다. <b>재고 수량이 붙는 곳은 Storage Location, 출하 책임이 붙는 곳은 Shipping Point</b> — 이 둘은 별개 축입니다.</p>
+</div>
+
+<div class="note warn">
+  <div class="t">WM · EWM · Stock Room Management — 확인 필요</div>
+  <p>Embedded EWM은 S/4HANA 코어에 내장될 수 있고, 기존 WM도 계속 쓸 수 있지만 <b>향후 개발은 EWM에만 집중되며 결국 WM을 대체</b>합니다(경량 WM은 Stock Room Management로 별도 제공). 어느 것이 활성화되어 있는지에 따라 이 노트 LESSON 5~6의 경로 자체가 달라집니다 — <b>실제 시스템(winerp01 / MEP)에서 창고관리 활성화 여부를 먼저 확정할 것.</b></p>
+</div>
+
+<div class="note ok">
+  <div class="t">📌 개인 E2E 프로젝트와의 연결점</div>
+  <p>프로젝트는 회사코드 <b>CL04</b> 아래 플랜트 <b>GATE</b>(입고 게이트) · <b>STOR</b>(보관) 두 개를 두고, STOR의 저장위치를 온도군 × 정상·임박으로 6개(<code>1100</code>/<code>1900</code> 냉동 · <code>2100</code>/<code>2900</code> 냉장 · <code>3100</code>/<code>3900</code> 실온) 나눴습니다. 이것이 정확히 이 장의 <b>Plant → Storage Location</b> 축입니다.</p>
+  <p>주의할 것은 <b>Shipping Point는 이 축과 별개</b>라는 점입니다. 출하지점은 저장위치가 아니라 <b>플랜트</b>에 배정되므로, 온도군별로 출하를 나누고 싶다면 저장위치를 쪼개는 것으로는 부족합니다 — 출하지점을 여러 개 두거나(적재그룹으로 갈라서 결정, LESSON 3 참조) 한 출하지점 아래 Loading Point로 나누는 두 가지 방법 중 하나를 선택해야 합니다. EWM은 쓰지 않으므로 Warehouse Number 이하는 개념 참고용입니다.</p>
+</div>
+
+</div>
+
+
+<!-- ══════════ LESSON 2 ══════════ -->
+<div class="lesson" id="l2">
+<h2><span class="no">LESSON 2</span>납품 3단 결정 — Delivery Type · Item Category · Copying Control</h2>
+
+<p><span class="tag">Unit 3</span><span class="tag">레슨 1개</span>Controlling Delivery Documents · 이 코스에서 Customizing 밀도가 가장 높은 구간</p>
+
+<h3>세 단계가 각각 무엇을 통제하는가</h3>
+
+<figure class="figwrap">
+<svg class="dgm" viewBox="0 0 1000 470" role="img" aria-label="납품문서 3단 결정 도해. 판매오더를 참조하면 납품유형은 오더유형에서 도출되고 아이템카테고리는 오더에서 그대로 복사되지만, 참조 없이 생성하면 납품유형은 수동 선택하고 아이템카테고리는 납품유형과 자재마스터의 일반 아이템카테고리그룹으로 결정된다.">
+  <defs>
+    <marker id="dp1" markerWidth="9" markerHeight="9" refX="7" refY="4.5" orient="auto">
+      <polygon class="arw-key" points="0,0 9,4.5 0,9"/></marker>
+  </defs>
+
+  <rect class="b-mut" x="162" y="14" width="258" height="34" rx="5"/>
+  <text class="t-h" x="182" y="37">판매오더 참조</text>
+  <rect class="b-mut" x="434" y="14" width="258" height="34" rx="5"/>
+  <text class="t-h" x="454" y="37">참조 없이 생성</text>
+  <rect class="b-mut" x="706" y="14" width="276" height="34" rx="5"/>
+  <text class="t-h" x="726" y="37">구매오더 참조 (입고납품)</text>
+
+  <rect class="b-key" x="18" y="62" width="130" height="76" rx="6"/>
+  <text class="t-h c-key" x="34" y="94">① Delivery Type</text>
+  <text class="t-s" x="34" y="114">납품유형</text>
+  <text class="t-xs" x="34" y="130">헤더 = 문서 전체 통제</text>
+
+  <rect class="b" x="162" y="62" width="258" height="76" rx="6"/>
+  <text class="t" x="180" y="88">오더유형에서 도출</text>
+  <text class="t-s" x="180" y="108">Copying Control에 등록된</text>
+  <text class="t-s" x="180" y="126">대체 납품유형만 선택 가능</text>
+
+  <rect class="b" x="434" y="62" width="258" height="76" rx="6"/>
+  <text class="t" x="452" y="88">초기화면에서 수동 선택</text>
+  <text class="t-s c-bad" x="452" y="108">기본 오더유형 지정 필수</text>
+  <text class="t-xs" x="452" y="126">청구유형 결정에 쓰인다</text>
+
+  <rect class="b" x="706" y="62" width="276" height="76" rx="6"/>
+  <text class="t" x="724" y="88">Confirmation Control Key</text>
+  <text class="t-s" x="724" y="108">→ Sequence → Category</text>
+  <text class="t-s" x="724" y="126">→ 입고납품용 Delivery Type</text>
+
+  <path class="ln-key" d="M291 138 V176" marker-end="url(#dp1)"/>
+  <path class="ln-key" d="M563 138 V176" marker-end="url(#dp1)"/>
+  <path class="ln-key" d="M844 138 V176" marker-end="url(#dp1)"/>
+
+  <rect class="b-key" x="18" y="178" width="130" height="76" rx="6"/>
+  <text class="t-h c-key" x="34" y="210">② Item Category</text>
+  <text class="t-s" x="34" y="230">납품아이템카테고리</text>
+  <text class="t-xs" x="34" y="246">아이템 줄 단위 통제</text>
+
+  <rect class="b-ok" x="162" y="178" width="258" height="76" rx="6"/>
+  <text class="t" x="180" y="204">오더 아이템카테고리를</text>
+  <text class="t c-ok" x="180" y="224">그대로 복사</text>
+  <text class="t-xs" x="180" y="244">결정 로직을 타지 않는다</text>
+
+  <rect class="b-hl" x="434" y="178" width="258" height="76" rx="6"/>
+  <text class="t" x="452" y="204">납품유형 + 자재마스터의</text>
+  <text class="t" x="452" y="224">일반 아이템카테고리그룹</text>
+  <text class="t-xs" x="452" y="244">판매조직 · 유통경로와 무관</text>
+
+  <rect class="b-hl" x="706" y="178" width="276" height="76" rx="6"/>
+  <text class="t" x="724" y="204">납품유형 + 일반 ICG</text>
+  <text class="t" x="724" y="224">+ Usage <tspan class="m">V</tspan> (하드코딩)</text>
+  <text class="t-xs" x="724" y="244">Doc.Cat 7 → 이동유형 직접지정</text>
+
+  <path class="ln-key" d="M291 254 V294" marker-end="url(#dp1)"/>
+  <path class="ln-key" d="M563 254 V294" marker-end="url(#dp1)"/>
+  <path class="ln-key" d="M844 254 V294" marker-end="url(#dp1)"/>
+
+  <rect class="b-key" x="18" y="296" width="130" height="64" rx="6"/>
+  <text class="t-h c-key" x="34" y="324">③ Copying</text>
+  <text class="t-h c-key" x="34" y="342">Control</text>
+
+  <rect class="b" x="162" y="296" width="820" height="64" rx="6"/>
+  <text class="t" x="182" y="322">선행문서에서 납품으로 <tspan class="c-key">무엇을 어떻게 옮길지</tspan> · 분할/결합 기준 · 데이터전달루틴</text>
+  <text class="t-s" x="182" y="344">고객 FORM 루틴 네임스페이스 <tspan class="m">600 ~ 999</tspan>  (<tspan class="m-s">001 ~ 599</tspan> 는 SAP 예약)</text>
+
+  <rect class="b-ghost" x="18" y="384" width="964" height="70" rx="6"/>
+  <text class="t-s c-bad" x="38" y="408">전제 ①  모든 납품아이템카테고리는 SD의 판매아이템카테고리로도 정의되어야 한다 — 판매문서에서 전혀 안 쓰는 DLN · ELN 도 마찬가지</text>
+  <text class="t-s c-bad" x="38" y="430">전제 ②  SD Document Category 7 이 아닌 납품아이템카테고리는 판매측 스케줄라인카테고리가 결정되어야 한다</text>
+  <text class="t-xs" x="38" y="446">— PGI 용 이동유형이 스케줄라인카테고리에서 오기 때문. Doc.Cat 7 (ELN 등 입고납품용) 은 Item Category 자체에 이동유형을 직접 지정한다.</text>
+</svg>
+<figcaption><span class="fno">그림 1</span>납품 3단 결정. 생성 경로(오더참조 / 무참조 / 구매오더참조)에 따라 ①②의 결정 방식이 완전히 갈린다.</figcaption>
+</figure>
+
+<h3>① Delivery Type</h3>
+
+<p>납품유형은 <b>납품문서 헤더</b>에 있고 문서 전체를 통제합니다. 오더를 참조해 납품을 만들면 <span class="key">오더의 오더유형에서 납품유형이 도출</span>됩니다 — Create Outbound Delivery 트랜잭션에서 대체 유형을 고를 수도 있지만, 그러려면 Copying Control에 그 오더유형 ↔ 납품유형 조합이 등록돼 있어야 합니다.</p>
+
+<p>Customizing으로 납품유형마다 다른 기능을 부여할 수 있습니다. <b>표준 납품유형을 조정해 쓰는 것이 일반적</b>이고, 변경 폭이 크면 SAP는 신규 납품유형 생성을 권장합니다.</p>
+
+<h3>② Delivery Item Category와 그 결정 로직</h3>
+
+<p>오더아이템카테고리마다 대응되는 납품아이템카테고리가 시스템에 정의돼 있습니다. 여기서 <b>갈리는 지점</b>이 하나 있습니다.</p>
+
+<div class="step"><span class="n">CASE 1</span><p><b>판매오더를 참조해 납품 생성</b> → 판매오더의 아이템카테고리가 <span class="good">그대로 복사</span>된다. 결정 로직을 타지 않는다.</p></div>
+<div class="step"><span class="n">CASE 2</span><p><b>오더 참조 없이 납품아이템 추가</b> → 납품문서 자체에서 아이템카테고리를 결정해야 한다. 키는 <span class="key">납품유형 + 자재마스터의 일반 아이템카테고리그룹</span>.</p></div>
+
+<p>여기서 <b>"일반"</b>이라는 수식어가 중요합니다. 자재마스터의 아이템카테고리그룹은 두 종류입니다.</p>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>구분</th><th>유지 레벨</th><th>쓰이는 곳</th></tr></thead>
+<tbody>
+<tr><td><b>일반</b> 아이템카테고리그룹</td><td>판매조직 · 유통경로와 <span class="bad">무관</span></td><td class="wrap"><b>입고납품</b>에 사용 — 판매영역 개념이 없는 문서</td></tr>
+<tr><td>일반이 <b>아닌</b> 아이템카테고리그룹</td><td>판매조직 · 유통경로 레벨</td><td class="wrap">납품이 판매조직·유통경로를 포함할 때 (판매문서 기반 출하납품)</td></tr>
+</tbody>
+</table>
+</div>
+
+<h4>내부적으로만 정해지는 Usage</h4>
+
+<p>아이템카테고리 결정에 들어가는 <b>Usage(사용목적)</b> 값 중 일부는 내부 로직으로 <span class="bad">하드코딩</span>되어 있습니다.</p>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>Usage</th><th>의미</th></tr></thead>
+<tbody>
+<tr><td><code>PACK</code></td><td class="wrap">포장 아이템 생성용</td></tr>
+<tr><td><code>CHSP</code></td><td class="wrap">배치분할(Batch Split)용</td></tr>
+<tr><td><code>PSEL</code></td><td class="wrap">제품선택(Product Selection)용</td></tr>
+<tr><td><code>V</code></td><td class="wrap">구매오더용 입고납품 및 재고이전 프로세스용</td></tr>
+</tbody>
+</table>
+</div>
+
+<div class="note warn">
+  <div class="t">Usage 결정 로직은 Customizing으로 바꿀 수 없다</div>
+  <p>이 결정 로직은 하드코딩이라 <b>코드 수정 외에는 변경 수단이 없습니다.</b> 고객자재정보레코드(Customer-Material Info Record)에 Usage를 직접 지정해 둘 수는 있지만 — <span class="bad">이건 판매문서에만 반영되고 납품문서에는 반영되지 않습니다.</span> "정보레코드에 넣었는데 납품에 안 붙는다"는 문의는 설정 실수가 아니라 설계입니다.</p>
+</div>
+
+<h3>③ Copying Control</h3>
+
+<p>오더에서 납품문서로 정보가 어떻게 복사될지를 결정합니다. 고객 자체 개발 FORM 루틴용 번호범위는 <code>600 ~ 999</code>이고 <code>001 ~ 599</code>는 SAP 예약 영역입니다.</p>
+
+<h3>판매 측에서 설정하는 배송 관련 항목</h3>
+
+<p>납품은 납품 쪽 Customizing만으로 굴러가지 않습니다. <b>판매문서유형</b>에 다음 세 가지가 있습니다.</p>
+
+<div class="step"><span class="n">1</span><p>생성될 출하납품의 <b>기본 Delivery Type</b></p></div>
+<div class="step"><span class="n">2</span><p>오더의 "요청납기일" 필드에 <b>기본값(미래 몇 일)</b> 제안 여부</p></div>
+<div class="step"><span class="n">3</span><p>오더 저장 즉시 <b>백그라운드에서 출하납품 자동 생성</b>할지 여부</p></div>
+
+<h4>납품관련성(Delivery Relevance)이 걸리는 자리가 아이템 종류마다 다르다</h4>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>아이템 종류</th><th>납품관련성을 어디서 통제하나</th></tr></thead>
+<tbody>
+<tr><td>텍스트 / 가치 아이템</td><td class="wrap"><b>오더아이템카테고리</b>의 delivery relevance 필드. 예: 텍스트 아이템을 납품관련으로 두면 표준오더의 그 텍스트가 출하납품에도 전달된다</td></tr>
+<tr><td>일반 아이템<br>(자재 아이템)</td><td class="wrap">재고관리(PGI 등)를 쓰려면 <b>3단 조건</b>을 전부 만족해야 한다:<br>① 오더아이템카테고리에서 <span class="key">스케줄라인 허용</span><br>② 스케줄라인카테고리를 <span class="key">납품관련</span>으로 설정<br>③ 스케줄라인카테고리에 <span class="key">재고이동유형</span> 정의 (보통 재고출고, 반품납품은 재고입고)</td></tr>
+</tbody>
+</table>
+</div>
+
+<h3>오더 참조 없이 출하납품을 만들 때</h3>
+
+<p>초기화면에서 납품유형을 직접 고릅니다. 문제는 그 다음입니다 — 나중에 <b>청구(Billing)</b>를 해야 하는데, 시스템은 판매문서 Customizing에서 <span class="key">기본 오더유형</span>을 참조해 청구유형을 결정합니다. 그래서 <span class="bad">Delivery Type Customizing에 기본 오더유형을 반드시 지정</span>해야 합니다. 실제로 그 오더를 참조하는 게 아니라, 청구 경로를 찾기 위한 앵커입니다.</p>
+
+<p>아이템을 추가할 때도 납품아이템카테고리 결정 로직을 쓰고, 그에 대응하는 판매아이템카테고리가 있어야 그 아이템이 <b>청구 대상인지 · 어떤 청구절차를 따를지</b>가 정해집니다.</p>
+
+<h3>입고납품 Customizing</h3>
+
+<p>구매오더를 참조해 입고납품을 만들려면 구매오더의 납품 대상 아이템에 적절한 <span class="key">Confirmation Control Key(확인통제키)</span>가 있어야 합니다. 연결 고리는 이렇게 이어집니다.</p>
+
+<div class="step"><span class="n">1</span><p>구매오더 아이템의 <b>Confirmation Control Key</b></p></div>
+<div class="step"><span class="n">2</span><p>→ <b>Confirmation Sequence</b> 참조</p></div>
+<div class="step"><span class="n">3</span><p>→ 그 안에 <b>Confirmation Category</b> 포함</p></div>
+<div class="step"><span class="n">4</span><p>→ 이 Category가 <b>입고납품용 Delivery Type</b>에 배정 (이 납품유형의 선행문서는 구매오더로 정의)</p></div>
+
+<p>구매오더 → 납품 정보 전달은 <b>Copying Control(데이터전달루틴)</b>이 담당하므로, 이 납품유형에도 기본 오더유형이 정의되어 있어야 합니다. 입고납품의 아이템카테고리는 <b>납품유형 + 자재마스터의 일반 아이템카테고리그룹 + Usage <code>V</code></b>로 결정되고, 이에 대응하는 판매측 아이템카테고리가 있어야 구매오더의 정보가 납품으로 넘어옵니다.</p>
+
+<div class="note">
+  <div class="t">🔰 초보자 설명 — 세 단어를 한 줄로</div>
+  <p><b>Delivery Type</b>은 "이 납품이 어떤 종류인가"(출하납품 · 입고납품 · 반품납품), <b>Item Category</b>는 "그 안의 각 자재 줄이 어떻게 처리되는가", <b>Copying Control</b>은 "선행문서의 정보가 납품으로 어떻게 건너가는가"를 결정합니다.</p>
+</div>
+
+<div class="note ok">
+  <div class="t">📌 개인 E2E 프로젝트와의 연결점</div>
+  <p>프로젝트의 PGI 이동유형은 <b>스케줄라인카테고리</b>에서 옵니다 — 그림 1 하단 "전제 ②"가 바로 이 얘기입니다. 납품 CBO에서 이동유형을 하드코딩하고 싶어지는 순간이 오면, 그건 스케줄라인카테고리 설정을 건너뛴 것이므로 <b>CBO가 아니라 IMG에서 고칠 문제</b>입니다.</p>
+  <p><code>ZGATE_INSPECT</code>의 122 자동반품도 같은 계통입니다. 122는 구매 쪽 반품(입고 취소 계열)이라 납품 스케줄라인이 아니라 MM 이동유형으로 직접 처리되지만, 만약 향후 <b>판매 반품(고객 반품)</b>을 붙인다면 반품납품 쪽 스케줄라인카테고리에 <span class="key">재고입고</span> 이동유형을 정의해야 합니다 — 출고용 설정을 복사하면 부호가 반대로 돕니다.</p>
+  <p>또 하나. 프로젝트는 <b>배치관리 + 유통기한</b>을 쓰므로 Usage <code>CHSP</code>(배치분할)가 실제로 등장합니다. 한 납품 아이템이 여러 배치로 쪼개지면 배치분할 하위 아이템이 생기는데, 이 Usage는 하드코딩이라 Customizing으로 끌 수 없습니다. <b>납품 CBO는 아이템을 읽을 때 상위 아이템과 배치분할 하위 아이템을 반드시 구분해야</b> 하고, 수량 집계 시 이중 계상되지 않도록 해야 합니다.</p>
+</div>
+
+</div>
+
+
+<!-- ══════════ LESSON 3 ══════════ -->
+<div class="lesson" id="l3">
+<h2><span class="no">LESSON 3</span>출하 필드 자동결정과 스케줄링 역산</h2>
+
+<p><span class="tag">Unit 4 전반</span><span class="tag">레슨 2개</span>Adjusting Automatic Determination of Relevant Fields · Adjusting Delivery and Transportation Scheduling</p>
+
+<h3>언제 이걸 알아야 하는가</h3>
+
+<p>이 노트에서 <b>운영 문의가 가장 많이 몰리는 구간</b>입니다. 대표적인 두 문장입니다.</p>
+
+<p><b>"납품을 만들려는데 선적항이 엉뚱한 게 붙습니다"</b> — 답은 오더에도 고객마스터에도 없습니다. <span class="key">배송플랜트 · 적재그룹 · 출하조건</span> 세 키의 조합으로 결정 테이블을 뒤진 결과이고, 셋 중 하나만 틀려도 다른 줄이 잡힙니다.</p>
+
+<p><b>"오더 넣었는데 납기일이 고객이 요청한 날짜보다 뒤로 밀렸습니다"</b> — 역산(Backward Scheduling) 결과가 과거 날짜가 나와서 시스템이 순산(Forward Scheduling)으로 다시 계산한 것입니다. 리드타임 4개가 어디서 오는지 알면 어느 설정을 줄여야 하는지 바로 나옵니다.</p>
+
+<h3>배송 프로세스가 지원하는 것</h3>
+
+<p>배송 활동은 판매 활동을 뒤따릅니다. S/4HANA가 배송 구간에서 지원하는 기능은 다음과 같습니다.</p>
+
+<ul>
+  <li>배송 대상 참조문서(고객오더 · 구매오더)의 <b>마감일 모니터링</b></li>
+  <li>출하납품 생성 · 처리 / 자재가용성 모니터링</li>
+  <li>WM · EWM <b>창고 용량 상황</b> 모니터링</li>
+  <li>피킹 지원 (WM 또는 EWM 연동) · 포장 (보통 EWM에서 수행)</li>
+  <li>배송문서 인쇄 · 배포 / 재고출고 처리 (보통 EWM에서 수행)</li>
+  <li>진행 중인 납품 · 남은 작업 · 병목현상을 개요 화면으로 통제</li>
+</ul>
+
+<p>재고출고가 게시되면 그 납품은 <span class="key">청구대기목록(billing due list)</span>에 추가되고, 이것이 고객청구 작업목록 생성의 기반이 됩니다.</p>
+
+<h3>선적항과 루트는 이렇게 결정된다</h3>
+
+<figure class="figwrap">
+<svg class="dgm" viewBox="0 0 1000 420" role="img" aria-label="출하지점과 루트 자동결정 도해. 선적항은 배송플랜트, 자재마스터의 적재그룹, 출하조건 세 키의 조합으로 Customizing 결정 테이블에서 정해지고, 루트는 출발지 도착지 운송조건 운송수단으로 정해진다.">
+  <defs>
+    <marker id="sp1" markerWidth="9" markerHeight="9" refX="7" refY="4.5" orient="auto">
+      <polygon class="arw-key" points="0,0 9,4.5 0,9"/></marker>
+    <marker id="sp2" markerWidth="9" markerHeight="9" refX="7" refY="4.5" orient="auto">
+      <polygon class="arw" points="0,0 9,4.5 0,9"/></marker>
+  </defs>
+
+  <text class="t-h c-key" x="20" y="28">① 선적항(Shipping Point) 결정</text>
+
+  <rect class="b" x="30" y="42" width="250" height="50" rx="5"/>
+  <text class="t" x="46" y="64">배송플랜트</text>
+  <text class="t-xs" x="46" y="82">Delivering Plant</text>
+  <rect class="b" x="30" y="102" width="250" height="50" rx="5"/>
+  <text class="t" x="46" y="124">적재그룹</text>
+  <text class="t-xs" x="46" y="142">Loading Group · 자재마스터</text>
+  <rect class="b" x="30" y="162" width="250" height="50" rx="5"/>
+  <text class="t" x="46" y="184">출하조건</text>
+  <text class="t-xs" x="46" y="202">Shipping Conditions · 고객마스터 / 판매문서유형</text>
+
+  <path class="ln-key" d="M280 67 H315"/>
+  <path class="ln-key" d="M280 127 H315"/>
+  <path class="ln-key" d="M280 187 H315"/>
+  <path class="ln-key" d="M315 67 V187"/>
+  <path class="ln-key" d="M315 127 H348" marker-end="url(#sp1)"/>
+
+  <rect class="b-hl" x="350" y="62" width="190" height="150" rx="6"/>
+  <text class="t-h" x="370" y="106">Customizing</text>
+  <text class="t-h" x="370" y="128">결정 테이블</text>
+  <text class="t-s" x="370" y="154">세 키 조합 1줄 =</text>
+  <text class="t-s" x="370" y="172">선적항 1개</text>
+
+  <path class="ln-key" d="M540 137 H606" marker-end="url(#sp1)"/>
+
+  <rect class="b-key" x="610" y="107" width="220" height="60" rx="6"/>
+  <text class="t-h c-key" x="630" y="134">Shipping Point</text>
+  <text class="t-xs" x="630" y="154">납품문서 1건 = 선적항 1개</text>
+
+  <path class="ln-d" d="M720 167 V192" marker-end="url(#sp2)"/>
+  <rect class="b" x="610" y="194" width="220" height="52" rx="5"/>
+  <text class="t" x="630" y="218">Loading Point</text>
+  <text class="t-xs" x="630" y="236">헤더에 수동 배정 · 1 : N</text>
+
+  <rect class="b-ghost" x="30" y="262" width="800" height="36" rx="5"/>
+  <text class="t-s" x="48" y="286">배송플랜트 자동결정 우선순위 :  고객자재정보레코드  →  Ship-to Party 고객마스터  →  자재마스터  (ATP 플랜트 우선순위와 같은 축)</text>
+
+  <text class="t-h c-key" x="20" y="332">② 루트(Route) 결정</text>
+
+  <rect class="b-mut" x="30" y="346" width="600" height="62" rx="6"/>
+  <text class="t-s" x="48" y="368">출발지  발송국가 · 발송지역     |     도착지  목적국가 · 목적지역</text>
+  <text class="t-s" x="48" y="392">운송조건  운송그룹 · 관세국경통과 여부     |     운송수단</text>
+
+  <path class="ln-key" d="M630 377 H696" marker-end="url(#sp1)"/>
+
+  <rect class="b-key" x="700" y="346" width="282" height="62" rx="6"/>
+  <text class="t-h c-key" x="720" y="370">Route</text>
+  <text class="t-xs" x="720" y="390">운송시간 · 수송시간 계획의 기반 · 정기 스케줄 설정 가능</text>
+</svg>
+<figcaption><span class="fno">그림 2</span>선적항은 3키 조합, 루트는 출발·도착·운송조건으로 결정된다. 출하조건은 두 결정의 <b>공통 입력값</b>이다.</figcaption>
+</figure>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>결정 대상</th><th>결정 키</th><th>비고</th></tr></thead>
+<tbody>
+<tr><td>배송플랜트</td><td class="wrap">고객자재정보레코드 → Ship-to Party 고객마스터 → 자재마스터</td><td class="wrap">판매문서 아이템 레벨. Course 2의 ATP 플랜트 우선순위와 같은 축</td></tr>
+<tr><td>출하조건</td><td class="wrap">고객마스터 · 판매문서유형 등 — <b>유래(origin)를 제어 가능</b></td><td class="wrap">"즉시배송 vs 표준배송" 같은 배송 방식 자체를 나타냄</td></tr>
+<tr><td><span class="key">선적항</span></td><td class="wrap">배송플랜트 + 적재그룹(자재마스터) + 출하조건</td><td class="wrap"><b>세 키의 조합</b>으로 Customizing 테이블 조회</td></tr>
+<tr><td>루트</td><td class="wrap">출발지(발송국가·지역) + 도착지(목적국가·지역) + 운송조건(운송그룹·관세국경통과) + 운송수단</td><td class="wrap">운송시간 · 수송시간 계획의 기반</td></tr>
+</tbody>
+</table>
+</div>
+
+<div class="note">
+  <div class="t">🔰 초보자 설명 — 선적항·루트 자동결정을 한 줄로</div>
+  <p>"어느 창고에서, 어떤 경로로 보낼지"를 오더의 정보(플랜트 · 배송조건 · 목적지)만 보고 자동으로 정해주는 <b>규칙표</b>입니다. 사람이 고르는 게 아니라 테이블이 고릅니다.</p>
+</div>
+
+<h3>배송·운송 스케줄링 — 요청납기일에서 거꾸로 센다</h3>
+
+<p>오더를 생성하면 시스템은 고객이 요청한 납기일을 기준으로 <span class="key">자재가용일을 역산</span>합니다. 역산에 들어가는 리드타임은 4개이고, <b>어디서 가져오는지가 둘로 갈립니다.</b></p>
+
+<figure class="figwrap">
+<svg class="dgm" viewBox="0 0 1000 420" role="img" aria-label="배송 운송 스케줄링 역산 타임라인. 고객 요청납기일에서 Transit Time을 빼 재고출고일, 거기서 Loading Time을 빼 적재일, 적재일에서 PickPack Time을 빼 자재가용일, 적재일에서 Transportation Lead Time을 빼 운송계획일이 나온다.">
+  <defs>
+    <marker id="bk1" markerWidth="9" markerHeight="9" refX="7" refY="4.5" orient="auto">
+      <polygon class="arw-bad" points="0,0 9,4.5 0,9"/></marker>
+  </defs>
+
+  <text class="t-h c-bad" x="700" y="34">← 역산 (Backward Scheduling) 방향</text>
+  <path class="ln-bad" d="M690 28 H610" marker-end="url(#bk1)"/>
+
+  <rect class="b-key" x="35" y="52" width="150" height="52" rx="5"/>
+  <text class="t" x="50" y="76">운송계획일</text>
+  <text class="t-xs" x="50" y="94">Transportation Planning</text>
+
+  <rect class="b-key" x="215" y="52" width="150" height="52" rx="5"/>
+  <text class="t" x="230" y="76">자재가용일</text>
+  <text class="t-xs" x="230" y="94">Material Availability</text>
+
+  <rect class="b" x="445" y="52" width="150" height="52" rx="5"/>
+  <text class="t" x="460" y="76">적재일</text>
+  <text class="t-xs" x="460" y="94">Loading Date</text>
+
+  <rect class="b" x="625" y="52" width="150" height="52" rx="5"/>
+  <text class="t" x="640" y="76">재고출고일</text>
+  <text class="t-xs" x="640" y="94">Goods Issue Date</text>
+
+  <rect class="b-hl" x="825" y="52" width="150" height="52" rx="5"/>
+  <text class="t" x="840" y="76">납기일</text>
+  <text class="t-xs" x="840" y="94">고객 요청납기일</text>
+
+  <path class="ln" d="M60 130 H960"/>
+  <path class="ln-key" d="M110 104 V150"/>
+  <path class="ln-key" d="M290 104 V150"/>
+  <path class="ln" d="M520 104 V150"/>
+  <path class="ln" d="M700 104 V150"/>
+  <path class="ln" d="M900 104 V150"/>
+
+  <path class="ln-bad" d="M898 180 H702" marker-end="url(#bk1)"/>
+  <text class="t-s" x="712" y="174">Transit Time</text>
+  <text class="t-xs c-key" x="712" y="200">루트에서 가져옴</text>
+
+  <path class="ln-bad" d="M698 240 H522" marker-end="url(#bk1)"/>
+  <text class="t-s" x="532" y="234">Loading Time</text>
+  <text class="t-xs c-key" x="532" y="260">선적항에서 가져옴</text>
+
+  <path class="ln-bad" d="M518 300 H292" marker-end="url(#bk1)"/>
+  <text class="t-s" x="302" y="294">Pick / Pack Time</text>
+  <text class="t-xs c-key" x="302" y="320">선적항에서 가져옴</text>
+
+  <path class="ln-bad" d="M518 350 H112" marker-end="url(#bk1)"/>
+  <text class="t-s" x="122" y="344">Transportation Lead Time</text>
+  <text class="t-xs c-key" x="122" y="368">루트에서 가져옴 — 운송 조직 준비에 필요한 시간</text>
+
+  <rect class="b-ghost" x="35" y="382" width="940" height="30" rx="5"/>
+  <text class="t-s" x="52" y="402">역산 결과가 과거 날짜면  →  순산(Forward Scheduling)으로 새 납기일 확정.   납품 생성일 = <tspan class="c-bad">자재가용일과 운송계획일 중 더 이른 날짜</tspan></text>
+</svg>
+<figcaption><span class="fno">그림 3</span>스케줄링 역산 타임라인. 리드타임 4개 중 <b>2개는 선적항, 2개는 루트</b>에서 온다 — 납기가 안 맞을 때 고칠 자리가 여기서 갈린다.</figcaption>
+</figure>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>리드타임</th><th>의미</th><th>출처</th></tr></thead>
+<tbody>
+<tr><td>Transit Time</td><td class="wrap">수화인까지 출하납품을 운송하는 시간</td><td>루트</td></tr>
+<tr><td>Loading Time</td><td class="wrap">적재에 걸리는 시간</td><td>선적항</td></tr>
+<tr><td>Pick / Pack Time</td><td class="wrap">피킹 · 포장에 걸리는 시간</td><td>선적항</td></tr>
+<tr><td>Transportation Lead Time</td><td class="wrap">운송 조직이 준비하는 데 필요한 시간</td><td>루트</td></tr>
+</tbody>
+</table>
+</div>
+
+<h4>순산(Forward Scheduling)이 언제 끼어드나</h4>
+
+<p>시스템은 <b>먼저 역산</b>을 합니다. 그 결과가 <span class="bad">과거 날짜</span>가 나오면 자동으로 순산으로 전환해 새 납기일을 확정합니다 — 자재가 자재가용일에 없을 때도 마찬가지입니다. 출하납품을 생성하는 시점에도 순산을 다시 수행할 수 있고, <b>납품유형별로 재스케줄링 필요 여부를 지정</b>할 수 있습니다.</p>
+
+<p>충분한 시간을 확보해야 하므로 <span class="hl">납품은 자재가용일과 운송계획일 중 더 이른 날짜에 생성</span>되어야 합니다. 이 날짜를 넣는 필드는 처리 방식마다 이름이 다릅니다.</p>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>처리 방식</th><th>날짜 필드 이름</th></tr></thead>
+<tbody>
+<tr><td>단건 배송 생성</td><td><b>Selection Date</b></td></tr>
+<tr><td>집합처리</td><td><b>Delivery Creation Date</b></td></tr>
+<tr><td>Fiori <i>Create Outbound Deliveries From Sales Orders</i></td><td><b>Planned Creation Date</b></td></tr>
+</tbody>
+</table>
+</div>
+
+<h4>정밀 스케줄링 vs 일별 스케줄링</h4>
+
+<p>선적항별로 어떤 스케줄링 로직을 쓸지 선택할 수 있습니다.</p>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>구분</th><th>특징</th></tr></thead>
+<tbody>
+<tr><td>정밀 스케줄링<br>(Precise)</td><td class="wrap">결과를 <b>분 단위</b>로 계산·표시. 선적항 <b>근무시간</b>을 사용(근무시간이 유지된 경우만). 피킹/포장·적재시간을 시·분 단위로 지정</td></tr>
+<tr><td>일별 스케줄링<br>(Daily)</td><td class="wrap">계산은 일·시·분으로 하지만 <b>결과는 날짜만</b> 표시. 선적항의 <b>공장달력</b>을 사용</td></tr>
+</tbody>
+</table>
+</div>
+
+<p>선적항 근무시간은 <b>공장달력과 일치하는 생산자달력 + 교대순서</b>(요일별 교대와 그 시작/종료 시각)로 구성됩니다. 루트는 운송계획리드타임과 Transit Time 결정에 쓰이고, 둘 다 <b>루트의 공장달력</b>을 참조해 루트 사용 시점을 정합니다.</p>
+
+<div class="note warn">
+  <div class="t">정밀 스케줄링은 ATP에 반영되지 않는다</div>
+  <p>분 단위로 계산하더라도 <span class="bad">ATP 체크는 그 정밀도를 쓰지 않습니다</span> — 자재가용일의 재고 체크는 시각까지가 아니라 <b>날짜만</b> 사용합니다. "오전에 들어올 예정이니 오전 출고 가능"이라는 계산은 스케줄링에는 반영돼도 가용성확인에는 반영되지 않습니다.</p>
+  <p>선적항별 스케줄링 방식 선택과 근무시간(생산자달력 · 교대순서) 유지 여부는 시스템 구성에 따라 갈립니다 — <b>확인 필요: 실제 시스템(winerp01 / MEP)에서 선적항 Customizing을 열어 확정할 것.</b></p>
+</div>
+
+<h4>루트 스케줄(Route Schedules)</h4>
+
+<p>루트에는 정기 스케줄(예: 매주 화요일 출발)을 설정할 수 있습니다. 상세 설정은 <b>SAP Note 146829</b>를 참고합니다.</p>
+
+<div class="note">
+  <div class="t">🔰 초보자 설명 — 역산 / 순산을 한 줄로</div>
+  <p>역산은 <b>"고객이 원하는 날짜에서 거꾸로 세서, 지금 물건을 준비해야 하는 날짜"</b>를 구하는 것입니다. 그 날짜가 이미 지나 버렸다면 순산으로 <b>"지금부터 앞으로 세서 실제로 가능한 날짜"</b>를 다시 찾습니다.</p>
+</div>
+
+<div class="note ok">
+  <div class="t">📌 개인 E2E 프로젝트와의 연결점</div>
+  <p>선적항 결정 3키 중 <b>적재그룹은 자재마스터 필드</b>라는 점이 프로젝트 설계에 직접 걸립니다. 자재그룹이 온도군으로 갈려 있으므로(<code>CHKN</code>·<code>RICE</code> 냉동·냉장 / <code>SHAK</code>·<code>PROT</code>·<code>PBAR</code> 실온), <b>적재그룹을 온도군과 같은 축으로 부여하면</b> 같은 플랜트 <b>STOR</b> · 같은 출하조건이어도 냉동/냉장/실온이 서로 다른 선적항으로 갈라집니다. 저장위치를 6개로 쪼갠 것만으로는 출하가 갈라지지 않으므로(LESSON 1 참조), 온도군별 출하 분리를 원한다면 이 경로가 <b>표준만으로 되는 유일한 방법</b>입니다.</p>
+  <p>스케줄링 쪽은 유통기한 관리와 정면으로 붙습니다. 프로젝트는 SD에서 <b>FEFO 배치결정</b>(<code>MCHA-VFDAT</code>)을 쓰기로 했는데, FEFO는 <b>자재가용일 시점의 배치 재고</b>를 보고 고릅니다. 즉 Pick/Pack Time과 Transit Time이 길수록 <span class="bad">고른 배치의 잔여 유통기한이 도착 시점에 더 짧아집니다.</span> <code>ZBATCH_ZONE</code>이 잔여 유통기한 30% 미달을 정상→임박(311)으로 옮기는 기준을 잡을 때, 이 도착 시점까지 소진되는 기간(Pick/Pack + Loading + Transit)을 빼고 계산하지 않으면 <b>임박으로 넘어가기 전에 이미 기한이 지난 물건이 출고</b>될 수 있습니다.</p>
+  <p>CBO 관점의 실무 결론 하나. 납품 생성 시점을 CBO로 정한다면 기준일은 오더의 납기일이 아니라 <span class="key">자재가용일과 운송계획일 중 더 이른 날짜</span>여야 합니다. 이 두 필드는 오더 스케줄라인(<code>VBEP</code>)에 이미 있으므로 재계산할 필요가 없습니다 — <b>직접 계산하지 말고 읽으십시오.</b> 리드타임을 CBO에서 다시 더하고 빼면 IMG 설정이 바뀔 때마다 CBO가 틀어집니다.</p>
+</div>
+
+</div>
+
+
+<!-- ══════════ LESSON 4 ══════════ -->
+<div class="lesson" id="l4">
+<h2><span class="no">LESSON 4</span>출하납품 처리 — 납품대기목록 · 출력 · Monitor</h2>
+
+<p><span class="tag">Unit 4 후반</span><span class="tag">레슨 2개</span>Processing Outbound Deliveries · Using the Outbound Delivery Monitor</p>
+
+<h3>단건 생성과 집합처리는 할 수 있는 일이 다르다</h3>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>방식</th><th>할 수 있는 것</th><th>제약</th></tr></thead>
+<tbody>
+<tr><td>단건 생성</td><td class="wrap">판매오더를 참조하거나 참조 없이 수동 생성</td><td class="wrap"><span class="bad">구매오더나 다른 요청은 납품할 수 없다</span></td></tr>
+<tr><td><span class="key">집합처리</span><br>(Collective Processing)</td><td class="wrap">판매오더 <b>와</b> 구매오더 모두에 대해 납품 생성. 여러 출하납품을 자동 생성. 온라인 또는 백그라운드 작업(야간 배치)</td><td class="wrap">선택 기준을 정확히 잡아야 함</td></tr>
+</tbody>
+</table>
+</div>
+
+<h3>납품대기목록(Delivery Due List)</h3>
+
+<p>납품이 필요한 모든 작업의 <b>작업목록</b>입니다. 다양한 기준으로 집합처리할 문서를 고르면 시스템이 자동으로 출하납품을 생성합니다.</p>
+
+<h4>결합과 분할</h4>
+
+<div class="step"><span class="n">결합</span><p>배송 기준(선적항 · 루트 · 수화인 등)이 같으면 여러 판매문서를 <b>하나의 출하납품으로 결합</b>(Order Combination)할 수 있다. <span class="bad">자동은 아니다</span> — 고객마스터 기본값 또는 오더 헤더의 Order Combination 필드로 <b>요청</b>해야 한다.</p></div>
+<div class="step"><span class="n">분할</span><p>반대로 배송 기준이 다르면 <b>하나의 오더가 여러 출하납품으로 분할</b>된다.</p></div>
+
+<div class="note warn">
+  <div class="t">납품대기목록은 우선순위순으로 처리되지 않는다</div>
+  <p><span class="bad">선택기준을 만족하는 모든 오더는 동일한 상태로 처리됩니다.</span> "급한 건부터 나가겠지"라는 기대는 성립하지 않습니다 — 우선순위를 반영하려면 선택기준(변형) 자체를 나눠야 합니다.</p>
+</div>
+
+<h4>결합 조건과 ZUKRL</h4>
+
+<p>여러 오더를 묶어 납품하려면 두 가지가 동시에 만족돼야 합니다.</p>
+
+<div class="step"><span class="n">1</span><p>Order Combination 필드가 허용돼 있을 것</p></div>
+<div class="step"><span class="n">2</span><p><b>Copying Control</b> 설정이 충족될 것 — 예를 들어 Incoterms를 분할 기준으로 쓸지 말지를 여기서 선택/해제한다</p></div>
+
+<p>여기서 확장 포인트가 하나 있습니다. Data transfer 루틴에서 <code>ZUKRL</code> 필드를 쓰면 <span class="key">평소 분할 기준이 아닌 필드도 분할(결합) 기준으로 바꿀 수 있습니다.</span> 예를 들어 아이템번호를 분할 기준으로 넣으면 <b>납품 1건당 아이템 1개</b>로 제한됩니다. 창고번호별 납품 분할도 Customizing에서 활성화할 수 있습니다.</p>
+
+<h3>납품 시나리오와 User Role(List Profile)</h3>
+
+<p>납품 시나리오는 납품해야 하는 문서의 비즈니스 프로세스를 모델링합니다 — 예를 들어 <code>VL10C</code>는 판매오더 <b>아이템</b> 기준 시나리오입니다. 각 시나리오에는 <b>User Role(List Profile)</b>이 배정되어 다음을 통제합니다.</p>
+
+<ul>
+  <li>선택화면 <b>탭 구성</b>과 활성 선택기준</li>
+  <li>선택 가능한 <b>문서유형</b></li>
+  <li>납품대기목록 <b>표시 방식</b> — 수화인명 · 컨트롤 · 신호등 표시 여부</li>
+  <li>납품 생성 설정 — <b>납품수량 수동변경 허용 여부</b></li>
+</ul>
+
+<p>사용자별 기본 시나리오 · 기본 List Profile은 <code>VL10</code>(또는 "User-Specific Delivery Scenario" 메뉴)에서 지정하고, 사용자파라미터로도 설정합니다.</p>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>사용자파라미터</th><th>지정하는 것</th></tr></thead>
+<tbody>
+<tr><td><code>LE_VL10_SZENARIO</code></td><td>기본 납품 시나리오</td></tr>
+<tr><td><code>LE_VL10_PROFIL</code></td><td>기본 List Profile (User Role)</td></tr>
+<tr><td><code>LE_VL10_USER_VARIANT</code></td><td>기본 사용자 변형</td></tr>
+</tbody>
+</table>
+</div>
+
+<p>선택 기준은 시나리오·User Role에 따라 탭으로 나뉘어 표시되고, 사용자별 변형(variant)을 정의해 전용 선택기준을 만들 수도 있습니다.</p>
+
+<h3>피킹위치(Picking Location) 결정 — 빈 필드의 함정</h3>
+
+<div class="note warn">
+  <div class="t">빈 필드는 "전체 적용"이 아니다</div>
+  <p>문서에서 <b>저장조건(storage conditions)</b> 필드가 비어 있으면, 결정 테이블에서도 <span class="bad">저장조건 필드가 진짜로 비어 있는 항목만</span> 검색됩니다. 빈 필드가 "모든 값에 적용"을 의미하지 않습니다. 결정 테이블에 값을 채운 줄만 만들어 두고 문서 쪽은 비워 두면 <b>아무것도 안 잡힙니다.</b></p>
+</div>
+
+<h3>저장된 납품 바꾸기 — 되는 것과 안 되는 것</h3>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>변경</th><th>가능 여부</th></tr></thead>
+<tbody>
+<tr><td>아이템 추가 (다른 오더 참조)</td><td class="wrap"><span class="good">가능</span> — "deliver order" 기능. 집합처리의 결합·분할 기준과 <b>동일한 기준</b>이 적용된다</td></tr>
+<tr><td>아이템 추가 (오더 참조 없이)</td><td class="wrap"><span class="good">가능</span> — 통상적인 Item Category 결정 규칙이 적용된다</td></tr>
+<tr><td>Ship-to Party · 선적항 변경</td><td class="wrap"><span class="bad">불가.</span> 납품문서 생성 후에는 더 이상 바꿀 수 없다</td></tr>
+</tbody>
+</table>
+</div>
+
+<h3>Output(출력)</h3>
+
+<p>출하납품 · 출하납품 그룹 · 핸들링유니트 등 다양한 객체에서 Output을 발행할 수 있습니다 — 납품문서 기반의 납품서 · 포장목록, 출하납품 그룹 기반의 화물목록 같은 식입니다. 발송 방식(인쇄/팩스/EDI) · 시점 · 수신자(파트너기능) · 프린터는 <span class="key">Condition Technique</span>으로 통제합니다.</p>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>레벨</th><th>대상</th><th>예</th></tr></thead>
+<tbody>
+<tr><td>헤더 Output</td><td>문서 전체 기준</td><td>납품서</td></tr>
+<tr><td>아이템 Output</td><td>아이템별</td><td>품질검사증</td></tr>
+<tr><td>핸들링유니트</td><td>HU 단위</td><td>라벨</td></tr>
+</tbody>
+</table>
+</div>
+
+<div class="note">
+  <div class="t">🔰 초보자 설명 — 납품대기목록을 한 줄로</div>
+  <p>"지금 배송이 필요한 모든 건"을 모아 보여주는 <b>작업목록</b>입니다. 조건으로 필터링하고, 같은 경로로 가는 오더끼리 묶어 한 번에 납품을 만들 수도 있습니다.</p>
+</div>
+
+<h3>Outbound Delivery Monitor</h3>
+
+<p>처리 예정이거나 이미 처리된 <b>모든 납품</b>을 표시합니다. 선택된 출하납품 목록을 보면서 <span class="hl">후속 기능을 이 리스트에서 바로 실행</span>할 수 있습니다 — 집합처리에서 재고출고 게시 같은 중요 후속기능이 여기서 돌아갑니다. 선택/표시용 사용자 전용 변형도 정의할 수 있습니다.</p>
+
+<p>같은 방식으로 <b>Inbound Delivery Monitor</b>가 입고납품 활동의 모니터링·실행을 담당합니다.</p>
+
+<div class="note">
+  <div class="t">🔰 초보자 설명 — Outbound Delivery Monitor를 한 줄로</div>
+  <p>"지금 진행 중인 모든 출하건"을 한눈에 보여주고, 그 자리에서 바로 PGI 같은 후속 작업까지 처리할 수 있는 <b>컨트롤타워</b>입니다.</p>
+</div>
+
+<div class="note ok">
+  <div class="t">📌 개인 E2E 프로젝트와의 연결점</div>
+  <p>프로젝트의 납품 생성은 <code>VL01N</code> 계열 <b>단건 처리</b>입니다. 이 장의 내용에서 지금 당장 반영할 것은 <b>결합·분할 기준</b>입니다 — 프로젝트는 온도군별로 저장위치가 갈려 있고, 배치관리 때문에 한 오더 아이템이 여러 배치로 쪼개집니다. 같은 수화인의 냉동·냉장·실온 상품이 한 오더에 섞여 들어오면 <span class="bad">선적항이 갈릴 경우 자동으로 납품이 분할</span>됩니다(LESSON 3의 적재그룹 설계를 택했다면). 이건 버그가 아니라 설계이므로, 납품 CBO는 <b>오더 1건 : 납품 1건을 전제로 짜면 안 됩니다.</b></p>
+  <p>물량이 늘어 집합처리로 넘어간다면 <code>VL10</code> 기반으로 가되, 백그라운드 배치로 돌릴 때 <b>커밋 단위</b>를 반드시 끊어야 합니다. 납품 생성은 재고를 움직이지는 않지만 오더 스케줄라인을 갱신하므로, 수천 건을 한 LUW로 묶으면 롤백 범위가 통째로 날아갑니다 — <b>N건 단위로 <code>COMMIT WORK</code>하고 실패 건은 상태필드 H로 남겨 재처리</b>하는 구조(프로젝트 CBO 테이블 규칙의 W/P/H)가 그대로 적용됩니다.</p>
+  <p>피킹위치 결정의 "빈 필드 함정"도 그대로 걸립니다. 저장위치를 6개로 쪼갠 이상 <b>저장조건 필드를 비워 두면 아무 줄도 안 잡힙니다.</b> 결정 테이블과 자재마스터 양쪽에 값을 맞춰 넣어야 합니다.</p>
+</div>
+
+</div>
+
+
+<!-- ══════════ LESSON 5 ══════════ -->
+<div class="lesson" id="l5">
+<h2><span class="no">LESSON 5</span>Embedded EWM 피킹과 재고출고</h2>
+
+<p><span class="tag">Unit 5 전반</span><span class="tag">레슨 2개</span>Picking Outbound Deliveries with EWM · Posting a Goods Issue</p>
+
+<h3>언제 이걸 알아야 하는가</h3>
+
+<p>EWM이 붙은 시스템에서 가장 헷갈리는 문의가 <b>"납품은 피킹 완료로 안 바뀌는데 창고에서는 다 꺼냈다고 합니다"</b>입니다. 피킹용 출력물을 보냈으니 상태가 바뀔 줄 알았는데 안 바뀐 것입니다 — <span class="key">출력을 보내는 것과 피킹 결과를 회신받는 것은 다른 메시지</span>이기 때문입니다.</p>
+
+<p>그리고 <b>"부분출고가 안 됩니다"</b>. LE 출하납품 기준 PGI는 <span class="bad">전량 게시만 가능</span>하기 때문이고, 답은 EWM 쪽에서 납품분할을 트리거하는 것입니다. 이 장은 결국 <b>ERP 납품과 EWM 문서의 경계가 어디인가</b>에 관한 것입니다.</p>
+
+<h3>ERP(LE) 납품과 EWM 문서의 경계</h3>
+
+<figure class="figwrap">
+<svg class="dgm" viewBox="0 0 1000 436" role="img" aria-label="LE 납품과 EWM 문서의 경계 도해. LE 출하납품 LF는 문서유형 매핑으로 EWM 출하납품오더 OUTB가 되고 Warehouse Task로 피킹된 뒤 EWM 출하납품이 재고출고 결과를 LE로 회신해 재고관리문서와 재무전표가 만들어진다.">
+  <defs>
+    <marker id="ew1" markerWidth="9" markerHeight="9" refX="7" refY="4.5" orient="auto">
+      <polygon class="arw-key" points="0,0 9,4.5 0,9"/></marker>
+    <marker id="ew2" markerWidth="9" markerHeight="9" refX="7" refY="4.5" orient="auto">
+      <polygon class="arw-ok" points="0,0 9,4.5 0,9"/></marker>
+  </defs>
+
+  <path class="ln-d" d="M500 40 V392"/>
+  <text class="t-h c-key" x="40" y="34">ERP · LE  (SD 납품)</text>
+  <text class="t-h c-ok" x="540" y="34">Embedded EWM</text>
+
+  <rect class="b-mut" x="40" y="64" width="420" height="46" rx="5"/>
+  <text class="t" x="60" y="92">판매오더</text>
+
+  <path class="ln-key" d="M250 110 V132" marker-end="url(#ew1)"/>
+
+  <rect class="b-key" x="40" y="136" width="420" height="56" rx="6"/>
+  <text class="t-h c-key" x="60" y="162">LE 출하납품</text>
+  <text class="t-xs" x="60" y="182">납품유형 <tspan class="m-s">LF</tspan>  ·  피킹 · 포장 · PGI 의 기준 문서</text>
+
+  <path class="ln-key" d="M460 164 H538" marker-end="url(#ew1)"/>
+  <text class="t-xs c-key" x="466" y="156">LF → OUTB 매핑</text>
+
+  <rect class="b-ok" x="540" y="136" width="420" height="56" rx="6"/>
+  <text class="t-h c-ok" x="560" y="162">EWM 출하납품오더</text>
+  <text class="t-xs" x="560" y="182">문서유형 <tspan class="m-s">OUTB</tspan>  ·  아이템카테고리도 함께 매핑</text>
+
+  <path class="ln-ok" d="M750 192 V210" marker-end="url(#ew2)"/>
+
+  <rect class="b-ok" x="540" y="214" width="420" height="72" rx="6"/>
+  <text class="t-h c-ok" x="560" y="240">Warehouse Task  (피킹)</text>
+  <text class="t-xs" x="560" y="260">Storage Type Search Sequence  →  재고출고규칙(FIFO 등)</text>
+  <text class="t-xs" x="560" y="278">→ 가장 적합한 <tspan class="m-s">Quant</tspan> 선정 · 물리적 이동 지시</text>
+
+  <path class="ln-ok" d="M750 286 V300" marker-end="url(#ew2)"/>
+
+  <rect class="b-ok" x="540" y="302" width="420" height="56" rx="6"/>
+  <text class="t-h c-ok" x="560" y="328">EWM 출하납품</text>
+  <text class="t-xs" x="560" y="348">재고출고 게시 정보를 LE 로 회신</text>
+
+  <path class="ln-ok" d="M538 330 H500 V344 H466" marker-end="url(#ew2)"/>
+
+  <rect class="b-key" x="40" y="316" width="420" height="56" rx="6"/>
+  <text class="t-h c-key" x="60" y="342">재고관리문서 · 재무전표</text>
+  <text class="t-xs" x="60" y="362">→ 청구대기목록(billing due list) 등재</text>
+
+  <rect class="b-ghost" x="40" y="382" width="920" height="46" rx="5"/>
+  <text class="t-s c-bad" x="58" y="402">LE 출하납품 기준 PGI 는 전량 게시만 가능 — 부분출고가 필요하면 EWM 출하납품이 LE 의 납품분할(Delivery Split)을 트리거한다.</text>
+  <text class="t-xs" x="58" y="420">피킹상태 C(완료)는 출력 <tspan class="m-s">WSOR</tspan> 발송으로 바뀌지 않는다. 피킹수량이 <tspan class="m-s">WHSCON</tspan> 으로 회신될 때 비로소 C 가 된다.</text>
+</svg>
+<figcaption><span class="fno">그림 4</span>LE 납품과 EWM 문서의 경계. <b>지시는 LE → EWM, 결과는 EWM → LE</b>. 회계는 회신을 받은 LE 쪽에서만 만들어진다.</figcaption>
+</figure>
+
+<h3>피킹 출력과 피킹상태 — 헷갈리는 두 Output Type</h3>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>Output Type</th><th>역할</th><th>피킹상태에 미치는 영향</th></tr></thead>
+<tbody>
+<tr><td><code>WSOR</code></td><td class="wrap">하위시스템(subsystem)을 쓰는 피킹용 Output. <b>납품 헤더 레벨</b> Output</td><td class="wrap"><span class="bad">바꾸지 않는다.</span> 특정 쿼리(query)가 포함돼 있지 않은 한 피킹상태와 연동되지 않는다</td></tr>
+<tr><td><code>WHSCON</code></td><td class="wrap">피킹요청 <b>결과를 보고</b>할 때 쓰는 논리 Output Type. 피킹된 수량을 납품문서로 전송</td><td class="wrap"><span class="good">피킹상태를 C(완료)로 설정한다</span></td></tr>
+</tbody>
+</table>
+</div>
+
+<h3>EWM 관리 창고에서의 재고출고 — 문서가 둘로 나뉜다</h3>
+
+<p>비즈니스 프로세스와 시스템 설정에 따라 쓰이는 문서가 다릅니다. <b>판매오더의 경우 출하납품</b>이 쓰이는데, 여기서 <span class="key">LE 출하납품</span>과 <span class="key">SAP EWM 내의 대응 문서</span>가 <b>별도로 존재</b>합니다. (생산오더 공급용으로는 LE 출하납품을 만들 수도 있지만, EWM에서 직접 생산자재요청(production material request)을 만들어 문서 수를 줄일 수도 있습니다.)</p>
+
+<h4>문서유형 매핑 Customizing</h4>
+
+<div class="note warn">
+  <div class="t">이 설정은 EWM 측 구성이다</div>
+  <p>경로: <code>SCM Extended Warehouse Management</code> → <code>Extended Warehouse Management</code> → <code>Interfaces</code> → <code>ERP Integration</code> → <code>Delivery Processing</code> → <b>Map document types from ERP System to EWM</b></p>
+  <p>여기서 LE의 문서유형 <code>LF</code>가 EWM의 <code>OUTB</code>에 매핑되고, 아이템카테고리도 함께 매핑됩니다. <b>확인 필요 — EWM이 활성화되어 있지 않으면 이 IMG 노드 자체가 나타나지 않습니다.</b> 실제 시스템(winerp01 / MEP)에서 EWM 활성화 여부를 먼저 확인할 것.</p>
+</div>
+
+<h4>창고번호 결정</h4>
+
+<p>피킹저장위치가 결정되고 <span class="hl">플랜트 + 저장위치 조합이 하나의 창고번호에 배정</span>되어 있으면, 피킹은 SAP WM 또는 SAP EWM으로 수행됩니다. 이 배정이 없으면 창고관리 경로를 타지 않습니다.</p>
+
+<h3>Warehouse Task — 실제 물리적 이동을 통제하는 지시서</h3>
+
+<p>자재의 물리적 이동은 <b>Warehouse Task</b>로 통제됩니다. 피킹 시 Warehouse Task는 출하납품오더에 요구된 수량을 충족할 <span class="key">가장 적합한 Quant</span>를 찾습니다. Quant는 EWM 입고배치 시 빈에 생성되고, 피킹으로 재고가 제거되면 <b>자동으로 삭제</b>됩니다.</p>
+
+<p>적절한 재고를 찾기 위해 시스템은 두 가지를 봅니다.</p>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>결정 요소</th><th>동작</th></tr></thead>
+<tbody>
+<tr><td>Storage Type<br>Search Sequence</td><td class="wrap">요구된 자재가 있는 빈을 찾을 <b>저장유형을 순차적으로</b> 체크 — 첫 유형에 없으면 다음 유형으로. 피킹의 경우 이 순서에 <b>저장유형그룹</b>을 포함시켜 여러 유형의 Quant를 <span class="hl">동시에</span> 고려할 수도 있다</td></tr>
+<tr><td>재고출고규칙<br>(Stock Removal Rule · 피킹전략)</td><td class="wrap">저장유형에 배정되거나 저장유형 검색순서와 연계해 결정된다. 대표적인 것이 <b>FIFO</b>(선입선출 — 정의된 순서대로 가장 오래된 Quant). <span class="bad">엄격한 FIFO는 저장유형그룹을 사용</span>한다</td></tr>
+</tbody>
+</table>
+</div>
+
+<h3>Warehouse Management Monitor</h3>
+
+<p>창고관리자에게 현재 창고 상황과 자원 요구를 알려주는 <b>중앙 도구</b>입니다. 알림 모니터링으로 실제·잠재 문제를 강조 표시하고 예외처리 도구를 제공합니다. 권한이 있으면 모니터에서 직접 <b>warehouse task/order 생성·확인, 빈 변경/블록, wave 처리 트리거</b>를 실행할 수 있습니다.</p>
+
+<ul>
+  <li>표준 모니터를 그대로 쓰거나, 노드를 숨기거나, 변형노드를 만들어 맞춤 설정</li>
+  <li>기본 표시는 <b>List View</b>(ALV 그리드 — 정렬·필터·인쇄 등 표준 ALV 기능)</li>
+  <li><b>Form View</b>(HTML 뷰어)로 전환하면 개별 객체의 상세정보</li>
+</ul>
+
+<div class="note">
+  <div class="t">🔰 초보자 설명 — Quant와 Warehouse Task를 한 줄로</div>
+  <p><b>Quant</b>는 "이 빈에 이 자재가 이만큼 있다"를 기록한 <b>재고 이름표</b>이고, <b>Warehouse Task</b>는 "이 빈에서 저 빈으로 이 수량을 옮겨라"는 <b>실제 지시서</b>입니다.</p>
+</div>
+
+<h3>재고출고(Goods Issue) 게시</h3>
+
+<p>피킹이 끝나 재고출고 준비가 되면 게시합니다. 트리거 방식은 세 가지입니다 — <b>출하납품오더에서 수동</b>, <b>자재가 대기장에 도착했을 때 자동</b>, <b>트럭이 창고를 떠날 때 자동</b>.</p>
+
+<p>게시를 위해 별도의 SAP EWM 문서인 <span class="key">EWM 출하납품</span>이 생성되고, 이 문서가 <b>재고출고 게시 정보를 LE 출하납품에 다시 전송</b>합니다. 이 회신을 기반으로 <span class="hl">재고관리문서와 재무문서가 생성</span>됩니다.</p>
+
+<div class="note warn">
+  <div class="t">LE 출하납품 기준 PGI는 부분 게시가 불가능하다</div>
+  <p>LE 출하납품 기준으로 재고출고를 게시할 때는 <span class="bad">해당 납품의 전체 수량이어야 합니다.</span> 하지만 현실에서는 부분재고출고가 필요한 상황이 생깁니다 — 시스템상 재고보다 실제 물리 재고가 적거나, 운송 용량이 부족한 경우 등.</p>
+  <p>이때 필요한 것이 LE 출하납품의 <b>납품분할(Delivery Split)</b>이고, 이는 <b>EWM 출하납품을 통해 트리거</b>될 수 있습니다.</p>
+</div>
+
+<div class="note">
+  <div class="t">🔰 초보자 설명 — 재고출고와 EWM 출하납품을 한 줄로</div>
+  <p>"물건이 창고를 떠났다"를 회계(재고·재무)에 반영하는 과정이 <b>2단계</b>입니다. EWM이 먼저 "실제로 얼마나 나갔는지"를 확인해 LE에 알려주고, LE가 그 정보로 재고·재무 전표를 만듭니다.</p>
+</div>
+
+<div class="note ok">
+  <div class="t">📌 개인 E2E 프로젝트와의 연결점</div>
+  <p>프로젝트는 EWM을 쓰지 않으므로 PGI는 <b>LE 출하납품 한 겹</b>에서 끝납니다. 그림 4의 오른쪽 레인이 통째로 없는 구성입니다. 다만 <span class="bad">"LE 출하납품 기준 PGI는 전량 게시만 가능"</span>은 EWM과 무관하게 그대로 적용되므로, 납품 CBO에서 부분출고를 처리하려면 <b>납품분할 로직을 직접 넣어야</b> 합니다 — EWM이 없으니 트리거해 줄 상대가 없습니다.</p>
+  <p>피킹전략도 계층이 다릅니다. 프로젝트는 <b>SD 배치결정에서 FEFO</b>(<code>MCHA-VFDAT</code> 기준 선입선출이 아니라 <b>선만료 선출</b>)를 쓰기로 했는데, EWM의 재고출고규칙 <b>FIFO</b>는 <span class="bad">입고 순서</span> 기준입니다. 유통기한 상품에서는 이 둘이 <b>서로 다른 배치를 고릅니다</b> — 나중에 입고됐지만 기한이 더 짧은 배치가 있을 때 FEFO는 그것을, FIFO는 먼저 들어온 것을 뽑습니다. 향후 EWM을 붙인다면 배치결정(SD)과 재고출고규칙(EWM) 중 <b>어느 쪽이 최종 결정권을 갖는지를 먼저 정해야</b> 하고, 그냥 두면 <code>ZBATCH_ZONE</code>이 임박으로 옮겨 둔 배치가 EWM에서 선택되지 않는 모순이 생깁니다.</p>
+  <p>회계 원칙도 그대로 걸립니다. 그림 4에서 보듯 <b>재무전표는 EWM 회신을 받은 LE 쪽에서만</b> 만들어집니다. 프로젝트 원칙(회계 영향이 있는 처리는 자동화하지 않는다)에 따라, 납품 CBO가 PGI를 자동으로 때리는 구조는 피하고 <b>PGI 대상 목록 제시 + 사용자 확인</b>까지만 하는 것이 맞습니다. 전표는 직접 INSERT 하지 말고 납품 전기용 표준 BAPI를 쓰십시오 — <b>확인 필요: 사용할 BAPI 이름은 실제 시스템(winerp01 / MEP)의 <code>BAPI</code> 트랜잭션에서 Shipping → Outbound Delivery 노드를 열어 확정할 것.</b></p>
+</div>
+
+</div>
+
+
+<!-- ══════════ LESSON 6 ══════════ -->
+<div class="lesson" id="l6">
+<h2><span class="no">LESSON 6</span>EWM 입고납품과 납품 특수기능</h2>
+
+<p><span class="tag">Unit 5 후반</span><span class="tag">레슨 2개</span>Creating Inbound Deliveries in EWM · Using Special Functions in Deliveries</p>
+
+<h3>구매 프로세스 쪽 마스터데이터</h3>
+
+<p>외부 공급업체로부터 조달하는 자재는 자재마스터에 별도의 <b>Purchasing 뷰</b>를 갖습니다. 공급업체는 주소 · 회계데이터 · 구매오더 기본값(납품조건 등)을 담은 <b>비즈니스파트너 마스터</b>로 표현됩니다.</p>
+
+<p>같은 자재를 특정 공급업체로부터 정기적으로 구매하거나 가격·수량·납기가 고정돼 있다면 <span class="key">구매정보레코드</span>(자재 + 공급업체 조합)를 만들어 구매문서 생성 시 자동 참조하게 할 수 있습니다.</p>
+
+<h3>EWM에서의 입고</h3>
+
+<p>이 코스는 EWM 창고가 <b>저장위치 2개</b>로 구성된다고 가정합니다.</p>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>저장위치</th><th>의미</th></tr></thead>
+<tbody>
+<tr><td><code>101D</code></td><td class="wrap">EWM Received on Dock — 하역장에 도착한 상태</td></tr>
+<tr><td><code>101S</code></td><td class="wrap">EWM Available for Sale — 최종 저장유형에 입고배치되어 판매 가용한 상태</td></tr>
+</tbody>
+</table>
+</div>
+
+<p>즉 <span class="hl">자재가 최종 저장유형에 입고배치되기 전까지는 판매 관점에서 가용하지 않다</span>는 설계입니다. 필수는 아니고 표준 시나리오의 기본 가정입니다.</p>
+
+<p>EWM 관리 창고에 입고하려면 <b>구매오더나 생산오더를 참조하는 입고납품문서</b>를 생성해야 합니다. 이 문서가 창고 내 물리적 이동과 입고게시의 기반이 됩니다.</p>
+
+<h4>LE 입고납품 vs EWM 입고납품</h4>
+
+<p>용어 혼동을 피하기 위해 이 코스는 하나를 <b>LE 입고납품</b>, 다른 하나를 <b>EWM 입고납품</b>이라 부릅니다.</p>
+
+<p>공급업체가 <b>사전출하통지</b>(advanced shipping notification) 같은 정보를 주지 않아 LE 입고납품을 자동 생성할 수 없는 경우에는, <span class="key">SAP EWM에 직접 입고납품을 입력하는 편이 낫습니다</span> — 창고 프로세스가 간소해집니다. 물리적으로 자재가 도착했을 때 EWM 입고납품이 있어야 입고배치를 관리할 수 있기 때문입니다.</p>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>EWM 입고납품 생성 방법</th><th>특징</th></tr></thead>
+<tbody>
+<tr><td>전통적 트랜잭션</td><td class="wrap">분산형 SAP EWM 시스템과 동일한 방식</td></tr>
+<tr><td>앱</td><td class="wrap">납품 생성 · 입고게시 · Warehouse Task 생성까지 <b>한 번에</b> 처리</td></tr>
+</tbody>
+</table>
+</div>
+
+<div class="note">
+  <div class="t">🔰 초보자 설명 — LE 입고납품 vs EWM 입고납품</div>
+  <p><b>LE 입고납품</b>은 "구매오더 기준으로 ERP 측에서 보는 입고 예정분", <b>EWM 입고납품</b>은 "실제 창고 안에서 물리적으로 처리할 입고 작업지시서"입니다.</p>
+</div>
+
+<h3>납품의 특수 기능 ① 가격(Pricing)</h3>
+
+<p>출하납품에는 배송 관련 조건(운송비 · 화물비 등)이 들어갈 수 있습니다. 조건값은 수동 입력하거나 SD 가격결정 <b>Condition Technique</b>으로 결정합니다. 조건은 납품서에 인쇄하고 청구문서로 전달할 수 있습니다.</p>
+
+<div class="note warn">
+  <div class="t">선행문서에서 출하납품으로 조건을 전달할 수는 없다</div>
+  <p><span class="bad">오더의 가격조건이 납품으로 복사되지 않습니다.</span> 납품의 가격은 납품에서 새로 결정되는 것입니다. 적용하려면 표준 가격결정 Customizing(Condition Type 정의 · Pricing Procedure 유지)을 쓰고, <b>Pricing Procedure를 납품유형에 배정</b>해야 합니다.</p>
+</div>
+
+<h3>납품의 특수 기능 ② 납품 인터페이스</h3>
+
+<p>거래처나 non-SAP 시스템이 배송 프로세스에 관여하면 정보를 교환해야 합니다 — <b>외부 통신에는 EDI, 내부 통신에는 ALE</b> 메시지를 씁니다.</p>
+
+<p>납품 인터페이스는 납품 관련 EDI/ALE 메시지를 전부 묶으며, 모두 IDoc <code>DELVRY07</code>에 기반합니다. 납품과 <b>루트 · 배치특성</b> 등 배송 관련 필드를 포함하는 세그먼트 구조를 갖습니다. IDoc 필드 생성을 트리거하는 것은 <span class="key">납품 헤더 레벨의 Output Control</span>입니다.</p>
+
+<h3>납품의 특수 기능 ③ 불완전성 통제(Incompletion Control)</h3>
+
+<p>불완전 항목 로그를 호출하면 시스템이 출하납품 데이터의 완전성을 체크합니다. 생성된 목록에서 <b>바로 누락 필드 유지보수 화면으로 이동</b>할 수 있습니다. 납품 처리 중에 호출할 수도 있고, 별도 리포트로 불완전 납품문서를 선택해 작업목록을 만들 수도 있습니다.</p>
+
+<ul>
+  <li>출하납품은 <b>헤더와 아이템 레벨 모두</b>에서 완전성을 체크한다</li>
+  <li>어떤 필드가 미입력 시 불완전을 만드는지, 그 불완전이 <b>피킹 · 포장 · 재고출고 · 청구</b>에 어떤 영향을 주는지를 Customizing에서 통제한다 (예: 아이템 부피 미지정 → 포장 불가)</li>
+  <li>불완전을 유발하는 필드 선택은 <span class="key">납품유형 + 납품아이템카테고리</span>에 따라 다르다</li>
+  <li><b>파트너기능과 텍스트</b>도 "필수(Required)"로 설정해 누락 시 불완전 로그에 기록되게 할 수 있다</li>
+</ul>
+
+<div class="note">
+  <div class="t">🔰 초보자 설명 — 납품의 Incompletion Control</div>
+  <p>Course 5(S46052)에서 다룬 판매문서 Incompletion Log와 <b>동일한 개념</b>이 납품문서에도 그대로 적용됩니다 — "이 납품은 이 필드가 비어 있어서 포장/재고출고를 못 한다"는 체크리스트입니다.</p>
+</div>
+
+<div class="note ok">
+  <div class="t">📌 개인 E2E 프로젝트와의 연결점</div>
+  <p>프로젝트에서 <b>지금 바로 쓸 수 있는 것은 불완전성 통제</b>입니다. 배치관리 + 유통기한을 쓰므로 <span class="key">배치번호가 비어 있는 납품 아이템은 PGI가 나가면 안 됩니다.</span> 이걸 CBO에서 <code>IF</code>로 막는 대신 — 납품유형 × 납품아이템카테고리 단위로 불완전 필드를 등록하고 <b>재고출고를 차단 대상으로 지정</b>하면 표준만으로 해결됩니다. 프로젝트 원칙(표준 우선 · IMG로 되는 건 IMG로)에 정확히 해당하는 자리입니다.</p>
+  <p>납품 가격 쪽은 반대로 <b>주의 신호</b>입니다. "오더 조건이 납품으로 안 넘어온다"는 건 설계이므로, 납품 단계에서 운송비를 잡고 싶다면 <b>납품유형에 Pricing Procedure를 따로 배정</b>해야 합니다. 이건 청구금액에 영향을 주므로 프로젝트 원칙상 자동 결정만 걸어 두고 <b>금액 확정은 사용자 확인 뒤</b>로 두는 것이 맞습니다.</p>
+  <p><code>DELVRY07</code>은 프로젝트 목표 3번(웹페이지 → RFC 호출)과 목표 2번(AL11 대량 처리)의 참고점입니다. 납품 데이터를 외부로 내보내는 레이아웃을 새로 설계하기 전에 <b>DELVRY07의 세그먼트 구조를 먼저 보는 것</b>이 낫습니다 — 루트·배치특성까지 이미 들어가 있어서, 자체 플랫파일 레이아웃의 필드 선정 기준으로 쓸 수 있습니다.</p>
+</div>
+
+</div>
+
+
+<!-- ══════════ APPENDIX ══════════ -->
+<div class="lesson" id="lx">
+<h2><span class="no">APPENDIX</span>정리 · 반드시 기억할 것</h2>
+
+<h3>한 장 요약</h3>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>질문</th><th>답</th></tr></thead>
+<tbody>
+<tr><td>납품유형은 어디서 오나</td><td class="wrap">오더 참조 시 <b>오더유형에서 도출</b>. 대체 유형은 Copying Control에 등록된 조합만</td></tr>
+<tr><td>납품아이템카테고리는</td><td class="wrap">오더 참조 = <b>오더에서 그대로 복사</b> / 무참조 = <b>납품유형 + 일반 아이템카테고리그룹</b></td></tr>
+<tr><td>PGI 이동유형은 어디서 오나</td><td class="wrap">판매측 <b>스케줄라인카테고리</b>. 단 Document Category 7(입고납품용 ELN 등)은 Item Category에 직접 지정</td></tr>
+<tr><td>선적항 결정 키</td><td class="wrap"><b>배송플랜트 + 적재그룹(자재마스터) + 출하조건</b> 세 개 조합</td></tr>
+<tr><td>루트 결정 키</td><td class="wrap">출발지 · 도착지 · 운송조건(운송그룹 · 관세국경통과) · 운송수단</td></tr>
+<tr><td>역산 리드타임 4개의 출처</td><td class="wrap"><b>선적항</b> = Loading Time · Pick/Pack Time / <b>루트</b> = Transit Time · Transportation Lead Time</td></tr>
+<tr><td>납품을 언제 만들어야 하나</td><td class="wrap"><b>자재가용일과 운송계획일 중 더 이른 날짜</b></td></tr>
+<tr><td>납품 생성 후 못 바꾸는 것</td><td class="wrap"><b>Ship-to Party · 선적항</b></td></tr>
+<tr><td>피킹상태를 C로 만드는 것</td><td class="wrap"><code>WHSCON</code> 회신. <span class="bad"><code>WSOR</code> 출력 발송이 아니다</span></td></tr>
+<tr><td>LE 출하납품 PGI 부분 게시</td><td class="wrap"><b>불가.</b> 부분출고는 납품분할이 필요하고 EWM 출하납품이 트리거한다</td></tr>
+<tr><td>오더 가격조건이 납품으로 오나</td><td class="wrap"><b>안 온다.</b> 납품유형에 Pricing Procedure를 따로 배정해야 한다</td></tr>
+<tr><td>납품 IDoc</td><td class="wrap"><code>DELVRY07</code> — EDI(외부) · ALE(내부) 메시지가 전부 이 하나에 기반</td></tr>
+</tbody>
+</table>
+</div>
+
+<h3>반드시 지킬 것</h3>
+
+<div class="note warn">
+  <div class="t">반드시 지킬 것</div>
+  <p>· <b>빈 필드는 "전체 적용"이 아니다.</b> 저장조건이 비어 있으면 결정 테이블에서도 비어 있는 줄만 찾는다 — 양쪽에 값을 맞춰 넣는다.<br>
+     · <b>납품대기목록은 우선순위순으로 처리되지 않는다.</b> 급한 건을 먼저 내보내려면 선택기준(변형)을 나눈다.<br>
+     · <b>Order Combination은 자동이 아니다.</b> 고객마스터나 오더 헤더에서 요청해야 하고, Copying Control 조건까지 맞아야 결합된다.<br>
+     · <b>Usage 결정 로직(<code>PACK</code>·<code>CHSP</code>·<code>PSEL</code>·<code>V</code>)은 하드코딩이다.</b> Customizing으로 못 바꾼다 — 고객자재정보레코드에 넣어도 납품에는 안 붙는다.<br>
+     · <b>PGI 이동유형을 CBO에 하드코딩하지 않는다.</b> 스케줄라인카테고리에서 온다 — CBO가 아니라 IMG에서 고칠 문제다.<br>
+     · <b>리드타임을 CBO에서 다시 계산하지 않는다.</b> 자재가용일·운송계획일은 오더 스케줄라인에 이미 있다. 읽어 쓴다.<br>
+     · <b>PGI는 자동으로 때리지 않는다.</b> 재무전표가 만들어지는 지점이다 — 대상 목록 제시와 사용자 확인까지만.</p>
+</div>
+
+<h3>확인 필요 — 실제 시스템에서 확정할 것</h3>
+
+<div class="note warn">
+  <div class="t">확인 필요 (winerp01 / MEP)</div>
+  <p>· <b>창고관리 활성화 방식</b> — Embedded EWM / 기존 WM / Stock Room Management 중 무엇인가. LESSON 5~6의 경로가 통째로 달라진다.<br>
+     · <b>ERP → EWM 문서유형 매핑 노드</b>(<code>LF</code> → <code>OUTB</code>) — EWM이 비활성이면 IMG 노드 자체가 없다.<br>
+     · <b>선적항별 스케줄링 방식</b> — 정밀(Precise) / 일별(Daily) 중 무엇이며, 근무시간(생산자달력 + 교대순서)이 유지되어 있는가.<br>
+     · <b>플랜트 + 저장위치 → 창고번호 배정</b> 여부 — 배정이 없으면 피킹이 창고관리 경로를 타지 않는다.<br>
+     · <b>선적항 결정 테이블의 실제 줄</b> — 배송플랜트 · 적재그룹 · 출하조건 세 키 조합이 어떻게 깔려 있는가.</p>
+</div>
+
+<h3>참고</h3>
+
+<ul>
+  <li>원본: 노션 <b>SAP Learning Hub</b> → Implementing Sales in SAP S/4HANA Cloud Private Edition → <b>8-1 ~ 8-6</b> (Learning Hub 레슨 본문 9개 정리 · 다운로드 가능한 PDF·Further Reading 없음)</li>
+  <li>본문에 언급된 SAP Note: <b>146829</b>(루트 스케줄) · <b>113411 / 332276 / 355404 / 399912 / 546668 / 22609</b>(출하납품 처리) — 원본에 링크는 제공되지 않음</li>
+  <li>앞 노트: <b>S46056</b> Text Control — 텍스트 유형과 자동 전달</li>
+  <li>뒤 노트: <b>S46150</b> 청구(Billing) 구성 — 재고출고 게시 후 청구대기목록으로 이어지는 구간</li>
+  <li>함께 보면 좋은 노트: <b>S46001</b> 가용성확인(ATP) — 자재가용일 · 정밀 스케줄링이 ATP에 반영되지 않는 이유 / <b>S46052</b> Incompletion — 납품 불완전성 통제의 판매문서 쪽 원형</li>
+</ul>
+
+</div>
+
+</div>
+<script src="../../assets/hub.js" defer></script>
+</body>
+</html>
