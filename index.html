@@ -272,6 +272,7 @@ footer a:hover{text-decoration:underline;}
     <a href="#t-debug">디버깅</a>
     <a href="#t-exit">확장 · User Exit</a>
     <a href="#t-module">모듈 기초</a>
+    <a href="#t-ai">AI 협업 · 에이전트</a>
   </nav>
 
   <header class="hero">
@@ -292,8 +293,8 @@ footer a:hover{text-decoration:underline;}
     </p>
 
     <div class="stat-row">
-      <span><b>13</b>등록된 문서</span>
-      <span><b>5</b>학습 트랙</span>
+      <span><b>15</b>등록된 문서</span>
+      <span><b>6</b>학습 트랙</span>
       <span><b>45</b>연계 노트</span>
       <span><b>ONGOING</b>업데이트 주기</span>
     </div>
@@ -319,7 +320,7 @@ footer a:hover{text-decoration:underline;}
       </div>
 
       <div class="qgroup" data-g="batch">
-        <a class="qtitle" href="#t-batch"><span class="qdot"></span><span class="qname">ABAP 배치 · 대외 인터페이스</span><span class="qcount">5</span></a>
+        <a class="qtitle" href="#t-batch"><span class="qdot"></span><span class="qname">ABAP 배치 · 대외 인터페이스</span><span class="qcount">6</span></a>
         <a class="qrow" href="notes/abap-parallel-file-staging.html" data-k="LUW aRFC STARTING NEW TASK 타임아웃 AL11 Staging 청킹 재처리 멱등성 병렬처리 확장편">
           <span class="qn">01</span><span class="qt">병렬처리 확장편 — 대외 연계 · AL11 Staging</span><span class="qmeta">L01–10</span></a>
         <a class="qrow" href="notes/sap-luw.html" data-k="LUW COMMIT WORK ROLLBACK 번들링 UPDATE TASK V1 V2 SM13 ENQUEUE 락 ACID 암묵적 커밋">
@@ -330,6 +331,8 @@ footer a:hover{text-decoration:underline;}
           <span class="qn">06</span><span class="qt">aRFC 병렬처리 — 골격부터 덤프 도감까지</span><span class="qmeta">캡처 14장</span></a>
         <a class="qrow" href="notes/sap-al11-file-setup.html" data-k="AL11 FILE 논리파일 서버 디렉토리 경로 세팅 FILE_GET_NAME">
           <span class="qn">07</span><span class="qt">AL11 · FILE 세팅 — 서버 디렉토리와 논리 파일 경로</span><span class="qmeta">캡처 8장</span></a>
+        <a class="qrow" href="notes/sap-http-interface-handson.html" data-k="SICF ICF ICM SMICM SM51 SM59 type G STRUST HTTP HTTPS REST JSON 인터페이스 IF_HTTP_EXTENSION handle_request 핸들러클래스 ZCL_HSH_HANDLER Logon Data 서비스사용자 403 404 ping CL_HTTP_CLIENT create_by_destination set_request_uri close FUNCTION-POOL 외부브레이크포인트 CSRF UI2 CL_JSON CALL TRANSFORMATION 웹페이지 RFC 대외연계">
+          <span class="qn">15</span><span class="qt">SAP HTTP 인터페이스 실습 — ICF 서비스와 SM59 목적지</span><span class="qmeta">캡처 23장</span></a>
       </div>
 
       <div class="qgroup" data-g="eai">
@@ -362,6 +365,12 @@ footer a:hover{text-decoration:underline;}
           <span class="qn">12</span><span class="qt">PP 흐름 — MRP · 생산오더 · 확정 · 정산</span><span class="qmeta">도해 4장</span></a>
         <a class="qrow" href="notes/qm-basic-tcodes.html" data-k="QM 검사로트 QALS 검사유형 01 04 05 03 08 89 QMAT QA08 검사특성 QS21 QPMK 샘플링 QDV1 검사계획 QP01 PLMK QA01 QA32 QA33 결과기록 QE51N QE03 QAMR QASR 사용결정 QA11 QA12 QA13 QA16 QA10 QAVE 품질검사재고 INSME CINSM 321 350 553 331 품질통지 QM01 QM02 QM03 QM10 QM11 QMEL QMFE QMSM Q1 Q2 Q3 클레임 BAPI_INSPLOT_SETUSAGEDECISION">
           <span class="qn">13</span><span class="qt">QM 흐름 — 검사로트 · 사용결정 · 통지</span><span class="qmeta">도해 3장</span></a>
+      </div>
+
+      <div class="qgroup" data-g="ai">
+        <a class="qtitle" href="#t-ai"><span class="qdot"></span><span class="qname">AI 협업 · 멀티 에이전트 하네스</span><span class="qcount">1</span></a>
+        <a class="qrow" href="notes/multi-agent-harness.html" data-k="멀티에이전트 multi-agent 하네스 harness engineering 에이전트 agent 서브에이전트 subagent 오케스트레이터 orchestrator 스페셜리스트 specialist 핸드오프 handoff 계약 contract 프롬프트엔지니어링 컨텍스트엔지니어링 prompt context AGENTS.md CLAUDE.md GEMINI.md CODEX.md CONSTITUTION.md 가드레일 guardrail 최소권한 least privilege tools 필드 승인게이트 approval gate worktree sandbox 격리 감사로그 audit 관측성 observability 훅 hook PreToolUse PostToolUse TaskCompleted GateGuard 오케스트레이션패턴 파이프라인 체이닝 라우팅 팬아웃 fanout 팬인 취합 투표 voting 오케스트레이터워커 평가자최적화 evaluator optimizer 검증후적용 재시도 retry 롤백 rollback 에스컬레이션 escalation 동적팀구성 컨텍스트과부하 context overload Claude Code Desktop App Agent Teams teammateMode in-process tmux SendMessage subagent_type Antigravity agy Agent Manager Workspace Inbox Local Mode New Worktree Mode goal agents Codex CLI 역할컨텍스트 role context tier 모델티어 haiku sonnet opus L0 L1 L2 L3 워크스페이스 포크모델 fork model SSOT variant co-abap co-develop co-work co-consult co-deck co-design co-security co-game co-export co-hr co-news co-price co-safety 스캐폴딩 scaffolding new-project.ts upgrade-project.ts l3-to-variant-pipeline.ts create-l3-scaffold.ts validate-templates.ts agent:verify LOCKED MERGE PRESERVE SYNC_IF_NEWER PRUNE dry-run 생애주기 lifecycle status draft active deprecated retired 스킬관계그래프 skill-graph 워크플로패턴 Phase 0 6 qa-gate 거버넌스 governance fail-closed 의사결정기록 DEC ADR Domain Operating Model stages.yaml raci.yaml gates.yaml RACI 결정게이트 governed core 테트리스 팩맨 tetris pacman 워밍업 ai-workspace-standards 5throck">
+          <span class="qn">14</span><span class="qt">멀티 에이전트 하네스 엔지니어링 — 개념부터 워크스페이스까지</span><span class="qmeta">도해 13장</span></a>
       </div>
 
     </div>
@@ -476,6 +485,21 @@ footer a:hover{text-decoration:underline;}
           <span class="chip">OPEN DATASET</span>
           <span class="chip">권한</span>
           <span class="chip">실전 대조</span>
+        </div>
+        <span class="open">문서 열기<span class="arrow">→</span></span>
+      </a>
+
+      <a class="card" data-n="15" href="notes/sap-http-interface-handson.html"
+         data-keywords="SICF ICF ICM SMICM SM51 SM59 STRUST ST22 SU53 RZ10 SE24 SE37 SE80 HTTP HTTPS REST JSON 인터페이스 대외연계 아웃바운드 인바운드 IF_HTTP_EXTENSION HANDLE_REQUEST IF_HTTP_SERVER IF_HTTP_REQUEST IF_HTTP_RESPONSE IF_HTTP_ENTITY get_form_field get_cdata set_cdata set_status set_header_field set_content_type get_method ZCL_HSH_HANDLER ZTEST_HSH ZHSH 핸들러클래스 handler list default_host z_hsh /sap/public/ping 서비스활성화 Activate Service Test Service New Sub-Element Logon Data Required with Logon Data 서비스사용자 service user SU01 dialog user S_ICF 익명서비스 403 Forbidden 404 401 500 Service cannot be reached icm/server_port icm/host_name_full is/HTTP/virt_host_0 가상호스트 virtual host Worker Threads Connections Used Queue Entries Used dev_icm 트레이스 trace level CL_HTTP_CLIENT create_by_destination create_by_url cl_http_utility set_request_uri send receive get_status close http_communication_failure destination_not_found SM59 type G Target Host Service No Path Prefix ANONYM SSL Client Anonymous PSE ICM_HTTP_SSL_ERROR SSSLERR_PEER_CERT_UNTRUSTED Root CA 인증서 TLS CommonCryptoLib Special Options HTTP 1.0 1.1 chunked Compression 압축 Timeout /UI2/CL_JSON CALL TRANSFORMATION id cl_sxml_string_writer co_xt_json asJSON cl_abap_codepage CL_TREX_JSON_SERIALIZER FUNCTION-POOL SAPLZHSH LZHSHTOP LZHSHUXX 함수그룹 활성화 구문오류 CONVERSION_EXIT_ALPHA_INPUT ALPHA 변환 VBELN VBRK FKART 외부브레이크포인트 external breakpoint 디버깅 사용자 Terminal-ID CSRF XSRF X-CSRF-Token GET_XSRF_TOKEN escape cl_abap_dyn_prg e_xss_ml 웹페이지 RFC 통신">
+        <span class="kicker">LESSON 01–10 · 캡처 23장 · 도해 4장</span>
+        <h3>SAP HTTP 인터페이스 실습 — ICF 서비스와 SM59 목적지</h3>
+        <p>SAP를 HTTP로 쓰는 두 방향을 실제로 만들어 본 기록. SM51·SMICM으로 포트를 확인하고, 업무 FM → 핸들러 클래스 → SICF 등록 → 브라우저 호출까지 인바운드를 세운 뒤, SM59 type G 목적지와 CL_HTTP_CLIENT로 아웃바운드를 붙인다. FUNCTION-POOL 에러와 외부 브레이크포인트가 안 걸리는 이유까지.</p>
+        <div class="chips">
+          <span class="chip">SICF</span>
+          <span class="chip">IF_HTTP_EXTENSION</span>
+          <span class="chip">SMICM</span>
+          <span class="chip">SM59 type G</span>
+          <span class="chip">CL_HTTP_CLIENT</span>
         </div>
         <span class="open">문서 열기<span class="arrow">→</span></span>
       </a>
@@ -678,9 +702,44 @@ footer a:hover{text-decoration:underline;}
   </section>
 
 
+  <!-- ═══════════ AI 협업 · 멀티 에이전트 하네스 ═══════════ -->
+  <section class="pkg" id="t-ai">
+    <div class="pkg-head">
+      <span class="folder"></span>
+      <h2>AI 협업 · 멀티 에이전트 하네스</h2>
+      <span class="pkg-id" title="내부 학습 트랙 코드 (참고용)">$ZLEARN_AI_AGENT</span>
+    </div>
+    <p class="pkg-desc">AI에게 일을 "잘 시키는" 법이 아니라, 매번 같은 품질이 나오도록 <b>구조를 짜는</b> 법. 역할 분리 · 권한 · 승인 게이트 · 검증 게이트까지 — SAP 운영 거버넌스와 문제의식이 겹치는 지점을 함께 짚었습니다.</p>
+
+    <div class="cards">
+      <a class="card" data-n="14" href="notes/multi-agent-harness.html"
+         data-keywords="멀티에이전트 multi-agent 하네스 harness engineering 에이전트 agent 서브에이전트 subagent 오케스트레이터 orchestrator 스페셜리스트 specialist 핸드오프 handoff 계약 contract 프롬프트엔지니어링 컨텍스트엔지니어링 prompt context AGENTS.md CLAUDE.md GEMINI.md CODEX.md CONSTITUTION.md 가드레일 guardrail 최소권한 least privilege tools 필드 승인게이트 approval gate worktree sandbox 격리 감사로그 audit 관측성 observability 훅 hook PreToolUse PostToolUse TaskCompleted GateGuard 오케스트레이션패턴 파이프라인 체이닝 라우팅 팬아웃 fanout 팬인 취합 투표 voting 오케스트레이터워커 평가자최적화 evaluator optimizer 검증후적용 재시도 retry 롤백 rollback 에스컬레이션 escalation 동적팀구성 컨텍스트과부하 context overload Claude Code Desktop App Agent Teams teammateMode in-process tmux SendMessage subagent_type Antigravity agy Agent Manager Workspace Inbox Local Mode New Worktree Mode goal agents Codex CLI 역할컨텍스트 role context tier 모델티어 haiku sonnet opus L0 L1 L2 L3 워크스페이스 포크모델 fork model SSOT variant co-abap co-develop co-work co-consult co-deck co-design co-security co-game co-export co-hr co-news co-price co-safety 스캐폴딩 scaffolding new-project.ts upgrade-project.ts l3-to-variant-pipeline.ts create-l3-scaffold.ts validate-templates.ts agent:verify LOCKED MERGE PRESERVE SYNC_IF_NEWER PRUNE dry-run 생애주기 lifecycle status draft active deprecated retired 스킬관계그래프 skill-graph 워크플로패턴 Phase 0 6 qa-gate 거버넌스 governance fail-closed 의사결정기록 DEC ADR Domain Operating Model stages.yaml raci.yaml gates.yaml RACI 결정게이트 governed core 테트리스 팩맨 tetris pacman 워밍업 ai-workspace-standards 5throck">
+        <span class="kicker">AI HARNESS · L01–13 · 도해 13장</span>
+        <h3>멀티 에이전트 하네스 엔지니어링 — 개념부터 워크스페이스 아키텍처까지</h3>
+        <p>"테트리스는 한 프롬프트로 되는데 팩맨은 왜 안 되는가"에서 출발해 오케스트레이터·핸드오프 계약, 오케스트레이션 패턴 5종, 가드레일과 최소 권한, AGENTS.md 표준, Claude/Antigravity/Codex 실습 절차, L0~L3 4계층과 포크 모델, 생애주기·워크플로·승격·거버넌스까지.</p>
+        <div class="chips">
+          <span class="chip">오케스트레이터 · 핸드오프</span>
+          <span class="chip">패턴 5종 + 실패 대응</span>
+          <span class="chip">가드레일 · 최소 권한</span>
+          <span class="chip">AGENTS.md</span>
+          <span class="chip">L0→L1→L2→L3 포크 모델</span>
+          <span class="chip">실습 G-1~P-2</span>
+        </div>
+        <span class="open">문서 열기<span class="arrow">→</span></span>
+      </a>
+
+      <div class="card empty" data-n="+">
+        <span class="kicker">예정</span>
+        <h3>다음 학습 자료 업로드 예정</h3>
+        <p>서브에이전트 실제 구성 사례, SAP 운영 업무에 적용해 본 워크플로 기록이 이어질 예정입니다.</p>
+      </div>
+    </div>
+  </section>
+
+
   <footer>
     <span>정리 기준: 실무 적용 가능한 패턴 중심 · 개인 학습 목적</span>
-    <span>최근 업데이트 2026-09-18</span>
+    <span>최근 업데이트 2026-09-22</span>
   </footer>
 
 </div>

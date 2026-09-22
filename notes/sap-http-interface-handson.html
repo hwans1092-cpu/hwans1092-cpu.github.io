@@ -1,0 +1,1438 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>SAP HTTP 인터페이스 실습 — ICF 서비스와 SM59 목적지</title>
+<meta name="description" content="SAP를 HTTP로 여는 두 방향 실습 노트. SM51·SMICM으로 ICM 포트 확인, IF_HTTP_EXTENSION 핸들러 클래스와 SICF 서비스 등록, /sap/public/ping 진단, SM59 type G 목적지와 CL_HTTP_CLIENT 호출 골격, FUNCTION-POOL 에러와 외부 브레이크포인트 함정까지.">
+<link rel="icon" href="../assets/favicon.svg">
+<link rel="stylesheet" href="../assets/notes-paper.css">
+<style>
+/* 이 노트 전용: 도해(SVG) 스타일 */
+.dgm{display:block; width:100%; height:auto;}
+.dgm text{font-family:"Malgun Gothic","맑은 고딕","Apple SD Gothic Neo",sans-serif; fill:#1e1e1e;}
+.dgm .t-h{font-size:15px; font-weight:700;}
+.dgm .t{font-size:13px;}
+.dgm .t-s{font-size:11.5px; fill:#555;}
+.dgm .t-xs{font-size:10.5px; fill:#6B7280;}
+.dgm .m{font-family:"D2Coding","Consolas",monospace; font-size:12px;}
+.dgm .m-s{font-family:"D2Coding","Consolas",monospace; font-size:10.5px;}
+.dgm .c-key{fill:#4338CA;} .dgm .c-bad{fill:#B91C1C;} .dgm .c-ok{fill:#047857;}
+.dgm .b{fill:#FFFFFF; stroke:#C7CBD6; stroke-width:1.2;}
+.dgm .b-key{fill:#EEF0FB; stroke:#4338CA; stroke-width:1.4;}
+.dgm .b-bad{fill:#FEF2F2; stroke:#B91C1C; stroke-width:1.3;}
+.dgm .b-ok{fill:#ECFDF5; stroke:#047857; stroke-width:1.3;}
+.dgm .b-mut{fill:#F3F4F6; stroke:#D1D5DB; stroke-width:1.1;}
+.dgm .b-hl{fill:#FEF08A; stroke:#CA8A04; stroke-width:1.2;}
+.dgm .b-ghost{fill:none; stroke:#9AA3B2; stroke-width:1.1; stroke-dasharray:5 4;}
+.dgm .ln{stroke:#7C8697; stroke-width:1.4; fill:none;}
+.dgm .ln-key{stroke:#4338CA; stroke-width:1.8; fill:none;}
+.dgm .ln-bad{stroke:#B91C1C; stroke-width:1.6; fill:none;}
+.dgm .ln-ok{stroke:#047857; stroke-width:1.6; fill:none;}
+.dgm .ln-d{stroke:#9AA3B2; stroke-width:1.2; stroke-dasharray:4 4; fill:none;}
+.dgm .arw{fill:#7C8697;} .dgm .arw-key{fill:#4338CA;}
+.dgm .arw-bad{fill:#B91C1C;} .dgm .arw-ok{fill:#047857;}
+.figwrap{background:#FAFAFE; border:1px solid var(--rule); border-radius:6px;
+  padding:18px 16px 10px; margin:22px 0;}
+.figwrap figcaption{margin-top:12px; padding-top:10px; border-top:1px solid var(--rule);}
+/* 아직 캡처가 없는 자리 */
+.fig-todo{border:1.5px dashed #9AA3B2; border-radius:6px; background:#FAFAFA;
+  padding:26px 20px; text-align:center; color:#6B7280; font-size:10pt;}
+.fig-todo b{display:block; font-family:"D2Coding","Consolas",monospace;
+  color:var(--danger); font-size:10.5pt; margin-bottom:6px;}
+/* 양쪽 비교 */
+.cmp{display:grid; grid-template-columns:1fr 1fr; gap:16px; margin:18px 0;}
+.cmp > div{border:1px solid var(--rule); border-radius:6px; padding:14px 18px;}
+.cmp h5{margin:0 0 8px; font-size:10.5pt;}
+.cmp ul{margin:8px 0 0; padding-left:20px;} .cmp li{font-size:10pt; margin-bottom:6px;}
+.cmp .x{border-top:3px solid var(--danger);} .cmp .x h5{color:var(--danger);}
+.cmp .o{border-top:3px solid var(--ok);} .cmp .o h5{color:var(--ok);}
+@media (max-width:720px){ .cmp{grid-template-columns:1fr;} }
+</style>
+</head>
+<body>
+<div class="crumb"><a href="../index.html">← SAP 학습 자료실</a> · ABAP 배치 · 대외 인터페이스 · HTTP 인터페이스 실습</div>
+<div class="sheet">
+
+<div class="doc-head">
+  <div class="kicker">FIELD NOTE</div>
+  <h1>SAP HTTP 인터페이스 실습</h1>
+  <div class="sub">ICF 서비스로 SAP를 열고, SM59 목적지로 밖을 부른다<br>
+  대상 시스템: <b>eccehp7 / EH7 (ECC 6.0 EHP7)</b> · 캡처 23장 · 전 구간 캡처 완료</div>
+</div>
+
+<div class="lead">
+  <p><b>결론부터.</b> SAP를 HTTP로 쓰는 일은 <span class="hl">방향이 둘뿐</span>입니다.
+  밖에서 SAP를 부르면 <b>ICF(SICF)</b>, SAP가 밖을 부르면 <b>SM59 목적지 + CL_HTTP_CLIENT</b>.
+  둘은 쓰는 T-Code도 디버깅 방법도 완전히 다릅니다.</p>
+  <p>이 노트는 <code>eccehp7</code>에 실제로 만들어 본 순서 그대로 갑니다 —
+  ICM 포트 확인 → 업무 FM → 핸들러 클래스 → SICF 등록 → 브라우저 호출,
+  그리고 반대 방향으로 SM59 type G 목적지까지.</p>
+  <p class="t-s">워크프로세스·RFC의 기초는 &rarr; <a href="sap-runtime-basics.html">SAP 실행 환경 기초 — 워크프로세스와 RFC 지도</a>를 먼저 보면 L2가 쉽습니다.</p>
+</div>
+
+<div class="toc">
+  <h4>목차</h4>
+  <ol>
+    <li><a href="#l1">SAP를 HTTP로 여는 두 방향</a></li>
+    <li><a href="#l2">문이 열려 있는지부터 본다 — ICM</a></li>
+    <li><a href="#l3">안쪽 먼저 — 업무 로직은 FM으로</a></li>
+    <li><a href="#l4">핸들러 클래스 — IF_HTTP_EXTENSION</a></li>
+    <li><a href="#l5">SICF 등록 — 트리가 곧 URL</a></li>
+    <li><a href="#l6">불러 보고, 안 되면 어디부터 보나</a></li>
+    <li><a href="#l7">ABAP에서 JSON 만들기</a></li>
+    <li><a href="#l8">반대 방향 — SM59 type G 목적지</a></li>
+    <li><a href="#l9">CL_HTTP_CLIENT 호출 골격</a></li>
+    <li><a href="#l10">막히는 지점 도감</a></li>
+    <li><a href="#apx">부록 — 치트시트 · 반드시 지킬 것</a></li>
+    <li><a href="#ref">참고</a></li>
+  </ol>
+</div>
+
+<!-- ══════════════════ LESSON 1 ══════════════════ -->
+<div class="lesson" id="l1">
+<h2><span class="no">LESSON 1</span>SAP를 HTTP로 여는 두 방향</h2>
+
+<p>"웹페이지에서 SAP를 부르고 싶다"는 한 문장 안에 <b>서로 반대인 두 가지 일</b>이 섞여 있습니다.
+먼저 이걸 갈라놓지 않으면, SICF를 봐야 할 때 SM59를 뒤지게 됩니다.</p>
+
+<figure class="figwrap">
+<svg class="dgm" viewBox="0 0 1000 300" role="img"
+     aria-label="SAP의 HTTP 연동은 두 방향뿐이다. 인바운드는 외부가 SAP를 부르는 것으로 ICM과 SICF 서비스와 핸들러 클래스를 거치고, 아웃바운드는 SAP가 외부를 부르는 것으로 CL_HTTP_CLIENT와 SM59 목적지를 거친다는 도해">
+  <defs>
+    <marker id="h1-ak" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><polygon class="arw-key" points="0,1 10,5 0,9"/></marker>
+    <marker id="h1-ao" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><polygon class="arw-ok" points="0,1 10,5 0,9"/></marker>
+  </defs>
+
+  <!-- 인바운드 -->
+  <text class="m-s c-key" x="40" y="26">① 인바운드 — 남이 SAP를 부른다  (이 노트 L2~L7)</text>
+  <rect class="b" x="40" y="40" width="150" height="54" rx="5"/>
+  <text class="t" x="60" y="63">웹페이지 · 앱</text>
+  <text class="t-xs" x="60" y="81">브라우저 · curl</text>
+
+  <rect class="b-key" x="250" y="40" width="130" height="54" rx="5"/>
+  <text class="t c-key" x="270" y="63">ICM</text>
+  <text class="m-s" x="270" y="81">포트 8000</text>
+
+  <rect class="b-key" x="440" y="40" width="170" height="54" rx="5"/>
+  <text class="t c-key" x="460" y="63">ICF 서비스</text>
+  <text class="m-s" x="460" y="81">SICF /sap/z_hsh</text>
+
+  <rect class="b-key" x="670" y="40" width="170" height="54" rx="5"/>
+  <text class="t c-key" x="690" y="63">핸들러 클래스</text>
+  <text class="m-s" x="690" y="81">ZCL_HSH_HANDLER</text>
+
+  <rect class="b" x="880" y="40" width="80" height="54" rx="5"/>
+  <text class="t" x="900" y="63">업무 FM</text>
+  <text class="t-xs" x="898" y="81">ZTEST_HSH</text>
+
+  <line class="ln-key" x1="190" y1="67" x2="245" y2="67" marker-end="url(#h1-ak)"/>
+  <line class="ln-key" x1="380" y1="67" x2="435" y2="67" marker-end="url(#h1-ak)"/>
+  <line class="ln-key" x1="610" y1="67" x2="665" y2="67" marker-end="url(#h1-ak)"/>
+  <line class="ln-key" x1="840" y1="67" x2="875" y2="67" marker-end="url(#h1-ak)"/>
+
+  <rect class="b-hl" x="440" y="110" width="400" height="30" rx="4"/>
+  <text class="t-s" x="456" y="130">여기서 인증이 결정된다 — SICF Logon Data (L5)</text>
+
+  <line class="ln-d" x1="1" y1="170" x2="999" y2="170"/>
+
+  <!-- 아웃바운드 -->
+  <text class="m-s c-ok" x="40" y="203">② 아웃바운드 — SAP가 남을 부른다  (이 노트 L8~L9)</text>
+  <rect class="b" x="40" y="217" width="150" height="54" rx="5"/>
+  <text class="t" x="60" y="240">ABAP 프로그램</text>
+  <text class="t-xs" x="60" y="258">리포트 · 배치</text>
+
+  <rect class="b-ok" x="250" y="217" width="200" height="54" rx="5"/>
+  <text class="t c-ok" x="270" y="240">CL_HTTP_CLIENT</text>
+  <text class="m-s" x="270" y="258">create_by_destination</text>
+
+  <rect class="b-ok" x="510" y="217" width="200" height="54" rx="5"/>
+  <text class="t c-ok" x="530" y="240">SM59 목적지 (type G)</text>
+  <text class="m-s" x="530" y="258">ZHTTP_SABANG</text>
+
+  <rect class="b" x="770" y="217" width="190" height="54" rx="5"/>
+  <text class="t" x="790" y="240">외부 REST API</text>
+  <text class="m-s" x="790" y="258">https :443</text>
+
+  <line class="ln-ok" x1="190" y1="244" x2="245" y2="244" marker-end="url(#h1-ao)"/>
+  <line class="ln-ok" x1="450" y1="244" x2="505" y2="244" marker-end="url(#h1-ao)"/>
+  <line class="ln-ok" x1="710" y1="244" x2="765" y2="244" marker-end="url(#h1-ao)"/>
+</svg>
+<figcaption><span class="fno">그림 1</span>HTTP 연동의 전체 지도. 이 노트가 만드는 것 전부.
+  <ol class="legend">
+    <li><b>인바운드</b> — SAP가 <b>서버</b>. 상대 인증서 문제가 없고, 내가 포트만 열면 끝나므로 <span class="key">먼저 성공시키기 훨씬 쉽습니다.</span></li>
+    <li><b>아웃바운드</b> — SAP가 <b>클라이언트</b>. HTTPS라면 상대 서버 인증서를 STRUST에 넣어야 하고, 구형 커널은 TLS 버전에서 막힐 수 있습니다(L8).</li>
+    <li><b>공통 관문은 ICM 하나</b> — 양방향 모두 ICM을 지납니다. 그래서 L2를 맨 앞에 둡니다.</li>
+  </ol>
+</figcaption>
+</figure>
+
+<div class="note">
+  <div class="t">RFC로는 왜 부족한가</div>
+  <p>SAP끼리라면 RFC가 더 빠르고 편합니다. 문제는 <b>상대가 SAP가 아닐 때</b>입니다.
+  자바/파이썬/브라우저가 RFC로 붙으려면 <code>SAP JCo</code>·<code>NW RFC SDK</code> 같은
+  <b>전용 라이브러리 설치와 SAP 커널 버전 맞추기</b>가 필요합니다.
+  브라우저는 아예 불가능합니다. 반면 HTTP는 상대가 무엇이든 표준 클라이언트 하나면 됩니다.
+  그래서 대외 연계의 기본값은 HTTP입니다.</p>
+</div>
+
+<p>SM59를 RFC Destination 관점에서만 봤다면 &rarr; <a href="sap-runtime-basics.html">SAP 실행 환경 기초</a> L5에서 이어집니다.
+이 노트 L8이 같은 T-Code의 <b>다른 얼굴</b>(연결 유형 G)입니다.</p>
+</div>
+
+<!-- ══════════════════ LESSON 2 ══════════════════ -->
+<div class="lesson" id="l2">
+<h2><span class="no">LESSON 2</span>문이 열려 있는지부터 본다 — ICM</h2>
+
+<p>클래스를 만들기 전에 <b>포트부터 확인</b>합니다.
+포트가 닫혀 있으면 핸들러를 아무리 잘 짜도 브라우저에는 "연결할 수 없음"만 뜨고,
+그 화면에는 원인이 하나도 안 적혀 있습니다. 순서를 뒤집으면 하루를 날립니다.</p>
+
+<h3>2-1. 이 서버에 ICM이 떠 있는가 — SM51</h3>
+
+<figure>
+  <img src="../assets/img/sap-http-interface-handson/01-sm51-server-list.png" alt="SM51 Server List 화면. System Overview에 Started Server 1로 eccehp7_EH7_00 한 대가 있고 Message Types 열에 Dialog Batch Update Upd2 Spool ICM이 표시되며 Server State는 Active">
+  <figcaption><span class="fno">그림 2</span><b>SM51</b> — 애플리케이션 서버 목록.
+    <ol class="legend">
+      <li><b>Server Name <code>eccehp7_EH7_00</code></b> — <code>&lt;호스트&gt;_&lt;SID&gt;_&lt;인스턴스번호&gt;</code>. 이 시스템은 <span class="key">서버가 한 대뿐</span>입니다. 이게 L10의 디버깅 이야기에서 중요해집니다 — 여러 대면 어느 서버로 요청이 갈지 모릅니다.</li>
+      <li><b>Message Types 열에 <code>ICM</code></b> — 이 서버가 ICM 서비스를 갖고 있다는 뜻. 여기 ICM이 없으면 그 서버는 HTTP 요청을 받지 못합니다.</li>
+      <li><b>Server State = Active</b> — 서버는 살아 있습니다. 단 <span class="bad">"서버가 살아 있다"와 "HTTP 포트가 열려 있다"는 별개</span>입니다. 다음 화면에서 확인합니다.</li>
+    </ol>
+  </figcaption>
+</figure>
+
+<h3>2-2. 어떤 포트가 실제로 열려 있나 — SMICM</h3>
+
+<div class="step"><span class="n">1</span><p><code>SMICM</code> 실행</p></div>
+<div class="step"><span class="n">2</span><p>메뉴 <b>Goto &gt; Services</b> (단축 <kbd>Shift</kbd>+<kbd>F1</kbd>)</p></div>
+
+<figure>
+  <img src="../assets/img/sap-http-interface-handson/02-smicm-services.png" alt="ICM Monitor Service Display 화면의 Active Services 목록. HTTP 8000, SMTP 0, SMTP 2500, HTTPS 5200 네 줄이 있고 각각 Keep Alive와 Proc.Timeout 값 및 활성 체크가 표시됨">
+  <figcaption><span class="fno">그림 3</span><b>SMICM &gt; Goto &gt; Services</b> — ICM이 실제로 듣고 있는 포트.
+    <ol class="legend">
+      <li><b>HTTP <code>8000</code></b> — 이 노트가 쓸 포트입니다. Keep Alive 600 / Proc.Timeout 600초.</li>
+      <li><b>SMTP <code>0</code></b> — <span class="bad">포트 0 = 그 인바운드는 비활성</span>입니다. 값이 없는 게 아니라 "쓰지 않음"의 표기입니다. 내 HTTP가 안 될 때 여기가 0이면 원인이 확정됩니다.</li>
+      <li><b>HTTPS <code>5200</code></b> — Keep Alive 10 / Proc.Timeout 15초로 <span class="bad">HTTP보다 훨씬 짧습니다.</span> HTTPS로 무거운 요청을 보내면 15초에 끊길 수 있습니다.</li>
+      <li><b>Actv 체크</b> — 초록 체크가 있어야 실제 listen 중입니다.</li>
+    </ol>
+  </figcaption>
+</figure>
+
+<div class="note warn">
+  <div class="t">여기서 바꾼 값은 재시작하면 사라진다</div>
+  <p>이 화면에서도 포트를 추가·변경할 수 있지만 <b>ICM 재시작 시 소멸</b>합니다.
+  영구 설정은 <code>RZ10</code> 프로파일의 <code>icm/server_port_&lt;n&gt;</code>입니다.</p>
+<pre><span class="c">" 프로파일 파라미터 형식</span>
+icm/server_port_0 = PROT=HTTP,  PORT=8000, TIMEOUT=30, PROCTIMEOUT=600
+icm/server_port_1 = PROT=HTTPS, PORT=5200, TIMEOUT=30, PROCTIMEOUT=600
+icm/server_port_2 = PROT=SMTP,  PORT=0     <span class="r">" 0 = 비활성</span></pre>
+</div>
+
+<h3>2-3. SAP가 자기를 뭐라고 부르는가 — 파라미터</h3>
+
+<p><b>Goto &gt; Parameters &gt; Display</b>로 들어갑니다.</p>
+
+<figure>
+  <img src="../assets/img/sap-http-interface-handson/03-smicm-parameters.png" alt="SMICM 파라미터 표시 화면. icm/host_name_full = eccehp7.remoteides.com, icm/cancel_strategy = cancel requests without session (stateless), rdisp/plugin_auto_logout = 1800, is/HTTP/virt_host_0 = *:*, is/SMTP/virt_host_0 = *:* 다섯 줄">
+  <figcaption><span class="fno">그림 4</span><b>SMICM &gt; Goto &gt; Parameters</b> — HTTP 동작을 좌우하는 파라미터.
+    <ol class="legend">
+      <li><b><code>icm/host_name_full = eccehp7.remoteides.com</code></b> — ICM이 <b>자기 자신을 외부에 알릴 때 쓰는 FQDN</b>입니다. 리다이렉트의 <code>Location</code> 헤더, 절대 URL, 쿠키 도메인이 이 값으로 만들어집니다. 짧은 호스트명이면 쿠키 도메인이 안 맞아 SSO·리다이렉트가 깨집니다.</li>
+      <li><b><code>is/HTTP/virt_host_0 = *:*;</code></b> — 가상 호스트 정의. <code>*:*</code> = <span class="key">모든 Host 헤더 · 모든 포트를 이 가상 호스트가 받는다</span>(catch-all). 그래서 SICF의 <code>default_host</code> 트리가 모든 요청을 처리합니다. 이게 기본값이고, 이 상태라 내 서비스를 <code>default_host</code> 밑에 만들면 됩니다.</li>
+      <li><b><code>icm/cancel_strategy = stateless</code></b> — 세션이 없는(stateless) 요청은 취소해도 된다는 정책. 내 ICF 핸들러는 기본이 stateless이므로 여기 해당합니다.</li>
+      <li><b><code>rdisp/plugin_auto_logout = 1800</code></b> — 플러그인 세션 자동 로그아웃 30분.</li>
+    </ol>
+  </figcaption>
+</figure>
+
+<h3>2-4. 지금 얼마나 여유가 있나 — SMICM 메인</h3>
+
+<figure>
+  <img src="../assets/img/sap-http-interface-handson/04-smicm-monitor.png" alt="ICM Monitor 메인 화면. ICM Status Running 초록, Restart After Error Yes, Trace Level 1, Created Worker Threads 10/14/250, Connections Used 0/11/500, Queue Entries Used 0/2/1000, 아래에 스레드 10개 목록이 Available 또는 Running Administration 상태로 표시됨">
+  <figcaption><span class="fno">그림 5</span><b>SMICM 메인</b> — 카운터 세 줄이 곧 HTTP 처리 용량입니다.
+    <ol class="legend">
+      <li><b>Created Worker Threads 10 / 14 / 250</b> — 현재 / 최고 / 최대. 요청 하나를 스레드 하나가 처리합니다. 최고치 14는 여유가 많다는 뜻.</li>
+      <li><b>Connections Used 0 / 11 / 500</b> — 워커가 점유 중인 연결 수. <span class="bad">아웃바운드에서 <code>close( )</code>를 빼먹으면 여기가 계속 올라갑니다</span>(L9). 최대에 닿으면 내 프로그램만이 아니라 <b>시스템 전체의 HTTP가 막힙니다.</b></li>
+      <li><b>Queue Entries Used 0 / 2 / 1000</b> — 워커가 아직 집어가지 못한 <b>대기 요청</b>. 여기가 차면 신규 요청이 거절됩니다. 병렬로 SAP를 두드리는 구조라면 <span class="key">이 값이 실질적인 동시 실행 상한</span>입니다.</li>
+      <li><b>Trace Level 1</b> — 기본값. L10에서 3으로 올렸다가 <b>반드시 1로 되돌립니다.</b></li>
+    </ol>
+  </figcaption>
+</figure>
+
+<div class="note ok">
+  <div class="t">L2 요약 — 이 순서로만 본다</div>
+  <p>① SM51에 <code>ICM</code>이 있나 → ② SMICM &gt; Services에 포트가 <b>0이 아니고</b> Actv 체크가 있나
+  → ③ Parameters의 <code>virt_host_0</code>이 <code>*:*</code>인가.
+  세 개가 통과하면 그 다음은 <b>전부 ABAP 쪽 문제</b>입니다. 범위가 반으로 줄어듭니다.</p>
+</div>
+</div>
+
+<!-- ══════════════════ LESSON 3 ══════════════════ -->
+<div class="lesson" id="l3">
+<h2><span class="no">LESSON 3</span>안쪽 먼저 — 업무 로직은 FM으로</h2>
+
+<p>HTTP를 붙이기 전에 <b>업무 로직이 SAP 안에서 먼저 돌아야</b> 합니다.
+핸들러 클래스 안에 로직을 직접 쓰면, 나중에 결과가 이상할 때
+"HTTP가 문제인가 로직이 문제인가"를 가를 수가 없습니다.</p>
+
+<div class="note">
+  <div class="t">왜 로직을 FM으로 빼는가 — 세 가지</div>
+  <p>① <b>SE37에서 <kbd>F8</kbd>로 단독 테스트가 됩니다.</b> 브라우저 없이 값이 맞는지 먼저 확정할 수 있습니다.<br>
+  ② <b>핸들러는 껍데기가 됩니다.</b> 핸들러가 하는 일은 파싱·변환·응답 조립뿐이라 읽기 쉽습니다.<br>
+  ③ <b>같은 로직을 RFC로도 열 수 있습니다.</b> 속성에서 스위치 하나만 바꾸면 됩니다 — 바로 다음 화면입니다.</p>
+</div>
+
+<h3>3-1. 속성 탭 — Remote 사용 가능으로 켠다</h3>
+
+<figure>
+  <img src="../assets/img/sap-http-interface-handson/05-se37-attributes-rfc.png" alt="SE37 함수모듈 ZTEST_HSH의 속성(Eigenschaften) 탭. 분류 영역에 함수그룹 ZHSH와 짧은 텍스트 TEST, 실행 유형(Ablaufart)에서 Remote 사용 가능 모듈(Remote fähiger Baustein)이 선택되어 빨간 밑줄로 표시됨. 일반 데이터에 담당자 REM0041, 변경일 09/21/2026, 개발클래스 ZCL04_FI, 프로그램명 SAPLZHSH, 인클루드명 LZHSHU01, 원본언어 EN, Not released">
+  <figcaption><span class="fno">그림 6</span><b>SE37 속성 탭</b> — 이 FM의 신분증.
+    <ol class="legend">
+      <li><b>실행 유형 = <span class="key">Remote 사용 가능 모듈</span></b>(Remote fähiger Baustein / Remote-Enabled Module) — 이걸 켜면 <b>HTTP 경로와 무관하게 RFC 경로가 덤으로 생깁니다.</b> 같은 로직을 외부 SAP·JCo에서도 부를 수 있습니다. 선택지는 셋 — 일반 / <b>Remote 사용 가능</b> / 갱신(Verbuchung, V1·V2)입니다.</li>
+      <li><b>대신 제약이 붙습니다</b> — RFC 사용 가능으로 켜는 순간 <span class="bad">모든 파라미터가 <code>VALUE( )</code> 값 전달이어야 합니다.</span> 참조 전달(by reference)은 원격 호출에서 성립하지 않기 때문입니다. 아래 소스가 이미 <code>VALUE(IV_VBELN)</code>인 이유가 이것입니다.</li>
+      <li><b>프로그램명 <code>SAPLZHSH</code></b> — 접두사 <code>SAPL</code> + 함수그룹명. <span class="key">L10의 <code>FUNCTION-POOL</code> 에러가 바로 이 프로그램 이야기입니다.</span></li>
+      <li><b>인클루드명 <code>LZHSHU01</code></b> — FM 본체가 실제로 들어 있는 인클루드. 다음 화면의 트리와 맞춰 봅니다.</li>
+      <li><b>개발클래스 <code>ZCL04_FI</code></b> — 로컬 오브젝트(<code>$TMP</code>)가 아니라 패키지에 들어 있습니다. <span class="good">즉 이관 가능한 상태</span>입니다. <code>$TMP</code>로 만들면 개발기 밖으로 못 나갑니다.</li>
+      <li><b>Not released</b> — 릴리즈되지 않음. 외부에 공식 API로 공개하는 게 아니면 이대로 둬도 무방합니다.</li>
+    </ol>
+  </figcaption>
+</figure>
+
+<h3>3-2. 함수그룹의 실제 구조</h3>
+
+<figure>
+  <img src="../assets/img/sap-http-interface-handson/06-se80-fugr-zhsh.png" alt="SE80 오브젝트 트리. Function 그룹 아래 ZHSH(테스트용)가 있고 그 아래 Function 모듈 폴더에 ZTEST_HSH(TEST)가, Include 폴더에 LZHSHTOP과 LZHSHUXX가 표시됨">
+  <figcaption><span class="fno">그림 7</span><b>SE80</b> — 함수그룹 <code>ZHSH</code>의 인클루드 구조.
+    <ol class="legend">
+      <li><b><code>LZHSHTOP</code></b> — 전역 선언부. <span class="key">여기 첫 줄에 <code>FUNCTION-POOL zhsh.</code> 문장이 있습니다.</span> 이 줄이 사라지면 L10의 그 에러가 납니다.</li>
+      <li><b><code>LZHSHUXX</code></b> — FM 구현 인클루드들을 <code>INCLUDE</code>로 묶는 파일. 그림 6에서 본 <code>LZHSHU01</code>을 이 안에서 끌어옵니다. 그래서 트리에는 <b>TOP과 UXX 둘만</b> 보입니다.</li>
+      <li><b>이 이름 규칙은 Function Builder가 만든 것</b> — <code>L</code> + 그룹명 + 접미사. <span class="bad">손으로 바꾸면 Function Builder가 동작하지 않습니다.</span></li>
+    </ol>
+  </figcaption>
+</figure>
+
+<p>이 노트의 예제 FM은 <b>청구문서 번호를 받아 청구유형을 돌려주는</b> 최소 로직입니다.</p>
+
+<pre>FUNCTION ztest_hsh.
+<span class="c">*"----------------------------------------------------------------------
+*"*"Local Interface:
+*"  IMPORTING
+*"     VALUE(IV_VBELN) TYPE  VBELN_VF     " RFC 사용 가능 → VALUE 필수
+*"  EXPORTING
+*"     VALUE(EV_FKART) TYPE  FKART
+*"----------------------------------------------------------------------</span>
+  <span class="k">CLEAR</span> ev_fkart.
+
+  <span class="k">SELECT SINGLE</span> fkart
+    <span class="k">FROM</span> vbrk
+    <span class="k">INTO</span> ev_fkart
+   <span class="k">WHERE</span> vbeln = iv_vbeln.        <span class="c">" VBRK = 대금청구 문서 헤더</span>
+
+<span class="k">ENDFUNCTION</span>.</pre>
+
+<h3>3-3. SE37에서 먼저 돌려 본다</h3>
+
+<figure>
+  <img src="../assets/img/sap-http-interface-handson/07-se37-test-result.png" alt="SE37 Function 모듈 테스트 결과화면. Function 그룹 ZHSH, Function 모듈 ZTEST_HSH, 대/소문자 체크 해제, 실행시간 2,451 마이크로초, RFC 대상시스템 칸은 비어 있음. Import 매개변수 표에 IV_VBELN 값 90005178, Export 매개변수 표에 EV_FKART 값 F2">
+  <figcaption><span class="fno">그림 8</span><b>SE37 &rarr; <kbd>F8</kbd></b> — HTTP 없이 로직만 검증.
+    <ol class="legend">
+      <li><b>IV_VBELN = <code>90005178</code></b> — 입력. <span class="bad">화면에 이렇게 보이지만 내부 값은 <code>0090005178</code>입니다.</span> SE37 테스트 화면이 <b>변환 exit(ALPHA)</b>을 자동으로 걸어주기 때문입니다. 이게 3-5의 함정으로 이어집니다.</li>
+      <li><b>EV_FKART = <code>F2</code></b> — 출력. 로직은 값을 돌려줬습니다. 다만 <span class="key">이것만으로는 아직 "맞다"고 할 수 없습니다</span> — 3-4에서 DB와 대조합니다.</li>
+      <li><b><code>RFC 대상시스템</code> 칸</b> — 그림 6에서 Remote 사용 가능으로 켰기 때문에 이 칸이 생겼습니다. <b>비워두면 로컬 실행</b>, SM59 Destination을 넣으면 <b>원격 시스템에서 실행</b>됩니다. <span class="key">이 칸의 존재 자체가 RFC 사용 가능이라는 증거</span>입니다.</li>
+      <li><b>실행시간 2,451 마이크로초</b> — 2.45ms. 이 숫자를 적어두면 나중에 HTTP로 불러 느릴 때 <b>원인이 로직이 아님</b>을 바로 말할 수 있습니다.</li>
+    </ol>
+  </figcaption>
+</figure>
+
+<h3>3-4. DB 원본과 대조한다 — 여기까지 해야 검증이다</h3>
+
+<p>SE37이 <code>F2</code>를 돌려줬다고 로직이 맞는 건 아닙니다.
+<b>엉뚱한 테이블을 읽었어도, 조건이 틀려 다른 행을 집었어도 값은 나옵니다.</b>
+원본을 한 번 보고 와야 끝납니다.</p>
+
+<figure>
+  <img src="../assets/img/sap-http-interface-handson/08-se16-vbrk-90005178.png" alt="SE16 VBRK 찾은 엔트리 조회 결과. 검색 대상 테이블 VBRK 대금청구 문서 헤더 데이터, 적중 수 1, 최대 적중 수 500. 결과 행에 청구문서 90005178, Bil 열 F2, BlCat L, 범위 M, 통화 DEM, SOrg 1000, DChl 12, 가격결정 RVAA01, 문서조건 0000012144, SC 02, 대금청구일 01/07/1997, 판매구역 DE0025, IncoT CIP, 인도조건2 Gera, 환율-회계 0.51129">
+  <figcaption><span class="fno">그림 9</span><b>SE16 &rarr; VBRK</b> — FM이 돌려준 값의 원본.
+    <ol class="legend">
+      <li><b>적중 수 <code>1</code></b> — <code>VBELN</code>으로 조회하니 정확히 한 건. <span class="key">VBELN이 VBRK의 단일 키</span>라는 뜻이고, 그래서 FM의 <code>SELECT SINGLE</code>이 옳습니다. 여러 건이 나오는 조건이었다면 <code>SELECT SINGLE</code>은 <b>아무 행이나 하나</b>를 집는 위험한 코드가 됩니다.</li>
+      <li><b>청구문서 <code>90005178</code> · Bil.(<code>FKART</code>) <code>F2</code></b> — <span class="good">그림 8의 <code>EV_FKART = F2</code>와 일치.</span> 여기까지 맞춰야 "FM이 VBRK의 그 행을 읽었다"가 확정됩니다.</li>
+      <li><b>범위(<code>VBTYP</code>) <code>M</code></b> — SD 문서범주 M = 송장. VBRK에는 송장 외에 대변메모·차변메모·취소전표가 섞여 있으므로, 실제 업무 로직이라면 <b><code>FKART</code>만 보고 끝내면 안 됩니다.</b> 이 노트는 학습용이라 단순화했습니다.</li>
+      <li><b>통화 <code>DEM</code> · 대금청구일 <code>01/07/1997</code></b> — 독일 마르크, 유로 도입 이전. <span class="key">IDES 표준 데모 데이터</span>라는 표시입니다. 실제 값이 아니니 금액·날짜의 현실성은 따지지 않습니다.</li>
+      <li><b>가격결정 <code>RVAA01</code> · 문서조건 <code>0000012144</code></b> — 가격조건으로 이어지는 키(<code>KNUMV</code>). 나중에 금액까지 응답에 싣게 되면 이 번호로 조건 레코드를 탑니다.</li>
+    </ol>
+  </figcaption>
+</figure>
+
+<div class="note ok">
+  <div class="t">검증은 세 점을 찍어야 선이 된다</div>
+  <p><b>① DB 원본</b>(SE16) &rarr; <b>② FM 단독 실행</b>(SE37) &rarr; <b>③ HTTP 응답</b>(브라우저, L6).
+  세 곳의 값이 같아야 "HTTP 경로가 값을 왜곡하지 않았다"가 성립합니다.
+  <span class="bad">②만 보고 넘어가면 ①과의 차이를 영원히 못 찾습니다</span> —
+  예를 들어 WHERE 조건이 틀려 다른 행을 집어도 ②는 멀쩡해 보입니다.</p>
+</div>
+
+<h3>3-5. 화면이 해주던 일을 HTTP는 안 해준다</h3>
+
+<div class="note warn">
+  <div class="t">변환 exit(ALPHA)은 화면이 걸어준다 — HTTP에는 화면이 없다</div>
+  <p><code>VBELN</code>은 <code>CHAR 10</code>이고 DB에는 <b>앞자리를 0으로 채운</b> <code>0090005178</code>로 들어 있습니다.
+  SE37·SE16 같은 <b>화면</b>은 <code>CONVERSION_EXIT_ALPHA_INPUT</code>을 자동으로 걸어줍니다 —
+  그래서 그림 8·그림 9 모두 <code>90005178</code>로 입력해도 찾아집니다.
+  그런데 HTTP 요청의 <code>?vbeln=90005178</code>은 화면을 거치지 않으므로
+  <code>'90005178&nbsp;&nbsp;'</code>(뒤에 공백 2개)로 들어가고, <b><code>SELECT</code>가 조용히 0건</b>을 돌려줍니다.
+  에러도 덤프도 없이 빈 결과만 나오므로 원인을 찾기가 가장 어려운 종류입니다.</p>
+<pre><span class="c">" 핸들러에서 반드시 직접 건다</span>
+<span class="k">CALL FUNCTION</span> 'CONVERSION_EXIT_ALPHA_INPUT'
+  <span class="k">EXPORTING</span> input  = lv_vbeln
+  <span class="k">IMPORTING</span> output = lv_vbeln.</pre>
+</div>
+</div>
+
+<!-- ══════════════════ LESSON 4 ══════════════════ -->
+<div class="lesson" id="l4">
+<h2><span class="no">LESSON 4</span>핸들러 클래스 — IF_HTTP_EXTENSION</h2>
+
+<p>ICF가 요청을 받으면 <b>클래스 하나의 메서드 하나</b>를 부릅니다. 그게 전부입니다.
+인터페이스 <code>IF_HTTP_EXTENSION</code>을 구현하고 <code>HANDLE_REQUEST</code>를 채우면 됩니다.</p>
+
+<figure class="figwrap">
+<svg class="dgm" viewBox="0 0 1000 340" role="img"
+     aria-label="HTTP 요청이 ICM을 거쳐 가상호스트와 ICF 트리에서 서비스를 찾고 Logon Data로 사용자를 정한 뒤 핸들러 클래스의 handle_request를 호출하며, 핸들러는 server 객체의 request에서 읽고 response에 써서 되돌려보낸다는 도해">
+  <defs>
+    <marker id="h4-ak" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><polygon class="arw-key" points="0,1 10,5 0,9"/></marker>
+    <marker id="h4-a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><polygon class="arw" points="0,1 10,5 0,9"/></marker>
+  </defs>
+
+  <rect class="b" x="30" y="40" width="130" height="60" rx="5"/>
+  <text class="t" x="48" y="66">브라우저</text>
+  <text class="m-s" x="48" y="86">GET ?vbeln=…</text>
+
+  <rect class="b-key" x="205" y="40" width="120" height="60" rx="5"/>
+  <text class="t c-key" x="223" y="66">ICM</text>
+  <text class="m-s" x="223" y="86">:8000</text>
+
+  <rect class="b-key" x="370" y="40" width="150" height="60" rx="5"/>
+  <text class="t c-key" x="388" y="66">가상 호스트</text>
+  <text class="m-s" x="388" y="86">virt_host_0 *:*</text>
+
+  <rect class="b-key" x="565" y="40" width="175" height="60" rx="5"/>
+  <text class="t c-key" x="583" y="66">ICF 트리 탐색</text>
+  <text class="m-s" x="583" y="86">/sap/z_hsh</text>
+
+  <rect class="b-hl" x="785" y="40" width="185" height="60" rx="5"/>
+  <text class="t" x="803" y="66">Logon Data</text>
+  <text class="t-xs" x="803" y="86">실행 사용자 결정</text>
+
+  <line class="ln-key" x1="160" y1="70" x2="200" y2="70" marker-end="url(#h4-ak)"/>
+  <line class="ln-key" x1="325" y1="70" x2="365" y2="70" marker-end="url(#h4-ak)"/>
+  <line class="ln-key" x1="520" y1="70" x2="560" y2="70" marker-end="url(#h4-ak)"/>
+  <line class="ln-key" x1="740" y1="70" x2="780" y2="70" marker-end="url(#h4-ak)"/>
+
+  <path class="ln-key" d="M877 100 L877 135" marker-end="url(#h4-ak)"/>
+
+  <!-- 핸들러 박스 -->
+  <rect class="b-key" x="270" y="140" width="610" height="150" rx="6"/>
+  <text class="m-s c-key" x="290" y="163">ZCL_HSH_HANDLER ~ if_http_extension~handle_request( server )</text>
+
+  <rect class="b" x="300" y="180" width="240" height="44" rx="4"/>
+  <text class="m-s" x="316" y="199">server-&gt;request</text>
+  <text class="t-xs" x="316" y="216">get_form_field / get_cdata</text>
+
+  <rect class="b-mut" x="580" y="180" width="130" height="44" rx="4"/>
+  <text class="t" x="600" y="199">업무 FM</text>
+  <text class="m-s" x="600" y="216">ZTEST_HSH</text>
+
+  <rect class="b" x="300" y="236" width="240" height="44" rx="4"/>
+  <text class="m-s" x="316" y="255">server-&gt;response</text>
+  <text class="t-xs" x="316" y="272">set_status / set_cdata</text>
+
+  <line class="ln" x1="540" y1="202" x2="575" y2="202" marker-end="url(#h4-a)"/>
+  <path class="ln" d="M645 224 L645 258 L545 258" marker-end="url(#h4-a)"/>
+
+  <path class="ln-key" d="M295 258 L95 258 L95 105" marker-end="url(#h4-ak)"/>
+  <text class="t-xs c-key" x="110" y="252">응답 반환</text>
+
+  <rect class="b-ghost" x="30" y="140" width="210" height="60" rx="5"/>
+  <text class="t-xs" x="46" y="164">객체는 ICF가 만들어 준다.</text>
+  <text class="t-xs" x="46" y="182">내가 CREATE OBJECT 하지 않는다.</text>
+</svg>
+<figcaption><span class="fno">그림 10</span>요청 하나가 핸들러까지 가는 길.
+  <ol class="legend">
+    <li><b>인스턴스는 ICF가 만든다</b> — 핸들러 클래스를 내가 생성하지 않습니다. SICF에 클래스명을 적어두면 ICF가 요청마다 인스턴스를 만들어 <code>handle_request</code>를 부릅니다.</li>
+    <li><b>파라미터는 <code>server</code> 하나뿐</b> — <code>IF_HTTP_SERVER</code> 참조. 여기서 <code>request</code>와 <code>response</code>가 갈라집니다.</li>
+    <li><b>실행 사용자는 핸들러 진입 전에 이미 정해진다</b> — SICF Logon Data가 결정합니다. <span class="bad">L10에서 브레이크포인트가 안 걸리는 이유가 여기입니다.</span></li>
+  </ol>
+</figcaption>
+</figure>
+
+<h3>4-1. 클래스 만들기</h3>
+
+<figure>
+  <img src="../assets/img/sap-http-interface-handson/09-se24-create-class.png" alt="SE24 Create Class ZCL_HSH_HANDLER 팝업. Description 테스트, Inst.Generation 2 Public, Class Type은 Usual ABAP Class 선택, Final 체크박스 체크됨, Save 버튼">
+  <figcaption><span class="fno">그림 11</span><b>SE24</b> — 핸들러 클래스 생성.
+    <ol class="legend">
+      <li><b>Class <code>ZCL_HSH_HANDLER</code></b> — 이 이름을 나중에 SICF <b>Handler List</b>에 그대로 적습니다(L5).</li>
+      <li><b>Inst.Generation = 2 Public</b> — ICF가 외부에서 인스턴스를 만들어야 하므로 <span class="key">Public이어야 합니다.</span> Private으로 두면 ICF가 생성하지 못합니다.</li>
+      <li><b>Usual ABAP Class</b> — 예외 클래스도 영속 클래스도 아닌 일반 클래스.</li>
+      <li><b>Final 체크</b> — 상속을 막습니다. 핸들러는 보통 더 상속시킬 일이 없어 Final이 기본값으로 무난합니다.</li>
+    </ol>
+  </figcaption>
+</figure>
+
+<p>저장 후 <b>Interfaces 탭</b>에 <code>IF_HTTP_EXTENSION</code>을 추가하면
+<code>IF_HTTP_EXTENSION~HANDLE_REQUEST</code>가 메서드 목록에 자동으로 생깁니다. 구현은 여기에 씁니다.</p>
+
+<h3>4-2. 핸들러 본체</h3>
+
+<pre><span class="k">METHOD</span> if_http_extension~handle_request.
+
+  <span class="k">DATA</span>: lv_vbeln <span class="k">TYPE</span> vbeln_vf,
+        lv_fkart <span class="k">TYPE</span> fkart,
+        lv_json  <span class="k">TYPE</span> string.
+
+<span class="c">* ── 1) 입력 ───────────────────────────────────────────────</span>
+  lv_vbeln = server-&gt;request-&gt;get_form_field( name = 'vbeln' ).
+
+  <span class="k">IF</span> lv_vbeln <span class="k">IS INITIAL</span>.
+    server-&gt;response-&gt;set_status( code = 400 reason = 'Bad Request' ).
+    server-&gt;response-&gt;set_content_type( 'application/json; charset=utf-8' ).
+    server-&gt;response-&gt;set_cdata( '{"retcode":"E","msg":"vbeln is required"}' ).
+    <span class="k">RETURN</span>.                       <span class="c">" 조용히 넘어가지 않는다</span>
+  <span class="k">ENDIF</span>.
+
+<span class="c">* ── 2) 화면이 해주던 변환을 직접 ───────────────────────────</span>
+  <span class="k">CALL FUNCTION</span> 'CONVERSION_EXIT_ALPHA_INPUT'
+    <span class="k">EXPORTING</span> input  = lv_vbeln
+    <span class="k">IMPORTING</span> output = lv_vbeln.
+
+<span class="c">* ── 3) 업무 로직은 FM에 위임 ───────────────────────────────</span>
+  <span class="k">CALL FUNCTION</span> 'ZTEST_HSH'
+    <span class="k">EXPORTING</span> iv_vbeln = lv_vbeln
+    <span class="k">IMPORTING</span> ev_fkart = lv_fkart.
+
+  <span class="k">IF</span> lv_fkart <span class="k">IS INITIAL</span>.
+    server-&gt;response-&gt;set_status( code = 404 reason = 'Not Found' ).
+    server-&gt;response-&gt;set_content_type( 'application/json; charset=utf-8' ).
+    server-&gt;response-&gt;set_cdata( '{"retcode":"E","msg":"invoice not found"}' ).
+    <span class="k">RETURN</span>.
+  <span class="k">ENDIF</span>.
+
+<span class="c">* ── 4) 응답 ───────────────────────────────────────────────</span>
+  <span class="k">CONCATENATE</span> '{"vbeln":"' lv_vbeln '","fkart":"' lv_fkart
+              '","retcode":"S","msg":"OK"}'
+         <span class="k">INTO</span> lv_json.        <span class="c">" 학습용 최소 구현 — 제대로 된 방법은 L7</span>
+
+  server-&gt;response-&gt;set_status( code = 200 reason = 'OK' ).
+  server-&gt;response-&gt;set_content_type( 'application/json; charset=utf-8' ).
+  server-&gt;response-&gt;set_cdata( data = lv_json ).
+
+<span class="k">ENDMETHOD</span>.</pre>
+
+<div class="note">
+  <div class="t">순서를 status &rarr; header &rarr; body로 고정한다</div>
+  <p>일부 릴리즈에서 본문을 먼저 쓰면 헤더·상태 변경이 반영되지 않는 경우가 보고됩니다.
+  <b>항상 <code>set_status</code> → <code>set_content_type</code>/<code>set_header_field</code> → <code>set_cdata</code></b> 순으로 쓰면 릴리즈를 안 탑니다.</p>
+</div>
+
+<h3>4-3. 자주 쓰는 메서드</h3>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>용도</th><th>호출</th><th>메모</th></tr></thead>
+<tbody>
+<tr><td>쿼리스트링 읽기</td><td><code>server-&gt;request-&gt;get_form_field( name = 'vbeln' )</code></td><td class="wrap">GET의 <code>?a=1</code>과 POST의 <code>x-www-form-urlencoded</code> 본문을 읽는다</td></tr>
+<tr><td>본문 통째로</td><td><code>server-&gt;request-&gt;get_cdata( )</code></td><td class="wrap"><b>JSON 본문은 여기로만 읽힌다.</b> form field로는 안 잡힌다</td></tr>
+<tr><td>바이너리 본문</td><td><code>server-&gt;request-&gt;get_data( )</code></td><td>xstring. 파일 업로드</td></tr>
+<tr><td>헤더 읽기</td><td><code>server-&gt;request-&gt;get_header_field( name = 'X-Api-Key' )</code></td><td>인증 토큰 검증에 사용</td></tr>
+<tr><td>메서드 판별</td><td><code>server-&gt;request-&gt;get_method( )</code></td><td><code>'GET'</code> / <code>'POST'</code></td></tr>
+<tr><td>상태코드</td><td><code>server-&gt;response-&gt;set_status( code = 200 reason = 'OK' )</code></td><td>실패 시 4xx/5xx를 반드시 준다</td></tr>
+<tr><td>응답 헤더</td><td><code>server-&gt;response-&gt;set_header_field( name = … value = … )</code></td><td class="wrap">파라미터명은 <code>NAME</code>/<code>VALUE</code></td></tr>
+<tr><td>응답 본문</td><td><code>server-&gt;response-&gt;set_cdata( data = lv_json )</code></td><td>문자열 응답</td></tr>
+</tbody>
+</table>
+</div>
+
+<div class="note warn">
+  <div class="t">외부 입력을 그대로 쓰지 않는다</div>
+  <p>ABAP 공식 문서의 ICF 예제조차 입력값에 escape를 겁니다.
+  HTML을 돌려주거나 동적 WHERE를 만든다면 반드시 통과시킵니다.</p>
+<pre><span class="k">DATA</span>(lv_safe) = cl_abap_dyn_prg=&gt;escape_quotes(
+                  escape( val    = server-&gt;request-&gt;get_form_field( name = 'q' )
+                          format = cl_abap_format=&gt;e_xss_ml ) ).</pre>
+  <p>이 노트 예제는 <code>VBELN</code>이라는 <b>타입 있는 필드</b>에 바로 넣고 FM에 넘기므로 노출이 작지만,
+  자유 문자열을 받는 순간 필수가 됩니다.</p>
+</div>
+</div>
+
+<!-- ══════════════════ LESSON 5 ══════════════════ -->
+<div class="lesson" id="l5">
+<h2><span class="no">LESSON 5</span>SICF 등록 — 트리가 곧 URL</h2>
+
+<p>SICF에서 가장 먼저 이해할 것은 이겁니다 — <span class="hl">URL 매핑이라는 설정이 따로 없습니다.</span>
+<b>트리에서 노드를 어디에 만드느냐가 그대로 URL 경로</b>가 됩니다.</p>
+
+<figure class="figwrap">
+<svg class="dgm" viewBox="0 0 1000 250" role="img"
+     aria-label="SICF의 서비스 트리 경로가 그대로 URL 경로가 된다. default_host는 URL에 나타나지 않고 그 아래 sap과 z_hsh가 이어져 슬래시 sap 슬래시 z_hsh URL이 된다는 도해">
+  <defs>
+    <marker id="h5-ak" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><polygon class="arw-key" points="0,1 10,5 0,9"/></marker>
+  </defs>
+
+  <text class="m-s c-key" x="40" y="28">SICF 트리</text>
+  <rect class="b-mut" x="40" y="42" width="330" height="34" rx="4"/>
+  <text class="m" x="58" y="64">default_host</text>
+  <text class="t-xs" x="200" y="64">가상 호스트 — URL에 안 나온다</text>
+
+  <rect class="b" x="80" y="88" width="290" height="34" rx="4"/>
+  <text class="m" x="98" y="110">└ sap</text>
+
+  <rect class="b-key" x="120" y="134" width="250" height="34" rx="4"/>
+  <text class="m c-key" x="138" y="156">└ z_hsh</text>
+  <text class="t-xs" x="240" y="156">내가 만든 노드</text>
+
+  <line class="ln-d" x1="440" y1="30" x2="440" y2="215"/>
+
+  <text class="m-s c-key" x="500" y="28">실제 URL</text>
+  <rect class="b-ok" x="500" y="60" width="460" height="52" rx="5"/>
+  <text class="m" x="518" y="83">http://eccehp7.remoteides.com:8000</text>
+  <text class="m c-key" x="518" y="103">          /sap/z_hsh?vbeln=90005178</text>
+
+  <text class="t-s" x="500" y="145">호스트·포트 = ICM 설정 (L2)</text>
+  <text class="t-s" x="500" y="168">경로        = SICF 트리 위치 (이 화면)</text>
+  <text class="t-s" x="500" y="191">쿼리        = 핸들러의 get_form_field</text>
+
+  <rect class="b-hl" x="40" y="196" width="330" height="34" rx="4"/>
+  <text class="t-s" x="58" y="218">노드 하나라도 비활성이면 호출 실패</text>
+</svg>
+<figcaption><span class="fno">그림 12</span>SICF 트리 위치 = URL 경로.
+  <ol class="legend">
+    <li><b><code>default_host</code>는 URL에 나타나지 않습니다</b> — 가상 호스트 이름일 뿐입니다. <code>is/HTTP/virt_host_0 = *:*</code>(그림 4)라서 모든 요청이 이 트리로 들어옵니다.</li>
+    <li><b><code>/sap</code> 아래 <code>z_hsh</code></b> &rarr; URL은 <code>/sap/z_hsh</code>. 경로를 바꾸고 싶으면 노드를 옮기는 것 말고 방법이 없습니다.</li>
+    <li><b><code>/sap/public/</code> 아래에는 만들지 않습니다</b> — 그 가지는 인증 없이 <code>SAPSYS</code>로 도는 시스템 전용 구역입니다.</li>
+  </ol>
+</figcaption>
+</figure>
+
+<h3>5-1. SICF 진입 — 트리를 다 뒤지지 않는다</h3>
+
+<p><code>SICF</code>를 실행하면 서비스가 수천 개인 트리가 나옵니다. 필터로 바로 좁힙니다.</p>
+
+<figure>
+  <img src="../assets/img/sap-http-interface-handson/10-sicf-filter-tree.png" alt="SICF 서비스 유지보수 화면. 필터 세부사항에 가상 호스트와 서비스 경로는 비어 있고 서비스 이름에 Z_HSH 입력, 언어 영어, 적용·Reset·세부 설정 버튼. 아래 트리에 default_host(가상 기본 호스트) > sap(SAP 네임 스페이스 설명) > z_hsh 세 단계가 표시됨">
+  <figcaption><span class="fno">그림 13</span><b>SICF 서비스 유지보수</b> — 필터로 내 노드만 남기기.
+    <ol class="legend">
+      <li><b>서비스 이름에 <code>Z_HSH</code> 입력 &rarr; 적용</b> — 트리가 해당 노드까지의 경로만 남기고 접힙니다. 전체 트리를 손으로 펼칠 필요가 없습니다.</li>
+      <li><b><code>default_host</code> — "가상 기본 호스트"</b>. 그림 4의 <code>is/HTTP/virt_host_0 = *:*</code>가 바로 이 호스트입니다. 모든 요청이 여기로 들어옵니다.</li>
+      <li><b><code>sap</code> — "SAP 네임 스페이스: 해당 하위 트리 외부로 HTTP…"</b> 표준 구역입니다. 우리 노드는 이 아래에 답니다.</li>
+      <li><b><code>z_hsh</code></b> — 트리 위치가 곧 URL이므로 이 경로가 <code>/sap/z_hsh</code>가 됩니다.</li>
+    </ol>
+  </figcaption>
+</figure>
+
+<h3>5-2. 노드 만들기 — 부모에서 우클릭</h3>
+
+<p>중요한 건 <b>어느 노드에서 우클릭하느냐</b>입니다. 그 노드의 경로가 URL 앞부분이 되기 때문입니다.</p>
+
+<figure>
+  <img src="../assets/img/sap-http-interface-handson/11-sicf-sap-newsubelement.png" alt="SICF 트리에서 sap 노드를 우클릭한 컨텍스트 메뉴. 신규 하위 요소가 맨 위에 하이라이트되어 있고 서비스 조회, 서비스 삭제, 서비스 이름 바꾸기, 서비스 활성화(회색 비활성), 서비스 비활성화, 서비스 테스트, 로드 밸런스 테스트, 서비스 참조, Obj. 디렉토리 엔트리, 잘라내기, 복사, 붙여넣기(회색) 항목이 이어짐">
+  <figcaption><span class="fno">그림 14</span><b><code>default_host &gt; sap</code> 우클릭</b> — 여기서 만들어야 <code>/sap/…</code>가 된다.
+    <ol class="legend">
+      <li><b>신규 하위 요소</b>(New Sub-Element) — <span class="key">부모 노드에서 만듭니다.</span> <code>sap</code>에서 만들면 <code>/sap/&lt;이름&gt;</code>, <code>sap/bc</code>에서 만들면 <code>/sap/bc/&lt;이름&gt;</code>. 나중에 경로를 바꾸려면 노드를 옮겨야 하니 처음에 정해야 합니다.</li>
+      <li><b>메뉴가 현재 상태를 알려줍니다</b> — <span class="bad">서비스 활성화가 회색</span>이고 서비스 비활성화가 살아 있습니다. 즉 <span class="good">이 <code>sap</code> 노드는 이미 활성</span>입니다. 5-5에서 내 노드와 정반대인 모습을 보게 됩니다.</li>
+      <li><b>서비스 테스트</b> — URL을 자동 조립해 브라우저로 엽니다. 주소를 손으로 치다 생기는 오타를 없애 줍니다.</li>
+    </ol>
+  </figcaption>
+</figure>
+
+<figure>
+  <img src="../assets/img/sap-http-interface-handson/12-sicf-new-subelement.png" alt="SICF Create a Service Element 팝업. Name of Service Element to Be Created 필드에 z_hsh 입력, Type of Service Node to Be Created에서 Independent Service 라디오 선택, Reference to Existing Service는 미선택, Administration Service 체크박스 해제">
+  <figcaption><span class="fno">그림 15</span><b>New Sub-Element</b> — 노드 종류 결정.
+    <ol class="legend">
+      <li><b>이름 <code>z_hsh</code></b> — 이 문자열이 URL에 그대로 들어갑니다. <span class="key">소문자로 쓰는 게 안전합니다</span> — URL 경로는 대소문자를 구분합니다.</li>
+      <li><b>Independent Service</b> — 자기 핸들러를 갖는 독립 서비스. 우리가 만들 것은 이쪽입니다.</li>
+      <li><b>Reference to Existing Service</b> — 다른 노드를 가리키는 별칭(alias). URL만 다르게 주고 싶을 때 씁니다.</li>
+      <li><b>Service is administration service</b> — 관리용 표시. <span class="bad">체크하지 않습니다.</span></li>
+    </ol>
+  </figcaption>
+</figure>
+
+<figure>
+  <img src="../assets/img/sap-http-interface-handson/13-sicf-create-service.png" alt="SICF Create/Change a Service 화면. Path /default_host/sap, Service Name z_hsh, 우측에 Service (Inactive) 표시. Service Data 탭이 선택되어 Service Options의 Load Balancing, SAP Authoriz., Session Timeout 00:00:00, Compression Not specified와 Interactive Options의 GUI Link, Support Accessibility가 보임. 탭은 Service Data, Logon Data, Handler List, Error Pages, Administration">
+  <figcaption><span class="fno">그림 16</span><b>서비스 생성/변경</b> — 다섯 개 탭의 의미.
+    <ol class="legend">
+      <li><b>Path <code>/default_host/sap</code> + Service Name <code>z_hsh</code></b> &rarr; URL <code>/sap/z_hsh</code>로 확정됩니다.</li>
+      <li><b>Service <span class="bad">(Inactive)</span></b> — 만든 직후는 항상 비활성입니다. 이대로 부르면 호출이 실패합니다. 마지막에 활성화가 필요합니다(5-5).</li>
+      <li><b>Description은 필수</b> — 비우면 저장이 거부됩니다.</li>
+      <li><b>Session Timeout <code>00:00:00</code></b> — 0이면 시스템 기본값을 따릅니다. stateless 핸들러라 건드릴 일이 없습니다.</li>
+      <li><b>탭 5개</b> — 서비스 데이터(옵션) · <b>로그온 데이터(인증)</b> · <b>핸들러 리스트(내 클래스)</b> · 오류 페이지 · 관리(생성 이력). 실제로 채우는 건 가운데 둘뿐입니다.</li>
+    </ol>
+  </figcaption>
+</figure>
+
+<h3>5-3. 핸들러 리스트 — 내 클래스를 연결</h3>
+
+<figure>
+  <img src="../assets/img/sap-http-interface-handson/14-sicf-handler-list.png" alt="SICF 서비스 생성/변경 화면의 핸들러 리스트 탭. 경로 /default_host/sap/, 서비스 이름 z_hsh, 서비스 (비활성) 표시, 언어 한국어 (유지보수 안함). 핸들러 리스트(실행 순서대로) 표의 1번 행에 ZCL_HSH_HANDLER가 입력되어 있고 2번부터 7번까지는 비어 있음">
+  <figcaption><span class="fno">그림 17</span><b>핸들러 리스트 탭</b> — 클래스와 URL을 잇는 유일한 지점.
+    <ol class="legend">
+      <li><b>1번에 <code>ZCL_HSH_HANDLER</code></b> — 그림 11에서 만든 클래스명을 그대로 적습니다. <span class="bad">철자가 틀려도 저장은 되고, 호출할 때가 되어서야 에러가 납니다.</span> 클래스가 <b>활성화되어 있어야</b> 런타임에 찾습니다.</li>
+      <li><b>표 제목이 "실행 순서대로"</b> — 여러 개를 적으면 ICF가 <b>1번부터 차례로</b> <code>handle_request</code>를 부르고, 각 핸들러의 반환값(<code>CO_FLOW_OK</code> 등)이 다음 핸들러를 부를지 정합니다.</li>
+      <li><b>2번 이후는 비워둡니다</b> — 단일 핸들러 서비스에서는 1번 하나만 채우는 게 정상입니다. 빈칸을 억지로 메우지 않습니다.</li>
+      <li><b>여전히 "서비스 (비활성)"</b> — 핸들러를 연결했다고 열리는 게 아닙니다. 활성화는 별도입니다.</li>
+      <li><b>언어 "한국어 (유지보수 안함)"</b> — 이 언어로 된 내역(Description)이 없다는 뜻. 기능에는 영향이 없습니다.</li>
+    </ol>
+  </figcaption>
+</figure>
+
+<h3>5-4. 로그온 데이터 — 누구 권한으로 돌 것인가</h3>
+
+<figure>
+  <img src="../assets/img/sap-http-interface-handson/15-sicf-logon-data-warning.png" alt="SICF 서비스 생성/변경 화면의 Logon Data 탭. 경로 /default_host/sap/, 서비스 이름 z_hsh, Service (Inactive), Description 1에 HSH 연동 테스트. Procedure는 Required with Logon Data, Logon Data 영역에 Client 800, User REM0041, Language English, Password Status Set. Security Requirement는 Standard 선택, Reauthentication의 Deactivated system-wide는 No. Information 팝업에 If possible, do not use dialog users 메시지">
+  <figcaption><span class="fno">그림 18</span><b>로그온 데이터 탭</b> — 이 노트에서 가장 위험한 화면.
+    <ol class="legend">
+      <li><b>Procedure = <code>Required with Logon Data</code></b> — 브라우저에 로그인을 <b>요구하지 않고</b>, 여기 적힌 계정으로 무조건 실행합니다. 즉 <span class="bad">익명 서비스</span>가 됩니다.</li>
+      <li><b>Client <code>800</code> / User <code>REM0041</code></b> — 실행에 쓸 계정. <span class="bad">이 계정의 권한이 곧 "URL을 아는 모든 사람"의 권한입니다.</span></li>
+      <li><b><code>REM0041</code>은 그림 6의 담당자와 같은 ID</b> — 즉 <span class="bad">내 개인 dialog 계정을 그대로 박은 상태</span>입니다. 팝업이 경고하는 바로 그 경우고, 학습 단계에서는 흔히 이렇게 시작합니다. <span class="key">고칠 방법은 아래 경고 상자에.</span></li>
+      <li><b>Password Status = <code>Set</code></b> — 패스워드가 저장돼 있다는 표시. <b>이 계정의 패스워드를 바꾸면 서비스가 즉시 죽습니다</b> — 여기 저장된 값은 따라 바뀌지 않습니다.</li>
+      <li><b>Security Requirement = <code>Standard</code></b> — 평문 HTTP 허용. <code>SSL</code>을 고르면 HTTPS로만 받습니다. 외부에 노출되는 서비스라면 SSL로 올려야 합니다.</li>
+      <li><b>Description 1 = "HSH 연동 테스트"</b> — 필수 항목이라 채워야 저장됩니다.</li>
+      <li><b>여전히 <code>Service (Inactive)</code></b> — 인증을 설정했다고 열리는 게 아닙니다. 활성화는 5-5에서 따로.</li>
+    </ol>
+  </figcaption>
+</figure>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>Procedure</th><th>동작</th><th>언제</th></tr></thead>
+<tbody>
+<tr><td>Standard</td><td class="wrap">HTTP 필드 → SSL 인증서 → 로그온 티켓 → Basic Auth → … 순서로 시도하고, 전부 실패하면 마지막에 저장된 Logon Data 사용</td><td class="wrap">사람이 브라우저로 직접 쓰는 서비스</td></tr>
+<tr><td class="wrap">Alternative Logon Procedure</td><td class="wrap">위 목록에서 쓸 절차와 순서를 직접 고름</td><td>SSO 구성이 특수할 때</td></tr>
+<tr><td class="wrap">Required with Logon Data</td><td class="wrap">저장된 계정만 사용. 인증을 아예 요구하지 않음</td><td class="wrap">기계가 부르는 API. <b>권한을 최소로 깎아야 함</b></td></tr>
+</tbody>
+</table>
+</div>
+
+<div class="note warn">
+  <div class="t">dialog user를 박으면 안 되는 이유 — 셋 다 실제로 터진다</div>
+  <p><b>① 라이선스</b> — dialog user는 named-user 측정 대상입니다. 기계 호출용으로 쓰면 라이선스에 잡힙니다.<br>
+  <b>② 패스워드 만료</b> — dialog user는 만료 정책과 초기 패스워드 강제 변경 대상입니다.
+  <span class="bad">만료되는 날 서비스가 통째로 죽습니다.</span> 그것도 아무도 모르게.<br>
+  <b>③ 권한 확대 경로</b> — SICF에 자격증명이 저장되어 있는데 그 계정으로 SAP GUI 대화형 로그온이 가능합니다.
+  <code>Service</code> 타입은 GUI 로그온 자체가 막혀 있습니다.</p>
+  <p><b>지금 상태를 고치는 순서</b> — 그림 18은 개인 계정 <code>REM0041</code>이 박힌 상태입니다.</p>
+  <div class="step"><span class="n">1</span><p><code>SU01</code> &rarr; 예: <code>ZSVC_HSH</code> 생성, <b>사용자 유형 = Service</b></p></div>
+  <div class="step"><span class="n">2</span><p>이 서비스가 실제로 쓰는 오브젝트만 담은 <b>전용 롤</b> 부여 (<code>S_ICF</code> 포함). <span class="bad"><code>SAP_ALL</code> 금지</span></p></div>
+  <div class="step"><span class="n">3</span><p>SICF 로그온 데이터의 User/Password를 그 계정으로 교체 &rarr; 저장 &rarr; 브라우저로 재호출</p></div>
+  <div class="step"><span class="n">4</span><p>권한 에러가 나면 <b>그 서비스 사용자로</b> <code>SU53</code>을 봅니다 — 내 ID로 보면 아무것도 안 나옵니다</p></div>
+  <p class="t-s">바꾸고 나면 <b>디버깅 방식도 같이 바뀝니다</b> &rarr; L10-2.</p>
+</div>
+
+<h3>5-5. 활성화 — 안 하면 못 찾는다</h3>
+
+<p>저장만으로는 열리지 않습니다. 트리에서 노드를 우클릭해 <b>서비스 활성화</b>를 눌러야 합니다.</p>
+
+<figure>
+  <img src="../assets/img/sap-http-interface-handson/16-sicf-activate-menu.png" alt="SICF 트리에서 z_hsh 노드를 우클릭한 컨텍스트 메뉴. 서비스 활성화 항목이 노란색으로 하이라이트되어 선택 가능한 상태이고 바로 아래 서비스 비활성화는 회색으로 비활성. 그 밖에 신규 하위 요소, 서비스 조회, 서비스 삭제, 서비스 이름 바꾸기, 서비스 테스트, 로드 밸런스 테스트, 서비스 참조, Obj. 디렉토리 엔트리 항목이 보임">
+  <figcaption><span class="fno">그림 19</span><b><code>z_hsh</code> 우클릭</b> — 활성/비활성 토글 지점.
+    <ol class="legend">
+      <li><b>서비스 활성화가 살아 있고 서비스 비활성화가 회색</b> — <span class="bad">이 노드는 지금 비활성</span>이라는 뜻입니다. 그림 14의 <code>sap</code> 노드와 정확히 반대 모양입니다. <span class="key">메뉴만 봐도 현재 상태를 알 수 있습니다.</span></li>
+      <li><b>이 상태로 URL을 부르면 실패합니다</b> — 이 시스템에서는 <b>404</b>가 떴습니다. 아래 경고 참고.</li>
+      <li><b>서비스 테스트</b> — 활성화한 뒤 이걸 누르면 URL이 자동 조립되어 브라우저가 열립니다.</li>
+      <li><b>서비스 삭제·이름 바꾸기</b>도 여기 있습니다. 이름을 바꾸면 <b>URL이 같이 바뀐다</b>는 걸 잊지 마세요.</li>
+    </ol>
+  </figcaption>
+</figure>
+
+<div class="note warn">
+  <div class="t">비활성 서비스의 응답 코드는 릴리즈를 탄다 — 404를 보고 경로부터 의심하지 않는다</div>
+  <p>문서에 흔히 적힌 증상은 <b>403 Forbidden</b>("Service cannot be reached")입니다.
+  그런데 <span class="bad">이 시스템(EH7)에서는 <b>404</b>가 떴습니다.</span></p>
+  <p>404는 보통 "경로가 없다"는 뜻이라 <b>노드 이름 철자와 만든 위치부터 뒤지게 됩니다.</b>
+  그러다 시간을 날립니다. 순서를 바꿔야 합니다 —
+  <span class="hl">호출이 실패하면 상태 코드와 무관하게 <b>활성화 여부를 먼저 본다.</b></span>
+  트리 색이나 위 우클릭 메뉴 한 번이면 3초에 끝납니다.</p>
+</div>
+
+<p>활성화 후 트리의 노드 색이 상태를 말해 줍니다.</p>
+
+<div class="keys">
+  <div class="keycard"><div class="kk">검정</div><div class="kn">활성</div><div class="kd">HTTP로 호출 가능</div></div>
+  <div class="keycard"><div class="kk">회색</div><div class="kn">명시적 비활성</div><div class="kd">이 노드를 직접 껐다</div></div>
+  <div class="keycard"><div class="kk">파랑</div><div class="kn">암묵적 비활성</div><div class="kd">상위 노드가 꺼져 있다</div></div>
+</div>
+
+<div class="note warn">
+  <div class="t">가장 많이 당하는 지점 — 파랑</div>
+  <p>내 노드만 활성화해도 <b><code>sap</code> 같은 상위 노드가 비활성이면 열리지 않습니다.</b>
+  증상은 내 노드를 껐을 때와 똑같아서 구분이 안 갑니다.
+  그래서 그림 14에서 <code>sap</code> 노드의 메뉴를 확인한 것입니다 — 거기서 활성화가 회색이었으니 상위는 정상입니다.
+  활성화할 때 <b>서브트리 포함</b> 옵션으로 위에서부터 켜는 게 확실합니다.</p>
+</div>
+</div>
+
+<!-- ══════════════════ LESSON 6 ══════════════════ -->
+<div class="lesson" id="l6">
+<h2><span class="no">LESSON 6</span>불러 보고, 안 되면 어디부터 보나</h2>
+
+<h3>6-1. 내 서비스보다 ping을 먼저 부른다</h3>
+
+<p>바로 내 URL을 치면 실패했을 때 <b>원인 후보가 너무 많습니다</b> — 네트워크, 포트, ICF 트리, 핸들러, 권한.
+표준 서비스 하나를 먼저 불러 범위를 반으로 자릅니다.</p>
+
+<figure>
+  <img src="../assets/img/sap-http-interface-handson/17-ping-ok.png" alt="크롬 브라우저 주소창에 eccehp7.remoteides.com:8000/sap/public/ping이 입력되어 있고 주의 요함 표시가 있으며 페이지 본문에 Server reached successfully 텍스트가 표시됨">
+  <figcaption><span class="fno">그림 20</span><b><code>/sap/public/ping</code></b> — HTTP 스택 생사 확인 전용 서비스.
+    <ol class="legend">
+      <li><b>"Server reached successfully"</b> — <span class="good">ICM + ICF 스택이 살아 있습니다.</span> 여기까지 왔으면 네트워크·포트·가상호스트는 전부 무죄입니다.</li>
+      <li><b>주소에 포트 <code>:8000</code></b> — 그림 3에서 확인한 HTTP 포트. 호스트명은 그림 4의 <code>icm/host_name_full</code>과 같습니다.</li>
+      <li><b>"주의 요함"</b> — HTTP(평문)라서 붙는 표시입니다. 서비스 문제가 아닙니다. 없애려면 HTTPS(5200) + 인증서가 필요합니다.</li>
+      <li><b>이게 404라면</b> — <code>/sap/public/ping</code> 노드 자체가 비활성입니다. SICF에서 켜면 됩니다.</li>
+    </ol>
+  </figcaption>
+</figure>
+
+<h3>6-2. 내 서비스 호출</h3>
+
+<pre><span class="c">" 브라우저 주소창</span>
+http://eccehp7.remoteides.com:8000/sap/z_hsh?vbeln=90005178
+
+<span class="c">" 또는 SICF에서 노드 우클릭 &gt; Test Service  (URL을 자동 조립해준다 — 오타 방지)</span></pre>
+
+<figure>
+  <img src="../assets/img/sap-http-interface-handson/18-final-json.png" alt="브라우저 주소창에 eccehp7.remoteides.com:8000/sap/z_hsh?vbeln=90005178이 입력되어 있고 JSON 뷰어에 vbeln 0090005178, fkart F2, retcode S, msg OK 네 개의 키가 표시된 화면">
+  <figcaption><span class="fno">그림 21</span><b>최종 응답</b> — 세 점이 모두 맞았다.
+    <ol class="legend">
+      <li><b><code>vbeln</code>이 <code>0090005178</code></b> — <span class="good">앞자리 0이 붙었습니다. L3의 ALPHA 변환이 제대로 걸렸다는 증거입니다.</span> <code>90005178</code>로 나왔다면 변환을 빼먹은 것이고, 그러면 <code>fkart</code>는 비어 있었을 겁니다.</li>
+      <li><b><code>fkart</code>가 <code>F2</code></b> — 그림 8(SE37)·그림 9(SE16 VBRK)와 같은 값. <span class="good">DB → FM → HTTP 세 점이 일치</span>했으므로 HTTP 경로가 값을 왜곡하지 않았음이 확정됩니다.</li>
+      <li><b><code>retcode</code> / <code>msg</code></b> — HTTP 상태코드와 <b>별도로 본문에도</b> 성공 여부를 싣습니다. 프록시·게이트웨이가 상태코드를 갈아끼우는 환경이 있어서, 호출자가 본문만으로도 판정할 수 있게 하는 관행입니다. 단 <span class="bad">둘이 어긋나면 안 됩니다</span> — 200인데 <code>retcode=E</code>는 금지입니다.</li>
+      <li><b>키가 소문자</b>(<code>vbeln</code>, <code>fkart</code>) — <code>CALL TRANSFORMATION id</code>의 asJSON은 보통 <b>대문자</b>로 냅니다. 즉 이 응답은 문자열로 직접 조립한 것입니다. 필드가 늘면 L7의 방식으로 갈아타야 합니다.</li>
+      <li><b>"주의 요함"</b> — 평문 HTTP라서 붙는 브라우저 표시. 서비스 문제가 아닙니다.</li>
+    </ol>
+  </figcaption>
+</figure>
+
+<h3>6-3. 안 될 때 — 이 순서로만</h3>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>증상</th><th>먼저 볼 곳</th><th>흔한 원인</th></tr></thead>
+<tbody>
+<tr><td class="wrap">연결 자체가 안 됨</td><td>SMICM &gt; Goto &gt; Services</td><td class="wrap">포트가 0이거나 Actv 체크 없음 · 방화벽</td></tr>
+<tr><td><b>403</b> Forbidden</td><td class="wrap"><b>SICF 노드 활성화 여부</b></td><td class="wrap"><span class="bad">서비스 비활성</span> — 특히 <b>상위 노드</b>(파랑). "Service cannot be reached"가 같이 뜬다</td></tr>
+<tr><td><b>404</b> Not Found</td><td class="wrap"><b>① 활성화 여부 → ② 트리 경로</b></td><td class="wrap"><span class="bad">비활성일 때도 404가 난다</span>(이 시스템에서 관측). 활성 상태인데도 404면 그때 노드 이름 철자 · 대소문자 · 만든 위치를 본다</td></tr>
+<tr><td><b>401</b> 인증창이 뜸</td><td>Logon Data 탭</td><td class="wrap">Procedure가 Standard인데 Logon Data가 비어 있음</td></tr>
+<tr><td class="wrap"><b>500</b> 또는 흰 화면</td><td><b>ST22</b></td><td class="wrap">핸들러 ABAP 덤프. 단문·장문을 먼저 확보하고 고친다</td></tr>
+<tr><td class="wrap">200인데 결과가 빔</td><td>핸들러 입력값</td><td class="wrap"><span class="bad">ALPHA 변환 누락</span>(L3) · 파라미터 이름 오타</td></tr>
+<tr><td class="wrap">권한 에러</td><td><b>SU53</b> (서비스 사용자로)</td><td class="wrap">전용 롤에 오브젝트 누락</td></tr>
+<tr><td class="wrap">ICM 레벨 에러</td><td class="wrap">SMICM &gt; Goto &gt; Trace File</td><td class="wrap">SSL · 프록시 · 타임아웃 (L10)</td></tr>
+</tbody>
+</table>
+</div>
+
+<div class="note ok">
+  <div class="t">상태 코드로 원인을 단정하지 않는다 — 활성화부터 본다</div>
+  <p>교과서적으로는 <b>403</b> = 노드는 있는데 꺼져 있다, <b>404</b> = 그 경로에 노드가 없다 입니다.
+  그런데 <span class="bad">이 시스템에서는 비활성 서비스가 404를 냈습니다</span>(L5-5).
+  릴리즈·경로·가상호스트 설정에 따라 갈립니다.</p>
+  <p>그래서 실무 순서는 이렇습니다 —
+  <span class="hl">① SICF에서 <b>활성화 상태</b>(노드 색 · 우클릭 메뉴)를 3초 안에 확인</span> →
+  ② 활성인데도 안 되면 그때 경로 철자를 본다.
+  반대로 하면 멀쩡한 경로를 몇 번씩 다시 읽게 됩니다.</p>
+</div>
+</div>
+
+<!-- ══════════════════ LESSON 7 ══════════════════ -->
+<div class="lesson" id="l7">
+<h2><span class="no">LESSON 7</span>ABAP에서 JSON 만들기</h2>
+
+<p>L4에서는 <code>CONCATENATE</code>로 JSON을 손으로 붙였습니다. 값 두 개짜리 학습용이라 그랬을 뿐,
+필드가 늘거나 내부 테이블을 배열로 내보내는 순간 <b>따옴표 이스케이프와 콤마 위치에서 무너집니다.</b>
+제대로 된 방법은 둘입니다.</p>
+
+<div class="cmp">
+  <div class="o">
+    <h5>A. CALL TRANSFORMATION id + sXML</h5>
+    <ul>
+      <li>커널 기본 기능 — <b>애드온 의존 없음</b></li>
+      <li>SAP_BASIS 7.02+ 이면 확실히 있다</li>
+      <li>출력이 SAP 고유 <b>asJSON</b> 포맷</li>
+      <li>필드명이 ABAP 구조체 이름 그대로(대문자)</li>
+      <li>외부 API 스펙(camelCase 등)에 정확히 맞추려면 별도 변환이 필요</li>
+    </ul>
+  </div>
+  <div class="x">
+    <h5>B. /UI2/CL_JSON</h5>
+    <ul>
+      <li><code>compress</code>(초기값 제거) · <code>pretty_name</code>(camelCase)</li>
+      <li>스펙 맞추기가 훨씬 쉬움 — 실무 사실상 표준</li>
+      <li><b>UI2 애드온에 실려 오는 클래스</b></li>
+      <li>SAP_BASIS만으로는 보장되지 않는다</li>
+      <li><span class="bad">없는 시스템이 있다</span> (KBA 2500033)</li>
+    </ul>
+  </div>
+</div>
+
+<div class="note warn">
+  <div class="t">확인 필요 — 이 시스템에 /UI2/CL_JSON이 있는지 아직 확인 안 함</div>
+  <p>대상은 ECC 6.0 EHP7(SAP_BASIS 740)이고, <code>/UI2/CL_JSON</code>은 <b>UI2 애드온</b> 동봉 클래스입니다.
+  IDES 유형 시스템은 있을 수도, 없을 수도 있습니다. <b>쓰기 전에 실측합니다.</b></p>
+  <div class="step"><span class="n">1</span><p><code>SE24</code> &rarr; <code>/UI2/CL_JSON</code> 입력 &rarr; Display. 없으면 <code>Class ... does not exist</code></p></div>
+  <div class="step"><span class="n">2</span><p><code>System &gt; Status &gt; Component Information</code>에서 <code>SAP_UI</code> / <code>UI2</code> 계열 컴포넌트 확인</p></div>
+  <p>결과와 무관하게 <b>이 프로젝트의 기본값은 A(sXML)</b>로 갑니다 —
+  애드온에 묶이지 않아야 나중에 다른 시스템으로 옮겨도 그대로 돕니다.
+  스펙 정합이 꼭 필요해지면 그때 전환합니다.</p>
+</div>
+
+<h3>7-1. sXML 방식 — 이 노트의 기본값</h3>
+
+<pre><span class="c">" ── ABAP → JSON ───────────────────────────────────────────</span>
+<span class="k">DATA</span>(lo_writer) = cl_sxml_string_writer=&gt;create(
+                    type = if_sxml=&gt;co_xt_json ).
+
+<span class="k">CALL TRANSFORMATION</span> id
+  <span class="k">SOURCE</span> values = lt_data
+  <span class="k">RESULT</span> XML lo_writer.
+
+<span class="k">DATA</span>(lv_xjson) = lo_writer-&gt;get_output( ).                <span class="c">" xstring</span>
+<span class="k">DATA</span>(lv_json)  = cl_abap_codepage=&gt;convert_from( lv_xjson ). <span class="c">" string</span>
+
+<span class="c">" ── JSON → ABAP ───────────────────────────────────────────</span>
+<span class="k">CALL TRANSFORMATION</span> id
+  <span class="k">SOURCE</span> XML lv_xjson
+  <span class="k">RESULT</span> values = lt_data.</pre>
+
+<h3>7-2. L4의 핸들러를 이 방식으로 고치면</h3>
+
+<pre><span class="k">TYPES</span>: <span class="k">BEGIN OF</span> ty_out,
+         vbeln <span class="k">TYPE</span> vbeln_vf,
+         fkart <span class="k">TYPE</span> fkart,
+       <span class="k">END OF</span> ty_out.
+<span class="k">DATA</span>: ls_out <span class="k">TYPE</span> ty_out.
+
+ls_out-vbeln = lv_vbeln.
+ls_out-fkart = lv_fkart.
+
+<span class="k">DATA</span>(lo_writer) = cl_sxml_string_writer=&gt;create( type = if_sxml=&gt;co_xt_json ).
+<span class="k">CALL TRANSFORMATION</span> id <span class="k">SOURCE</span> data = ls_out <span class="k">RESULT</span> XML lo_writer.
+
+server-&gt;response-&gt;set_content_type( 'application/json; charset=utf-8' ).
+server-&gt;response-&gt;set_cdata(
+  cl_abap_codepage=&gt;convert_from( lo_writer-&gt;get_output( ) ) ).</pre>
+
+<div class="note">
+  <div class="t">asJSON은 필드명을 대문자로 낸다</div>
+  <p><code>{"DATA":{"VBELN":"0090005178","FKART":"F2"}}</code> 형태가 나옵니다.
+  프런트에서 <code>vbeln</code> 소문자를 기대한다면 어긋납니다.
+  <b>구조체 필드명을 스펙에 맞춰 선언하거나</b>, 전용 ST/XSLT 변환을 만들거나,
+  <code>/UI2/CL_JSON</code>의 <code>pretty_name</code>을 씁니다.
+  어느 쪽이든 <span class="key">"JSON 형식은 내가 정하는 게 아니라 상대가 정한다"</span>는 게 출발점입니다.</p>
+</div>
+
+<div class="note warn">
+  <div class="t">쓰지 말 것 — CL_TREX_JSON_SERIALIZER</div>
+  <p>TREX/BWA 계열 패키지 소속이라 <b>시스템에 아예 없을 수 있고</b>(KBA 2141584),
+  공개 API로 문서화된 것도 아닙니다. 검색하면 자주 나오지만 신규 개발에 쓰지 않습니다.</p>
+</div>
+</div>
+
+<!-- ══════════════════ LESSON 8 ══════════════════ -->
+<div class="lesson" id="l8">
+<h2><span class="no">LESSON 8</span>반대 방향 — SM59 type G 목적지</h2>
+
+<p>여기서부터 방향이 바뀝니다. <b>SAP가 클라이언트</b>가 되어 외부 API를 부릅니다.
+<code>SM59</code>는 같은데 <b>연결 유형이 <code>G</code>(HTTP Connection to External Server)</b>입니다 —
+RFC Destination과는 화면 구성도 다릅니다.</p>
+
+<figure class="figwrap">
+<svg class="dgm" viewBox="0 0 1000 230" role="img"
+     aria-label="SM59 type G 목적지의 Target Host와 Service No와 Path Prefix, 그리고 SSL 활성 여부와 ABAP의 set_request_uri 값이 합쳐져 최종 호출 URL이 조립된다는 도해">
+  <defs>
+    <marker id="h8-ao" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><polygon class="arw-ok" points="0,1 10,5 0,9"/></marker>
+  </defs>
+
+  <text class="m-s c-ok" x="40" y="26">SM59 목적지 ZHTTP_SABANG</text>
+
+  <rect class="b-hl" x="40" y="42" width="180" height="46" rx="4"/>
+  <text class="t-s" x="56" y="62">Logon &amp; Security 탭</text>
+  <text class="m-s" x="56" y="80">SSL = Active</text>
+
+  <rect class="b-ok" x="245" y="42" width="215" height="46" rx="4"/>
+  <text class="t-s" x="261" y="62">Technical · Target Host</text>
+  <text class="m-s" x="261" y="80">api.sabangnet.co.kr</text>
+
+  <rect class="b-ok" x="485" y="42" width="145" height="46" rx="4"/>
+  <text class="t-s" x="501" y="62">Service No.</text>
+  <text class="m-s" x="501" y="80">443</text>
+
+  <rect class="b-ok" x="655" y="42" width="145" height="46" rx="4"/>
+  <text class="t-s" x="671" y="62">Path Prefix</text>
+  <text class="m-s" x="671" y="80">(비어 있음)</text>
+
+  <rect class="b-key" x="825" y="42" width="135" height="46" rx="4"/>
+  <text class="t-s c-key" x="841" y="62">ABAP</text>
+  <text class="m-s" x="841" y="80">set_request_uri</text>
+
+  <path class="ln-ok" d="M130 88 L130 118 L500 118" marker-end="url(#h8-ao)"/>
+  <path class="ln-ok" d="M352 88 L352 118"/>
+  <path class="ln-ok" d="M557 88 L557 118"/>
+  <path class="ln-ok" d="M727 88 L727 118"/>
+  <path class="ln-key" d="M892 88 L892 118"/>
+
+  <rect class="b-ok" x="120" y="140" width="760" height="50" rx="5"/>
+  <text class="m" x="140" y="171">https :// api.sabangnet.co.kr : 443 /  + /api/v1/orders</text>
+
+  <text class="t-xs" x="140" y="212">SSL Active → https</text>
+  <text class="t-xs" x="330" y="212">Target Host</text>
+  <text class="t-xs" x="520" y="212">Service No.</text>
+  <text class="t-xs" x="640" y="212">Path Prefix</text>
+  <text class="t-xs c-key" x="760" y="212">ABAP이 붙이는 경로</text>
+</svg>
+<figcaption><span class="fno">그림 22</span>SM59 필드가 URL로 조립되는 규칙.
+  <ol class="legend">
+    <li><b>프로토콜은 필드가 아니라 SSL 스위치가 정합니다</b> — Logon &amp; Security 탭의 SSL이 Active면 <code>https</code>, Inactive면 <code>http</code>. 이걸 모르면 "URL 어디에 https를 적나"를 한참 찾습니다.</li>
+    <li><b>Path Prefix = 모든 호출에 공통으로 붙는 고정 경로</b>. 호출마다 달라지는 부분은 ABAP의 <code>set_request_uri</code>로 붙입니다.</li>
+    <li><b>쿼리스트링을 Path Prefix에 박지 않습니다</b> — 되긴 하지만 목적지가 그 호출 하나 전용이 되어 재사용이 막힙니다.</li>
+  </ol>
+</figcaption>
+</figure>
+
+<h3>8-1. Technical Settings — 어디로 보내나</h3>
+
+<figure>
+  <img src="../assets/img/sap-http-interface-handson/19-sm59-technical.png" alt="SM59 RFC Destination ZHTTP_SABANG 화면. Connection Type G HTTP Connection to External Serv. Technical Settings 탭의 Target System Settings에 Target Host api.sabangnet.co.kr, Service No. 443, Path Prefix는 비어 있음. 아래 HTTP Proxy Options에 Global Configuration 버튼과 Proxy Host, Proxy Service, Proxy User, Proxy PW Status is initial">
+  <figcaption><span class="fno">그림 23</span><b>SM59 Technical Settings</b>.
+    <ol class="legend">
+      <li><b>Connection Type <code>G</code></b> — HTTP Connection to External Server. RFC(type 3)나 TCP/IP(type T)와는 별개의 화면입니다.</li>
+      <li><b>Target Host <code>api.sabangnet.co.kr</code> / Service No. <code>443</code></b> — 호스트와 포트. <span class="bad">443이라고 해서 자동으로 HTTPS가 되지 않습니다.</span> 포트는 숫자일 뿐이고, 프로토콜은 다음 탭의 SSL 스위치가 정합니다.</li>
+      <li><b>Path Prefix 비어 있음</b> — 공통 경로가 없으니 ABAP에서 전체 경로를 줘야 합니다.</li>
+      <li><b>HTTP Proxy Options</b> — 사내망에서 외부로 나갈 때 프록시가 필요하면 여기. 렌탈 서버라면 보통 비웁니다.</li>
+    </ol>
+  </figcaption>
+</figure>
+
+<h3>8-2. Logon &amp; Security — HTTPS의 실체</h3>
+
+<figure>
+  <img src="../assets/img/sap-http-interface-handson/20-sm59-logon-security.png" alt="SM59 Logon & Security 탭. PW Status is initial. Logon with Ticket 영역에 Do Not Send Logon Ticket 선택됨. Security Options의 Status of Secure Protocol에서 SSL이 Active로 선택되고 SSL Certificate 드롭다운에 ANONYM SSL Client (Anonymous), 옆에 Cert. List 버튼. 아래 Authorization for Destination 필드">
+  <figcaption><span class="fno">그림 24</span><b>SM59 Logon &amp; Security</b> — 여기가 HTTPS 스위치.
+    <ol class="legend">
+      <li><b>SSL = <code>Active</code></b> &rarr; 이 순간부터 URL이 <code>https://</code>가 됩니다.</li>
+      <li><b>SSL Certificate = <code>ANONYM SSL Client (Anonymous)</code></b> — SAP가 쓸 <b>PSE</b>(보안 저장소)를 고르는 자리입니다. "Anonymous" = <span class="key">SAP가 클라이언트 인증서를 제시하지 않는다</span>(상호 TLS 아님). 서버 인증서 검증은 여전히 합니다.</li>
+      <li><b>Do Not Send Logon Ticket</b> — 외부 시스템이니 SAP 로그온 티켓을 보낼 이유가 없습니다. 맞는 선택입니다.</li>
+      <li><b>Authorization for Destination</b> — 이 목적지를 쓸 수 있는 권한값. 비워두면 누구나 이 목적지로 나갈 수 있습니다.</li>
+    </ol>
+  </figcaption>
+</figure>
+
+<div class="note warn">
+  <div class="t">ANONYM PSE를 골랐다고 끝이 아니다 — STRUST에 Root CA를 넣어야 한다</div>
+  <p>ANONYM PSE의 <b>인증서 목록이 곧 신뢰 저장소</b>입니다.
+  상대 서버 인증서 체인의 <b>Root CA</b>가 여기 없으면 퍼블릭 CA라도 검증에 실패합니다.
+  ECC 6.0 EHP7의 PSE는 비어 있거나 오래된 CA 몇 개뿐인 경우가 흔합니다.</p>
+  <div class="step"><span class="n">1</span><p>브라우저로 해당 HTTPS 주소 접속 → 인증서 체인 전체를 <b>Base64</b>로 내보내기</p></div>
+  <div class="step"><span class="n">2</span><p><code>STRUST</code> → <b>SSL client SSL Client (Anonymous)</b> 노드 → Import → <b>Add to Certificate List</b> (체인 전체 반복)</p></div>
+  <div class="step"><span class="n">3</span><p>SM59로 돌아와 <b>Connection Test</b></p></div>
+  <p>미등록 시 증상: <code class="bad">ICM_HTTP_SSL_ERROR</code> /
+  <code class="bad">ICM_HTTP_SSL_PEER_CERT_UNTRUSTED</code>.
+  SMICM 트레이스(level 3)에 <code>SSSLERR_PEER_CERT_UNTRUSTED</code>와 함께
+  <b>어느 PSE 파일에 무슨 인증서가 없는지</b>가 다 찍힙니다 — 추측하지 말고 그걸 읽습니다.</p>
+</div>
+
+<div class="note warn">
+  <div class="t">확인 필요 — 이 커널이 TLS 1.2를 할 수 있는가</div>
+  <p>ECC 6.0 EHP7 + 구형 CommonCryptoLib은 <b>TLS 1.2를 못 하는 경우가 있습니다.</b>
+  반면 요즘 외부 API는 TLS 1.0/1.1을 거부합니다.
+  <span class="bad">인증서를 아무리 잘 넣어도 여기서 막히면 아웃바운드는 불가능합니다.</span>
+  착수 전에 먼저 확인합니다 — <code>disp+work -V</code>의 SAPCRYPTOLIB 버전(8.5.x 이상 권장),
+  프로파일 <code>ssl/client_ciphersuites</code>.
+  막히면 <b>아웃바운드를 범위에서 빼고 인바운드(L2~L7)만으로 목표를 달성</b>하는 쪽이 현실적입니다.</p>
+</div>
+
+<h3>8-3. Special Options — 안 될 때 내려 보는 손잡이</h3>
+
+<figure>
+  <img src="../assets/img/sap-http-interface-handson/21-sm59-special-options.png" alt="SM59 Special Options 탭. Timeout 영역에서 Specify Timeout이 선택되고 값 60000, 라벨은 Timeout in Seconds (1 to 9999999). HTTP Setting의 Status of HTTP Version에서 HTTP 1.0 선택, Compression Status는 Inactive 선택, Status of Compressed Response는 Yes 선택">
+  <figcaption><span class="fno">그림 25</span><b>SM59 Special Options</b> — 외부 연동 1차 트러블슈팅 스위치.
+    <ol class="legend">
+      <li><b>HTTP <code>1.0</code></b> — 1.1은 <b>chunked transfer encoding</b>과 Keep-Alive를 씁니다. 이걸 못 받는 구형 서버·미들웨어·역프록시가 있어서 400/411/501이 나거나 본문이 빈 채로 도착합니다. <span class="key">외부 API가 이상하게 굴면 HTTP 1.0 + 압축 끄기로 내려보는 게 표준 1차 조치</span>입니다.</li>
+      <li><b>Compression <code>Inactive</code></b> — 요청을 gzip으로 보내지 않습니다. 상대가 gzip을 모르면 파싱이 깨지므로 끄는 게 안전한 출발점입니다.</li>
+      <li><b>Compressed Response <code>Yes</code></b> — 응답 압축은 허용. 응답이 gzip인데 못 풀면 <code>get_cdata</code>가 깨진 문자열을 돌려줍니다. 증상이 이러면 여기를 No로.</li>
+      <li><b>Specify Timeout <code>60000</code></b> — 화면 레이블은 "Seconds"입니다. 그대로면 16.7시간으로 <span class="bad">과도합니다.</span> 응답이 안 오면 워크프로세스가 그만큼 잡혀 있습니다. 30~60초 수준으로 낮추는 게 맞습니다.</li>
+    </ol>
+  </figcaption>
+</figure>
+
+<div class="note warn">
+  <div class="t">확인 필요 — Timeout 필드의 단위</div>
+  <p>화면 레이블은 <b>초</b>지만, 릴리즈에 따라 이 값이 <b>밀리초</b>로 동작한다는 보고가 있습니다.
+  실제 동작은 <b>일부러 응답 없는 엔드포인트를 호출해 몇 초 만에 끊기는지 측정</b>해 확정합니다.
+  어느 쪽이든 60000은 손봐야 하는 값입니다.</p>
+</div>
+
+<figure>
+  <img src="../assets/img/sap-http-interface-handson/22-sm59-administration.png" alt="SM59 Administration 탭. Attributes 영역의 Created By, Created On, Client, Time, Last Changed By, Changed On, Client, Time 필드가 모두 비어 있음">
+  <figcaption><span class="fno">그림 26</span><b>SM59 Administration</b> — 저장 전이라 비어 있는 상태.
+    <ol class="legend">
+      <li><b>Created By / Changed By가 전부 공란</b> — <span class="key">아직 저장되지 않은 목적지</span>라는 뜻입니다. 저장하면 채워집니다.</li>
+      <li><b>운영에서는 이 탭이 증거가 됩니다</b> — "이 목적지 누가 언제 바꿨나"를 여기서 봅니다. 연동이 갑자기 죽으면 Changed On부터 확인합니다.</li>
+    </ol>
+  </figcaption>
+</figure>
+</div>
+
+<!-- ══════════════════ LESSON 9 ══════════════════ -->
+<div class="lesson" id="l9">
+<h2><span class="no">LESSON 9</span>CL_HTTP_CLIENT 호출 골격</h2>
+
+<p>SM59 목적지를 만들었으면 ABAP은 <b>목적지 이름만 알면</b> 됩니다.
+URL·포트·SSL·프록시가 전부 SM59에 있으니 코드에는 남지 않습니다.</p>
+
+<h3>9-1. 전체 골격</h3>
+
+<pre><span class="k">DATA</span>: lo_client <span class="k">TYPE REF TO</span> if_http_client,
+      lv_code   <span class="k">TYPE</span> i,
+      lv_reason <span class="k">TYPE</span> string,
+      lv_resp   <span class="k">TYPE</span> string.
+
+<span class="c">* ── 1) 생성 ───────────────────────────────────────────────</span>
+cl_http_client=&gt;create_by_destination(
+  <span class="k">EXPORTING</span>  destination              = 'ZHTTP_SABANG'
+  <span class="k">IMPORTING</span>  client                   = lo_client
+  <span class="k">EXCEPTIONS</span> argument_not_found       = 1
+             destination_not_found    = 2
+             destination_no_authority = 3
+             plugin_not_active        = 4
+             internal_error           = 5
+             <span class="k">OTHERS</span>                   = 6 ).
+<span class="k">IF</span> sy-subrc &lt;&gt; 0.
+  <span class="c">" 로그 남기고 종료. 여기서 조용히 넘어가면 안 된다</span>
+  <span class="k">RETURN</span>.
+<span class="k">ENDIF</span>.
+
+<span class="c">* ── 2) 요청 조립 ───────────────────────────────────────────</span>
+lo_client-&gt;request-&gt;set_method( if_http_request=&gt;co_request_method_post ).
+lo_client-&gt;request-&gt;set_version( if_http_request=&gt;co_protocol_version_1_1 ).
+
+cl_http_utility=&gt;set_request_uri(          <span class="c">" Path Prefix 뒤에 붙는 경로</span>
+  <span class="k">EXPORTING</span> request = lo_client-&gt;request
+            uri     = '/api/v1/orders' ).
+
+lo_client-&gt;request-&gt;set_content_type( 'application/json; charset=utf-8' ).
+lo_client-&gt;request-&gt;set_header_field( name  = 'Authorization'
+                                      value = lv_token ).
+lo_client-&gt;request-&gt;set_cdata( lv_json_body ).
+
+<span class="c">* ── 3) 전송 ───────────────────────────────────────────────</span>
+lo_client-&gt;send(
+  <span class="k">EXCEPTIONS</span> http_communication_failure = 1
+             http_invalid_state         = 2
+             <span class="k">OTHERS</span>                     = 4 ).
+<span class="k">IF</span> sy-subrc &lt;&gt; 0.
+  lo_client-&gt;close( ).
+  <span class="k">RETURN</span>.
+<span class="k">ENDIF</span>.
+
+<span class="c">* ── 4) 수신 ───────────────────────────────────────────────</span>
+lo_client-&gt;receive(
+  <span class="k">EXCEPTIONS</span> http_communication_failure = 1
+             http_invalid_state         = 2
+             http_processing_failed     = 3
+             <span class="k">OTHERS</span>                     = 4 ).
+<span class="k">IF</span> sy-subrc &lt;&gt; 0.
+  lo_client-&gt;close( ).
+  <span class="k">RETURN</span>.
+<span class="k">ENDIF</span>.
+
+<span class="c">* ── 5) 판정 ─ sy-subrc가 0이어도 HTTP는 실패했을 수 있다 ──</span>
+lo_client-&gt;response-&gt;get_status( <span class="k">IMPORTING</span> code   = lv_code
+                                            reason = lv_reason ).
+lv_resp = lo_client-&gt;response-&gt;get_cdata( ).
+
+<span class="k">IF</span> lv_code &lt; 200 <span class="k">OR</span> lv_code &gt;= 300.
+  <span class="c">" 4xx / 5xx — 로그에 code + reason + 응답 본문을 같이 남긴다</span>
+<span class="k">ENDIF</span>.
+
+<span class="c">* ── 6) 반드시 닫는다 ───────────────────────────────────────</span>
+lo_client-&gt;close( ).</pre>
+
+<h3>9-2. 여기서만 나오는 함정 둘</h3>
+
+<div class="note warn">
+  <div class="t">① sy-subrc = 0인데 실패한 경우</div>
+  <p><code>send</code>/<code>receive</code>의 예외는 <b>통신·상태 오류만</b> 잡습니다.
+  상대가 <code>500 Internal Server Error</code>를 돌려줘도 <span class="bad">통신은 성공했으므로 <code>sy-subrc = 0</code>입니다.</span>
+  <code>get_status</code>의 <code>code</code>를 <b>별도로 반드시 판정</b>해야 합니다.
+  이걸 빼면 "실패했는데 성공으로 기록되는" 로그가 쌓입니다.</p>
+</div>
+
+<div class="note warn">
+  <div class="t">② close( ) 누락 — 내 프로그램만 죽는 게 아니다</div>
+  <p><code>close( )</code>를 빼면 그림 5의 <b>Connections Used</b>가 계속 올라갑니다.
+  최대(500)에 닿으면 <span class="bad">시스템 전체의 HTTP가 막힙니다</span> — 다른 사람의 인터페이스까지.
+  <b>모든 종료 경로</b>(정상·예외·조기 RETURN)에서 빠지지 않도록 배치합니다.
+  병렬로 돌릴 계획이면 부하 중에 SMICM의 Connections Used·Queue Entries Used를 실측해
+  동시 실행 개수 상한을 정합니다.</p>
+</div>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>비교</th><th><code>create_by_destination</code></th><th><code>create_by_url</code></th></tr></thead>
+<tbody>
+<tr><td>URL · 포트</td><td>SM59에 외부화</td><td class="wrap"><span class="bad">소스에 하드코딩</span></td></tr>
+<tr><td>SSL PSE</td><td>SM59 Logon &amp; Security</td><td><code>ssl_id</code> 직접 전달</td></tr>
+<tr><td>프록시</td><td>SM59 Technical Settings</td><td>파라미터로 직접</td></tr>
+<tr><td>연결 테스트</td><td class="wrap"><span class="good">SM59 Connection Test 가능</span></td><td>없음</td></tr>
+<tr><td class="wrap">DEV→QAS→PRD 주소 차이</td><td class="wrap"><span class="good">SM59 값만 다르게, 코드는 동일</span></td><td class="wrap">코드 수정 또는 별도 설정 테이블</td></tr>
+<tr><td>권한 체크</td><td class="wrap">목적지 권한 (<code>destination_no_authority</code>)</td><td>없음</td></tr>
+</tbody>
+</table>
+</div>
+
+<div class="note ok">
+  <div class="t">기본은 create_by_destination</div>
+  <p><code>create_by_url</code>은 1회성 확인에만 씁니다.
+  운영 이관을 생각하면 <b>엔드포인트가 소스에 박히는 구조는 그 자체로 결함</b>입니다.</p>
+</div>
+</div>
+
+<!-- ══════════════════ LESSON 10 ══════════════════ -->
+<div class="lesson" id="l10">
+<h2><span class="no">LESSON 10</span>막히는 지점 도감</h2>
+
+<h3>10-1. FUNCTION-POOL 문법 에러</h3>
+
+<figure>
+  <img src="../assets/img/sap-http-interface-handson/23-function-pool-error.png" alt="Syntax error 결과 화면. Description 열에 빨간 배경으로 Function Module ZTEST_HSH, Row 1. 아래 노란 줄에 The main program of the function ZTEST_HSH does not begin with FUNCTION-POOL 메시지">
+  <figcaption><span class="fno">그림 27</span>실제로 만난 에러 — 함수그룹 구조가 깨졌을 때.
+    <ol class="legend">
+      <li><b>"The main program of the function ZTEST_HSH does not begin with FUNCTION-POOL"</b> — FM이 속한 메인 프로그램 <code>SAPLZHSH</code>를 열어 봤더니 <b>첫 문장이 <code>FUNCTION-POOL</code>이 아니다</b>, 즉 함수그룹 프레임워크 프로그램으로 성립하지 않는다는 뜻입니다.</li>
+      <li><b>Row 1</b> — 프로그램 첫 줄. 로직 문제가 아니라 <span class="key">구조 문제</span>라는 신호입니다. FM 소스를 아무리 봐도 답이 없습니다.</li>
+    </ol>
+  </figcaption>
+</figure>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>원인</th><th>상황</th><th>조치</th></tr></thead>
+<tbody>
+<tr><td class="wrap"><b>① 함수그룹 미활성</b><br>(가장 흔함)</td><td class="wrap">그룹을 새로 만들고 FM만 활성화 시도</td><td class="wrap"><b>SE80 → 함수그룹 우클릭 → Activate.</b> <code>SAPLZHSH</code> + 인클루드 전체가 같이 활성화된다</td></tr>
+<tr><td class="wrap">② TOP 인클루드 손상</td><td class="wrap"><code>LZHSHTOP</code>이 없거나 <code>FUNCTION-POOL zhsh.</code> 줄이 지워짐</td><td class="wrap">SE38로 <code>LZHSHTOP</code> 첫 줄 복원 → 활성화 → <code>SAPLZHSH</code> 활성화 → FM 활성화</td></tr>
+<tr><td class="wrap">③ 메인 프로그램을 수동 생성</td><td class="wrap"><code>SAPLZHSH</code>를 SE38에서 일반 리포트로 만듦(<code>REPORT</code>로 시작)</td><td class="wrap">그 프로그램 삭제 후 SE37에서 함수그룹을 정식 생성</td></tr>
+<tr><td class="wrap">④ FM 복사·이동</td><td class="wrap">다른 그룹으로 Copy했는데 대상 그룹이 미생성·미활성</td><td class="wrap">대상 그룹을 먼저 만들고 활성화한 뒤 복사</td></tr>
+<tr><td class="wrap">⑤ 부분 이관</td><td class="wrap">FM만 이관되고 메인 프로그램·TOP 인클루드가 안 넘어감</td><td class="wrap">오브젝트 리스트에 <code>R3TR FUGR ZHSH</code> 전체가 들어갔는지 확인 후 재이관</td></tr>
+<tr><td class="wrap">⑥ 첫 문장이 밀림</td><td class="wrap"><code>FUNCTION-POOL</code> 앞에 <code>TYPE-POOLS</code> 등이 들어감</td><td class="wrap"><code>FUNCTION-POOL</code>을 첫 실행 문장으로 올림</td></tr>
+</tbody>
+</table>
+</div>
+
+<div class="note ok">
+  <div class="t">진단 순서 — 이 에러는 이렇게 푼다</div>
+  <p><b>증상</b> SE37에서 FM 활성화 시 위 메시지<br>
+  <b>재현 조건</b> 신규 함수그룹 생성 직후 / FM 복사 직후 / 부분 이관 직후<br>
+  <b>원인 확인</b> <code>SE38 → SAPLZHSH → Display</code>로 첫 문장을 눈으로 본다. <code>SE80 → 함수그룹 → Object List</code>에 <code>LZHSHTOP</code>·<code>LZHSHUXX</code>가 있는지 본다<br>
+  <b>조치</b> 함수그룹 통째로 Activate<br>
+  <b>확인</b> SE37에서 <kbd>Ctrl</kbd>+<kbd>F2</kbd> 무오류 → 활성화</p>
+</div>
+
+<h3>10-2. 외부 브레이크포인트가 안 걸린다</h3>
+
+<div class="note warn">
+  <div class="t">핸들러는 내 ID로 돌지 않는다</div>
+  <p>외부 브레이크포인트는 <b>실행 사용자명이 일치해야만</b> 걸립니다.
+  그런데 L5에서 Logon Data를 <code>Required with Logon Data</code> + 서비스 사용자로 잡았다면,
+  핸들러는 <span class="bad">그 서비스 사용자로 실행</span>됩니다.
+  내 dialog ID로 브레이크포인트를 걸어놓고 아무리 호출해도 영원히 안 걸립니다.</p>
+  <p><b>조치</b> — <code>SE80 &gt; Utilities &gt; Settings &gt; ABAP Editor &gt; Debugging</b>에서
+  디버깅 대상 사용자를 <b>서비스 사용자명으로</b> 바꿉니다.</p>
+  <p><b>지금 이 시스템은 반대 상황입니다</b> — 그림 18에서 로그온 데이터에 개인 계정
+  <code>REM0041</code>을 박아 뒀기 때문에 <span class="good">핸들러가 내 ID로 돌고, 브레이크포인트가 그냥 걸립니다.</span>
+  편하다고 이대로 두면 안 됩니다. <span class="bad">L5-4의 조치대로 <code>Service</code> 타입 계정으로 바꾸는 순간
+  브레이크포인트가 안 걸리기 시작합니다</span> — 그때 이 항목을 다시 보게 됩니다.</p>
+  <p><b>그래도 안 걸리면</b> — 디버깅 동안만 Logon Data를 <code>Standard</code>로 되돌리고
+  Basic 인증으로 내 ID를 써서 호출합니다. 끝나면 반드시 원복합니다.</p>
+</div>
+
+<p>같은 함정이 RFC에도 있습니다 &rarr; <a href="abap-debugging.html">ABAP 디버깅 실무 노트</a>의 통신 사용자 표가 같은 이야기의 RFC 쪽입니다.</p>
+
+<div class="note">
+  <div class="t">Terminal-ID 방식은 포기한다</div>
+  <p>사용자 대신 단말 ID로 요청을 잡는 방식이 있지만,
+  HTTP 요청에 Terminal ID를 실으려면 <b>SAP Client Plug-In</b>이 필요하고
+  그건 <b>Internet Explorer 전용</b>입니다. 지금은 쓸 수 없습니다.</p>
+</div>
+
+<h3>10-3. SMICM 트레이스 — ICM 레벨 에러</h3>
+
+<p>ABAP 덤프(ST22)에도 없고 핸들러에도 안 들어온다면 ICM에서 끊긴 것입니다.</p>
+
+<div class="step"><span class="n">1</span><p><code>SMICM</code> 실행 <span class="bad">(client 000)</span></p></div>
+<div class="step"><span class="n">2</span><p><b>Trace &gt; Reset</b> — 먼저 초기화. 안 하면 과거 로그와 섞여 못 읽습니다</p></div>
+<div class="step"><span class="n">3</span><p><b>Goto &gt; Trace Level &gt; Set</b> → <code>3</code></p></div>
+<div class="step"><span class="n">4</span><p>문제 재현</p></div>
+<div class="step"><span class="n">5</span><p><b>Goto &gt; Trace File &gt; Display All</b> (파일명 <code>dev_icm</code>)</p></div>
+<div class="step"><span class="n">6</span><p><b>Trace Level을 1로 원복</b> — 3으로 두면 디스크와 성능을 계속 먹습니다</p></div>
+
+<div class="note">
+  <div class="t">트레이스가 알려주는 것</div>
+  <p>SSL 실패라면 <code>SSSLERR_PEER_CERT_UNTRUSTED</code>와 함께
+  <b>어느 PSE 파일</b>에 <b>어떤 Subject/Issuer/Serial의 인증서</b>가 없는지까지 찍힙니다.
+  STRUST에서 헤맬 필요 없이 그대로 읽고 넣으면 됩니다.</p>
+</div>
+
+<h3>10-4. CSRF는 지금 신경 쓸 문제가 아니다</h3>
+
+<div class="note">
+  <div class="t">자체 핸들러에는 자동 CSRF 검사가 걸리지 않는다</div>
+  <p><code>X-CSRF-Token</code>을 요구하며 403을 내는 주체는 <b>SAP Gateway(OData) 프레임워크</b>입니다.
+  <code>IF_HTTP_EXTENSION</code> 자체 핸들러는 <b>opt-in</b>이라
+  <code>GET_XSRF_TOKEN</code>/<code>VALIDATE_XSRF_TOKEN</code>을 내가 직접 부르지 않는 한 검사하지 않습니다.
+  즉 "끄는 방법"을 찾을 필요가 없습니다.</p>
+  <p><b>확인 필요</b> — 헤더 없이 <code>POST</code>를 한 번 던져 403 + "CSRF token validation failed"가 나오는지만 실측하면 끝납니다. 안 나오면 이 항목은 잊어도 됩니다.</p>
+  <p><span class="key">실제 위험은 CSRF가 아니라 익명 서비스 그 자체</span>입니다 — URL을 아는 누구나
+  서비스 사용자 권한으로 호출할 수 있습니다. 대책은 부록에 정리했습니다.</p>
+</div>
+</div>
+
+<!-- ══════════════════ APPENDIX ══════════════════ -->
+<div class="lesson" id="apx">
+<h2><span class="no">APPENDIX</span>치트시트 · 반드시 지킬 것</h2>
+
+<h3>A-1. 상황별 치트시트</h3>
+
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>하고 싶은 일</th><th>가는 곳</th><th>핵심</th></tr></thead>
+<tbody>
+<tr><td class="wrap">HTTP 포트가 열렸나</td><td>SMICM &gt; Goto &gt; Services</td><td class="wrap">포트 0 = 비활성 · Actv 체크 확인</td></tr>
+<tr><td class="wrap">포트를 영구히 바꾸기</td><td>RZ10</td><td class="wrap"><code>icm/server_port_&lt;n&gt;</code>. SMICM 변경은 재시작 시 소멸</td></tr>
+<tr><td class="wrap">HTTP 스택 생사 확인</td><td class="wrap">브라우저 <code>/sap/public/ping</code></td><td class="wrap">"Server reached successfully"면 ICM·ICF 정상</td></tr>
+<tr><td class="wrap">서비스 만들기</td><td>SICF</td><td class="wrap">트리 위치 = URL · Handler List에 클래스 · <b>Activate 잊지 말 것</b></td></tr>
+<tr><td class="wrap">호출이 실패할 때 1순위</td><td class="wrap">SICF 노드 우클릭</td><td class="wrap">활성화가 살아 있으면 = 지금 비활성. <b>403이든 404든 여기부터</b></td></tr>
+<tr><td class="wrap">URL 확인·테스트</td><td class="wrap">SICF &gt; 노드 우클릭 &gt; Test Service</td><td class="wrap">URL을 자동 조립 — 오타 방지</td></tr>
+<tr><td class="wrap">누구 권한으로 도는지</td><td>SICF &gt; Logon Data</td><td class="wrap">Required with Logon Data = 익명 · <code>Service</code> 타입 계정</td></tr>
+<tr><td class="wrap">외부 API 부르기</td><td>SM59 (type G)</td><td class="wrap">Target Host + Service No + Path Prefix, SSL 스위치가 프로토콜 결정</td></tr>
+<tr><td class="wrap">HTTPS 인증서</td><td>STRUST</td><td class="wrap">SSL Client (Anonymous)에 상대 <b>Root CA</b> import</td></tr>
+<tr><td class="wrap">외부 API가 이상할 때</td><td>SM59 &gt; Special Options</td><td class="wrap">HTTP 1.0으로 내리고 압축 끄기</td></tr>
+<tr><td class="wrap">핸들러 덤프</td><td>ST22</td><td class="wrap">단문 + 장문 먼저 확보</td></tr>
+<tr><td class="wrap">권한 실패</td><td>SU53</td><td class="wrap"><b>서비스 사용자로</b> 확인해야 의미 있음</td></tr>
+<tr><td class="wrap">ICM 레벨 에러</td><td class="wrap">SMICM &gt; Trace Level 3 &gt; Trace File</td><td class="wrap">파일 <code>dev_icm</code> · <b>끝나면 1로 원복</b></td></tr>
+<tr><td class="wrap">핸들러 디버깅</td><td class="wrap">SE80 &gt; Utilities &gt; Settings &gt; Debugging</td><td class="wrap">대상 사용자를 <b>서비스 사용자</b>로</td></tr>
+</tbody>
+</table>
+</div>
+
+<h3>A-2. 반드시 지킬 것</h3>
+
+<div class="note warn">
+  <div class="t">1. 익명 서비스에 넓은 권한을 주지 않는다</div>
+  <p><code>Required with Logon Data</code>는 <b>URL을 아는 모든 사람에게 그 계정 권한을 주는 것</b>입니다.
+  전표를 만드는 BAPI 경로에 이게 붙으면 <span class="bad">인증 없는 전표 생성</span>이 됩니다.<br>
+  <b>대안</b> ① 서비스 사용자에 <b>조회 권한만</b>, 생성 경로는 이 서비스에서 분리
+  ② 핸들러 진입부에서 공유 시크릿 헤더(<code>X-Api-Key</code>) 검증
+  ③ 핸들러 안에서 <code>AUTHORITY-CHECK</code>를 명시적으로 수행
+  ④ 아예 <code>Standard</code> + Basic 인증으로 전환</p>
+</div>
+
+<div class="note warn">
+  <div class="t">2. close( )를 모든 경로에서 호출한다</div>
+  <p>빠뜨리면 ICM의 Connections Used가 고갈되어 <b>시스템 전체 HTTP가 막힙니다.</b>
+  조기 <code>RETURN</code> 경로가 특히 위험합니다.</p>
+</div>
+
+<div class="note warn">
+  <div class="t">3. sy-subrc만 보고 성공으로 기록하지 않는다</div>
+  <p><code>send</code>/<code>receive</code>가 0이어도 HTTP 500일 수 있습니다.
+  <code>get_status</code>의 <code>code</code>를 함께 판정하고,
+  로그에는 <b>code · reason · 응답 본문</b>을 같이 남깁니다.</p>
+</div>
+
+<div class="note warn">
+  <div class="t">4. 화면이 해주던 변환을 HTTP에서는 직접 건다</div>
+  <p><code>VBELN</code>·<code>MATNR</code>·<code>KUNNR</code> 같은 ALPHA 필드는
+  <code>CONVERSION_EXIT_ALPHA_INPUT</code>을 거칩니다.
+  안 걸면 <span class="bad">에러 없이 0건</span>이 나와 원인을 찾기 가장 어렵습니다.</p>
+</div>
+
+<div class="note warn">
+  <div class="t">5. 엔드포인트를 소스에 박지 않는다</div>
+  <p><code>create_by_url</code>로 URL을 하드코딩하면 DEV/QAS/PRD 주소 차이를 코드 수정으로 풀게 됩니다.
+  <code>create_by_destination</code> + SM59가 기본값입니다.</p>
+</div>
+
+<div class="note warn">
+  <div class="t">6. 트레이스 레벨을 3으로 두고 오지 않는다</div>
+  <p>디스크와 성능을 계속 먹습니다. 재현이 끝나면 <b>즉시 1로 원복</b>합니다.</p>
+</div>
+
+<h3>A-3. 이 시스템에서 아직 확인 못 한 것</h3>
+
+<div class="note warn">
+  <div class="t">추측으로 넘기지 않고 실측할 목록</div>
+  <p><b>① CommonCryptoLib 버전과 <code>ssl/client_ciphersuites</code></b> — TLS 1.2 가능 여부. 아웃바운드(L8~L9) 전체의 전제라 <b>가장 먼저</b> 봅니다<br>
+  <b>② <code>/UI2/CL_JSON</code> 존재 여부</b> (SE24) — JSON 방식을 정합니다(L7)<br>
+  <b>③ SM59 Special Options의 Timeout 단위</b> — 초인지 밀리초인지 실측(L8)<br>
+  <b>④ 헤더 없는 POST에 CSRF 403이 나는지</b> — 안 나면 L10-4는 폐기(L10)<br>
+  <b>⑤ 서비스 사용자로 외부 브레이크포인트가 걸리는지</b> — 안 되면 디버깅 절차를 바꿔야 합니다(L10-2)<br>
+  <b>⑥ <code>SET_COMPRESSION</code> 파라미터명, <code>SEND</code>의 전체 예외 목록</b> — SE24에서 확정</p>
+</div>
+
+<p>&rarr; 이어서 읽기: <a href="abap-parallel-file-staging.html">병렬처리 확장편 — 대외 연계 · AL11 Staging</a> —
+같은 대외 연계를 <b>파일</b>로 푸는 쪽입니다. HTTP와 파일 중 무엇을 고를지의 판단 재료가 됩니다.</p>
+</div>
+
+<!-- ══════════════════ 참고 ══════════════════ -->
+<div class="lesson" id="ref">
+<h2><span class="no">참고</span>출처</h2>
+
+<p class="t-s">아래 자료로 확인한 내용입니다. 화면 캡처는 <code>eccehp7</code>에서 직접 찍었습니다.</p>
+
+<h3>ABAP 키워드 문서 (7.40 — 대상 릴리즈와 일치)</h3>
+<ul>
+<li><a href="https://eduardocopat.github.io/abap-docs/7.40/abenicf_service_abexa/">Calling an HTTP Service — ICF 핸들러 공식 예제</a> · <a href="https://eduardocopat.github.io/abap-docs/7.40/abapfunction-pool/">FUNCTION-POOL</a></li>
+</ul>
+
+<h3>클래스·인터페이스 시그니처</h3>
+<ul>
+<li><a href="https://www.sapdatasheet.org/abap/intf/if_http_extension.html">IF_HTTP_EXTENSION</a> ·
+<a href="https://www.sapdatasheet.org/abap/intf/if_http_entity.html">IF_HTTP_ENTITY</a> ·
+<a href="https://www.sapdatasheet.org/abap/intf/if_http_server.html">IF_HTTP_SERVER</a> ·
+<a href="https://www.sapdatasheet.org/abap/clas/cl_http_client.html">CL_HTTP_CLIENT</a></li>
+</ul>
+
+<h3>SICF · ICF</h3>
+<ul>
+<li><a href="https://learning.sap.com/courses/technical-implementation-and-operation-i-of-sap-s-4hana-and-sap-business-suite/using-the-internet-communication-framework-icf-">Using the Internet Communication Framework (ICF) — SAP 공식 교육</a> (Logon Data 3옵션 · 노드 색상 · S_ICF · /sap/public)</li>
+<li><a href="https://userapps.support.sap.com/sap/support/knowledge/en/3353056">SAP KBA 3353056 — HTTP 403 Forbidden when accessing SICF service</a></li>
+<li><a href="https://userapps.support.sap.com/sap/support/knowledge/en/3128830">SAP KBA 3128830 — Troubleshooting ICF errors</a></li>
+</ul>
+
+<h3>ICM · SMICM</h3>
+<ul>
+<li><a href="https://www.se80.co.uk/sap-profile-parameters/i/is-f/is-fs-http-fs-virt_host_0.htm">is/HTTP/virt_host_0 파라미터 정의</a></li>
+<li><a href="https://wiki.scn.sap.com/wiki/display/ABAPConn/How+to+create+a+Level+3+ICM+Trace">How to create a Level 3 ICM Trace (SCN Wiki)</a></li>
+<li><a href="https://userapps.support.sap.com/sap/support/knowledge/en/2484482">SAP KBA 2484482 — /sap/public/ping RC=404</a></li>
+</ul>
+
+<h3>SM59 · SSL</h3>
+<ul>
+<li><a href="https://medium.com/switched-on-the-bowdark-blog/how-to-creating-a-destination-in-sap-for-making-requests-to-https-secured-apis-4ba4dd63c2e3">Creating a Destination in SAP for HTTPS APIs (SM59 type G + STRUST)</a></li>
+<li><a href="https://userapps.support.sap.com/sap/support/knowledge/en/1928521">SAP KBA 1928521 — Chunked Transfer Encoding issue</a></li>
+</ul>
+
+<h3>JSON</h3>
+<ul>
+<li><a href="https://github.com/SAP/abap-to-json">SAP/abap-to-json (공식)</a> — /UI2/CL_JSON은 UI2 애드온, SAP_BASIS 740–76X</li>
+<li><a href="https://userapps.support.sap.com/sap/support/knowledge/en/2500033">SAP KBA 2500033 — Type /UI2/CL_JSON is unknown</a> ·
+<a href="https://userapps.support.sap.com/sap/support/knowledge/en/2141584">KBA 2141584 — cl_trex_json_deserializer is not present</a></li>
+</ul>
+
+<h3>디버깅</h3>
+<ul>
+<li><a href="https://blogs.sap.com/2011/05/11/news-in-abap-external-debugging-request-based-debugging-of-http-and-rfc-requests/">Request-based Debugging of HTTP and RFC Requests</a> (Terminal-ID · IE 플러그인 제약)</li>
+<li><a href="https://www.dataxstream.com/blog/how-to-debug-abap-web-service/">How To Debug ABAP Web Service on SAP WAS</a></li>
+</ul>
+</div>
+
+</div>
+<script src="../assets/site.js" defer></script>
+</body>
+</html>
